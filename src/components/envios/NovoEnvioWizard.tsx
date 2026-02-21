@@ -53,13 +53,22 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         cliente_nome: form.cliente_nome,
         cliente_email: form.cliente_email,
         cliente_cpf: form.cliente_cpf || null,
+        cliente_telefone: form.cliente_telefone || null,
         cliente_cep: form.cliente_cep || null,
         cliente_endereco: form.cliente_endereco || null,
+        cliente_numero: form.cliente_numero || null,
+        cliente_bairro: form.cliente_bairro || null,
         cliente_cidade: form.cliente_cidade || null,
         cliente_estado: form.cliente_estado || null,
+        cliente_complemento: form.cliente_complemento || null,
         produto: form.produto,
         valor: parseFloat(form.valor) || 0,
-      });
+        quantidade: parseInt(form.quantidade) || 1,
+        cfop: form.cfop || null,
+        ncm_sh: form.ncm_sh || null,
+        cst: form.cst || null,
+        unidade: form.unidade || "UN",
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
