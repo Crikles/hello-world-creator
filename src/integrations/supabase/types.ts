@@ -16,9 +16,11 @@ export type Database = {
     Tables: {
       empresas: {
         Row: {
+          bairro: string | null
           cep: string | null
           cidade: string | null
           cnpj: string
+          complemento: string | null
           created_at: string
           email: string | null
           endereco: string | null
@@ -26,14 +28,18 @@ export type Database = {
           id: string
           inscricao_estadual: string | null
           logo_url: string | null
+          nome_fantasia: string | null
+          numero: string | null
           razao_social: string
           telefone: string | null
           updated_at: string
         }
         Insert: {
+          bairro?: string | null
           cep?: string | null
           cidade?: string | null
           cnpj: string
+          complemento?: string | null
           created_at?: string
           email?: string | null
           endereco?: string | null
@@ -41,14 +47,18 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           logo_url?: string | null
+          nome_fantasia?: string | null
+          numero?: string | null
           razao_social: string
           telefone?: string | null
           updated_at?: string
         }
         Update: {
+          bairro?: string | null
           cep?: string | null
           cidade?: string | null
           cnpj?: string
+          complemento?: string | null
           created_at?: string
           email?: string | null
           endereco?: string | null
@@ -56,6 +66,8 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           logo_url?: string | null
+          nome_fantasia?: string | null
+          numero?: string | null
           razao_social?: string
           telefone?: string | null
           updated_at?: string
@@ -64,65 +76,92 @@ export type Database = {
       }
       envios: {
         Row: {
+          cfop: string | null
+          cliente_bairro: string | null
           cliente_cep: string | null
           cliente_cidade: string | null
+          cliente_complemento: string | null
           cliente_cpf: string | null
           cliente_email: string
           cliente_endereco: string | null
           cliente_estado: string | null
           cliente_nome: string
+          cliente_numero: string | null
+          cliente_telefone: string | null
           codigo_rastreio: string | null
           created_at: string
+          cst: string | null
           empresa_id: string | null
           id: string
+          ncm_sh: string | null
           nfe_chave_acesso: string | null
           nfe_numero: string | null
           nfe_serie: string | null
           produto: string
+          quantidade: number
           status: Database["public"]["Enums"]["shipment_status"]
           transportadora: string | null
+          unidade: string
           updated_at: string
           valor: number
         }
         Insert: {
+          cfop?: string | null
+          cliente_bairro?: string | null
           cliente_cep?: string | null
           cliente_cidade?: string | null
+          cliente_complemento?: string | null
           cliente_cpf?: string | null
           cliente_email: string
           cliente_endereco?: string | null
           cliente_estado?: string | null
           cliente_nome: string
+          cliente_numero?: string | null
+          cliente_telefone?: string | null
           codigo_rastreio?: string | null
           created_at?: string
+          cst?: string | null
           empresa_id?: string | null
           id?: string
+          ncm_sh?: string | null
           nfe_chave_acesso?: string | null
           nfe_numero?: string | null
           nfe_serie?: string | null
           produto: string
+          quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
+          unidade?: string
           updated_at?: string
           valor?: number
         }
         Update: {
+          cfop?: string | null
+          cliente_bairro?: string | null
           cliente_cep?: string | null
           cliente_cidade?: string | null
+          cliente_complemento?: string | null
           cliente_cpf?: string | null
           cliente_email?: string
           cliente_endereco?: string | null
           cliente_estado?: string | null
           cliente_nome?: string
+          cliente_numero?: string | null
+          cliente_telefone?: string | null
           codigo_rastreio?: string | null
           created_at?: string
+          cst?: string | null
           empresa_id?: string | null
           id?: string
+          ncm_sh?: string | null
           nfe_chave_acesso?: string | null
           nfe_numero?: string | null
           nfe_serie?: string | null
           produto?: string
+          quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
+          unidade?: string
           updated_at?: string
           valor?: number
         }
