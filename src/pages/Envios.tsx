@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Truck } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
+import { Plus, Search, Truck, Eye, Trash2, Play, FastForward } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
@@ -28,6 +29,13 @@ const statusColors: Record<string, string> = {
   entregue: "bg-green-100 text-green-800",
 };
 
+const statusProgress: Record<string, number> = {
+  pendente: 25,
+  em_transito: 50,
+  saiu_para_entrega: 75,
+  entregue: 100,
+};
+
 const statusOptions = [
   { value: "pendente", label: "Pendente" },
   { value: "em_transito", label: "Em Trânsito" },
@@ -37,19 +45,18 @@ const statusOptions = [
 
 type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entregue";
 
+const nextStatusMap: Record<string, ShipmentStatus> = {
+  pendente: "em_transito",
+  em_transito: "saiu_para_entrega",
+  saiu_para_entrega: "entregue",
+};
+
 export default function Envios() {
-  const [open, setOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [autoEnvio, setAutoEnvio] = useState(false);
   const queryClient = useQueryClient();
-
-  const [form, setForm] = useState({
-    cliente_nome: "",
-    cliente_email: "",
-    produto: "",
-    valor: "",
-    codigo_rastreio: "",
-  });
 
   const { data: envios = [] } = useQuery({
     queryKey: ["envios"],
@@ -63,26 +70,6 @@ export default function Envios() {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("envios").insert({
-        cliente_nome: form.cliente_nome,
-        cliente_email: form.cliente_email,
-        produto: form.produto,
-        valor: parseFloat(form.valor) || 0,
-        codigo_rastreio: form.codigo_rastreio || null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
-      setForm({ cliente_nome: "", cliente_email: "", produto: "", valor: "", codigo_rastreio: "" });
-      setOpen(false);
-      toast.success("Envio cadastrado com sucesso!");
-    },
-    onError: () => toast.error("Erro ao cadastrar envio."),
-  });
-
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ShipmentStatus }) => {
       const { error } = await supabase.from("envios").update({ status }).eq("id", id);
@@ -93,6 +80,26 @@ export default function Envios() {
       toast.success("Status atualizado!");
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("envios").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      toast.success("Envio removido.");
+    },
+  });
+
+  const batchUpdate = async (fromStatus: ShipmentStatus, toStatus: ShipmentStatus) => {
+    const ids = envios.filter((e) => e.status === fromStatus).map((e) => e.id);
+    if (ids.length === 0) return toast.info("Nenhum envio encontrado.");
+    const { error } = await supabase.from("envios").update({ status: toStatus }).in("id", ids);
+    if (error) return toast.error("Erro ao atualizar.");
+    queryClient.invalidateQueries({ queryKey: ["envios"] });
+    toast.success(`${ids.length} envio(s) atualizados!`);
+  };
 
   const filteredEnvios = envios.filter((e) => {
     const matchSearch =
@@ -106,19 +113,48 @@ export default function Envios() {
   return (
     <AppLayout title="Envios">
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div className="flex gap-3 flex-1 w-full sm:w-auto">
-            <div className="relative flex-1 max-w-sm">
+        <p className="text-sm text-muted-foreground -mt-2">
+          Gerencie todos os pedidos enviados e códigos de rastreio.
+        </p>
+
+        {/* Action bar */}
+        <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Switch checked={autoEnvio} onCheckedChange={setAutoEnvio} />
+              <span className="text-sm text-muted-foreground">Envio Automático</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => batchUpdate("pendente", "em_transito")}
+            >
+              <Play className="h-3.5 w-3.5 mr-1" /> Iniciar Pendentes
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                batchUpdate("em_transito", "saiu_para_entrega");
+                batchUpdate("saiu_para_entrega", "entregue");
+              }}
+            >
+              <FastForward className="h-3.5 w-3.5 mr-1" /> Avançar Todos
+            </Button>
+          </div>
+
+          <div className="flex gap-3 items-center w-full md:w-auto">
+            <div className="relative flex-1 md:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por cliente, produto ou rastreio..."
+                placeholder="Buscar..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
               />
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -128,56 +164,13 @@ export default function Envios() {
                 ))}
               </SelectContent>
             </Select>
+            <Button onClick={() => setWizardOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Novo Envio
+            </Button>
           </div>
-
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" /> Novo Envio
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Cadastrar Novo Envio</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nome do Cliente</Label>
-                    <Input value={form.cliente_nome} onChange={(e) => setForm({ ...form, cliente_nome: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email do Cliente</Label>
-                    <Input type="email" value={form.cliente_email} onChange={(e) => setForm({ ...form, cliente_email: e.target.value })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Produto</Label>
-                    <Input value={form.produto} onChange={(e) => setForm({ ...form, produto: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Valor (R$)</Label>
-                    <Input type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Código de Rastreio</Label>
-                  <Input value={form.codigo_rastreio} onChange={(e) => setForm({ ...form, codigo_rastreio: e.target.value })} placeholder="Opcional" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={() => createMutation.mutate()}
-                  disabled={!form.cliente_nome || !form.cliente_email || !form.produto || createMutation.isPending}
-                >
-                  {createMutation.isPending ? "Salvando..." : "Cadastrar"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
 
+        {/* Table */}
         <Card>
           <CardContent className="p-0">
             {filteredEnvios.length === 0 ? (
@@ -194,6 +187,7 @@ export default function Envios() {
                     <TableHead>Valor</TableHead>
                     <TableHead>Rastreio</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Progresso</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
@@ -215,23 +209,42 @@ export default function Envios() {
                           {statusLabels[envio.status]}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <div className="w-24">
+                          <Progress value={statusProgress[envio.status]} className="h-2" />
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {format(new Date(envio.created_at), "dd/MM/yyyy")}
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={envio.status}
-                          onValueChange={(val) => updateStatusMutation.mutate({ id: envio.id, status: val as ShipmentStatus })}
-                        >
-                          <SelectTrigger className="w-[140px] h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {statusOptions.map((s) => (
-                              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-1">
+                          {nextStatusMap[envio.status] && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Avançar status"
+                              onClick={() =>
+                                updateStatusMutation.mutate({
+                                  id: envio.id,
+                                  status: nextStatusMap[envio.status],
+                                })
+                              }
+                            >
+                              <FastForward className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            title="Remover"
+                            onClick={() => deleteMutation.mutate(envio.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -240,6 +253,8 @@ export default function Envios() {
             )}
           </CardContent>
         </Card>
+
+        <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
       </div>
     </AppLayout>
   );
