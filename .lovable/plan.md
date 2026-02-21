@@ -1,50 +1,104 @@
 
 
-## Painel de Envios - NFE + Código de Rastreio
+## Redesign Visual: Dashboard + Envios + Novo Envio
 
-Um painel administrativo para gerenciar envios, gerar DANFE (NFE visual em PDF) e enviar notificações por email aos clientes com nota fiscal e código de rastreio.
+Baseado nas imagens de referencia, vou redesenhar completamente a Dashboard e a pagina de Envios para ficarem visuais, animadas e diferenciadas.
 
 ---
 
-### 1. Layout do Painel
-- **Sidebar** com navegação: Dashboard, Envios, Empresa, Configurações
-- **Header** com nome do usuário/empresa
-- Design limpo e moderno inspirado nos prints de referência, com cores em tons de azul
+### 1. Dashboard - Redesign Completo
 
-### 2. Dashboard
-- Cards de resumo: Total de Pedidos, Pendentes, Em Trânsito, Entregues
-- Visão geral rápida dos envios recentes
+**Cards coloridos com gradientes e icones** (como na referencia):
+- Total de Pedidos: gradiente roxo/violeta com icone de pacote
+- Pendentes: gradiente laranja com icone de relogio
+- Em Transito: gradiente azul escuro com icone de caminhao
+- Entregues: gradiente verde com icone de check
 
-### 3. Cadastro da Empresa
-- Formulário para cadastrar dados fiscais da empresa (Razão Social, CNPJ, Inscrição Estadual, endereço completo)
-- Upload de logo da empresa
-- Esses dados serão usados automaticamente na geração da DANFE
-- Dados salvos no Supabase
+Cada card tera:
+- Fundo com gradiente colorido e texto branco
+- Icone semi-transparente no canto superior direito
+- Animacao de entrada (fade-in escalonado)
+- Hover com leve scale
 
-### 4. Gestão de Envios
-- **Tabela de envios** com: Cliente, Produto, Valor, Código de Rastreio, Status, Progresso
-- **Cadastro manual** de novos envios (nome do cliente, email, produto, valor, código de rastreio)
-- **Webhook endpoint** (Edge Function) para receber pedidos automaticamente de plataformas de checkout
-- Status do envio: Pendente → Em Trânsito → Saiu para Entrega → Entregue
-- Busca e filtros na tabela
+**Secao de Faturamento**:
+- Grafico de area/linha usando Recharts (ja instalado) mostrando receita e pedidos ao longo do tempo
+- Card lateral com "Canais de Notificacao" (Email ativo, SMS desativado)
 
-### 5. Geração de DANFE (PDF Visual)
-- Geração de PDF no formato DANFE usando Canvas/jsPDF no navegador
-- Campos preenchidos automaticamente com dados da empresa + dados do pedido/cliente
-- Pré-visualização da DANFE em modal antes de enviar
-- Seções: Emitente, Destinatário, Cálculo do Imposto, Transportador, Produtos/Serviços, Dados Adicionais
+**Secao inferior**:
+- Card "Ultimas Atualizacoes" com timeline de mudancas de status recentes
 
-### 6. Envio de Email
-- Edge Function no Supabase para envio real de emails (usando Resend)
-- Emails automáticos em cada mudança de status do pedido:
-  - "Atualização do Pedido" (quando cadastrado)
-  - "Seu pedido está em trânsito" (com código de rastreio)
-  - "Seu pedido saiu para entrega"
-  - "Pedido entregue" (com DANFE em anexo PDF)
-- Templates de email com dados da empresa (logo, nome)
+**Mensagem de boas-vindas**: "Dashboard - Bem-vindo de volta! Aqui esta o resumo dos seus envios."
 
-### 7. Backend (Supabase / Lovable Cloud)
-- **Tabelas**: empresas, envios/pedidos
-- **Edge Functions**: webhook para receber pedidos, envio de emails
-- **Storage**: logo da empresa, PDFs gerados
+---
 
+### 2. Pagina de Envios - Redesign
+
+**Header** com subtitulo descritivo: "Gerencie todos os pedidos enviados e codigos de rastreio."
+
+**Barra de acoes**:
+- Toggle "Envio Automatico"
+- Botoes "Iniciar Todos Pendentes" e "Avancar Todos"
+- Busca e botao "+ Novo Envio" (azul, destaque)
+
+**Tabela aprimorada**:
+- Colunas: Cliente (nome + email), Produto, Valor, Codigo, Status (badge colorido), Progresso (barra visual), Acoes (icones)
+- Barra de progresso visual baseada no status (pendente=1/4, em_transito=2/4, saiu=3/4, entregue=4/4)
+- Icones de acao: ver detalhes, deletar
+
+---
+
+### 3. Modal "Novo Envio" - Wizard Multi-Step
+
+Substituir o dialog simples por um wizard de 3 etapas com indicador de progresso (dots):
+
+**Etapa 1 - Dados do Cliente**:
+- Nome*, CPF, Email, Telefone
+- Tipo de Envio (Nacional BR)
+
+**Etapa 2 - Endereco de Entrega**:
+- CEP*, Endereco*, Numero*, Bairro*
+- Cidade*, UF* (select), Complemento
+
+**Etapa 3 - Informacoes do Produto**:
+- Nome do Produto*, Quantidade*, Preco (R$)*
+- Botao "+ Adicionar Produto"
+- Secao "Dados Fiscais (DANFE)" com CFOP, NCM/SH, CST, Unidade, Quantidade
+- Botao "Salvar Pedido"
+
+Navegacao com botoes "Voltar" e "Proximo".
+
+---
+
+### 4. Banco de Dados
+
+Sera necessario adicionar colunas na tabela `envios` para os novos campos:
+- `cliente_telefone` (text, nullable)
+- `cliente_numero` (text, nullable)
+- `cliente_bairro` (text, nullable)
+- `cliente_complemento` (text, nullable)
+- `quantidade` (integer, default 1)
+- `cfop` (text, nullable)
+- `ncm_sh` (text, nullable)
+- `cst` (text, nullable)
+- `unidade` (text, default 'UN')
+
+---
+
+### 5. Detalhes Tecnicos
+
+**Arquivos a criar/modificar**:
+- `src/pages/Dashboard.tsx` - Redesign completo com cards coloridos, grafico Recharts, canais de notificacao, ultimas atualizacoes
+- `src/pages/Envios.tsx` - Redesign com barra de progresso, icones de acao, toggle envio automatico, wizard multi-step
+- `src/components/envios/NovoEnvioWizard.tsx` - Componente do wizard de 3 etapas
+- Migration SQL para adicionar colunas novas
+
+**Animacoes**:
+- Cards com `animate-fade-in` e delay escalonado via style
+- Hover scale nos cards
+- Transicoes suaves entre etapas do wizard
+- Barra de progresso animada na tabela
+
+**Bibliotecas usadas** (ja instaladas):
+- `recharts` para o grafico de faturamento
+- `lucide-react` para todos os icones
+- Componentes shadcn/ui existentes
