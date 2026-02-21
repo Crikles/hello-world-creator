@@ -14,7 +14,128 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      empresas: {
+        Row: {
+          cep: string | null
+          cidade: string | null
+          cnpj: string
+          created_at: string
+          email: string | null
+          endereco: string | null
+          estado: string | null
+          id: string
+          inscricao_estadual: string | null
+          logo_url: string | null
+          razao_social: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          cep?: string | null
+          cidade?: string | null
+          cnpj: string
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          logo_url?: string | null
+          razao_social: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          logo_url?: string | null
+          razao_social?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      envios: {
+        Row: {
+          cliente_cep: string | null
+          cliente_cidade: string | null
+          cliente_cpf: string | null
+          cliente_email: string
+          cliente_endereco: string | null
+          cliente_estado: string | null
+          cliente_nome: string
+          codigo_rastreio: string | null
+          created_at: string
+          empresa_id: string | null
+          id: string
+          nfe_chave_acesso: string | null
+          nfe_numero: string | null
+          nfe_serie: string | null
+          produto: string
+          status: Database["public"]["Enums"]["shipment_status"]
+          transportadora: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          cliente_cep?: string | null
+          cliente_cidade?: string | null
+          cliente_cpf?: string | null
+          cliente_email: string
+          cliente_endereco?: string | null
+          cliente_estado?: string | null
+          cliente_nome: string
+          codigo_rastreio?: string | null
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          nfe_chave_acesso?: string | null
+          nfe_numero?: string | null
+          nfe_serie?: string | null
+          produto: string
+          status?: Database["public"]["Enums"]["shipment_status"]
+          transportadora?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          cliente_cep?: string | null
+          cliente_cidade?: string | null
+          cliente_cpf?: string | null
+          cliente_email?: string
+          cliente_endereco?: string | null
+          cliente_estado?: string | null
+          cliente_nome?: string
+          codigo_rastreio?: string | null
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          nfe_chave_acesso?: string | null
+          nfe_numero?: string | null
+          nfe_serie?: string | null
+          produto?: string
+          status?: Database["public"]["Enums"]["shipment_status"]
+          transportadora?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "envios_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +144,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      shipment_status:
+        | "pendente"
+        | "em_transito"
+        | "saiu_para_entrega"
+        | "entregue"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +275,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      shipment_status: [
+        "pendente",
+        "em_transito",
+        "saiu_para_entrega",
+        "entregue",
+      ],
+    },
   },
 } as const
