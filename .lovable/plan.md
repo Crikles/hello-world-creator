@@ -1,77 +1,16 @@
 
 
-## Redesign Visual: Dashboard + Envios + Novo Envio
+## Redesign da Pagina Empresa + Geracao de DANFE em PDF
 
-Baseado nas imagens de referencia, vou redesenhar completamente a Dashboard e a pagina de Envios para ficarem visuais, animadas e diferenciadas.
+### 1. Alteracoes no Banco de Dados
 
----
+Adicionar colunas na tabela `empresas` para os campos que faltam:
+- `nome_fantasia` (text, nullable) - Nome fantasia da empresa
+- `numero` (text, nullable) - Numero do endereco
+- `bairro` (text, nullable) - Bairro
+- `complemento` (text, nullable) - Complemento do endereco
 
-### 1. Dashboard - Redesign Completo
-
-**Cards coloridos com gradientes e icones** (como na referencia):
-- Total de Pedidos: gradiente roxo/violeta com icone de pacote
-- Pendentes: gradiente laranja com icone de relogio
-- Em Transito: gradiente azul escuro com icone de caminhao
-- Entregues: gradiente verde com icone de check
-
-Cada card tera:
-- Fundo com gradiente colorido e texto branco
-- Icone semi-transparente no canto superior direito
-- Animacao de entrada (fade-in escalonado)
-- Hover com leve scale
-
-**Secao de Faturamento**:
-- Grafico de area/linha usando Recharts (ja instalado) mostrando receita e pedidos ao longo do tempo
-- Card lateral com "Canais de Notificacao" (Email ativo, SMS desativado)
-
-**Secao inferior**:
-- Card "Ultimas Atualizacoes" com timeline de mudancas de status recentes
-
-**Mensagem de boas-vindas**: "Dashboard - Bem-vindo de volta! Aqui esta o resumo dos seus envios."
-
----
-
-### 2. Pagina de Envios - Redesign
-
-**Header** com subtitulo descritivo: "Gerencie todos os pedidos enviados e codigos de rastreio."
-
-**Barra de acoes**:
-- Toggle "Envio Automatico"
-- Botoes "Iniciar Todos Pendentes" e "Avancar Todos"
-- Busca e botao "+ Novo Envio" (azul, destaque)
-
-**Tabela aprimorada**:
-- Colunas: Cliente (nome + email), Produto, Valor, Codigo, Status (badge colorido), Progresso (barra visual), Acoes (icones)
-- Barra de progresso visual baseada no status (pendente=1/4, em_transito=2/4, saiu=3/4, entregue=4/4)
-- Icones de acao: ver detalhes, deletar
-
----
-
-### 3. Modal "Novo Envio" - Wizard Multi-Step
-
-Substituir o dialog simples por um wizard de 3 etapas com indicador de progresso (dots):
-
-**Etapa 1 - Dados do Cliente**:
-- Nome*, CPF, Email, Telefone
-- Tipo de Envio (Nacional BR)
-
-**Etapa 2 - Endereco de Entrega**:
-- CEP*, Endereco*, Numero*, Bairro*
-- Cidade*, UF* (select), Complemento
-
-**Etapa 3 - Informacoes do Produto**:
-- Nome do Produto*, Quantidade*, Preco (R$)*
-- Botao "+ Adicionar Produto"
-- Secao "Dados Fiscais (DANFE)" com CFOP, NCM/SH, CST, Unidade, Quantidade
-- Botao "Salvar Pedido"
-
-Navegacao com botoes "Voltar" e "Proximo".
-
----
-
-### 4. Banco de Dados
-
-Sera necessario adicionar colunas na tabela `envios` para os novos campos:
+Adicionar colunas na tabela `envios` para os campos do wizard que ainda nao existem no banco:
 - `cliente_telefone` (text, nullable)
 - `cliente_numero` (text, nullable)
 - `cliente_bairro` (text, nullable)
@@ -82,23 +21,61 @@ Sera necessario adicionar colunas na tabela `envios` para os novos campos:
 - `cst` (text, nullable)
 - `unidade` (text, default 'UN')
 
----
+### 2. Redesign da Pagina Empresa
 
-### 5. Detalhes Tecnicos
+Reestruturar `src/pages/Empresa.tsx` com 3 secoes em cards separados (conforme a referencia):
 
-**Arquivos a criar/modificar**:
-- `src/pages/Dashboard.tsx` - Redesign completo com cards coloridos, grafico Recharts, canais de notificacao, ultimas atualizacoes
-- `src/pages/Envios.tsx` - Redesign com barra de progresso, icones de acao, toggle envio automatico, wizard multi-step
-- `src/components/envios/NovoEnvioWizard.tsx` - Componente do wizard de 3 etapas
-- Migration SQL para adicionar colunas novas
+**Secao 1 - Logo da Empresa**
+- Upload de logo (PNG, JPG ou WEBP, maximo 2MB)
+- Preview da logo atual com botao "Alterar Logo" e botao para remover
+- Upload para o bucket `logos` do storage
 
-**Animacoes**:
-- Cards com `animate-fade-in` e delay escalonado via style
-- Hover scale nos cards
-- Transicoes suaves entre etapas do wizard
-- Barra de progresso animada na tabela
+**Secao 2 - Dados da Empresa**
+- Icone e subtitulo "Informacoes fiscais para emissao de NFE"
+- Campos: Razao Social*, Nome Fantasia (Opcional), CNPJ*, Inscricao Estadual (Opcional), Email de Contato (Opcional)
 
-**Bibliotecas usadas** (ja instaladas):
-- `recharts` para o grafico de faturamento
-- `lucide-react` para todos os icones
-- Componentes shadcn/ui existentes
+**Secao 3 - Endereco da Empresa**
+- Icone e subtitulo "Endereco completo para a NFE"
+- Campos: Endereco (Rua)*, Numero*, Bairro*, Cidade*, Estado* (select com UFs), CEP*, Complemento (Opcional)
+
+**Barra de acoes no rodape**
+- Botao "Limpar Dados" (outline)
+- Botao "Pre-visualizar NFE" (outline) - abre modal com preview da DANFE
+- Botao "Salvar Configuracao" (primario, azul)
+
+Badge "Nacional (BR)" no canto superior direito.
+
+### 3. Geracao da DANFE (PDF Visual)
+
+Criar componente `src/components/danfe/DanfePreview.tsx`:
+
+- Modal com pre-visualizacao da DANFE usando Canvas (renderizado em um elemento canvas HTML)
+- Layout fiel ao modelo padrao da DANFE conforme a imagem de referencia, incluindo:
+  - Cabecalho com dados da empresa (razao social, endereco, CNPJ, IE, telefone, email)
+  - Secao "DANFE - Documento Auxiliar da Nota Fiscal Eletronica"
+  - Destinatario/Remetente (dados do cliente - preenchido com dados de exemplo na pre-visualizacao)
+  - Calculo do Imposto (campos zerados para MVP)
+  - Transportador/Volumes Transportados
+  - Dados dos Produtos/Servicos
+  - Dados Adicionais
+  - Data e hora da impressao
+- Botao para baixar como PDF (usando canvas `toDataURL` ou biblioteca jsPDF)
+
+### 4. Detalhes Tecnicos
+
+**Arquivos a criar:**
+- `src/components/danfe/DanfePreview.tsx` - Componente do modal com canvas da DANFE
+
+**Arquivos a modificar:**
+- `src/pages/Empresa.tsx` - Redesign completo com as 3 secoes, upload de logo, e botao de pre-visualizacao
+- `src/components/envios/NovoEnvioWizard.tsx` - Atualizar insert para incluir os novos campos do banco
+
+**Dependencia nova:**
+- `jspdf` - Para gerar o PDF da DANFE a partir do canvas
+
+**Fluxo da DANFE:**
+1. Usuario preenche dados da empresa e salva
+2. Clica em "Pre-visualizar NFE" 
+3. Modal abre com a DANFE renderizada usando os dados salvos da empresa + dados de exemplo para cliente/produto
+4. Quando um envio real for criado (via wizard ou webhook), a DANFE sera gerada com os dados reais do pedido combinados com os dados da empresa
+
