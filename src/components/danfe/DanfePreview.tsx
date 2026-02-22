@@ -67,11 +67,11 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     * { margin: 0; padding: 0; box-sizing: border-box; }
     .danfe-root { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; width: 700px; }
     .danfe-root table { border-collapse: collapse; width: 680px; }
-    .danfe-root td, .danfe-root th { border: 1px solid #000; padding: 1px 4px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; }
+    .danfe-root td, .danfe-root th { border: 1px solid #000; padding: 3px 5px 4px 5px; vertical-align: top; overflow: visible; overflow-wrap: break-word; word-wrap: break-word; line-height: 1.4; }
     .danfe-root .truncate-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .danfe-root .label { font-size: 6pt; color: #333; font-weight: normal; }
-    .danfe-root .value { font-size: 9pt; font-weight: bold; }
-    .danfe-root .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 2px 4px; }
+    .danfe-root .label { font-size: 6pt; color: #333; font-weight: normal; line-height: 1.3; }
+    .danfe-root .value { font-size: 9pt; font-weight: bold; line-height: 1.4; }
+    .danfe-root .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
     .danfe-root .center { text-align: center; }
     .danfe-root .right { text-align: right; }
     .danfe-root .barcode { background: #000; height: 50px; margin: 5px 0; }
@@ -363,7 +363,7 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
   const handleDownload = async () => {
     const { css, body } = getDanfeCssAndBody(empresa, envioData);
     const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:700px;';
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:700px;overflow:visible;';
     container.innerHTML = `<style>${css}</style>${body}`;
     document.body.appendChild(container);
 
@@ -371,10 +371,19 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
       el.style.color = '#000';
     });
 
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 100);
+        });
+      });
+    });
+
     const { default: html2canvas } = await import("html2canvas");
     const canvas = await html2canvas(container, {
       scale: 2, useCORS: true, backgroundColor: '#fff',
-      width: 700, windowWidth: 700
+      width: 700, windowWidth: 700,
+      height: container.scrollHeight,
     });
 
     const { default: jsPDF } = await import("jspdf");

@@ -155,7 +155,7 @@ export default function Empresa() {
     });
 
     const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:700px;';
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:700px;overflow:visible;';
     container.innerHTML = `<style>${css}</style>${body}`;
     document.body.appendChild(container);
 
@@ -163,10 +163,20 @@ export default function Empresa() {
       el.style.color = '#000';
     });
 
+    // Wait for layout to fully compute before capturing
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 100);
+        });
+      });
+    });
+
     const { default: html2canvas } = await import("html2canvas");
     const canvas = await html2canvas(container, {
       scale: 2, useCORS: true, backgroundColor: '#fff',
-      width: 700, windowWidth: 700
+      width: 700, windowWidth: 700,
+      height: container.scrollHeight,
     });
 
     const { default: jsPDF } = await import("jspdf");
