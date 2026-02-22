@@ -140,9 +140,14 @@ export default function Empresa() {
     const iframe = previewIframeRef.current;
     if (!iframe?.contentWindow) return;
     const body = iframe.contentWindow.document.body;
+    // Force all empresa-value spans to black before capture
+    const empresaSpans = iframe.contentWindow.document.querySelectorAll('.empresa-value');
+    empresaSpans.forEach((el: any) => { el.style.color = '#000'; });
     const { default: html2canvas } = await import("html2canvas");
     const { default: jsPDF } = await import("jspdf");
     const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff" });
+    // Restore blue color after capture
+    empresaSpans.forEach((el: any) => { el.style.color = ''; });
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF("p", "mm", "a4");
     const pdfW = pdf.internal.pageSize.getWidth();
