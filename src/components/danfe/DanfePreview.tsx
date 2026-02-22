@@ -136,7 +136,7 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
       </td>
       <td colspan="3" style="text-align: center;">
         <div class="barcode"></div>
-        <div style="font-size: 8pt; font-weight: bold; letter-spacing: 1px;">0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000</div>
+        <div style="font-size: 8pt; font-weight: bold; letter-spacing: 1px;">3525 0612 3456 7800 0190 5500 1000 0000 0110 0000 0001</div>
         <div style="font-size: 6pt; margin-top: 3px;">
           Consulta de autenticidade no portal nacional da NF-e<br>
           www.nfe.fazenda.gov.br/portal
@@ -259,18 +259,18 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
       <td colspan="7" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
     </tr>
     <tr>
-      <td colspan="2"><div class="label">RAZÃO SOCIAL</div><div class="value"></div></td>
+      <td colspan="2"><div class="label">RAZÃO SOCIAL</div><div class="value">Trans Prada Zibe Transportes e Logistica LTDA</div></td>
       <td><div class="label">FRETE POR CONTA</div><div class="value">0 - REMETENTE</div></td>
       <td><div class="label">CÓDIGO ANTT</div><div class="value"></div></td>
-      <td><div class="label">PLACA DO VEÍCULO</div><div class="value"></div></td>
-      <td><div class="label">UF</div><div class="value"></div></td>
-      <td><div class="label">CNPJ / CPF</div><div class="value"></div></td>
+      <td><div class="label">PLACA DO VEÍCULO</div><div class="value">FOD9C97</div></td>
+      <td><div class="label">UF</div><div class="value">SP</div></td>
+      <td><div class="label">CNPJ / CPF</div><div class="value">45.706.927/0001-80</div></td>
     </tr>
     <tr>
-      <td colspan="3"><div class="label">ENDEREÇO</div><div class="value"></div></td>
-      <td colspan="2"><div class="label">MUNICÍPIO</div><div class="value"></div></td>
-      <td><div class="label">UF</div><div class="value"></div></td>
-      <td><div class="label">INSCRIÇÃO ESTADUAL</div><div class="value"></div></td>
+      <td colspan="3"><div class="label">ENDEREÇO</div><div class="value">Rua Aristeu, 248</div></td>
+      <td colspan="2"><div class="label">MUNICÍPIO</div><div class="value">São Paulo</div></td>
+      <td><div class="label">UF</div><div class="value">SP</div></td>
+      <td><div class="label">INSCRIÇÃO ESTADUAL</div><div class="value">134.607.799.115</div></td>
     </tr>
 
     <!-- Produtos -->
