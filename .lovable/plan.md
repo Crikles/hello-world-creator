@@ -1,81 +1,82 @@
 
 
-## Redesign da Pagina Empresa + Geracao de DANFE em PDF
+## Redesign da Pagina Empresa - Layout Side-by-Side com DANFE em Tempo Real
 
-### 1. Alteracoes no Banco de Dados
+### Conceito
 
-Adicionar colunas na tabela `empresas` para os campos que faltam:
-- `nome_fantasia` (text, nullable) - Nome fantasia da empresa
-- `numero` (text, nullable) - Numero do endereco
-- `bairro` (text, nullable) - Bairro
-- `complemento` (text, nullable) - Complemento do endereco
+Transformar a pagina de Empresa em um layout de duas colunas:
+- **Coluna esquerda**: Formulario com os dados da empresa (logo, dados fiscais, endereco) com visual mais sofisticado usando gradientes sutis e cards com bordas coloridas
+- **Coluna direita (sticky)**: Preview da DANFE em tempo real, atualizando automaticamente conforme o usuario digita
 
-Adicionar colunas na tabela `envios` para os campos do wizard que ainda nao existem no banco:
-- `cliente_telefone` (text, nullable)
-- `cliente_numero` (text, nullable)
-- `cliente_bairro` (text, nullable)
-- `cliente_complemento` (text, nullable)
-- `quantidade` (integer, default 1)
-- `cfop` (text, nullable)
-- `ncm_sh` (text, nullable)
-- `cst` (text, nullable)
-- `unidade` (text, default 'UN')
+Isso elimina a necessidade de clicar em "Pre-visualizar NFE" - a nota fica sempre visivel ao lado.
 
-### 2. Redesign da Pagina Empresa
+---
 
-Reestruturar `src/pages/Empresa.tsx` com 3 secoes em cards separados (conforme a referencia):
+### 1. Layout e Visual
 
-**Secao 1 - Logo da Empresa**
-- Upload de logo (PNG, JPG ou WEBP, maximo 2MB)
-- Preview da logo atual com botao "Alterar Logo" e botao para remover
-- Upload para o bucket `logos` do storage
+**Estrutura principal**: Grid de 2 colunas (`grid-cols-5` ou `grid-cols-12`) onde:
+- Formulario ocupa ~55% (esquerda)
+- Preview DANFE ocupa ~45% (direita, `sticky top-4`)
 
-**Secao 2 - Dados da Empresa**
-- Icone e subtitulo "Informacoes fiscais para emissao de NFE"
-- Campos: Razao Social*, Nome Fantasia (Opcional), CNPJ*, Inscricao Estadual (Opcional), Email de Contato (Opcional)
+**Melhorias visuais no formulario**:
+- Fundo da pagina com gradiente sutil (de `slate-50` para `blue-50/30`)
+- Cards com borda esquerda colorida (azul para dados, verde para endereco, violeta para logo)
+- Inputs com foco azul mais pronunciado e fundo levemente acinzentado
+- Secao de logo com area de drag-and-drop visual mais bonita (borda tracejada, icone grande)
+- Header da pagina com gradiente e descricao mais visual
+- Badge "Nacional (BR)" estilizado
+- Botoes de acao com gradientes sutis
 
-**Secao 3 - Endereco da Empresa**
-- Icone e subtitulo "Endereco completo para a NFE"
-- Campos: Endereco (Rua)*, Numero*, Bairro*, Cidade*, Estado* (select com UFs), CEP*, Complemento (Opcional)
+**Preview DANFE (coluna direita)**:
+- Card com sombra elevada e borda sutil
+- Header "Pre-visualizacao da NFE" com badge "Tempo Real"
+- iframe com a DANFE reduzida (scale transform para caber)
+- Botao "Baixar PDF" sempre visivel abaixo do preview
+- Atualiza em tempo real conforme o formulario muda (ja funciona pois o `form` state e passado diretamente)
 
-**Barra de acoes no rodape**
-- Botao "Limpar Dados" (outline)
-- Botao "Pre-visualizar NFE" (outline) - abre modal com preview da DANFE
-- Botao "Salvar Configuracao" (primario, azul)
+---
 
-Badge "Nacional (BR)" no canto superior direito.
+### 2. Detalhes Tecnicos
 
-### 3. Geracao da DANFE (PDF Visual)
+**Arquivos a modificar**:
 
-Criar componente `src/components/danfe/DanfePreview.tsx`:
+- `src/pages/Empresa.tsx` - Redesign completo:
+  - Layout grid 2 colunas
+  - Cards com bordas coloridas laterais
+  - Area de upload de logo mais visual (drag-and-drop style)
+  - Preview DANFE inline (nao mais em modal) na coluna direita com `position: sticky`
+  - Manter o modal como opcao para tela cheia, mas o preview inline e o padrao
+  - Botoes de acao reorganizados
 
-- Modal com pre-visualizacao da DANFE usando Canvas (renderizado em um elemento canvas HTML)
-- Layout fiel ao modelo padrao da DANFE conforme a imagem de referencia, incluindo:
-  - Cabecalho com dados da empresa (razao social, endereco, CNPJ, IE, telefone, email)
-  - Secao "DANFE - Documento Auxiliar da Nota Fiscal Eletronica"
-  - Destinatario/Remetente (dados do cliente - preenchido com dados de exemplo na pre-visualizacao)
-  - Calculo do Imposto (campos zerados para MVP)
-  - Transportador/Volumes Transportados
-  - Dados dos Produtos/Servicos
-  - Dados Adicionais
-  - Data e hora da impressao
-- Botao para baixar como PDF (usando canvas `toDataURL` ou biblioteca jsPDF)
+- `src/components/danfe/DanfePreview.tsx` - Exportar a funcao `buildDanfeHtml` e as interfaces para reutilizacao:
+  - Exportar `buildDanfeHtml`, `EmpresaData`, `EnvioData`
+  - Manter o componente Dialog para uso em tela cheia quando necessario
 
-### 4. Detalhes Tecnicos
+**Nenhuma alteracao no banco de dados** - apenas visual/frontend.
 
-**Arquivos a criar:**
-- `src/components/danfe/DanfePreview.tsx` - Componente do modal com canvas da DANFE
+---
 
-**Arquivos a modificar:**
-- `src/pages/Empresa.tsx` - Redesign completo com as 3 secoes, upload de logo, e botao de pre-visualizacao
-- `src/components/envios/NovoEnvioWizard.tsx` - Atualizar insert para incluir os novos campos do banco
+### 3. Detalhes do Design
 
-**Dependencia nova:**
-- `jspdf` - Para gerar o PDF da DANFE a partir do canvas
+**Header da pagina**:
+- Titulo "Dados da Empresa" com subtitulo e badge em linha
+- Fundo com gradiente sutil de azul
 
-**Fluxo da DANFE:**
-1. Usuario preenche dados da empresa e salva
-2. Clica em "Pre-visualizar NFE" 
-3. Modal abre com a DANFE renderizada usando os dados salvos da empresa + dados de exemplo para cliente/produto
-4. Quando um envio real for criado (via wizard ou webhook), a DANFE sera gerada com os dados reais do pedido combinados com os dados da empresa
+**Card Logo** (borda esquerda violeta):
+- Area grande de upload com icone centralizado e borda tracejada
+- Preview da logo com overlay de acoes (alterar/remover)
+
+**Card Dados Fiscais** (borda esquerda azul):
+- Campos com labels mais discretos e placeholders informativos
+- Grid responsivo
+
+**Card Endereco** (borda esquerda verde):
+- Layout grid 3 colunas para endereco
+- Select de UF estilizado
+
+**Coluna Direita - Preview**:
+- Card com header "Nota Fiscal (Preview)" e badge verde "Tempo Real"
+- DANFE renderizada em escala reduzida (~70%) via CSS `transform: scale(0.7)` dentro de container com overflow hidden
+- Botoes "Baixar PDF" e "Ver em Tela Cheia" abaixo
+- Sticky para acompanhar scroll do formulario
 
