@@ -343,13 +343,13 @@ export default function Empresa() {
                 <CardDescription className="text-xs">Atualiza conforme você preenche o formulário</CardDescription>
               </CardHeader>
               <CardContent className="p-3">
-                <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 580 }}>
-                  <div style={{ transform: "scale(0.58)", transformOrigin: "top left", width: "172.4%", height: "172.4%" }}>
+                <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 820 }}>
+                  <div style={{ transform: "scale(0.72)", transformOrigin: "top left", width: "138.9%", height: "138.9%" }}>
                     <iframe
                       ref={previewIframeRef}
                       srcDoc={danfeHtml}
                       title="DANFE Preview"
-                      style={{ width: "100%", height: 1000, border: "none", background: "#fff" }}
+                      style={{ width: "100%", height: 1200, border: "none", background: "#fff" }}
                     />
                   </div>
                 </div>
