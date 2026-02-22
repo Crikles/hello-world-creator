@@ -253,7 +253,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td colspan="7" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
     </tr>
     <tr>
-      <td colspan="2"><div class="label">RAZÃO SOCIAL</div><div class="value truncate-cell">Trans Prada Zibe Transportes e Logistica LTDA</div></td>
+      <td colspan="2"><div class="label">RAZÃO SOCIAL</div><div class="value truncate-cell">Trans Prada LTDA</div></td>
       <td><div class="label">FRETE POR CONTA</div><div class="value">0 - REMETENTE</div></td>
       <td><div class="label">CÓDIGO ANTT</div><div class="value"></div></td>
       <td><div class="label">PLACA DO VEÍCULO</div><div class="value">FOD9C97</div></td>
