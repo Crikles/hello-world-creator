@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Building2, MapPin, ImagePlus, Trash2, Eye, RotateCcw, Upload } from "lucide-react";
+import { Save, Building2, MapPin, ImagePlus, Trash2, RotateCcw, Upload, Download, Maximize2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { DanfePreview } from "@/components/danfe/DanfePreview";
+import { DanfePreview, buildDanfeHtml } from "@/components/danfe/DanfePreview";
 
 const UF_OPTIONS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA",
@@ -20,6 +20,7 @@ const UF_OPTIONS = [
 export default function Empresa() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewIframeRef = useRef<HTMLIFrameElement>(null);
   const [danfeOpen, setDanfeOpen] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -53,17 +54,17 @@ export default function Empresa() {
     if (empresa) {
       setForm({
         razao_social: empresa.razao_social || "",
-        nome_fantasia: (empresa as any).nome_fantasia || "",
+        nome_fantasia: empresa.nome_fantasia || "",
         cnpj: empresa.cnpj || "",
         inscricao_estadual: empresa.inscricao_estadual || "",
         email: empresa.email || "",
         endereco: empresa.endereco || "",
-        numero: (empresa as any).numero || "",
-        bairro: (empresa as any).bairro || "",
+        numero: empresa.numero || "",
+        bairro: empresa.bairro || "",
         cidade: empresa.cidade || "",
         estado: empresa.estado || "",
         cep: empresa.cep || "",
-        complemento: (empresa as any).complemento || "",
+        complemento: empresa.complemento || "",
         telefone: empresa.telefone || "",
       });
       if (empresa.logo_url) setLogoPreview(empresa.logo_url);
@@ -134,149 +135,237 @@ export default function Empresa() {
     setLogoFile(null);
   };
 
+  const handleDownloadPdf = async () => {
+    const iframe = previewIframeRef.current;
+    if (!iframe?.contentWindow) return;
+    const { default: jsPDF } = await import("jspdf");
+    const body = iframe.contentWindow.document.body;
+    const pdf = new jsPDF("p", "pt", "a4");
+    await pdf.html(body, {
+      callback: (doc) => doc.save(`DANFE_${form.razao_social || "empresa"}.pdf`),
+      x: 10, y: 10, width: 555, windowWidth: 620,
+    });
+  };
+
+  const danfeHtml = buildDanfeHtml(form, {
+    cliente_nome: "Cliente Exemplo",
+    cliente_cpf: "000.000.000-00",
+    cliente_endereco: "Rua Exemplo",
+    cliente_numero: "123",
+    cliente_bairro: "Centro",
+    cliente_cidade: "São Paulo",
+    cliente_estado: "SP",
+    cliente_cep: "00000-000",
+    produto: "Produto Exemplo",
+    quantidade: 1,
+    valor: 0,
+    cfop: "5102",
+    ncm_sh: "00000000",
+    unidade: "UN",
+  });
+
   return (
     <AppLayout title="Dados da Empresa">
-      <div className="max-w-3xl space-y-6">
-        {/* Top bar */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Configure os dados que aparecerão na Nota Fiscal.</p>
-          <Badge variant="secondary" className="text-xs">🇧🇷 Nacional (BR)</Badge>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* LEFT COLUMN - Form */}
+        <div className="lg:col-span-7 space-y-5">
+          {/* Header */}
+          <div className="rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Configuração Fiscal</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Dados que aparecerão na sua Nota Fiscal Eletrônica
+                </p>
+              </div>
+              <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/20">
+                🇧🇷 Nacional
+              </Badge>
+            </div>
+          </div>
+
+          {/* Logo Card */}
+          <Card className="border-l-4 border-l-violet-500 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-violet-500/10">
+                  <ImagePlus className="h-4 w-4 text-violet-600" />
+                </div>
+                Logo da Empresa
+              </CardTitle>
+              <CardDescription>PNG, JPG ou WEBP — máximo 2MB</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-6">
+                {logoPreview ? (
+                  <div className="relative group">
+                    <img src={logoPreview} alt="Logo" className="w-24 h-24 object-contain rounded-lg border-2 border-violet-200 bg-white p-1" />
+                    <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={handleRemoveLogo}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-24 h-24 rounded-lg border-2 border-dashed border-violet-300 bg-violet-50/50 hover:bg-violet-50 hover:border-violet-400 transition-all flex flex-col items-center justify-center gap-1 text-violet-500 cursor-pointer"
+                  >
+                    <Upload className="h-5 w-5" />
+                    <span className="text-[10px] font-medium">Upload</span>
+                  </button>
+                )}
+                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoSelect} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Company Data Card */}
+          <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <Building2 className="h-4 w-4 text-primary" />
+                </div>
+                Dados Fiscais
+              </CardTitle>
+              <CardDescription>Informações fiscais para emissão de NFE</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs text-muted-foreground">Razão Social *</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.razao_social} onChange={(e) => handleChange("razao_social", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Nome Fantasia</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.nome_fantasia} onChange={(e) => handleChange("nome_fantasia", e.target.value)} placeholder="Opcional" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">CNPJ *</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.cnpj} onChange={(e) => handleChange("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Inscrição Estadual</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.inscricao_estadual} onChange={(e) => handleChange("inscricao_estadual", e.target.value)} placeholder="Opcional" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Email de Contato</Label>
+                  <Input className="bg-muted/30 focus:bg-background" type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="Opcional" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Telefone</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.telefone} onChange={(e) => handleChange("telefone", e.target.value)} placeholder="(00) 00000-0000" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Address Card */}
+          <Card className="border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-emerald-500/10">
+                  <MapPin className="h-4 w-4 text-emerald-600" />
+                </div>
+                Endereço da Empresa
+              </CardTitle>
+              <CardDescription>Endereço completo para a NFE</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs text-muted-foreground">Endereço (Rua) *</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.endereco} onChange={(e) => handleChange("endereco", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Número *</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.numero} onChange={(e) => handleChange("numero", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Bairro *</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.bairro} onChange={(e) => handleChange("bairro", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Cidade *</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.cidade} onChange={(e) => handleChange("cidade", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Estado *</Label>
+                  <Select value={form.estado} onValueChange={(v) => handleChange("estado", v)}>
+                    <SelectTrigger className="bg-muted/30 focus:bg-background"><SelectValue placeholder="UF" /></SelectTrigger>
+                    <SelectContent>
+                      {UF_OPTIONS.map((uf) => (
+                        <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">CEP *</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.cep} onChange={(e) => handleChange("cep", e.target.value)} placeholder="00000-000" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs text-muted-foreground">Complemento</Label>
+                  <Input className="bg-muted/30 focus:bg-background" value={form.complemento} onChange={(e) => handleChange("complemento", e.target.value)} placeholder="Opcional" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center justify-end gap-3 pb-6">
+            <Button variant="outline" onClick={handleClear}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Limpar
+            </Button>
+            <Button onClick={() => saveMutation.mutate()} disabled={!form.razao_social || !form.cnpj || saveMutation.isPending}>
+              <Save className="h-4 w-4 mr-2" />
+              {saveMutation.isPending ? "Salvando..." : "Salvar Configuração"}
+            </Button>
+          </div>
         </div>
 
-        {/* Section 1: Logo */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ImagePlus className="h-4 w-4" />
-              Logo da Empresa
-            </CardTitle>
-            <CardDescription>PNG, JPG ou WEBP — máximo 2MB</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-6">
-              {logoPreview ? (
-                <img src={logoPreview} alt="Logo" className="w-24 h-24 object-contain rounded-md border border-border" />
-              ) : (
-                <div className="w-24 h-24 bg-muted rounded-md flex items-center justify-center text-muted-foreground text-xs">
-                  Sem logo
+        {/* RIGHT COLUMN - DANFE Preview */}
+        <div className="lg:col-span-5">
+          <div className="lg:sticky lg:top-4 space-y-3">
+            <Card className="shadow-lg border-border/60">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Nota Fiscal (Preview)</CardTitle>
+                  <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 text-[10px] px-2 py-0.5">
+                    ● Tempo Real
+                  </Badge>
                 </div>
-              )}
-              <div className="flex flex-col gap-2">
-                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoSelect} />
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="h-3 w-3 mr-2" />
-                  {logoPreview ? "Alterar Logo" : "Enviar Logo"}
-                </Button>
-                {logoPreview && (
-                  <Button variant="ghost" size="sm" className="text-destructive" onClick={handleRemoveLogo}>
-                    <Trash2 className="h-3 w-3 mr-2" />
-                    Remover
-                  </Button>
-                )}
-              </div>
+                <CardDescription className="text-xs">Atualiza conforme você preenche o formulário</CardDescription>
+              </CardHeader>
+              <CardContent className="p-3">
+                <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 580 }}>
+                  <div style={{ transform: "scale(0.58)", transformOrigin: "top left", width: "172.4%", height: "172.4%" }}>
+                    <iframe
+                      ref={previewIframeRef}
+                      srcDoc={danfeHtml}
+                      title="DANFE Preview"
+                      style={{ width: "100%", height: 1000, border: "none", background: "#fff" }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setDanfeOpen(true)}>
+                <Maximize2 className="h-4 w-4 mr-2" />
+                Tela Cheia
+              </Button>
+              <Button className="flex-1" onClick={handleDownloadPdf}>
+                <Download className="h-4 w-4 mr-2" />
+                Baixar PDF
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Section 2: Company Data */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Dados da Empresa
-            </CardTitle>
-            <CardDescription>Informações fiscais para emissão de NFE</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Razão Social *</Label>
-                <Input value={form.razao_social} onChange={(e) => handleChange("razao_social", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Nome Fantasia</Label>
-                <Input value={form.nome_fantasia} onChange={(e) => handleChange("nome_fantasia", e.target.value)} placeholder="Opcional" />
-              </div>
-              <div className="space-y-2">
-                <Label>CNPJ *</Label>
-                <Input value={form.cnpj} onChange={(e) => handleChange("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
-              </div>
-              <div className="space-y-2">
-                <Label>Inscrição Estadual</Label>
-                <Input value={form.inscricao_estadual} onChange={(e) => handleChange("inscricao_estadual", e.target.value)} placeholder="Opcional" />
-              </div>
-              <div className="space-y-2">
-                <Label>Email de Contato</Label>
-                <Input type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="Opcional" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Section 3: Address */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Endereço da Empresa
-            </CardTitle>
-            <CardDescription>Endereço completo para a NFE</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Endereço (Rua) *</Label>
-                <Input value={form.endereco} onChange={(e) => handleChange("endereco", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Número *</Label>
-                <Input value={form.numero} onChange={(e) => handleChange("numero", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Bairro *</Label>
-                <Input value={form.bairro} onChange={(e) => handleChange("bairro", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Cidade *</Label>
-                <Input value={form.cidade} onChange={(e) => handleChange("cidade", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Estado *</Label>
-                <Select value={form.estado} onValueChange={(v) => handleChange("estado", v)}>
-                  <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
-                  <SelectContent>
-                    {UF_OPTIONS.map((uf) => (
-                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>CEP *</Label>
-                <Input value={form.cep} onChange={(e) => handleChange("cep", e.target.value)} placeholder="00000-000" />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Complemento</Label>
-                <Input value={form.complemento} onChange={(e) => handleChange("complemento", e.target.value)} placeholder="Opcional" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Action Bar */}
-        <div className="flex flex-wrap items-center justify-end gap-3 pb-6">
-          <Button variant="outline" onClick={handleClear}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Limpar Dados
-          </Button>
-          <Button variant="outline" onClick={() => setDanfeOpen(true)}>
-            <Eye className="h-4 w-4 mr-2" />
-            Pré-visualizar NFE
-          </Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={!form.razao_social || !form.cnpj || saveMutation.isPending}>
-            <Save className="h-4 w-4 mr-2" />
-            {saveMutation.isPending ? "Salvando..." : "Salvar Configuração"}
-          </Button>
+          </div>
         </div>
       </div>
 
