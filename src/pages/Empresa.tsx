@@ -22,6 +22,7 @@ export default function Empresa() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewIframeRef = useRef<HTMLIFrameElement>(null);
   const [danfeOpen, setDanfeOpen] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
@@ -166,6 +167,20 @@ export default function Empresa() {
     ncm_sh: "00000000",
     unidade: "UN",
   });
+
+  // Write to iframe without refresh
+  useEffect(() => {
+    const iframe = previewIframeRef.current;
+    if (!iframe?.contentWindow) return;
+    try {
+      const doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(danfeHtml);
+      doc.close();
+    } catch (e) {
+      // fallback
+    }
+  }, [danfeHtml, iframeReady]);
 
   return (
     <AppLayout title="Dados da Empresa">
@@ -350,8 +365,8 @@ export default function Empresa() {
                   <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117.6%", height: "117.6%" }}>
                     <iframe
                       ref={previewIframeRef}
-                      srcDoc={danfeHtml}
                       title="DANFE Preview"
+                      onLoad={() => setIframeReady(true)}
                       style={{ width: "100%", height: 1300, border: "none", background: "#fff" }}
                     />
                   </div>
