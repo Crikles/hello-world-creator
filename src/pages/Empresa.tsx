@@ -135,16 +135,10 @@ export default function Empresa() {
     setLogoFile(null);
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = () => {
     const iframe = previewIframeRef.current;
     if (!iframe?.contentWindow) return;
-    const { default: jsPDF } = await import("jspdf");
-    const body = iframe.contentWindow.document.body;
-    const pdf = new jsPDF("p", "pt", "a4");
-    await pdf.html(body, {
-      callback: (doc) => doc.save(`DANFE_${form.razao_social || "empresa"}.pdf`),
-      x: 10, y: 10, width: 555, windowWidth: 620,
-    });
+    iframe.contentWindow.print();
   };
 
   const danfeHtml = buildDanfeHtml(form, {
@@ -343,13 +337,13 @@ export default function Empresa() {
                 <CardDescription className="text-xs">Atualiza conforme você preenche o formulário</CardDescription>
               </CardHeader>
               <CardContent className="p-3">
-                <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 820 }}>
-                  <div style={{ transform: "scale(0.72)", transformOrigin: "top left", width: "138.9%", height: "138.9%" }}>
+                <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 1020 }}>
+                  <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117.6%", height: "117.6%" }}>
                     <iframe
                       ref={previewIframeRef}
                       srcDoc={danfeHtml}
                       title="DANFE Preview"
-                      style={{ width: "100%", height: 1200, border: "none", background: "#fff" }}
+                      style={{ width: "100%", height: 1300, border: "none", background: "#fff" }}
                     />
                   </div>
                 </div>
