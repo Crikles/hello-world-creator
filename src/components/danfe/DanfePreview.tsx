@@ -67,10 +67,10 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     * { margin: 0; padding: 0; box-sizing: border-box; }
     .danfe-root { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; width: 700px; }
     .danfe-root table { border-collapse: collapse; width: 680px; }
-    .danfe-root td, .danfe-root th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; }
+    .danfe-root td, .danfe-root th { border: 1px solid #000; padding: 2px 4px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; line-height: 1.2; }
     .danfe-root .truncate-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .danfe-root .label { font-size: 6pt; color: #333; font-weight: normal; }
-    .danfe-root .value { font-size: 9pt; font-weight: bold; }
+    .danfe-root .label { font-size: 6pt; color: #333; font-weight: normal; margin: 0; padding: 0; line-height: 1.1; display: block; }
+    .danfe-root .value { font-size: 9pt; font-weight: bold; margin: 0; padding: 0; line-height: 1.2; display: block; }
     .danfe-root .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
     .danfe-root .center { text-align: center; }
     .danfe-root .right { text-align: right; }
