@@ -145,14 +145,20 @@ export default function Empresa() {
     empresaSpans.forEach((el: any) => { el.style.color = '#000'; });
     const { default: html2canvas } = await import("html2canvas");
     const { default: jsPDF } = await import("jspdf");
-    const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff" });
-    // Restore blue color after capture
+    const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0, scrollX: 0, windowWidth: body.scrollWidth, windowHeight: body.scrollHeight });
     empresaSpans.forEach((el: any) => { el.style.color = ''; });
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF("p", "mm", "a4");
     const pdfW = pdf.internal.pageSize.getWidth();
-    const pdfH = (canvas.height * pdfW) / canvas.width;
-    pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
+    const pdfH = pdf.internal.pageSize.getHeight();
+    const imgRatio = canvas.width / canvas.height;
+    let finalW = pdfW;
+    let finalH = pdfW / imgRatio;
+    if (finalH > pdfH) {
+      finalH = pdfH;
+      finalW = pdfH * imgRatio;
+    }
+    pdf.addImage(imgData, "PNG", 0, 0, finalW, finalH);
     pdf.save(`DANFE_${form.razao_social || "empresa"}.pdf`);
   };
 
