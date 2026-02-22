@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import jsPDF from "jspdf";
 
-interface EmpresaData {
+export interface EmpresaData {
   razao_social: string;
   nome_fantasia?: string;
   cnpj: string;
@@ -20,7 +20,7 @@ interface EmpresaData {
   logo_url?: string;
 }
 
-interface EnvioData {
+export interface EnvioData {
   cliente_nome?: string;
   cliente_cpf?: string;
   cliente_endereco?: string;
@@ -50,7 +50,7 @@ function formatCurrency(val: number) {
   return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
+export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
   const e = empresa;
   const c = envio;
   const now = new Date();
