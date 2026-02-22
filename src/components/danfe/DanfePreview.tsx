@@ -67,11 +67,11 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     * { margin: 0; padding: 0; box-sizing: border-box; }
     .danfe-root { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; width: 700px; }
     .danfe-root table { border-collapse: collapse; width: 680px; }
-    .danfe-root td, .danfe-root th { border: 1px solid #000; padding: 2px 4px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; line-height: 1.2; }
+    .danfe-root td, .danfe-root th { border: 1px solid #000; padding: 1px 4px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; }
     .danfe-root .truncate-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .danfe-root .label { font-size: 6pt; color: #333; font-weight: normal; margin: 0; padding: 0; line-height: 1.1; display: block; }
-    .danfe-root .value { font-size: 9pt; font-weight: bold; margin: 0; padding: 0; line-height: 1.2; display: block; }
-    .danfe-root .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
+    .danfe-root .label { font-size: 6pt; color: #333; font-weight: normal; }
+    .danfe-root .value { font-size: 9pt; font-weight: bold; }
+    .danfe-root .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 2px 4px; }
     .danfe-root .center { text-align: center; }
     .danfe-root .right { text-align: right; }
     .danfe-root .barcode { background: #000; height: 50px; margin: 5px 0; }
@@ -141,28 +141,28 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     <!-- Natureza da Operação -->
     <tr>
       <td colspan="5">
-        <div class="label">NATUREZA DA OPERAÇÃO</div>
-        <div class="value">VENDA DE MERCADORIA ADQUIRIDA OU RECEBIDA DE TERCEIROS</div>
+        <span class="label">NATUREZA DA OPERAÇÃO</span><br>
+        <span class="value">VENDA DE MERCADORIA ADQUIRIDA OU RECEBIDA DE TERCEIROS</span>
       </td>
       <td colspan="2">
-        <div class="label">PROTOCOLO DE AUTORIZAÇÃO DE USO</div>
-        <div style="font-size: 7pt; font-weight: bold;">NFe com Autorização de Uso da SEFAZ</div>
+        <span class="label">PROTOCOLO DE AUTORIZAÇÃO DE USO</span><br>
+        <span style="font-size: 7pt; font-weight: bold;">NFe com Autorização de Uso da SEFAZ</span>
       </td>
     </tr>
 
     <!-- Inscrições -->
     <tr>
       <td colspan="2">
-        <div class="label">INSCRIÇÃO ESTADUAL</div>
-        <div class="value"><span class="empresa-value">${e.inscricao_estadual || ""}</span></div>
+        <span class="label">INSCRIÇÃO ESTADUAL</span><br>
+        <span class="value"><span class="empresa-value">${e.inscricao_estadual || ""}</span></span>
       </td>
       <td colspan="2">
-        <div class="label">INSC.ESTADUAL DO SUBST.TRIBUTÁRIA</div>
-        <div class="value"></div>
+        <span class="label">INSC.ESTADUAL DO SUBST.TRIBUTÁRIA</span><br>
+        <span class="value"></span>
       </td>
       <td colspan="3">
-        <div class="label">CNPJ</div>
-        <div class="value"><span class="empresa-value">${e.cnpj || ""}</span></div>
+        <span class="label">CNPJ</span><br>
+        <span class="value"><span class="empresa-value">${e.cnpj || ""}</span></span>
       </td>
     </tr>
 
@@ -173,58 +173,58 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <tr>
       <td colspan="4">
-        <div class="label">NOME/RAZÃO SOCIAL</div>
-        <div class="value">${c.cliente_nome || "Cliente Exemplo"}</div>
+        <span class="label">NOME/RAZÃO SOCIAL</span><br>
+        <span class="value">${c.cliente_nome || "Cliente Exemplo"}</span>
       </td>
       <td colspan="2">
-        <div class="label">CNPJ/CPF</div>
-        <div class="value">${c.cliente_cpf || "000.000.000-00"}</div>
+        <span class="label">CNPJ/CPF</span><br>
+        <span class="value">${c.cliente_cpf || "000.000.000-00"}</span>
       </td>
       <td>
-        <div class="label">DATA DA EMISSÃO</div>
-        <div class="value">${dataEmissao}</div>
+        <span class="label">DATA DA EMISSÃO</span><br>
+        <span class="value">${dataEmissao}</span>
       </td>
     </tr>
 
     <tr>
       <td colspan="3">
-        <div class="label">ENDEREÇO</div>
-        <div class="value">${[c.cliente_endereco, c.cliente_numero].filter(Boolean).join(", ") || "Rua Exemplo, 123"}</div>
+        <span class="label">ENDEREÇO</span><br>
+        <span class="value">${[c.cliente_endereco, c.cliente_numero].filter(Boolean).join(", ") || "Rua Exemplo, 123"}</span>
       </td>
       <td colspan="2">
-        <div class="label">BAIRRO/DISTRITO</div>
-        <div class="value">${c.cliente_bairro || "Centro"}</div>
+        <span class="label">BAIRRO/DISTRITO</span><br>
+        <span class="value">${c.cliente_bairro || "Centro"}</span>
       </td>
       <td>
-        <div class="label">CEP</div>
-        <div class="value">${c.cliente_cep || "00000-000"}</div>
+        <span class="label">CEP</span><br>
+        <span class="value">${c.cliente_cep || "00000-000"}</span>
       </td>
       <td>
-        <div class="label">DATA SAÍDA</div>
-        <div class="value">${dataEmissao}</div>
+        <span class="label">DATA SAÍDA</span><br>
+        <span class="value">${dataEmissao}</span>
       </td>
     </tr>
 
     <tr>
       <td colspan="2">
-        <div class="label">MUNICÍPIO</div>
-        <div class="value">${c.cliente_cidade || "São Paulo"}</div>
+        <span class="label">MUNICÍPIO</span><br>
+        <span class="value">${c.cliente_cidade || "São Paulo"}</span>
       </td>
       <td>
-        <div class="label">FONE/FAX</div>
-        <div class="value">${c.cliente_telefone || ""}</div>
+        <span class="label">FONE/FAX</span><br>
+        <span class="value">${c.cliente_telefone || ""}</span>
       </td>
       <td>
-        <div class="label">UF</div>
-        <div class="value">${c.cliente_estado || "SP"}</div>
+        <span class="label">UF</span><br>
+        <span class="value">${c.cliente_estado || "SP"}</span>
       </td>
       <td>
-        <div class="label">INSCRIÇÃO ESTADUAL</div>
-        <div class="value"></div>
+        <span class="label">INSCRIÇÃO ESTADUAL</span><br>
+        <span class="value"></span>
       </td>
       <td colspan="2">
-        <div class="label">HORA DA SAÍDA</div>
-        <div class="value">${horaEmissao}</div>
+        <span class="label">HORA DA SAÍDA</span><br>
+        <span class="value">${horaEmissao}</span>
       </td>
     </tr>
 
@@ -233,19 +233,19 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td colspan="7" class="section-title">CÁLCULO DO IMPOSTO</td>
     </tr>
     <tr>
-      <td><div class="label">BASE CÁLC. ICMS</div><div class="value">0,00</div></td>
-      <td><div class="label">VALOR DO ICMS</div><div class="value">0,00</div></td>
-      <td><div class="label">BASE CÁLC. ICMS ST</div><div class="value">0,00</div></td>
-      <td><div class="label">VALOR DO ICMS ST</div><div class="value">0,00</div></td>
-      <td colspan="3"><div class="label">VALOR TOTAL DOS PRODUTOS</div><div class="value">R$ ${formatCurrency(valorTotal)}</div></td>
+      <td><span class="label">BASE CÁLC. ICMS</span><br><span class="value">0,00</span></td>
+      <td><span class="label">VALOR DO ICMS</span><br><span class="value">0,00</span></td>
+      <td><span class="label">BASE CÁLC. ICMS ST</span><br><span class="value">0,00</span></td>
+      <td><span class="label">VALOR DO ICMS ST</span><br><span class="value">0,00</span></td>
+      <td colspan="3"><span class="label">VALOR TOTAL DOS PRODUTOS</span><br><span class="value">R$ ${formatCurrency(valorTotal)}</span></td>
     </tr>
     <tr>
-      <td><div class="label">VALOR DO FRETE</div><div class="value">0,00</div></td>
-      <td><div class="label">VALOR DO SEGURO</div><div class="value">0,00</div></td>
-      <td><div class="label">DESCONTO</div><div class="value">0,00</div></td>
-      <td><div class="label">OUTRAS DESPESAS</div><div class="value">0,00</div></td>
-      <td><div class="label">VALOR DO IPI</div><div class="value">0,00</div></td>
-      <td colspan="2"><div class="label">VALOR TOTAL DA NOTA</div><div class="value">R$ ${formatCurrency(valorTotal)}</div></td>
+      <td><span class="label">VALOR DO FRETE</span><br><span class="value">0,00</span></td>
+      <td><span class="label">VALOR DO SEGURO</span><br><span class="value">0,00</span></td>
+      <td><span class="label">DESCONTO</span><br><span class="value">0,00</span></td>
+      <td><span class="label">OUTRAS DESPESAS</span><br><span class="value">0,00</span></td>
+      <td><span class="label">VALOR DO IPI</span><br><span class="value">0,00</span></td>
+      <td colspan="2"><span class="label">VALOR TOTAL DA NOTA</span><br><span class="value">R$ ${formatCurrency(valorTotal)}</span></td>
     </tr>
 
     <!-- Transportador -->
@@ -253,18 +253,18 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td colspan="7" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
     </tr>
     <tr>
-      <td colspan="2"><div class="label">RAZÃO SOCIAL</div><div class="value truncate-cell">Trans Prada LTDA</div></td>
-      <td><div class="label">FRETE POR CONTA</div><div class="value">0 - REMETENTE</div></td>
-      <td><div class="label">CÓDIGO ANTT</div><div class="value"></div></td>
-      <td><div class="label">PLACA DO VEÍCULO</div><div class="value">FOD9C97</div></td>
-      <td><div class="label">UF</div><div class="value">SP</div></td>
-      <td><div class="label">CNPJ / CPF</div><div class="value">45.706.927/0001-80</div></td>
+      <td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell">Trans Prada LTDA</span></td>
+      <td><span class="label">FRETE POR CONTA</span><br><span class="value">0 - REMETENTE</span></td>
+      <td><span class="label">CÓDIGO ANTT</span><br><span class="value"></span></td>
+      <td><span class="label">PLACA DO VEÍCULO</span><br><span class="value">FOD9C97</span></td>
+      <td><span class="label">UF</span><br><span class="value">SP</span></td>
+      <td><span class="label">CNPJ / CPF</span><br><span class="value">45.706.927/0001-80</span></td>
     </tr>
     <tr>
-      <td colspan="3"><div class="label">ENDEREÇO</div><div class="value">Rua Aristeu, 248</div></td>
-      <td colspan="2"><div class="label">MUNICÍPIO</div><div class="value">São Paulo</div></td>
-      <td><div class="label">UF</div><div class="value">SP</div></td>
-      <td><div class="label">INSCRIÇÃO ESTADUAL</div><div class="value">134.607.799.115</div></td>
+      <td colspan="3"><span class="label">ENDEREÇO</span><br><span class="value">Rua Aristeu, 248</span></td>
+      <td colspan="2"><span class="label">MUNICÍPIO</span><br><span class="value">São Paulo</span></td>
+      <td><span class="label">UF</span><br><span class="value">SP</span></td>
+      <td><span class="label">INSCRIÇÃO ESTADUAL</span><br><span class="value">134.607.799.115</span></td>
     </tr>
 
     <!-- Produtos -->
@@ -296,14 +296,14 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     </tr>
     <tr>
       <td colspan="4" style="height: 60px;">
-        <div class="label" style="font-weight: bold;">INFORMAÇÕES COMPLEMENTARES</div>
-        <div style="font-size: 7pt; margin-top: 3px;">
+        <span class="label" style="font-weight: bold;">INFORMAÇÕES COMPLEMENTARES</span><br>
+        <span style="font-size: 7pt;">
           Documento emitido por ME ou EPP optante pelo Simples Nacional.<br>
           Não gera direito a crédito fiscal de IPI.
-        </div>
+        </span>
       </td>
       <td colspan="3">
-        <div class="label" style="font-weight: bold;">RESERVADO AO FISCO</div>
+        <span class="label" style="font-weight: bold;">RESERVADO AO FISCO</span>
       </td>
     </tr>
 
