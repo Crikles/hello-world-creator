@@ -79,6 +79,10 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
     .right { text-align: right; }
     .barcode { background: #000; height: 50px; margin: 5px 0; }
     .danfe-title { font-size: 16pt; font-weight: bold; }
+    @media print {
+      @page { size: A4; margin: 10mm; }
+      body { padding: 0; }
+    }
   </style>
 </head>
 <body>
@@ -343,23 +347,10 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
   const envioData = envio || defaultEnvio;
   const htmlContent = buildDanfeHtml(empresa, envioData);
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
-
-    const body = iframe.contentWindow.document.body;
-    const pdf = new jsPDF("p", "pt", "a4");
-
-    // Use html method from jsPDF
-    await pdf.html(body, {
-      callback: (doc) => {
-        doc.save(`DANFE_${empresa.razao_social || "empresa"}.pdf`);
-      },
-      x: 10,
-      y: 10,
-      width: 555,
-      windowWidth: 620,
-    });
+    iframe.contentWindow.print();
   };
 
   return (
