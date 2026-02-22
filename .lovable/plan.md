@@ -1,30 +1,41 @@
 
 
-## Preencher Chave de Acesso NF-e e Dados do Transportador
+## Remover Refresh do Preview e Colorir Dados da Empresa
 
-### 1. Chave de Acesso NF-e (numero fixo realista)
+### Problema 1: Refresh/flicker no preview
+Quando voce digita no formulario, o iframe recebe um novo `srcDoc` a cada tecla, causando um reload completo (flash branco). A solucao e usar `useEffect` para escrever diretamente no documento do iframe via `iframe.contentWindow.document.write()`, evitando o re-render do elemento iframe.
 
-Substituir o placeholder `0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000` por um numero fixo com formato realista de chave de acesso NF-e (44 digitos), por exemplo:
+### Problema 2: Dados da empresa com cor diferente
+Os valores preenchidos pela empresa (razao social, CNPJ, endereco, etc.) ficam com uma cor destaque (azul) no preview para facilitar a visualizacao. No PDF e no envio ao comprador, tudo permanece preto padrao.
 
-`3525 0612 3456 7800 0190 5500 1000 0000 0110 0000 0001 `
+---
 
-Isso sera aplicado na linha 139 do arquivo `src/components/danfe/DanfePreview.tsx`.
+### Alteracoes tecnicas
 
-### 2. Dados do Transportador
+**Arquivo: `src/components/danfe/DanfePreview.tsx`**
 
-Preencher a secao "TRANSPORTADOR / VOLUMES TRANSPORTADOS" (linhas 261-273) com os dados fixos fornecidos:
+1. **Adicionar classe CSS `.empresa-value`** no HTML gerado por `buildDanfeHtml`:
+   - Envolver os valores dinamicos da empresa (razao social, CNPJ, endereco, telefone, email, inscricao estadual) com `<span class="empresa-value">...</span>`
+   - Adicionar no CSS: `.empresa-value { color: #2563eb; }` (azul)
+   - Adicionar no `@media print`: `.empresa-value { color: #000 !important; }` para garantir preto no PDF
 
-| Campo | Valor |
-|---|---|
-| Razao Social | Trans Prada Zibe Transportes e Logistica LTDA |
-| Frete por Conta | 0 - REMETENTE (ja preenchido) |
-| Placa do Veiculo | FOD9C97 |
-| UF (veiculo) | SP |
-| CNPJ / CPF | 45.706.927/0001-80 |
-| Endereco | Rua Aristeu, 248 |
-| Municipio | Sao Paulo |
-| UF | SP |
-| Inscricao Estadual | 134.607.799.115 |
+2. **Nenhuma mudanca na funcao `buildDanfeHtml` em si** alem de adicionar as classes CSS e spans - a logica permanece a mesma
 
-### Arquivo modificado
-- `src/components/danfe/DanfePreview.tsx` - linhas 139 (chave de acesso) e 261-273 (transportador)
+**Arquivo: `src/pages/Empresa.tsx`**
+
+3. **Eliminar o refresh do iframe**:
+   - Remover o `srcDoc={danfeHtml}` do iframe
+   - Adicionar um `useEffect` que observa `danfeHtml` e escreve o conteudo diretamente no iframe usando:
+     ```
+     const doc = iframe.contentWindow.document;
+     doc.open();
+     doc.write(danfeHtml);
+     doc.close();
+     ```
+   - Isso atualiza o conteudo sem recarregar o iframe, eliminando o flash branco
+
+### Resultado
+- O preview atualiza suavemente conforme o usuario digita, sem piscar
+- Os dados da empresa aparecem em azul no preview para destaque visual
+- No PDF baixado e no envio, tudo fica em preto padrao
+
