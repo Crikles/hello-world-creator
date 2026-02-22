@@ -137,50 +137,39 @@ export default function Empresa() {
   };
 
   const handleDownloadPdf = async () => {
-    const iframe = previewIframeRef.current;
-    if (!iframe?.contentWindow) return;
-    
-    // Temporarily remove scale transform for accurate capture
-    const scaleContainer = iframe.parentElement;
-    const originalTransform = scaleContainer?.style.transform || "";
-    const originalWidth = scaleContainer?.style.width || "";
-    const originalHeight = scaleContainer?.style.height || "";
-    if (scaleContainer) {
-      scaleContainer.style.transform = "none";
-      scaleContainer.style.width = "100%";
-      scaleContainer.style.height = "auto";
-    }
+    const tempIframe = document.createElement('iframe');
+    tempIframe.style.cssText = 'position:absolute;left:-9999px;top:0;width:700px;height:2000px;border:none;';
+    document.body.appendChild(tempIframe);
 
-    const body = iframe.contentWindow.document.body;
-    const empresaSpans = iframe.contentWindow.document.querySelectorAll('.empresa-value');
-    empresaSpans.forEach((el: any) => { el.style.color = '#000'; });
-    
+    const doc = tempIframe.contentWindow!.document;
+    doc.open();
+    doc.write(danfeHtml);
+    doc.close();
+
+    await new Promise(r => setTimeout(r, 500));
+
+    const spans = doc.querySelectorAll('.empresa-value');
+    spans.forEach((el: any) => { el.style.color = '#000'; });
+
+    const body = doc.body;
     const { default: html2canvas } = await import("html2canvas");
     const { default: jsPDF } = await import("jspdf");
-    const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0, scrollX: 0, windowWidth: body.scrollWidth, windowHeight: body.scrollHeight });
-    
-    empresaSpans.forEach((el: any) => { el.style.color = ''; });
-    
-    // Restore scale transform
-    if (scaleContainer) {
-      scaleContainer.style.transform = originalTransform;
-      scaleContainer.style.width = originalWidth;
-      scaleContainer.style.height = originalHeight;
-    }
+    const canvas = await html2canvas(body, {
+      scale: 2, useCORS: true, backgroundColor: '#fff',
+      scrollY: 0, scrollX: 0,
+      windowWidth: 700, windowHeight: body.scrollHeight
+    });
 
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
+    const pdf = new jsPDF('p', 'mm', 'a4');
     const pdfW = pdf.internal.pageSize.getWidth();
     const pdfH = pdf.internal.pageSize.getHeight();
-    const imgRatio = canvas.width / canvas.height;
-    let finalW = pdfW;
-    let finalH = pdfW / imgRatio;
-    if (finalH > pdfH) {
-      finalH = pdfH;
-      finalW = pdfH * imgRatio;
-    }
-    pdf.addImage(imgData, "PNG", 0, 0, finalW, finalH);
-    pdf.save(`DANFE_${form.razao_social || "empresa"}.pdf`);
+    const ratio = canvas.width / canvas.height;
+    let w = pdfW, h = pdfW / ratio;
+    if (h > pdfH) { h = pdfH; w = pdfH * ratio; }
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
+    pdf.save(`DANFE_${form.razao_social || 'empresa'}.pdf`);
+
+    document.body.removeChild(tempIframe);
   };
 
   const danfeHtml = buildDanfeHtml(form, {
