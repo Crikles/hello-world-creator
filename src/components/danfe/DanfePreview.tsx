@@ -69,8 +69,8 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
   <meta charset="UTF-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; }
-    table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+    body { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; width: 700px; }
+    table { border-collapse: collapse; width: 680px; }
     td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; }
     .truncate-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .label { font-size: 6pt; color: #333; font-weight: normal; }
@@ -90,15 +90,6 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
 </head>
 <body>
   <table style="border: 2px solid #000;">
-    <colgroup>
-      <col style="width:14%">
-      <col style="width:14%">
-      <col style="width:14%">
-      <col style="width:14%">
-      <col style="width:14%">
-      <col style="width:15%">
-      <col style="width:15%">
-    </colgroup>
     <!-- Recebemos -->
     <tr>
       <td colspan="6" style="font-size: 7pt; padding: 5px;">
