@@ -1,69 +1,72 @@
 
 
-## Corrigir PDF da DANFE - Gerar a partir de iframe temporario
+## Corrigir PDF da DANFE - Substituir iframe temporario por div oculta
 
-### Problema
+### Problema Real
 
-O PDF esta sendo gerado capturando o iframe visivel na tela, que tem `transform: scale(0.85)` aplicado. O `html2canvas` nao lida bem com CSS transforms, resultando em linhas cortadas, texto distorcido e layout quebrado no PDF final. O preview na tela esta correto, mas o PDF sai bugado.
+O `html2canvas` nao funciona bem ao capturar conteudo de um iframe separado. Quando ele tenta renderizar o `body` de outro documento (iframe), ele perde informacoes de estilo, calcula alturas de celulas incorretamente e gera o PDF com labels deslocados e layout quebrado. O preview no painel esta correto porque o navegador renderiza o HTML nativamente, mas o `html2canvas` nao consegue replicar isso fielmente entre documentos diferentes.
 
 ### Solucao
 
-Mudar completamente a abordagem de geracao do PDF: em vez de capturar o iframe visivel (que esta escalado), criar um **iframe temporario oculto** com tamanho original, renderizar o HTML nele, capturar com `html2canvas`, gerar o PDF, e remover o iframe.
+Abandonar a abordagem de iframe temporario. Em vez disso, inserir o conteudo HTML da DANFE como uma **div oculta no proprio documento principal**, capturar com `html2canvas` (que agora opera no mesmo contexto de documento), gerar o PDF, e remover a div.
 
 ---
 
-### Mudancas no arquivo `src/pages/Empresa.tsx`
+### Mudancas
 
-Reescrever a funcao `handleDownloadPdf`:
+**Arquivo: `src/pages/Empresa.tsx` - funcao `handleDownloadPdf`**
 
-1. Criar um iframe temporario com `position: absolute; left: -9999px; top: 0` e largura de 700px
-2. Inserir o `danfeHtml` (nao o debounced) nesse iframe via `doc.write()`
-3. Aguardar o iframe carregar
+Reescrever para:
+
+1. Criar uma `div` temporaria com `position: fixed; left: -9999px; top: 0; width: 700px` no documento principal
+2. Injetar o HTML da DANFE usando `innerHTML` (apenas o conteudo do body, sem tags html/head)
+3. Adicionar os estilos CSS como um `<style>` tag dentro da div
 4. Forcar `.empresa-value` para cor preta
-5. Capturar com `html2canvas` usando `scale: 2` para alta qualidade
-6. Gerar o PDF com jsPDF, ajustando proporcao para caber em A4
-7. Remover o iframe temporario do DOM
+5. Capturar com `html2canvas` - agora funcionando no mesmo documento
+6. Gerar PDF com jsPDF
+7. Remover a div do DOM
 
-Isso elimina qualquer dependencia do CSS transform do preview e garante que o PDF sempre sai com o layout original de 700px.
+**Arquivo: `src/components/danfe/DanfePreview.tsx` - funcao `handleDownload`**
 
-### Mudancas no arquivo `src/components/danfe/DanfePreview.tsx`
+Aplicar a mesma mudanca: trocar iframe temporario por div oculta no documento principal.
 
-Aplicar a mesma abordagem na funcao `handleDownload` do dialog de tela cheia:
+**Arquivo: `src/components/danfe/DanfePreview.tsx` - funcao `buildDanfeHtml`**
 
-1. Criar iframe temporario oculto
-2. Renderizar o HTML, capturar e gerar PDF
-3. Remover iframe
+Criar uma funcao auxiliar `buildDanfeBodyAndStyles` que retorna separadamente:
+- O CSS como string (para inserir em tag `<style>`)
+- O HTML do body (a tabela e seu conteudo)
+
+Isso permite reusar o mesmo conteudo tanto para o iframe de preview (HTML completo) quanto para a div de captura (apenas body + styles injetados).
 
 ### Detalhes Tecnicos
 
 ```typescript
+// Nova funcao auxiliar exportada
+export function getDanfeCssAndBody(empresa, envio) {
+  // retorna { css: string, body: string }
+}
+
+// handleDownloadPdf reescrita
 const handleDownloadPdf = async () => {
-  // Criar iframe oculto
-  const tempIframe = document.createElement('iframe');
-  tempIframe.style.cssText = 'position:absolute;left:-9999px;top:0;width:700px;height:2000px;border:none;';
-  document.body.appendChild(tempIframe);
+  const { css, body } = getDanfeCssAndBody(form, envioData);
   
-  const doc = tempIframe.contentWindow!.document;
-  doc.open();
-  doc.write(danfeHtml); // HTML original, sem scale
-  doc.close();
-  
-  // Aguardar renderizacao
-  await new Promise(r => setTimeout(r, 500));
-  
-  // Forcar preto nos valores da empresa
-  const spans = doc.querySelectorAll('.empresa-value');
-  spans.forEach((el: any) => { el.style.color = '#000'; });
-  
-  // Capturar
-  const body = doc.body;
-  const canvas = await html2canvas(body, { 
-    scale: 2, useCORS: true, backgroundColor: '#fff',
-    scrollY: 0, scrollX: 0,
-    windowWidth: 700, windowHeight: body.scrollHeight 
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:700px;';
+  container.innerHTML = `<style>${css}</style>${body}`;
+  document.body.appendChild(container);
+
+  // Forcar preto
+  container.querySelectorAll('.empresa-value').forEach((el: any) => {
+    el.style.color = '#000';
   });
-  
-  // Gerar PDF
+
+  const { default: html2canvas } = await import("html2canvas");
+  const canvas = await html2canvas(container, {
+    scale: 2, useCORS: true, backgroundColor: '#fff',
+    width: 700, windowWidth: 700
+  });
+
+  const { default: jsPDF } = await import("jspdf");
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pdfW = pdf.internal.pageSize.getWidth();
   const pdfH = pdf.internal.pageSize.getHeight();
@@ -72,16 +75,21 @@ const handleDownloadPdf = async () => {
   if (h > pdfH) { h = pdfH; w = pdfH * ratio; }
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
   pdf.save(`DANFE_${form.razao_social || 'empresa'}.pdf`);
-  
-  // Limpar
-  document.body.removeChild(tempIframe);
+
+  document.body.removeChild(container);
 };
 ```
 
+### Por que isso resolve
+
+- `html2canvas` funciona perfeitamente quando captura elementos **do mesmo documento**
+- Elimina problemas de cross-document rendering que causavam os labels deslocados
+- A div recebe os mesmos estilos CSS da DANFE, garantindo layout identico ao preview
+- O `buildDanfeHtml` continua existindo para o preview no iframe (que funciona bem)
+
 ### Resultado Esperado
 
-- Preview na tela continua funcionando com scale 0.85 (bonito no painel)
-- PDF gerado sempre com layout correto de 700px, sem distorcao
-- Texto sempre preto no PDF
-- Nenhuma dependencia do transform CSS na geracao do documento
+- PDF identico ao preview na tela, sem linhas cortadas ou textos deslocados
+- Preview continua funcionando normalmente com debounce
+- Sem dependencia de iframe temporario para geracao do PDF
 
