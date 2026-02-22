@@ -139,14 +139,35 @@ export default function Empresa() {
   const handleDownloadPdf = async () => {
     const iframe = previewIframeRef.current;
     if (!iframe?.contentWindow) return;
+    
+    // Temporarily remove scale transform for accurate capture
+    const scaleContainer = iframe.parentElement;
+    const originalTransform = scaleContainer?.style.transform || "";
+    const originalWidth = scaleContainer?.style.width || "";
+    const originalHeight = scaleContainer?.style.height || "";
+    if (scaleContainer) {
+      scaleContainer.style.transform = "none";
+      scaleContainer.style.width = "100%";
+      scaleContainer.style.height = "auto";
+    }
+
     const body = iframe.contentWindow.document.body;
-    // Force all empresa-value spans to black before capture
     const empresaSpans = iframe.contentWindow.document.querySelectorAll('.empresa-value');
     empresaSpans.forEach((el: any) => { el.style.color = '#000'; });
+    
     const { default: html2canvas } = await import("html2canvas");
     const { default: jsPDF } = await import("jspdf");
     const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0, scrollX: 0, windowWidth: body.scrollWidth, windowHeight: body.scrollHeight });
+    
     empresaSpans.forEach((el: any) => { el.style.color = ''; });
+    
+    // Restore scale transform
+    if (scaleContainer) {
+      scaleContainer.style.transform = originalTransform;
+      scaleContainer.style.width = originalWidth;
+      scaleContainer.style.height = originalHeight;
+    }
+
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF("p", "mm", "a4");
     const pdfW = pdf.internal.pageSize.getWidth();
@@ -179,6 +200,14 @@ export default function Empresa() {
     unidade: "UN",
   });
 
+  // Debounce: only update iframe 300ms after last keystroke
+  const [debouncedHtml, setDebouncedHtml] = useState(danfeHtml);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedHtml(danfeHtml), 300);
+    return () => clearTimeout(timer);
+  }, [danfeHtml]);
+
   // Write to iframe without refresh
   useEffect(() => {
     const iframe = previewIframeRef.current;
@@ -186,12 +215,12 @@ export default function Empresa() {
     try {
       const doc = iframe.contentWindow.document;
       doc.open();
-      doc.write(danfeHtml);
+      doc.write(debouncedHtml);
       doc.close();
     } catch (e) {
       // fallback
     }
-  }, [danfeHtml, iframeReady]);
+  }, [debouncedHtml, iframeReady]);
 
   return (
     <AppLayout title="Dados da Empresa">
