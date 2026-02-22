@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
@@ -20,235 +20,360 @@ interface EmpresaData {
   logo_url?: string;
 }
 
+interface EnvioData {
+  cliente_nome?: string;
+  cliente_cpf?: string;
+  cliente_endereco?: string;
+  cliente_numero?: string;
+  cliente_bairro?: string;
+  cliente_cidade?: string;
+  cliente_estado?: string;
+  cliente_cep?: string;
+  cliente_telefone?: string;
+  produto?: string;
+  quantidade?: number;
+  valor?: number;
+  cfop?: string;
+  ncm_sh?: string;
+  cst?: string;
+  unidade?: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   empresa: EmpresaData;
+  envio?: EnvioData;
 }
 
-export function DanfePreview({ open, onOpenChange, empresa }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+function formatCurrency(val: number) {
+  return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
-  const enderecoCompleto = [
-    empresa.endereco,
-    empresa.numero ? `Nº ${empresa.numero}` : "",
-    empresa.bairro,
-    empresa.cidade,
-    empresa.estado,
-    empresa.cep ? `CEP: ${empresa.cep}` : "",
-  ]
-    .filter(Boolean)
-    .join(", ");
+function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
+  const e = empresa;
+  const c = envio;
+  const now = new Date();
+  const dataEmissao = now.toLocaleDateString("pt-BR");
+  const horaEmissao = now.toLocaleTimeString("pt-BR");
+  const endEmpresa = [e.endereco, e.numero ? `${e.numero}` : ""].filter(Boolean).join(", ");
+  const endEmpresa2 = [e.bairro, e.cep ? `CEP ${e.cep}` : ""].filter(Boolean).join(" - ");
+  const endEmpresa3 = [e.cidade, e.estado].filter(Boolean).join(" - ");
+  const valorUnit = c.valor || 0;
+  const qtd = c.quantidade || 1;
+  const valorTotal = valorUnit * qtd;
 
-  useEffect(() => {
-    if (!open || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; }
+    .label { font-size: 6pt; color: #333; font-weight: normal; }
+    .value { font-size: 9pt; font-weight: bold; }
+    .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .barcode { background: #000; height: 50px; margin: 5px 0; }
+    .danfe-title { font-size: 16pt; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <table style="border: 2px solid #000;">
+    <!-- Recebemos -->
+    <tr>
+      <td colspan="6" style="font-size: 7pt; padding: 5px;">
+        Recebemos de <strong>${e.razao_social || "EMPRESA"}</strong> os produtos e serviços constantes da Nota Fiscal Eletrônica indicada ao lado.<br>
+        Emissão: ${dataEmissao} &nbsp;&nbsp; Valor Total: <strong>R$ ${formatCurrency(valorTotal)}</strong>
+      </td>
+      <td style="width: 120px; text-align: center; font-weight: bold;">
+        NF-e<br>
+        N° 000.000.001<br>
+        Série 001
+      </td>
+    </tr>
 
-    const W = 595; // A4 width in points
-    const H = 842; // A4 height in points
-    canvas.width = W;
-    canvas.height = H;
+    <!-- Data Recebimento -->
+    <tr>
+      <td colspan="6" style="font-size: 7pt; height: 40px;">
+        <strong>DATA DO RECEBIMENTO</strong><br><br>
+        IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR
+      </td>
+      <td style="width: 120px; text-align: center; font-weight: bold;">
+        NF-e<br>
+        N° 000.000.001<br>
+        Série 001
+      </td>
+    </tr>
 
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 1;
+    <!-- Cabeçalho Principal -->
+    <tr>
+      <td colspan="2" style="width: 35%;">
+        <div style="text-align: center; font-size: 11pt; font-weight: bold; margin-bottom: 5px;">
+          ${e.razao_social || "RAZÃO SOCIAL"}
+        </div>
+        <div style="text-align: center; font-size: 7pt; line-height: 1.4;">
+          ${endEmpresa}<br>
+          ${endEmpresa2}<br>
+          ${endEmpresa3}<br>
+          Fone: ${e.telefone || "-"}<br>
+          ${e.email || ""}
+        </div>
+      </td>
+      <td colspan="2" style="width: 25%; text-align: center;">
+        <div class="danfe-title">DANFE</div>
+        <div style="font-size: 6pt; margin: 5px 0;">Documento Auxiliar da<br>Nota Fiscal Eletrônica</div>
+        <div style="display: inline-block; border: 1px solid #000; padding: 2px 15px; font-size: 12pt; font-weight: bold; margin: 5px 0;">1</div>
+        <div style="font-size: 6pt;">0 - ENTRADA &nbsp; 1 - SAÍDA</div>
+        <div style="font-size: 9pt; font-weight: bold; margin-top: 5px;">N° 000.000.001<br>SÉRIE 001<br>FOLHA 1/1</div>
+      </td>
+      <td colspan="3" style="text-align: center;">
+        <div class="barcode"></div>
+        <div style="font-size: 8pt; font-weight: bold; letter-spacing: 1px;">0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000</div>
+        <div style="font-size: 6pt; margin-top: 3px;">
+          Consulta de autenticidade no portal nacional da NF-e<br>
+          www.nfe.fazenda.gov.br/portal
+        </div>
+      </td>
+    </tr>
 
-    let y = 20;
+    <!-- Natureza da Operação -->
+    <tr>
+      <td colspan="5">
+        <div class="label">NATUREZA DA OPERAÇÃO</div>
+        <div class="value">VENDA DE MERCADORIA ADQUIRIDA OU RECEBIDA DE TERCEIROS</div>
+      </td>
+      <td colspan="2">
+        <div class="label">PROTOCOLO DE AUTORIZAÇÃO DE USO</div>
+        <div style="font-size: 7pt; font-weight: bold;">NFe com Autorização de Uso da SEFAZ</div>
+      </td>
+    </tr>
 
-    // --- HEADER ---
-    ctx.strokeRect(20, y, W - 40, 90);
+    <!-- Inscrições -->
+    <tr>
+      <td colspan="2">
+        <div class="label">INSCRIÇÃO ESTADUAL</div>
+        <div class="value">${e.inscricao_estadual || ""}</div>
+      </td>
+      <td colspan="2">
+        <div class="label">INSC.ESTADUAL DO SUBST.TRIBUTÁRIA</div>
+        <div class="value"></div>
+      </td>
+      <td colspan="3">
+        <div class="label">CNPJ</div>
+        <div class="value">${e.cnpj || ""}</div>
+      </td>
+    </tr>
 
-    // Company info (left)
-    ctx.font = "bold 11px Arial";
-    ctx.fillStyle = "#000";
-    ctx.fillText(empresa.razao_social || "RAZÃO SOCIAL DA EMPRESA", 30, y + 18);
-    ctx.font = "9px Arial";
-    if (empresa.nome_fantasia) ctx.fillText(empresa.nome_fantasia, 30, y + 32);
-    ctx.fillText(enderecoCompleto || "Endereço da empresa", 30, y + 46);
-    ctx.fillText(`CNPJ: ${empresa.cnpj || "00.000.000/0000-00"}`, 30, y + 60);
-    if (empresa.inscricao_estadual) ctx.fillText(`IE: ${empresa.inscricao_estadual}`, 200, y + 60);
-    if (empresa.telefone) ctx.fillText(`Tel: ${empresa.telefone}`, 30, y + 74);
-    if (empresa.email) ctx.fillText(`Email: ${empresa.email}`, 200, y + 74);
+    <!-- Destinatário Header -->
+    <tr>
+      <td colspan="7" class="section-title">DESTINATÁRIO / REMETENTE</td>
+    </tr>
 
-    // DANFE label (right)
-    ctx.strokeRect(W - 200, y, 180, 90);
-    ctx.font = "bold 14px Arial";
-    ctx.fillText("DANFE", W - 155, y + 25);
-    ctx.font = "7px Arial";
-    ctx.fillText("Documento Auxiliar da", W - 175, y + 40);
-    ctx.fillText("Nota Fiscal Eletrônica", W - 173, y + 50);
-    ctx.font = "bold 10px Arial";
-    ctx.fillText("0 - ENTRADA", W - 175, y + 68);
-    ctx.fillText("1 - SAÍDA", W - 175, y + 80);
+    <tr>
+      <td colspan="4">
+        <div class="label">NOME/RAZÃO SOCIAL</div>
+        <div class="value">${c.cliente_nome || "Cliente Exemplo"}</div>
+      </td>
+      <td colspan="2">
+        <div class="label">CNPJ/CPF</div>
+        <div class="value">${c.cliente_cpf || "000.000.000-00"}</div>
+      </td>
+      <td>
+        <div class="label">DATA DA EMISSÃO</div>
+        <div class="value">${dataEmissao}</div>
+      </td>
+    </tr>
 
-    y += 100;
+    <tr>
+      <td colspan="3">
+        <div class="label">ENDEREÇO</div>
+        <div class="value">${[c.cliente_endereco, c.cliente_numero].filter(Boolean).join(", ") || "Rua Exemplo, 123"}</div>
+      </td>
+      <td colspan="2">
+        <div class="label">BAIRRO/DISTRITO</div>
+        <div class="value">${c.cliente_bairro || "Centro"}</div>
+      </td>
+      <td>
+        <div class="label">CEP</div>
+        <div class="value">${c.cliente_cep || "00000-000"}</div>
+      </td>
+      <td>
+        <div class="label">DATA SAÍDA</div>
+        <div class="value">${dataEmissao}</div>
+      </td>
+    </tr>
 
-    // --- CHAVE DE ACESSO ---
-    ctx.strokeRect(20, y, W - 40, 28);
-    ctx.font = "7px Arial";
-    ctx.fillText("CHAVE DE ACESSO", 30, y + 10);
-    ctx.font = "9px Arial";
-    ctx.fillText("0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000", 30, y + 22);
-    y += 34;
+    <tr>
+      <td colspan="2">
+        <div class="label">MUNICÍPIO</div>
+        <div class="value">${c.cliente_cidade || "São Paulo"}</div>
+      </td>
+      <td>
+        <div class="label">FONE/FAX</div>
+        <div class="value">${c.cliente_telefone || ""}</div>
+      </td>
+      <td>
+        <div class="label">UF</div>
+        <div class="value">${c.cliente_estado || "SP"}</div>
+      </td>
+      <td>
+        <div class="label">INSCRIÇÃO ESTADUAL</div>
+        <div class="value"></div>
+      </td>
+      <td colspan="2">
+        <div class="label">HORA DA SAÍDA</div>
+        <div class="value">${horaEmissao}</div>
+      </td>
+    </tr>
 
-    // --- NATUREZA DA OPERAÇÃO ---
-    ctx.strokeRect(20, y, W - 40, 28);
-    ctx.font = "7px Arial";
-    ctx.fillText("NATUREZA DA OPERAÇÃO", 30, y + 10);
-    ctx.font = "9px Arial";
-    ctx.fillText("VENDA DE MERCADORIA", 30, y + 22);
-    y += 34;
+    <!-- Cálculo do Imposto -->
+    <tr>
+      <td colspan="7" class="section-title">CÁLCULO DO IMPOSTO</td>
+    </tr>
+    <tr>
+      <td><div class="label">BASE CÁLC. ICMS</div><div class="value">0,00</div></td>
+      <td><div class="label">VALOR DO ICMS</div><div class="value">0,00</div></td>
+      <td><div class="label">BASE CÁLC. ICMS ST</div><div class="value">0,00</div></td>
+      <td><div class="label">VALOR DO ICMS ST</div><div class="value">0,00</div></td>
+      <td colspan="3"><div class="label">VALOR TOTAL DOS PRODUTOS</div><div class="value">R$ ${formatCurrency(valorTotal)}</div></td>
+    </tr>
+    <tr>
+      <td><div class="label">VALOR DO FRETE</div><div class="value">0,00</div></td>
+      <td><div class="label">VALOR DO SEGURO</div><div class="value">0,00</div></td>
+      <td><div class="label">DESCONTO</div><div class="value">0,00</div></td>
+      <td><div class="label">OUTRAS DESPESAS</div><div class="value">0,00</div></td>
+      <td><div class="label">VALOR DO IPI</div><div class="value">0,00</div></td>
+      <td colspan="2"><div class="label">VALOR TOTAL DA NOTA</div><div class="value">R$ ${formatCurrency(valorTotal)}</div></td>
+    </tr>
 
-    // --- DESTINATÁRIO ---
-    ctx.strokeRect(20, y, W - 40, 18);
-    ctx.font = "bold 8px Arial";
-    ctx.fillText("DESTINATÁRIO / REMETENTE", 30, y + 13);
-    y += 18;
+    <!-- Transportador -->
+    <tr>
+      <td colspan="7" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
+    </tr>
+    <tr>
+      <td colspan="2"><div class="label">RAZÃO SOCIAL</div><div class="value"></div></td>
+      <td><div class="label">FRETE POR CONTA</div><div class="value">0 - REMETENTE</div></td>
+      <td><div class="label">CÓDIGO ANTT</div><div class="value"></div></td>
+      <td><div class="label">PLACA DO VEÍCULO</div><div class="value"></div></td>
+      <td><div class="label">UF</div><div class="value"></div></td>
+      <td><div class="label">CNPJ / CPF</div><div class="value"></div></td>
+    </tr>
+    <tr>
+      <td colspan="3"><div class="label">ENDEREÇO</div><div class="value"></div></td>
+      <td colspan="2"><div class="label">MUNICÍPIO</div><div class="value"></div></td>
+      <td><div class="label">UF</div><div class="value"></div></td>
+      <td><div class="label">INSCRIÇÃO ESTADUAL</div><div class="value"></div></td>
+    </tr>
 
-    // Dest row 1
-    ctx.strokeRect(20, y, 340, 28);
-    ctx.strokeRect(360, y, W - 400, 28);
-    ctx.font = "7px Arial";
-    ctx.fillText("NOME / RAZÃO SOCIAL", 30, y + 10);
-    ctx.fillText("CNPJ / CPF", 370, y + 10);
-    ctx.font = "9px Arial";
-    ctx.fillText("CLIENTE EXEMPLO LTDA", 30, y + 22);
-    ctx.fillText("000.000.000-00", 370, y + 22);
-    y += 28;
+    <!-- Produtos -->
+    <tr>
+      <td colspan="7" class="section-title">DADOS DOS PRODUTOS / SERVIÇOS</td>
+    </tr>
+    <tr style="font-size: 6pt; font-weight: bold; text-align: center;">
+      <td>CÓDIGO</td>
+      <td>DESCRIÇÃO DO PRODUTO</td>
+      <td>NCM/SH</td>
+      <td>CFOP</td>
+      <td>UNID.</td>
+      <td>VALOR UNIT.</td>
+      <td>VALOR TOTAL</td>
+    </tr>
+    <tr style="text-align: center;">
+      <td>1</td>
+      <td style="text-align: left;">${c.produto || "Produto"}</td>
+      <td>${c.ncm_sh || "00000000"}</td>
+      <td>${c.cfop || "5102"}</td>
+      <td>${c.unidade || "UN"}</td>
+      <td>R$ ${formatCurrency(valorUnit)}</td>
+      <td><strong>R$ ${formatCurrency(valorTotal)}</strong></td>
+    </tr>
 
-    // Dest row 2
-    ctx.strokeRect(20, y, 280, 28);
-    ctx.strokeRect(300, y, 130, 28);
-    ctx.strokeRect(430, y, W - 470, 28);
-    ctx.font = "7px Arial";
-    ctx.fillText("ENDEREÇO", 30, y + 10);
-    ctx.fillText("BAIRRO / DISTRITO", 310, y + 10);
-    ctx.fillText("CEP", 440, y + 10);
-    ctx.font = "9px Arial";
-    ctx.fillText("Rua Exemplo, 123", 30, y + 22);
-    ctx.fillText("Centro", 310, y + 22);
-    ctx.fillText("00000-000", 440, y + 22);
-    y += 28;
+    <!-- Dados Adicionais -->
+    <tr>
+      <td colspan="7" class="section-title">DADOS ADICIONAIS</td>
+    </tr>
+    <tr>
+      <td colspan="4" style="height: 60px;">
+        <div class="label" style="font-weight: bold;">INFORMAÇÕES COMPLEMENTARES</div>
+        <div style="font-size: 7pt; margin-top: 3px;">
+          Documento emitido por ME ou EPP optante pelo Simples Nacional.<br>
+          Não gera direito a crédito fiscal de IPI.
+        </div>
+      </td>
+      <td colspan="3">
+        <div class="label" style="font-weight: bold;">RESERVADO AO FISCO</div>
+      </td>
+    </tr>
 
-    // Dest row 3
-    ctx.strokeRect(20, y, 280, 28);
-    ctx.strokeRect(300, y, 60, 28);
-    ctx.strokeRect(360, y, 100, 28);
-    ctx.strokeRect(460, y, W - 500, 28);
-    ctx.font = "7px Arial";
-    ctx.fillText("MUNICÍPIO", 30, y + 10);
-    ctx.fillText("UF", 310, y + 10);
-    ctx.fillText("TELEFONE", 370, y + 10);
-    ctx.fillText("IE", 470, y + 10);
-    ctx.font = "9px Arial";
-    ctx.fillText("São Paulo", 30, y + 22);
-    ctx.fillText("SP", 310, y + 22);
-    ctx.fillText("(11) 9999-9999", 370, y + 22);
-    y += 34;
+    <!-- Footer -->
+    <tr>
+      <td colspan="7" class="right" style="font-size: 7pt; border: none;">
+        DATA E HORA DA IMPRESSÃO: ${dataEmissao} ${horaEmissao}
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
 
-    // --- CÁLCULO DO IMPOSTO ---
-    ctx.strokeRect(20, y, W - 40, 18);
-    ctx.font = "bold 8px Arial";
-    ctx.fillText("CÁLCULO DO IMPOSTO", 30, y + 13);
-    y += 18;
+export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-    const taxCols = ["BASE CÁLC. ICMS", "VALOR ICMS", "BASE CÁLC. ICMS ST", "VALOR ICMS ST", "VALOR TOTAL PRODUTOS", "VALOR TOTAL DA NOTA"];
-    const colW = (W - 40) / taxCols.length;
-    taxCols.forEach((label, i) => {
-      ctx.strokeRect(20 + i * colW, y, colW, 28);
-      ctx.font = "6px Arial";
-      ctx.fillText(label, 25 + i * colW, y + 10);
-      ctx.font = "9px Arial";
-      ctx.fillText("0,00", 25 + i * colW, y + 22);
-    });
-    y += 34;
+  const defaultEnvio: EnvioData = {
+    cliente_nome: "Cliente Exemplo",
+    cliente_cpf: "000.000.000-00",
+    cliente_endereco: "Rua Exemplo",
+    cliente_numero: "123",
+    cliente_bairro: "Centro",
+    cliente_cidade: "São Paulo",
+    cliente_estado: "SP",
+    cliente_cep: "00000-000",
+    produto: "Produto Exemplo",
+    quantidade: 1,
+    valor: 0,
+    cfop: "5102",
+    ncm_sh: "00000000",
+    unidade: "UN",
+  };
 
-    // --- TRANSPORTADOR ---
-    ctx.strokeRect(20, y, W - 40, 18);
-    ctx.font = "bold 8px Arial";
-    ctx.fillText("TRANSPORTADOR / VOLUMES TRANSPORTADOS", 30, y + 13);
-    y += 18;
+  const envioData = envio || defaultEnvio;
+  const htmlContent = buildDanfeHtml(empresa, envioData);
 
-    ctx.strokeRect(20, y, W - 40, 28);
-    ctx.font = "7px Arial";
-    ctx.fillText("RAZÃO SOCIAL", 30, y + 10);
-    ctx.font = "9px Arial";
-    ctx.fillText("TRANSPORTADORA EXEMPLO", 30, y + 22);
-    y += 34;
+  const handleDownload = async () => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
 
-    // --- DADOS DOS PRODUTOS ---
-    ctx.strokeRect(20, y, W - 40, 18);
-    ctx.font = "bold 8px Arial";
-    ctx.fillText("DADOS DOS PRODUTOS / SERVIÇOS", 30, y + 13);
-    y += 18;
-
-    // Product header
-    const prodHeaders = ["CÓD.", "DESCRIÇÃO", "NCM/SH", "CST", "CFOP", "UN", "QTD", "V.UNIT", "V.TOTAL"];
-    const prodWidths = [40, 150, 60, 35, 40, 30, 40, 60, 60];
-    let px = 20;
-    prodHeaders.forEach((h, i) => {
-      ctx.strokeRect(px, y, prodWidths[i], 20);
-      ctx.font = "6px Arial";
-      ctx.fillText(h, px + 3, y + 13);
-      px += prodWidths[i];
-    });
-    y += 20;
-
-    // Product row (example)
-    const prodData = ["001", "PRODUTO EXEMPLO", "0000.00.00", "000", "5102", "UN", "1", "100,00", "100,00"];
-    px = 20;
-    prodData.forEach((d, i) => {
-      ctx.strokeRect(px, y, prodWidths[i], 20);
-      ctx.font = "8px Arial";
-      ctx.fillText(d, px + 3, y + 13);
-      px += prodWidths[i];
-    });
-    y += 26;
-
-    // --- DADOS ADICIONAIS ---
-    ctx.strokeRect(20, y, W - 40, 18);
-    ctx.font = "bold 8px Arial";
-    ctx.fillText("DADOS ADICIONAIS", 30, y + 13);
-    y += 18;
-
-    ctx.strokeRect(20, y, W - 40, 50);
-    ctx.font = "8px Arial";
-    ctx.fillText("Documento emitido por sistema automatizado.", 30, y + 15);
-    y += 56;
-
-    // --- RODAPÉ ---
-    ctx.font = "7px Arial";
-    ctx.fillStyle = "#666";
-    const now = new Date();
-    ctx.fillText(`Data e hora da impressão: ${now.toLocaleString("pt-BR")}`, 20, y + 10);
-  }, [open, empresa, enderecoCompleto]);
-
-  const handleDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
+    const body = iframe.contentWindow.document.body;
     const pdf = new jsPDF("p", "pt", "a4");
-    const imgData = canvas.toDataURL("image/png");
-    pdf.addImage(imgData, "PNG", 0, 0, 595, 842);
-    pdf.save(`DANFE_${empresa.razao_social || "empresa"}.pdf`);
+
+    // Use html method from jsPDF
+    await pdf.html(body, {
+      callback: (doc) => {
+        doc.save(`DANFE_${empresa.razao_social || "empresa"}.pdf`);
+      },
+      x: 10,
+      y: 10,
+      width: 555,
+      windowWidth: 620,
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[660px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Pré-visualização da DANFE</DialogTitle>
+          <DialogTitle>Pré-visualização do NFE</DialogTitle>
         </DialogHeader>
-        <div className="flex justify-center">
-          <canvas
-            ref={canvasRef}
-            className="border border-border shadow-sm"
-            style={{ width: 595, height: 842, maxWidth: "100%" }}
-          />
-        </div>
+        <iframe
+          ref={iframeRef}
+          srcDoc={htmlContent}
+          title="DANFE Preview"
+          style={{ width: "100%", height: 900, border: "none", background: "#fff" }}
+        />
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fechar
