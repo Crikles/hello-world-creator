@@ -1,18 +1,29 @@
 
 
-## Aumentar a Altura e Legibilidade do Preview da DANFE
+## Aumentar Preview e Corrigir PDF Bugado
 
-### Problema
-O preview da DANFE na coluna direita esta muito comprimido - o `scale(0.58)` e a altura de `580px` do container fazem o texto ficar ilegivel.
+### Problema 1: Preview pequeno
+O preview da DANFE precisa ocupar mais espaco para melhor leitura.
+
+### Problema 2: PDF bugado
+O `jsPDF.html()` nao consegue renderizar corretamente o HTML complexo da DANFE (tabelas com bordas, estilos inline). O resultado sai com texto sobreposto e layout quebrado, como mostrado no print.
 
 ### Solucao
 
-Modificar `src/pages/Empresa.tsx` (linhas 346-354) com os seguintes ajustes:
+**Arquivo: `src/pages/Empresa.tsx`**
 
-- **Aumentar a escala** de `0.58` para `0.72` - o texto ficara ~24% maior e mais legivel
-- **Aumentar a altura do container** de `580px` para `820px` - mostrando mais conteudo da nota sem necessidade de scroll
-- **Ajustar o width/height percentual** do wrapper interno de `172.4%` para `138.9%` (100/0.72) para compensar a nova escala
-- **Aumentar a altura do iframe** de `1000px` para `1200px` para garantir que toda a DANFE caiba
+1. **Aumentar o preview**: Mudar scale de `0.72` para `0.85`, altura do container de `820px` para `1020px`, e ajustar width/height do wrapper para `117.6%` (100/0.85). Iframe height para `1300px`.
 
-### Arquivo modificado
-- `src/pages/Empresa.tsx` - Apenas os valores de escala e dimensoes na secao do preview (linhas 346-354)
+2. **Corrigir download do PDF**: Substituir `jsPDF.html()` por uma abordagem usando `window.print()` no iframe. Isso usa o motor de renderizacao nativo do navegador que respeita perfeitamente o CSS/tabelas, gerando um PDF fiel ao preview. A tecnica consiste em:
+   - Chamar `iframe.contentWindow.print()` que abre o dialogo nativo de impressao/salvar como PDF
+   - Isso garante que o layout fique identico ao que o usuario ve no preview
+
+**Arquivo: `src/components/danfe/DanfePreview.tsx`**
+
+3. **Mesma correcao de PDF** no modal de tela cheia: substituir `jsPDF.html()` por `iframe.contentWindow.print()`.
+
+4. **Adicionar CSS de impressao** ao HTML gerado pelo `buildDanfeHtml`: incluir `@media print` com margens adequadas e `@page { size: A4; margin: 10mm; }` para garantir que o PDF gerado via print fique bem formatado em A4.
+
+### Resultado
+- Preview visivelmente maior e mais legivel
+- PDF gerado sera identico ao que aparece na tela, sem bugs de layout
