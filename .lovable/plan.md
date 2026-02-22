@@ -1,29 +1,30 @@
 
 
-## Aumentar Preview e Corrigir PDF Bugado
+## Preencher Chave de Acesso NF-e e Dados do Transportador
 
-### Problema 1: Preview pequeno
-O preview da DANFE precisa ocupar mais espaco para melhor leitura.
+### 1. Chave de Acesso NF-e (numero fixo realista)
 
-### Problema 2: PDF bugado
-O `jsPDF.html()` nao consegue renderizar corretamente o HTML complexo da DANFE (tabelas com bordas, estilos inline). O resultado sai com texto sobreposto e layout quebrado, como mostrado no print.
+Substituir o placeholder `0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000` por um numero fixo com formato realista de chave de acesso NF-e (44 digitos), por exemplo:
 
-### Solucao
+`3525 0612 3456 7800 0190 5500 1000 0000 0110 0000 0001 `
 
-**Arquivo: `src/pages/Empresa.tsx`**
+Isso sera aplicado na linha 139 do arquivo `src/components/danfe/DanfePreview.tsx`.
 
-1. **Aumentar o preview**: Mudar scale de `0.72` para `0.85`, altura do container de `820px` para `1020px`, e ajustar width/height do wrapper para `117.6%` (100/0.85). Iframe height para `1300px`.
+### 2. Dados do Transportador
 
-2. **Corrigir download do PDF**: Substituir `jsPDF.html()` por uma abordagem usando `window.print()` no iframe. Isso usa o motor de renderizacao nativo do navegador que respeita perfeitamente o CSS/tabelas, gerando um PDF fiel ao preview. A tecnica consiste em:
-   - Chamar `iframe.contentWindow.print()` que abre o dialogo nativo de impressao/salvar como PDF
-   - Isso garante que o layout fique identico ao que o usuario ve no preview
+Preencher a secao "TRANSPORTADOR / VOLUMES TRANSPORTADOS" (linhas 261-273) com os dados fixos fornecidos:
 
-**Arquivo: `src/components/danfe/DanfePreview.tsx`**
+| Campo | Valor |
+|---|---|
+| Razao Social | Trans Prada Zibe Transportes e Logistica LTDA |
+| Frete por Conta | 0 - REMETENTE (ja preenchido) |
+| Placa do Veiculo | FOD9C97 |
+| UF (veiculo) | SP |
+| CNPJ / CPF | 45.706.927/0001-80 |
+| Endereco | Rua Aristeu, 248 |
+| Municipio | Sao Paulo |
+| UF | SP |
+| Inscricao Estadual | 134.607.799.115 |
 
-3. **Mesma correcao de PDF** no modal de tela cheia: substituir `jsPDF.html()` por `iframe.contentWindow.print()`.
-
-4. **Adicionar CSS de impressao** ao HTML gerado pelo `buildDanfeHtml`: incluir `@media print` com margens adequadas e `@page { size: A4; margin: 10mm; }` para garantir que o PDF gerado via print fique bem formatado em A4.
-
-### Resultado
-- Preview visivelmente maior e mais legivel
-- PDF gerado sera identico ao que aparece na tela, sem bugs de layout
+### Arquivo modificado
+- `src/components/danfe/DanfePreview.tsx` - linhas 139 (chave de acesso) e 261-273 (transportador)
