@@ -70,8 +70,9 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; word-wrap: break-word; }
+    table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+    td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; }
+    .truncate-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .label { font-size: 6pt; color: #333; font-weight: normal; }
     .value { font-size: 9pt; font-weight: bold; }
     .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
@@ -89,6 +90,15 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
 </head>
 <body>
   <table style="border: 2px solid #000;">
+    <colgroup>
+      <col style="width:14%">
+      <col style="width:14%">
+      <col style="width:14%">
+      <col style="width:14%">
+      <col style="width:14%">
+      <col style="width:15%">
+      <col style="width:15%">
+    </colgroup>
     <!-- Recebemos -->
     <tr>
       <td colspan="6" style="font-size: 7pt; padding: 5px;">
@@ -261,7 +271,7 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
       <td colspan="7" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
     </tr>
     <tr>
-      <td colspan="2"><div class="label">RAZÃO SOCIAL</div><div class="value">Trans Prada Zibe Transportes e Logistica LTDA</div></td>
+      <td colspan="2"><div class="label">RAZÃO SOCIAL</div><div class="value truncate-cell">Trans Prada Zibe Transportes e Logistica LTDA</div></td>
       <td><div class="label">FRETE POR CONTA</div><div class="value">0 - REMETENTE</div></td>
       <td><div class="label">CÓDIGO ANTT</div><div class="value"></div></td>
       <td><div class="label">PLACA DO VEÍCULO</div><div class="value">FOD9C97</div></td>
