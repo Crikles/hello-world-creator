@@ -70,8 +70,8 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; }
+    table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+    td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; overflow: hidden; word-wrap: break-word; }
     .label { font-size: 6pt; color: #333; font-weight: normal; }
     .value { font-size: 9pt; font-weight: bold; }
     .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
@@ -353,9 +353,14 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
     const body = iframe.contentWindow.document.body;
+    // Force black color before capture
+    const empresaSpans = iframe.contentWindow.document.querySelectorAll('.empresa-value');
+    empresaSpans.forEach((el: any) => { el.style.color = '#000'; });
     const { default: html2canvas } = await import("html2canvas");
     const { default: jsPDF } = await import("jspdf");
     const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff" });
+    // Restore blue after capture
+    empresaSpans.forEach((el: any) => { el.style.color = ''; });
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF("p", "mm", "a4");
     const pdfW = pdf.internal.pageSize.getWidth();
