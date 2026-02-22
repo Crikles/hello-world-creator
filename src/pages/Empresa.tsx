@@ -233,9 +233,9 @@ export default function Empresa() {
 
   return (
     <AppLayout title="Dados da Empresa">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* LEFT COLUMN - Form */}
-        <div className="lg:col-span-7 space-y-5">
+        <div className="lg:col-span-7 space-y-3">
           {/* Header */}
           <div className="rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 border border-primary/20">
             <div className="flex items-center justify-between">
@@ -409,9 +409,9 @@ export default function Empresa() {
                 </div>
                 <CardDescription className="text-xs">Atualiza conforme você preenche o formulário</CardDescription>
               </CardHeader>
-              <CardContent className="p-3">
-                <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 1020 }}>
-                  <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117.6%", height: "117.6%" }}>
+              <CardContent className="p-2">
+                <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 720 }}>
+                  <div style={{ transform: "scale(0.62)", transformOrigin: "top left", width: "161.3%", height: "161.3%" }}>
                     <iframe
                       ref={previewIframeRef}
                       title="DANFE Preview"
