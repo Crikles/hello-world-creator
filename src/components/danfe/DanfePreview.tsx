@@ -79,9 +79,11 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
     .right { text-align: right; }
     .barcode { background: #000; height: 50px; margin: 5px 0; }
     .danfe-title { font-size: 16pt; font-weight: bold; }
+    .empresa-value { color: #2563eb; }
     @media print {
       @page { size: A4; margin: 10mm; }
       body { padding: 0; }
+      .empresa-value { color: #000 !important; }
     }
   </style>
 </head>
@@ -117,14 +119,14 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
     <tr>
       <td colspan="2" style="width: 35%;">
         <div style="text-align: center; font-size: 11pt; font-weight: bold; margin-bottom: 5px;">
-          ${e.razao_social || "RAZÃO SOCIAL"}
+          <span class="empresa-value">${e.razao_social || "RAZÃO SOCIAL"}</span>
         </div>
         <div style="text-align: center; font-size: 7pt; line-height: 1.4;">
-          ${endEmpresa}<br>
-          ${endEmpresa2}<br>
-          ${endEmpresa3}<br>
-          Fone: ${e.telefone || "-"}<br>
-          ${e.email || ""}
+          <span class="empresa-value">${endEmpresa}</span><br>
+          <span class="empresa-value">${endEmpresa2}</span><br>
+          <span class="empresa-value">${endEmpresa3}</span><br>
+          Fone: <span class="empresa-value">${e.telefone || "-"}</span><br>
+          <span class="empresa-value">${e.email || ""}</span>
         </div>
       </td>
       <td colspan="2" style="width: 25%; text-align: center;">
@@ -160,7 +162,7 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
     <tr>
       <td colspan="2">
         <div class="label">INSCRIÇÃO ESTADUAL</div>
-        <div class="value">${e.inscricao_estadual || ""}</div>
+        <div class="value"><span class="empresa-value">${e.inscricao_estadual || ""}</span></div>
       </td>
       <td colspan="2">
         <div class="label">INSC.ESTADUAL DO SUBST.TRIBUTÁRIA</div>
@@ -168,7 +170,7 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
       </td>
       <td colspan="3">
         <div class="label">CNPJ</div>
-        <div class="value">${e.cnpj || ""}</div>
+        <div class="value"><span class="empresa-value">${e.cnpj || ""}</span></div>
       </td>
     </tr>
 
