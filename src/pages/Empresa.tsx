@@ -135,10 +135,19 @@ export default function Empresa() {
     setLogoFile(null);
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     const iframe = previewIframeRef.current;
     if (!iframe?.contentWindow) return;
-    iframe.contentWindow.print();
+    const body = iframe.contentWindow.document.body;
+    const { default: html2canvas } = await import("html2canvas");
+    const { default: jsPDF } = await import("jspdf");
+    const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff" });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdfH = (canvas.height * pdfW) / canvas.width;
+    pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
+    pdf.save(`DANFE_${form.razao_social || "empresa"}.pdf`);
   };
 
   const danfeHtml = buildDanfeHtml(form, {
