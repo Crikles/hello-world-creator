@@ -10,7 +10,7 @@ import { Save, Building2, MapPin, ImagePlus, Trash2, RotateCcw, Upload, Download
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { DanfePreview, buildDanfeHtml } from "@/components/danfe/DanfePreview";
+import { DanfePreview, buildDanfeHtml, getDanfeCssAndBody } from "@/components/danfe/DanfePreview";
 
 const UF_OPTIONS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA",
@@ -137,29 +137,39 @@ export default function Empresa() {
   };
 
   const handleDownloadPdf = async () => {
-    const tempIframe = document.createElement('iframe');
-    tempIframe.style.cssText = 'position:absolute;left:-9999px;top:0;width:700px;height:2000px;border:none;';
-    document.body.appendChild(tempIframe);
-
-    const doc = tempIframe.contentWindow!.document;
-    doc.open();
-    doc.write(danfeHtml);
-    doc.close();
-
-    await new Promise(r => setTimeout(r, 500));
-
-    const spans = doc.querySelectorAll('.empresa-value');
-    spans.forEach((el: any) => { el.style.color = '#000'; });
-
-    const body = doc.body;
-    const { default: html2canvas } = await import("html2canvas");
-    const { default: jsPDF } = await import("jspdf");
-    const canvas = await html2canvas(body, {
-      scale: 2, useCORS: true, backgroundColor: '#fff',
-      scrollY: 0, scrollX: 0,
-      windowWidth: 700, windowHeight: body.scrollHeight
+    const { css, body } = getDanfeCssAndBody(form, {
+      cliente_nome: "Cliente Exemplo",
+      cliente_cpf: "000.000.000-00",
+      cliente_endereco: "Rua Exemplo",
+      cliente_numero: "123",
+      cliente_bairro: "Centro",
+      cliente_cidade: "São Paulo",
+      cliente_estado: "SP",
+      cliente_cep: "00000-000",
+      produto: "Produto Exemplo",
+      quantidade: 1,
+      valor: 0,
+      cfop: "5102",
+      ncm_sh: "00000000",
+      unidade: "UN",
     });
 
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:700px;';
+    container.innerHTML = `<style>${css}</style>${body}`;
+    document.body.appendChild(container);
+
+    container.querySelectorAll('.empresa-value').forEach((el: any) => {
+      el.style.color = '#000';
+    });
+
+    const { default: html2canvas } = await import("html2canvas");
+    const canvas = await html2canvas(container, {
+      scale: 2, useCORS: true, backgroundColor: '#fff',
+      width: 700, windowWidth: 700
+    });
+
+    const { default: jsPDF } = await import("jspdf");
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pdfW = pdf.internal.pageSize.getWidth();
     const pdfH = pdf.internal.pageSize.getHeight();
@@ -169,7 +179,7 @@ export default function Empresa() {
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
     pdf.save(`DANFE_${form.razao_social || 'empresa'}.pdf`);
 
-    document.body.removeChild(tempIframe);
+    document.body.removeChild(container);
   };
 
   const danfeHtml = buildDanfeHtml(form, {

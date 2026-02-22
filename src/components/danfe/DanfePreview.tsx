@@ -50,7 +50,7 @@ function formatCurrency(val: number) {
   return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
+export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { css: string; body: string } {
   const e = empresa;
   const c = envio;
   const now = new Date();
@@ -63,32 +63,23 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
   const qtd = c.quantidade || 1;
   const valorTotal = valorUnit * qtd;
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
+  const css = `
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; width: 700px; }
-    table { border-collapse: collapse; width: 680px; }
-    td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; }
-    .truncate-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .label { font-size: 6pt; color: #333; font-weight: normal; }
-    .value { font-size: 9pt; font-weight: bold; }
-    .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
-    .center { text-align: center; }
-    .right { text-align: right; }
-    .barcode { background: #000; height: 50px; margin: 5px 0; }
-    .danfe-title { font-size: 16pt; font-weight: bold; }
-    .empresa-value { color: #2563eb; }
-    @media print {
-      @page { size: A4; margin: 10mm; }
-      body { padding: 0; }
-      .empresa-value { color: #000 !important; }
-    }
-  </style>
-</head>
-<body>
+    .danfe-root { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; width: 700px; }
+    .danfe-root table { border-collapse: collapse; width: 680px; }
+    .danfe-root td, .danfe-root th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; }
+    .danfe-root .truncate-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .danfe-root .label { font-size: 6pt; color: #333; font-weight: normal; }
+    .danfe-root .value { font-size: 9pt; font-weight: bold; }
+    .danfe-root .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
+    .danfe-root .center { text-align: center; }
+    .danfe-root .right { text-align: right; }
+    .danfe-root .barcode { background: #000; height: 50px; margin: 5px 0; }
+    .danfe-root .danfe-title { font-size: 16pt; font-weight: bold; }
+    .danfe-root .empresa-value { color: #2563eb; }
+  `;
+
+  const body = `<div class="danfe-root">
   <table style="border: 2px solid #000;">
     <!-- Recebemos -->
     <tr>
@@ -323,7 +314,26 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
       </td>
     </tr>
   </table>
-</body>
+</div>`;
+
+  return { css, body };
+}
+
+export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
+  const { css, body } = getDanfeCssAndBody(empresa, envio);
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>${css}
+    body { margin: 0; padding: 0; }
+    @media print {
+      @page { size: A4; margin: 10mm; }
+      .danfe-root .empresa-value { color: #000 !important; }
+    }
+  </style>
+</head>
+<body>${body}</body>
 </html>`;
 }
 
@@ -351,29 +361,23 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
   const htmlContent = buildDanfeHtml(empresa, envioData);
 
   const handleDownload = async () => {
-    const tempIframe = document.createElement('iframe');
-    tempIframe.style.cssText = 'position:absolute;left:-9999px;top:0;width:700px;height:2000px;border:none;';
-    document.body.appendChild(tempIframe);
+    const { css, body } = getDanfeCssAndBody(empresa, envioData);
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:700px;';
+    container.innerHTML = `<style>${css}</style>${body}`;
+    document.body.appendChild(container);
 
-    const doc = tempIframe.contentWindow!.document;
-    doc.open();
-    doc.write(htmlContent);
-    doc.close();
-
-    await new Promise(r => setTimeout(r, 500));
-
-    const spans = doc.querySelectorAll('.empresa-value');
-    spans.forEach((el: any) => { el.style.color = '#000'; });
-
-    const body = doc.body;
-    const { default: html2canvas } = await import("html2canvas");
-    const { default: jsPDF } = await import("jspdf");
-    const canvas = await html2canvas(body, {
-      scale: 2, useCORS: true, backgroundColor: '#fff',
-      scrollY: 0, scrollX: 0,
-      windowWidth: 700, windowHeight: body.scrollHeight
+    container.querySelectorAll('.empresa-value').forEach((el: any) => {
+      el.style.color = '#000';
     });
 
+    const { default: html2canvas } = await import("html2canvas");
+    const canvas = await html2canvas(container, {
+      scale: 2, useCORS: true, backgroundColor: '#fff',
+      width: 700, windowWidth: 700
+    });
+
+    const { default: jsPDF } = await import("jspdf");
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pdfW = pdf.internal.pageSize.getWidth();
     const pdfH = pdf.internal.pageSize.getHeight();
@@ -383,7 +387,7 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
     pdf.save(`DANFE_${empresa.razao_social || 'empresa'}.pdf`);
 
-    document.body.removeChild(tempIframe);
+    document.body.removeChild(container);
   };
 
   return (
