@@ -351,30 +351,39 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
   const htmlContent = buildDanfeHtml(empresa, envioData);
 
   const handleDownload = async () => {
-    const iframe = iframeRef.current;
-    if (!iframe?.contentWindow) return;
-    const body = iframe.contentWindow.document.body;
-    // Force black color before capture
-    const empresaSpans = iframe.contentWindow.document.querySelectorAll('.empresa-value');
-    empresaSpans.forEach((el: any) => { el.style.color = '#000'; });
+    const tempIframe = document.createElement('iframe');
+    tempIframe.style.cssText = 'position:absolute;left:-9999px;top:0;width:700px;height:2000px;border:none;';
+    document.body.appendChild(tempIframe);
+
+    const doc = tempIframe.contentWindow!.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    await new Promise(r => setTimeout(r, 500));
+
+    const spans = doc.querySelectorAll('.empresa-value');
+    spans.forEach((el: any) => { el.style.color = '#000'; });
+
+    const body = doc.body;
     const { default: html2canvas } = await import("html2canvas");
     const { default: jsPDF } = await import("jspdf");
-    const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0, scrollX: 0, windowWidth: body.scrollWidth, windowHeight: body.scrollHeight });
-    empresaSpans.forEach((el: any) => { el.style.color = ''; });
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
+    const canvas = await html2canvas(body, {
+      scale: 2, useCORS: true, backgroundColor: '#fff',
+      scrollY: 0, scrollX: 0,
+      windowWidth: 700, windowHeight: body.scrollHeight
+    });
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
     const pdfW = pdf.internal.pageSize.getWidth();
     const pdfH = pdf.internal.pageSize.getHeight();
-    const imgRatio = canvas.width / canvas.height;
-    const pageRatio = pdfW / pdfH;
-    let finalW = pdfW;
-    let finalH = pdfW / imgRatio;
-    if (finalH > pdfH) {
-      finalH = pdfH;
-      finalW = pdfH * imgRatio;
-    }
-    pdf.addImage(imgData, "PNG", 0, 0, finalW, finalH);
-    pdf.save(`DANFE_${empresa.razao_social || "empresa"}.pdf`);
+    const ratio = canvas.width / canvas.height;
+    let w = pdfW, h = pdfW / ratio;
+    if (h > pdfH) { h = pdfH; w = pdfH * ratio; }
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
+    pdf.save(`DANFE_${empresa.razao_social || 'empresa'}.pdf`);
+
+    document.body.removeChild(tempIframe);
   };
 
   return (
