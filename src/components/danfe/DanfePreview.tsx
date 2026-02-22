@@ -70,8 +70,8 @@ export function buildDanfeHtml(empresa: EmpresaData, envio: EnvioData): string {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; }
-    table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-    td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; overflow: hidden; word-wrap: break-word; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #000; padding: 3px 5px; vertical-align: top; word-wrap: break-word; }
     .label { font-size: 6pt; color: #333; font-weight: normal; }
     .value { font-size: 9pt; font-weight: bold; }
     .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
@@ -358,14 +358,21 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
     empresaSpans.forEach((el: any) => { el.style.color = '#000'; });
     const { default: html2canvas } = await import("html2canvas");
     const { default: jsPDF } = await import("jspdf");
-    const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff" });
-    // Restore blue after capture
+    const canvas = await html2canvas(body, { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0, scrollX: 0, windowWidth: body.scrollWidth, windowHeight: body.scrollHeight });
     empresaSpans.forEach((el: any) => { el.style.color = ''; });
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF("p", "mm", "a4");
     const pdfW = pdf.internal.pageSize.getWidth();
-    const pdfH = (canvas.height * pdfW) / canvas.width;
-    pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
+    const pdfH = pdf.internal.pageSize.getHeight();
+    const imgRatio = canvas.width / canvas.height;
+    const pageRatio = pdfW / pdfH;
+    let finalW = pdfW;
+    let finalH = pdfW / imgRatio;
+    if (finalH > pdfH) {
+      finalH = pdfH;
+      finalW = pdfH * imgRatio;
+    }
+    pdf.addImage(imgData, "PNG", 0, 0, finalW, finalH);
     pdf.save(`DANFE_${empresa.razao_social || "empresa"}.pdf`);
   };
 
