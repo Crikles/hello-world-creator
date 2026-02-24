@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
@@ -82,6 +82,24 @@ const badgeColor: Record<string, string> = {
   "Pago": "bg-emerald-100 text-emerald-800",
   "Em Rota": "bg-amber-100 text-amber-800",
 };
+
+function DelayInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [local, setLocal] = useState(String(Math.round(value / 24)));
+  useEffect(() => { setLocal(String(Math.round(value / 24))); }, [value]);
+  return (
+    <Input
+      type="number"
+      min={0}
+      className="w-16 h-8 text-xs text-center"
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => {
+        const dias = parseInt(local) || 0;
+        onChange(dias * 24);
+      }}
+    />
+  );
+}
 
 export default function Postagens() {
   const { loja } = useLoja();
@@ -425,15 +443,9 @@ export default function Postagens() {
                       </div>
                       {!isFirst && (
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <Input
-                            type="number"
-                            min={0}
-                            className="w-16 h-8 text-xs text-center"
-                            value={Math.round(evento.delay_horas / 24)}
-                            onChange={(e) => {
-                              const dias = parseInt(e.target.value) || 0;
-                              updateDelay.mutate({ id: evento.id, delay_horas: dias * 24 });
-                            }}
+                          <DelayInput
+                            value={evento.delay_horas}
+                            onChange={(delay_horas) => updateDelay.mutate({ id: evento.id, delay_horas })}
                           />
                           <span className="text-xs text-muted-foreground whitespace-nowrap">dias após anterior</span>
                         </div>
