@@ -340,6 +340,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       webhook_logs: {
         Row: {
           checkout_provider: string
@@ -386,12 +404,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       user_owns_loja: {
         Args: { _loja_id: string; _user_id: string }
         Returns: boolean
       }
     }
     Enums: {
+      app_role: "admin" | "user"
       shipment_status:
         | "pendente"
         | "em_transito"
@@ -524,6 +550,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "user"],
       shipment_status: [
         "pendente",
         "em_transito",
