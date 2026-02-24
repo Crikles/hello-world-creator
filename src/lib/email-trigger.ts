@@ -28,12 +28,15 @@ export async function triggerShipmentEmail(envioId: string, status: string, loja
         }
 
         // 3. Find relevant events
-        // Mapping internal status to event status labels
         const statusLabelsMap: Record<string, string[]> = {
             pendente: ["Postado", "Pedido Confirmado", "Nota Fiscal Emitida"],
-            em_transito: ["Coletado", "Em Trânsito", "Em Rota", "Centro Local"],
+            coletado: ["Coletado"],
+            em_transito: ["Em Trânsito", "Em Rota", "Centro Local"],
             saiu_para_entrega: ["Saiu para Entrega"],
             entregue: ["Entregue"],
+            centro_local: ["Centro Local"],
+            taxacao: ["Taxação"],
+            pagamento_confirmado: ["Pago"],
         };
 
         const targetLabels = statusLabelsMap[status] || [status];
@@ -50,60 +53,60 @@ export async function triggerShipmentEmail(envioId: string, status: string, loja
             return;
         }
 
-        // For now, let's trigger the first matching event
-        const event = events[0];
-
-        // 4. Check if event is active based on shop flags
-        let isAtivo = false;
-        if (event.enviar_nfe_pdf) {
-            isAtivo = config.enviar_nfe_email;
-        } else if (event.status_label === "Taxação" || event.status_label === "Pago") {
-            isAtivo = config.ativar_taxacao;
-        } else {
-            isAtivo = config.enviar_emails;
-        }
-
-        if (!isAtivo || !event.enviar_email) {
-            console.log("Trigger skip: event/config disabled", event.nome);
-            return;
-        }
-
-        // 5. Build payload
-        let nfe_pdf_base64 = "";
-        let nfe_filename = "";
-
-        if (event.enviar_nfe_pdf && shipment.empresas) {
-            try {
-                nfe_pdf_base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
-                nfe_filename = generateNfeFilename();
-            } catch (pdfErr) {
-                console.error("PDF generation failed:", pdfErr);
+        // 4. Loop through ALL matching events
+        for (const event of events) {
+            // Check if event is active based on shop flags
+            let isAtivo = false;
+            if (event.enviar_nfe_pdf) {
+                isAtivo = config.enviar_nfe_email;
+            } else if (event.status_label === "Taxação" || event.status_label === "Pago") {
+                isAtivo = config.ativar_taxacao;
+            } else {
+                isAtivo = config.enviar_emails;
             }
-        }
 
-        // 6. Invoke edge function
-        console.log("Invoking send-email edge function:", {
-            envio_id: shipment.id,
-            evento_id: event.id,
-            loja_id: lojaId,
-            has_nfe_pdf: !!nfe_pdf_base64,
-        });
+            if (!isAtivo || !event.enviar_email) {
+                console.log("Trigger skip: event/config disabled", event.nome);
+                continue;
+            }
 
-        const { data: funcData, error: funcErr } = await supabase.functions.invoke("send-email", {
-            body: {
+            // Build payload
+            let nfe_pdf_base64 = "";
+            let nfe_filename = "";
+
+            if (event.enviar_nfe_pdf && shipment.empresas) {
+                try {
+                    nfe_pdf_base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
+                    nfe_filename = generateNfeFilename();
+                } catch (pdfErr) {
+                    console.error("PDF generation failed:", pdfErr);
+                }
+            }
+
+            // Invoke edge function for this event
+            console.log("Invoking send-email for event:", {
                 envio_id: shipment.id,
                 evento_id: event.id,
+                evento_nome: event.nome,
                 loja_id: lojaId,
-                nfe_pdf_base64,
-                nfe_filename,
-            },
-        });
+                has_nfe_pdf: !!nfe_pdf_base64,
+            });
 
-        if (funcErr) {
-            console.error("Edge function invocation failed:", funcErr);
-            console.error("Error details:", JSON.stringify(funcErr));
-        } else {
-            console.log("Email trigger success:", funcData);
+            const { data: funcData, error: funcErr } = await supabase.functions.invoke("send-email", {
+                body: {
+                    envio_id: shipment.id,
+                    evento_id: event.id,
+                    loja_id: lojaId,
+                    nfe_pdf_base64,
+                    nfe_filename,
+                },
+            });
+
+            if (funcErr) {
+                console.error("Edge function failed for event:", event.nome, funcErr);
+            } else {
+                console.log("Email sent for event:", event.nome, funcData);
+            }
         }
 
     } catch (err) {

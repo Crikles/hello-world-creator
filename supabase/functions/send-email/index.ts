@@ -14,17 +14,35 @@ interface SendEmailRequest {
   nfe_filename?: string;
 }
 
+const DEFAULT_TRANSPORTADORA = "JL Transportadora e Logística LTDA";
+
+const emojiMap: Record<string, string> = {
+  "Postado": "📄",
+  "Nota Fiscal Emitida": "📄",
+  "Pedido Confirmado": "📄",
+  "Coletado": "📦",
+  "Em Trânsito": "🚛",
+  "Em Rota": "🏍️",
+  "Centro Local": "📍",
+  "Saiu para Entrega": "🚚",
+  "Entregue": "✅",
+  "Taxação": "⚠️",
+  "Pago": "💳",
+};
+
 function replaceVariables(
   text: string,
   envio: Record<string, unknown>,
   extras: Record<string, string> = {}
 ): string {
+  const transportadora = (envio.transportadora as string) || DEFAULT_TRANSPORTADORA;
+  
   let result = text
     .replace(/\{\{cliente_nome\}\}/g, (envio.cliente_nome as string) || "")
     .replace(/\{\{cliente_email\}\}/g, (envio.cliente_email as string) || "")
     .replace(/\{\{produto\}\}/g, (envio.produto as string) || "")
     .replace(/\{\{codigo_rastreio\}\}/g, (envio.codigo_rastreio as string) || "")
-    .replace(/\{\{transportadora\}\}/g, (envio.transportadora as string) || "")
+    .replace(/\{\{transportadora\}\}/g, transportadora)
     .replace(/\{\{valor\}\}/g, String(envio.valor || "0"))
     .replace(/\{\{quantidade\}\}/g, String(envio.quantidade || "1"));
 
@@ -48,22 +66,6 @@ function markdownToHtml(text: string): string {
     .replace(/\n/g, "<br>");
 }
 
-function getHeaderTitle(statusLabel: string, enviarNfePdf: boolean, empresaNome: string): string {
-  if (enviarNfePdf) return empresaNome;
-  const titleMap: Record<string, string> = {
-    "Postado": "Pedido Postado",
-    "Coletado": "Pedido Coletado",
-    "Em Trânsito": "Pedido em Trânsito",
-    "Em Rota": "Em Rota de Entrega",
-    "Centro Local": "Centro de Distribuição",
-    "Saiu para Entrega": "Saiu para Entrega!",
-    "Entregue": "Pedido Entregue!",
-    "Taxação": "Aviso de Taxação",
-    "Pago": "Pagamento Confirmado",
-  };
-  return titleMap[statusLabel] || statusLabel || empresaNome;
-}
-
 function buildEmailHtml(
   evento: Record<string, unknown>,
   envio: Record<string, unknown>,
@@ -73,6 +75,8 @@ function buildEmailHtml(
   const corpoEmail = (evento.corpo_email as string) || "";
   const statusLabel = (evento.status_label as string) || "";
   const enviarNfePdf = (evento.enviar_nfe_pdf as boolean) || false;
+
+  const emoji = emojiMap[statusLabel] || "📬";
 
   let saudacao = `Olá {{cliente_nome}},`;
   let mensagem = corpoEmail || `Atualização sobre o seu pedido **{{produto}}**.`;
@@ -97,43 +101,79 @@ function buildEmailHtml(
     rodape = `Obrigado pela preferência!\n{{empresa_nome}}`;
   }
 
+  const transportadora = (envio.transportadora as string) || DEFAULT_TRANSPORTADORA;
+
   const saudacaoHtml = markdownToHtml(replaceVariables(saudacao, envio, extras));
   const mensagemHtml = markdownToHtml(replaceVariables(mensagem, envio, extras));
   const rodapeHtml = markdownToHtml(replaceVariables(rodape, envio, extras));
 
+  const empresaNome = extras.empresa_nome || "Loja";
+  const empresaLogoUrl = extras.empresa_logo_url || "";
+
+  // Header title with emoji
+  const titleMap: Record<string, string> = {
+    "Postado": "Pedido Postado",
+    "Nota Fiscal Emitida": "Nota Fiscal Emitida",
+    "Pedido Confirmado": "Pedido Confirmado",
+    "Coletado": "Pedido Coletado",
+    "Em Trânsito": "Pedido em Trânsito",
+    "Em Rota": "Em Rota de Entrega",
+    "Centro Local": "Centro de Distribuição",
+    "Saiu para Entrega": "Saiu para Entrega!",
+    "Entregue": "Pedido Entregue!",
+    "Taxação": "Aviso de Taxação",
+    "Pago": "Pagamento Confirmado",
+  };
+  const headerTitle = enviarNfePdf
+    ? `📄 Nota Fiscal Emitida`
+    : `${emoji} ${titleMap[statusLabel] || statusLabel || empresaNome}`;
+
+  // Logo block - round white circle
+  const logoBlock = empresaLogoUrl
+    ? `<div style="margin:0 auto 16px;width:90px;height:90px;border-radius:50%;background:#ffffff;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+        <img src="${empresaLogoUrl}" alt="${empresaNome}" style="max-height:60px;max-width:60px;display:block;" />
+      </div>`
+    : "";
+
+  // Fallback for email clients that don't support flex
+  const logoBlockTable = empresaLogoUrl
+    ? `<!--[if mso]>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 16px;"><tr><td style="width:90px;height:90px;border-radius:50%;background:#ffffff;text-align:center;vertical-align:middle;">
+        <img src="${empresaLogoUrl}" alt="${empresaNome}" style="max-height:60px;max-width:60px;" />
+      </td></tr></table>
+      <![endif]-->
+      <!--[if !mso]><!-->
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 16px;"><tr><td style="width:90px;height:90px;border-radius:50%;background:#ffffff;text-align:center;vertical-align:middle;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+        <img src="${empresaLogoUrl}" alt="${empresaNome}" style="max-height:60px;max-width:60px;vertical-align:middle;" />
+      </td></tr></table>
+      <!--<![endif]-->`
+    : "";
+
   const infoBlock = mostrarInfoPedido
-    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-        <tr style="background-color:#f9fafb;">
-          <td style="padding:12px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb;">Produto</td>
-          <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#111827;border-bottom:1px solid #e5e7eb;">${replaceVariables("{{produto}}", envio, extras)}</td>
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <tr style="background-color:#fafafa;">
+          <td style="padding:14px 18px;font-size:13px;color:#888;border-bottom:1px solid #f0f0f0;width:140px;">📦 Produto</td>
+          <td style="padding:14px 18px;font-size:14px;font-weight:600;color:#1a1a1a;border-bottom:1px solid #f0f0f0;">${replaceVariables("{{produto}}", envio, extras)}</td>
         </tr>
         <tr>
-          <td style="padding:12px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb;">Código de Rastreio</td>
-          <td style="padding:12px 16px;font-size:13px;font-weight:600;color:${primaryColor};border-bottom:1px solid #e5e7eb;">${replaceVariables("{{codigo_rastreio}}", envio, extras)}</td>
+          <td style="padding:14px 18px;font-size:13px;color:#888;border-bottom:1px solid #f0f0f0;">🔍 Rastreio</td>
+          <td style="padding:14px 18px;font-size:14px;font-weight:700;color:${primaryColor};border-bottom:1px solid #f0f0f0;letter-spacing:0.5px;">${replaceVariables("{{codigo_rastreio}}", envio, extras)}</td>
         </tr>
-        <tr style="background-color:#f9fafb;">
-          <td style="padding:12px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb;">Transportadora</td>
-          <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#111827;border-bottom:1px solid #e5e7eb;">${replaceVariables("{{transportadora}}", envio, extras)}</td>
+        <tr style="background-color:#fafafa;">
+          <td style="padding:14px 18px;font-size:13px;color:#888;border-bottom:1px solid #f0f0f0;">🚛 Transportadora</td>
+          <td style="padding:14px 18px;font-size:14px;font-weight:600;color:#1a1a1a;border-bottom:1px solid #f0f0f0;">${transportadora}</td>
         </tr>
         <tr>
-          <td style="padding:12px 16px;font-size:13px;color:#6b7280;">Valor</td>
-          <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#111827;">R$ ${replaceVariables("{{valor}}", envio, extras)}</td>
+          <td style="padding:14px 18px;font-size:13px;color:#888;">💰 Valor</td>
+          <td style="padding:14px 18px;font-size:14px;font-weight:700;color:#1a1a1a;">R$ ${replaceVariables("{{valor}}", envio, extras)}</td>
         </tr>
       </table>`
     : "";
 
   const ctaBlock = mostrarBotaoCta && textoBotaoCta
-    ? `<div style="text-align:center;margin:28px 0;">
-        <a href="${urlBotaoCta}" style="display:inline-block;background-color:${primaryColor};color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:600;letter-spacing:0.3px;">${textoBotaoCta}</a>
+    ? `<div style="text-align:center;margin:32px 0 8px;">
+        <a href="${urlBotaoCta}" style="display:inline-block;background-color:#1a1a1a;color:#ffffff;text-decoration:none;padding:16px 40px;border-radius:50px;font-size:15px;font-weight:700;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(0,0,0,0.2);">${textoBotaoCta}</a>
       </div>`
-    : "";
-
-  const empresaNome = extras.empresa_nome || "Loja";
-  const empresaLogoUrl = extras.empresa_logo_url || "";
-  const headerTitle = getHeaderTitle(statusLabel, enviarNfePdf, empresaNome);
-
-  const logoBlock = empresaLogoUrl
-    ? `<img src="${empresaLogoUrl}" alt="${empresaNome}" style="max-height:120px;max-width:200px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto;" />`
     : "";
 
   return `<!DOCTYPE html>
@@ -142,34 +182,46 @@ function buildEmailHtml(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 0;">
+<body style="margin:0;padding:0;background-color:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f0f0;padding:40px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-          <!-- Header -->
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+          
+          <!-- Logo Section - Light gray background -->
           <tr>
-            <td style="background:linear-gradient(135deg,${primaryColor},${primaryColor}dd);padding:32px 40px;text-align:center;">
-              ${logoBlock}
-              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${headerTitle}</p>
+            <td style="background-color:#f5f5f5;padding:36px 40px 20px;text-align:center;">
+              ${logoBlockTable}
+              <p style="margin:0;color:#666;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">${empresaNome}</p>
             </td>
           </tr>
+
+          <!-- Dark Header with Emoji + Title -->
+          <tr>
+            <td style="background-color:#1a1a1a;padding:28px 40px;text-align:center;">
+              <p style="margin:0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.3px;">${headerTitle}</p>
+            </td>
+          </tr>
+
           <!-- Body -->
           <tr>
             <td style="padding:36px 40px;">
-              <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#374151;">${saudacaoHtml}</p>
-              <div style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#4b5563;">${mensagemHtml}</div>
+              <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#333;">${saudacaoHtml}</p>
+              <div style="margin:0 0 8px;font-size:15px;line-height:1.8;color:#555;">${mensagemHtml}</div>
               ${infoBlock}
               ${ctaBlock}
             </td>
           </tr>
+
           <!-- Footer -->
           <tr>
-            <td style="padding:24px 40px;background-color:#f9fafb;border-top:1px solid #e5e7eb;">
-              <p style="margin:0;font-size:13px;line-height:1.5;color:#9ca3af;text-align:center;">${rodapeHtml}</p>
+            <td style="padding:24px 40px;background-color:#fafafa;border-top:1px solid #eee;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#aaa;text-align:center;">${rodapeHtml}</p>
             </td>
           </tr>
         </table>
+
+        <p style="margin:20px 0 0;font-size:11px;color:#bbb;text-align:center;">Enviado por ${empresaNome}</p>
       </td>
     </tr>
   </table>

@@ -343,7 +343,7 @@ export function EmailEditor({
           <ScrollArea className="w-1/2 bg-muted/20">
             <div className="p-6">
               {emailActive ? (
-                <EmailPreview assunto={assunto} sections={sections} />
+                <EmailPreview assunto={assunto} sections={sections} eventName={statusLabel} />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-muted-foreground">
                   <Eye className="h-10 w-10 mb-3 opacity-30" />
