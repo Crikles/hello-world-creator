@@ -24,11 +24,7 @@ export async function generateDanfePdfBase64(
   container.innerHTML = `<style>${css}</style>${body}`;
   document.body.appendChild(container);
 
-  // Override gold color to black for PDF rendering
-  const styleEl = container.querySelector('style');
-  if (styleEl) {
-    styleEl.textContent = styleEl.textContent!.replace(/#b8860b/g, '#000');
-  }
+  // Style is already black, no override needed
 
   await new Promise(resolve => {
     requestAnimationFrame(() => {

@@ -14,8 +14,8 @@ import { DanfePreview, buildDanfeHtml, getDanfeCssAndBody } from "@/components/d
 import { useLoja } from "@/contexts/LojaContext";
 
 const UF_OPTIONS = [
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA",
-  "PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+  "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
 export default function Empresa() {
@@ -163,9 +163,7 @@ export default function Empresa() {
     container.innerHTML = `<style>${css}</style>${body}`;
     document.body.appendChild(container);
 
-    container.querySelectorAll('.empresa-value').forEach((el: any) => {
-      el.style.color = '#000';
-    });
+    // Style is already black, no override needed
 
     // Wait for layout to fully compute before capturing
     await new Promise(resolve => {
@@ -412,8 +410,7 @@ export default function Empresa() {
                   </Badge>
                 </div>
                 <CardDescription className="text-xs">
-                  Atualiza conforme você preenche o formulário.{" "}
-                  <span className="text-primary font-medium">Dados em dourado</span> indicam onde ficarão as informações da empresa — no PDF final, tudo será exibido em preto padrão.
+                  Atualiza conforme você preenche o formulário. O preview abaixo mostra exatamente como será gerado o PDF.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-2">

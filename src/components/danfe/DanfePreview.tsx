@@ -78,7 +78,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     .danfe-root .right { text-align: right; }
     .danfe-root .barcode { background: #000; height: 50px; margin: 5px 0; }
     .danfe-root .danfe-title { font-size: 16pt; font-weight: bold; }
-    .danfe-root .empresa-value { color: #b8860b; }
+    .danfe-root .empresa-value { color: #000; }
   `;
 
   const body = `<div class="danfe-root">
@@ -369,11 +369,7 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
     container.innerHTML = `<style>${css}</style>${body}`;
     document.body.appendChild(container);
 
-    // Override gold color to black for PDF rendering
-    const styleEl = container.querySelector('style');
-    if (styleEl) {
-      styleEl.textContent = styleEl.textContent!.replace(/#b8860b/g, '#000');
-    }
+    // Style is already black, no override needed
 
     await new Promise(resolve => {
       requestAnimationFrame(() => {
