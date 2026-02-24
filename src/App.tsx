@@ -20,6 +20,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminCreditos from "./pages/admin/AdminCreditos";
 import AdminEmail from "./pages/admin/AdminEmail";
+import AdminTemplates from "./pages/admin/AdminTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,10 @@ const App = () => (
             <Route
               path="/admin/creditos"
               element={<AdminRoute><AdminCreditos /></AdminRoute>}
+            />
+            <Route
+              path="/admin/templates"
+              element={<AdminRoute><AdminTemplates /></AdminRoute>}
             />
             <Route path="/" element={<Navigate to="/lojas" replace />} />
             <Route path="*" element={<NotFound />} />

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { EmailEditor } from "@/components/postagens/EmailEditor";
 import {
   Mail,
   Package,
@@ -18,10 +16,7 @@ import {
   CheckCircle2,
   FileText,
   Clock,
-  Edit2,
-  Trash2,
   GripVertical,
-  Plus,
   AlertTriangle,
   Coins,
   MapPin,
@@ -90,10 +85,7 @@ const badgeColor: Record<string, string> = {
 
 export default function Postagens() {
   const { loja } = useLoja();
-  const { isAdmin } = useIsAdmin();
   const queryClient = useQueryClient();
-  const [editingEvento, setEditingEvento] = useState<PostagemEvento | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Fetch system templates
   const { data: systemTemplates } = useQuery({
@@ -162,14 +154,11 @@ export default function Postagens() {
     mutationFn: async (templateId: string) => {
       if (!loja) return;
 
-      // Find the system template
       const systemTemplate = systemTemplates?.find((t) => t.id === templateId);
       if (!systemTemplate) return;
 
-      // Get system template events
       const evts = systemEventos?.filter((e) => e.template_id === templateId) || [];
 
-      // Create a copy of the template for this loja
       const { data: newTemplate, error: tErr } = await supabase
         .from("postagem_templates")
         .insert({
@@ -183,7 +172,6 @@ export default function Postagens() {
         .single();
       if (tErr) throw tErr;
 
-      // Copy events
       if (evts.length > 0) {
         const { error: eErr } = await supabase.from("postagem_eventos").insert(
           evts.map((e) => ({
@@ -203,7 +191,6 @@ export default function Postagens() {
         if (eErr) throw eErr;
       }
 
-      // Upsert config
       const { error: cErr } = await supabase.from("postagem_config").upsert(
         {
           loja_id: loja.id,
@@ -239,77 +226,19 @@ export default function Postagens() {
     },
   });
 
-  // Update evento
-  const updateEvento = useMutation({
-    mutationFn: async (evento: Partial<PostagemEvento> & { id: string }) => {
+  // Update evento delay only
+  const updateDelay = useMutation({
+    mutationFn: async ({ id, delay_horas }: { id: string; delay_horas: number }) => {
       const { error } = await supabase
         .from("postagem_eventos")
-        .update(evento)
-        .eq("id", evento.id);
+        .update({ delay_horas })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["postagem-eventos-active"] });
-      setEditDialogOpen(false);
-      toast({ title: "Evento atualizado!" });
     },
   });
-
-  // Delete evento
-  const deleteEvento = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("postagem_eventos").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["postagem-eventos-active"] });
-      toast({ title: "Evento removido!" });
-    },
-  });
-
-  // Add evento
-  const addEvento = useMutation({
-    mutationFn: async () => {
-      if (!config?.template_ativo_id) return;
-      const maxOrdem = activeEventos?.reduce((max, e) => Math.max(max, e.ordem), 0) ?? 0;
-      const { error } = await supabase.from("postagem_eventos").insert({
-        template_id: config.template_ativo_id,
-        nome: "Novo Evento",
-        descricao: "Descrição do evento",
-        status_label: "Status",
-        ordem: maxOrdem + 1,
-        delay_horas: 0,
-        enviar_email: true,
-        enviar_nfe_pdf: false,
-        assunto_email: "{{produto}} - Atualização",
-        corpo_email: "<p>Olá {{cliente_nome}},</p><p>Atualização sobre seu pedido.</p>",
-        is_final: false,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["postagem-eventos-active"] });
-      toast({ title: "Evento adicionado!" });
-    },
-  });
-
-  const openEditDialog = (evento: PostagemEvento) => {
-    setEditingEvento(evento);
-    setEditDialogOpen(true);
-  };
-
-  const handleSaveEvento = (data: {
-    assunto_email: string;
-    corpo_email: string;
-    enviar_email: boolean;
-    enviar_nfe_pdf: boolean;
-  }) => {
-    if (!editingEvento) return;
-    updateEvento.mutate({
-      id: editingEvento.id,
-      ...data,
-    });
-  };
 
   const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
 
@@ -321,10 +250,6 @@ export default function Postagens() {
     if (config?.ativar_taxacao) total += 1;
     return total;
   })();
-
-  const activeTemplate = config?.template_ativo_id
-    ? systemTemplates?.find((t) => t.id === config.template_ativo_id) || null
-    : null;
 
   return (
     <AppLayout>
@@ -407,19 +332,12 @@ export default function Postagens() {
           <div className="grid gap-4 md:grid-cols-3">
             {systemTemplates?.map((template) => {
               const evts = systemEventos?.filter((e) => e.template_id === template.id) || [];
-              const isActive = config?.template_ativo_id && activeEventos?.[0]?.template_id
-                ? (() => {
-                    // Check if active template was cloned from this system template
-                    const activeT = queryClient.getQueryData<PostagemTemplate[]>(["postagem-templates-system"]);
-                    return false; // We'll match by tipo below
-                  })()
-                : false;
 
               return (
                 <Card
                   key={template.id}
-                  className={`transition-colors ${isAdmin ? "cursor-pointer hover:border-primary/50" : "opacity-80"}`}
-                  onClick={isAdmin ? () => applyTemplate.mutate(template.id) : undefined}
+                  className="cursor-pointer transition-colors hover:border-primary/50"
+                  onClick={() => applyTemplate.mutate(template.id)}
                 >
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
@@ -452,16 +370,10 @@ export default function Postagens() {
           </div>
         </div>
 
-        {/* Eventos do template ativo */}
+        {/* Eventos do fluxo ativo - somente leitura, apenas delay editável */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-foreground">Eventos do Fluxo Ativo</h2>
-            {isAdmin && config?.template_ativo_id && (
-              <Button size="sm" variant="outline" onClick={() => addEvento.mutate()}>
-                <Plus className="h-4 w-4 mr-1" />
-                Adicionar
-              </Button>
-            )}
           </div>
 
           {!config?.template_ativo_id ? (
@@ -481,7 +393,7 @@ export default function Postagens() {
                 return (
                   <Card key={evento.id} className={isFirst ? "border-green-200 bg-green-50/30" : ""}>
                     <CardContent className="flex items-center gap-4 py-3 px-4">
-                      <GripVertical className="h-4 w-4 text-muted-foreground/40 cursor-grab" />
+                      <GripVertical className="h-4 w-4 text-muted-foreground/40" />
                       <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                         <Icon className="h-4 w-4 text-muted-foreground" />
                       </div>
@@ -513,38 +425,17 @@ export default function Postagens() {
                       </div>
                       {!isFirst && (
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {isAdmin ? (
-                            <Input
-                              type="number"
-                              min={0}
-                              className="w-16 h-8 text-xs text-center"
-                              value={Math.round(evento.delay_horas / 24)}
-                              onChange={(e) => {
-                                const dias = parseInt(e.target.value) || 0;
-                                updateEvento.mutate({ id: evento.id, delay_horas: dias * 24 });
-                              }}
-                            />
-                          ) : (
-                            <span className="text-xs font-medium">{Math.round(evento.delay_horas / 24)}</span>
-                          )}
+                          <Input
+                            type="number"
+                            min={0}
+                            className="w-16 h-8 text-xs text-center"
+                            value={Math.round(evento.delay_horas / 24)}
+                            onChange={(e) => {
+                              const dias = parseInt(e.target.value) || 0;
+                              updateDelay.mutate({ id: evento.id, delay_horas: dias * 24 });
+                            }}
+                          />
                           <span className="text-xs text-muted-foreground whitespace-nowrap">dias após anterior</span>
-                        </div>
-                      )}
-                      {isAdmin && (
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(evento)}>
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          {!isFirst && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => deleteEvento.mutate(evento.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
                         </div>
                       )}
                     </CardContent>
@@ -589,22 +480,6 @@ export default function Postagens() {
           </Card>
         )}
       </div>
-
-      {/* Email Editor */}
-      {editingEvento && (
-        <EmailEditor
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          eventoNome={editingEvento.nome}
-          statusLabel={editingEvento.status_label || ""}
-          initialAssunto={editingEvento.assunto_email || ""}
-          initialCorpo={editingEvento.corpo_email || ""}
-          enviarEmail={editingEvento.enviar_email}
-          enviarNfePdf={editingEvento.enviar_nfe_pdf}
-          onSave={handleSaveEvento}
-          saving={updateEvento.isPending}
-        />
-      )}
     </AppLayout>
   );
 }
