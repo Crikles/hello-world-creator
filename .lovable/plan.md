@@ -1,95 +1,150 @@
 
 
-# Mover Edicao de Email para Admin e Restringir Fluxos
+# Bordas Coloridas nos Eventos e Botao de Salvar Manual
 
 ## Resumo
 
-Tres mudancas principais:
-1. A edicao de email (EmailEditor) sai da pagina Postagens e vai para o painel Admin, editando os **templates de sistema** (afeta todas as contas)
-2. Remover o botao "Adicionar Evento" completamente
-3. Usuarios comuns so podem editar os **dias de delay** dos eventos -- nenhum outro controle de edicao de fluxo
+Duas mudancas principais:
+1. Cada card de evento tera borda **verde** quando a funcionalidade correspondente esta ativa e borda **vermelha** quando desativada
+2. Remover salvamento automatico e adicionar um botao **Salvar** manual no final da pagina
+
+## Logica de ativacao por evento
+
+Cada evento sera mapeado para o toggle correspondente no config:
+
+| Evento | Campo do config |
+|--------|----------------|
+| Primeiro evento (NF/Postado) | `enviar_nfe_email` |
+| Eventos de rastreio (Coletado, Em Transito, Centro Local, Saiu para Entrega, Entregue) | `enviar_emails` |
+| Eventos de taxacao (Taxacao, Pago) | `ativar_taxacao` |
 
 ## O que muda
 
-### 1. Pagina Postagens (`src/pages/Postagens.tsx`)
+### 1. Bordas coloridas nos cards de eventos
 
-- **Remover** o botao "Adicionar" evento (linhas 459-464) -- completamente, nem para admin
-- **Remover** o botao de editar email (Edit2, linhas 535-537) -- completamente
-- **Remover** o botao de excluir evento (Trash2, linhas 538-547) -- completamente
-- **Remover** o componente EmailEditor e todo o estado associado (`editingEvento`, `editDialogOpen`, `openEditDialog`, `handleSaveEvento`)
-- **Remover** as mutations `deleteEvento` e `addEvento`
-- **Manter** apenas o input de delay (dias) editavel pelo usuario para cada evento (ja funciona)
-- O import de `useIsAdmin` pode ser removido ja que nao sera mais usado nesta pagina
+Atualmente so o primeiro evento tem borda verde. A mudanca fara com que:
+- **Ativo** (toggle ligado): `border-green-500/50 bg-green-50/20`
+- **Inativo** (toggle desligado): `border-red-500/50 bg-red-50/20`
 
-### 2. Painel Admin - Nova pagina de Templates (`src/pages/admin/AdminTemplates.tsx`)
+### 2. Salvamento manual (botao SAVE)
 
-Nova pagina no admin que lista os templates de sistema e seus eventos. Ao clicar em editar um evento, abre o EmailEditor existente. As alteracoes sao feitas nos **eventos dos templates de sistema**, afetando todas as contas que usam aquele template.
-
-Funcionalidades:
-- Lista os templates de sistema com seus eventos
-- Botao de editar email em cada evento (abre EmailEditor)
-- Ao salvar, atualiza o `postagem_eventos` do template de sistema
-
-### 3. Rota e Sidebar do Admin
-
-- Nova rota `/admin/templates` no `App.tsx`
-- Novo item no menu da sidebar admin (`AdminSidebar.tsx`): "Templates" com icone `FileText`
-
-### 4. RLS - Adicionar policy para admin editar eventos de templates de sistema
-
-Atualmente, os eventos de templates de sistema so tem policy de SELECT para "Anyone can read". Precisamos de uma policy para admin poder UPDATE (editar assunto, corpo, etc) nos eventos de templates de sistema.
+Atualmente os toggles e delays salvam automaticamente no banco. A mudanca:
+- Criar estado local para as configuracoes (`localConfig`) e delays (`localDelays`)
+- Os toggles e inputs de delay alterarao apenas o estado local
+- Um botao "Salvar" aparecera no final da secao de eventos
+- Ao clicar em Salvar, faz as chamadas ao banco (update config + update delays de cada evento alterado)
+- Desabilitar o botao se nao houver mudancas pendentes
 
 ## Detalhes Tecnicos
 
-### Arquivos modificados
-- `src/pages/Postagens.tsx` -- remover botoes de edicao, EmailEditor, mutations desnecessarias
-- `src/components/admin/AdminSidebar.tsx` -- adicionar item "Templates"
-- `src/App.tsx` -- adicionar rota `/admin/templates`
+### Arquivo modificado: `src/pages/Postagens.tsx`
 
-### Arquivos novos
-- `src/pages/admin/AdminTemplates.tsx` -- pagina de gestao de templates no admin
+**Estado local:**
+```typescript
+const [localConfig, setLocalConfig] = useState<PostagemConfig | null>(null);
+const [localDelays, setLocalDelays] = useState<Record<string, number>>({});
 
-### Migracao SQL necessaria
+// Sincronizar quando dados carregam
+useEffect(() => {
+  if (config) setLocalConfig(config);
+}, [config]);
 
-Adicionar policy para admin editar eventos de templates de sistema:
-
-```sql
-CREATE POLICY "Admins can manage system template eventos"
-ON public.postagem_eventos
-FOR ALL
-TO authenticated
-USING (has_role(auth.uid(), 'admin'::app_role))
-WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+useEffect(() => {
+  if (activeEventos) {
+    const delays: Record<string, number> = {};
+    activeEventos.forEach(e => { delays[e.id] = e.delay_horas; });
+    setLocalDelays(delays);
+  }
+}, [activeEventos]);
 ```
 
-### AdminTemplates.tsx - Estrutura
+**Funcao para determinar se evento esta ativo:**
+```typescript
+function isEventoAtivo(evento, localConfig) {
+  if (evento.enviar_nfe_pdf) return localConfig.enviar_nfe_email;
+  if (evento.status_label === "Taxação" || evento.status_label === "Pago") 
+    return localConfig.ativar_taxacao;
+  return localConfig.enviar_emails;
+}
+```
 
+**Borda condicional no Card:**
+```typescript
+const ativo = isEventoAtivo(evento, localConfig);
+<Card className={ativo ? "border-green-500/50 bg-green-50/10" : "border-red-500/50 bg-red-50/10"}>
+```
+
+**Toggles alteram estado local (nao salvam):**
+```typescript
+onCheckedChange={() => {
+  setLocalConfig(prev => prev ? {...prev, enviar_emails: !prev.enviar_emails} : prev);
+}}
+```
+
+**Delay altera estado local:**
+```typescript
+onChange={(delay_horas) => {
+  setLocalDelays(prev => ({...prev, [evento.id]: delay_horas}));
+}}
+```
+
+**Deteccao de mudancas pendentes:**
+```typescript
+const hasChanges = useMemo(() => {
+  if (!config || !localConfig) return false;
+  const configChanged = 
+    config.enviar_emails !== localConfig.enviar_emails ||
+    config.enviar_nfe_email !== localConfig.enviar_nfe_email ||
+    config.ativar_site_rastreio !== localConfig.ativar_site_rastreio ||
+    config.ativar_taxacao !== localConfig.ativar_taxacao;
+  const delaysChanged = activeEventos?.some(
+    e => localDelays[e.id] !== e.delay_horas
+  );
+  return configChanged || delaysChanged;
+}, [config, localConfig, activeEventos, localDelays]);
+```
+
+**Mutation de salvar tudo:**
+```typescript
+const saveAll = useMutation({
+  mutationFn: async () => {
+    // 1. Update config
+    await supabase.from("postagem_config")
+      .update({
+        enviar_emails: localConfig.enviar_emails,
+        enviar_nfe_email: localConfig.enviar_nfe_email,
+        ativar_site_rastreio: localConfig.ativar_site_rastreio,
+        ativar_taxacao: localConfig.ativar_taxacao,
+      })
+      .eq("loja_id", loja.id);
+    // 2. Update delays alterados
+    for (const evento of activeEventos) {
+      if (localDelays[evento.id] !== evento.delay_horas) {
+        await supabase.from("postagem_eventos")
+          .update({ delay_horas: localDelays[evento.id] })
+          .eq("id", evento.id);
+      }
+    }
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["postagem-config"] });
+    queryClient.invalidateQueries({ queryKey: ["postagem-eventos-active"] });
+    toast({ title: "Configurações salvas!" });
+  },
+});
+```
+
+**Botao Salvar no final:**
 ```text
 +------------------------------------------+
-| Gestao de Templates                      |
-| Edite os templates de email do sistema   |
-+------------------------------------------+
-| Template: Fluxo Padrao                   |
-| +--------------------------------------+ |
-| | Postado  | Assunto: ...  [Editar]    | |
-| | Em Transito | Assunto: ... [Editar]  | |
-| | Entregue | Assunto: ...    [Editar]  | |
-| +--------------------------------------+ |
-|                                          |
-| Template: Fluxo Completo                 |
-| +--------------------------------------+ |
-| | ...                                  | |
-| +--------------------------------------+ |
+| [Salvar Alteracoes]  (desabilitado se     |
+|  nao ha mudancas pendentes)               |
 +------------------------------------------+
 ```
 
-Ao clicar em "Editar", abre o EmailEditor com os dados do evento. Ao salvar, faz UPDATE no evento do template de sistema. Como o template e de sistema (`is_system = true`), a alteracao reflete globalmente.
+O botao ficara fixo abaixo dos eventos, com destaque visual quando houver mudancas pendentes.
 
-### Postagens.tsx - O que sobra
+### Custo estimado
 
-O usuario comum vera:
-- Configuracoes gerais (toggles de NF, rastreio, etc)
-- Templates pre-configurados (cards clicaveis para aplicar)
-- Eventos do fluxo ativo em modo leitura, podendo editar apenas os dias de delay
-- Custo estimado
+O card de custo estimado passara a usar `localConfig` em vez de `config`, refletindo o custo antes de salvar.
 
