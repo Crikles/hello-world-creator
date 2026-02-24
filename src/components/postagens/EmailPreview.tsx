@@ -6,9 +6,10 @@ interface EmailPreviewProps {
   assunto: string;
   sections: EmailSections;
   empresaNome?: string;
+  eventName?: string;
 }
 
-export function EmailPreview({ assunto, sections, empresaNome }: EmailPreviewProps) {
+export function EmailPreview({ assunto, sections, empresaNome, eventName }: EmailPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const data = useMemo(() => ({
@@ -18,9 +19,9 @@ export function EmailPreview({ assunto, sections, empresaNome }: EmailPreviewPro
 
   const previewSubject = useMemo(() => replaceVariables(assunto, data), [assunto, data]);
   const fullHtml = useMemo(() => {
-    const raw = buildEmailHtml(sections);
+    const raw = buildEmailHtml(sections, "#6366f1", eventName);
     return replaceVariables(raw, data);
-  }, [sections, data]);
+  }, [sections, data, eventName]);
 
   // Extract a text snippet for inbox preview
   const previewText = useMemo(() => {
