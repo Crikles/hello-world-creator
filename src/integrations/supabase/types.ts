@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      creditos: {
+        Row: {
+          id: string
+          saldo: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          saldo?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          saldo?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      creditos_transacoes: {
+        Row: {
+          admin_id: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          quantidade: number
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          quantidade: number
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          quantidade?: number
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       empresas: {
         Row: {
           bairro: string | null
