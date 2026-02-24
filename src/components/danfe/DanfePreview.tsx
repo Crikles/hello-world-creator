@@ -67,11 +67,11 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
   const css = `
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    .danfe-root { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; width: 700px; }
+    .danfe-root { font-family: 'Courier New', monospace; font-size: 8pt; background: white; padding: 10px; width: 700px; color: #000; }
     .danfe-root table { border-collapse: collapse; width: 680px; }
     .danfe-root td, .danfe-root th { border: 1px solid #000; padding: 3px 5px 4px 5px; vertical-align: top; overflow: visible; overflow-wrap: break-word; word-wrap: break-word; line-height: 1.4; }
     .danfe-root .truncate-cell { white-space: normal; overflow: visible; word-wrap: break-word; }
-    .danfe-root .label { font-size: 6pt; color: #333; font-weight: normal; line-height: 1.3; }
+    .danfe-root .label { font-size: 6pt; color: #000; font-weight: normal; line-height: 1.3; }
     .danfe-root .value { font-size: 9pt; font-weight: bold; line-height: 1.4; }
     .danfe-root .section-title { background: #f5f5f5; font-weight: bold; font-size: 8pt; padding: 3px 5px; }
     .danfe-root .center { text-align: center; }
@@ -394,9 +394,8 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
     let w = pdfW, h = pdfW / ratio;
     if (h > pdfH) { h = pdfH; w = pdfH * ratio; }
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-    const part1 = Math.floor(Math.random() * 9999999999).toString().padStart(10, '0');
-    const part2 = Math.floor(Math.random() * 99999).toString().padStart(5, '0');
-    pdf.save(`DANFE_${part1}_${part2}.pdf`);
+    const part1 = Math.floor(Math.random() * 9000000000 + 1000000000).toString();
+    pdf.save(`DANFE_${part1}.pdf`);
 
     document.body.removeChild(container);
   };

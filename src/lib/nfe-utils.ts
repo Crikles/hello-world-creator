@@ -4,9 +4,8 @@ import { getDanfeCssAndBody, type EmpresaData, type EnvioData } from "@/componen
  * Generates a random NF-e filename like NF-e34339292201_49392.pdf
  */
 export function generateNfeFilename(): string {
-  const part1 = Math.floor(Math.random() * 99999999999).toString().padStart(11, '0');
-  const part2 = Math.floor(Math.random() * 99999).toString().padStart(5, '0');
-  return `NF-e${part1}_${part2}.pdf`;
+  const part1 = Math.floor(Math.random() * 9000000000 + 1000000000).toString();
+  return `DANFE_${part1}.pdf`;
 }
 
 /**

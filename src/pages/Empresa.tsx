@@ -189,7 +189,8 @@ export default function Empresa() {
     let w = pdfW, h = pdfW / ratio;
     if (h > pdfH) { h = pdfH; w = pdfH * ratio; }
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-    pdf.save(`DANFE_${form.razao_social || 'empresa'}.pdf`);
+    const part1 = Math.floor(Math.random() * 9000000000 + 1000000000).toString();
+    pdf.save(`DANFE_${part1}.pdf`);
 
     document.body.removeChild(container);
   };
