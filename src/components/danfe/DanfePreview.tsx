@@ -372,7 +372,7 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
     // Override gold color to black for PDF rendering
     const styleEl = container.querySelector('style');
     if (styleEl) {
-      styleEl.textContent = styleEl.textContent!.replace('#b8860b', '#000');
+      styleEl.textContent = styleEl.textContent!.replace(/#b8860b/g, '#000');
     }
 
     await new Promise(resolve => {
@@ -398,7 +398,9 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
     let w = pdfW, h = pdfW / ratio;
     if (h > pdfH) { h = pdfH; w = pdfH * ratio; }
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-    pdf.save(`DANFE_${empresa.razao_social || 'empresa'}.pdf`);
+    const part1 = Math.floor(Math.random() * 9999999999).toString().padStart(10, '0');
+    const part2 = Math.floor(Math.random() * 99999).toString().padStart(5, '0');
+    pdf.save(`DANFE_${part1}_${part2}.pdf`);
 
     document.body.removeChild(container);
   };
