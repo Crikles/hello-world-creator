@@ -330,7 +330,8 @@ export default function Postagens() {
     });
   };
 
-  const emailCount = activeEventos?.filter((e) => e.enviar_email).length ?? 0;
+  const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
+  const emailCount = sortedActiveEventos?.filter((e, i) => i > 0 && e.enviar_email).length ?? 0;
   const custoEstimado = (emailCount * 0.15).toFixed(2);
 
   const activeTemplate = config?.template_ativo_id
@@ -356,22 +357,22 @@ export default function Postagens() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="font-medium">Enviar Emails</Label>
-                  <p className="text-xs text-muted-foreground">Liga/desliga todo o sistema de emails</p>
-                </div>
-                <Switch
-                  checked={config.enviar_emails}
-                  onCheckedChange={() => toggleConfig.mutate("enviar_emails")}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="font-medium">Enviar NFe no Email</Label>
-                  <p className="text-xs text-muted-foreground">Anexar PDF da Nota Fiscal no email de NF Emitida</p>
+                  <Label className="font-medium">Enviar NF (primeiro email padrão)</Label>
+                  <p className="text-xs text-muted-foreground">Envia automaticamente a Nota Fiscal por email ao cliente. Este email é gratuito.</p>
                 </div>
                 <Switch
                   checked={config.enviar_nfe_email}
                   onCheckedChange={() => toggleConfig.mutate("enviar_nfe_email")}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium">Ativar emails de rastreamento</Label>
+                  <p className="text-xs text-muted-foreground">Envia emails automáticos de atualização de status. Cada email custa R$ 0,15.</p>
+                </div>
+                <Switch
+                  checked={config.enviar_emails}
+                  onCheckedChange={() => toggleConfig.mutate("enviar_emails")}
                 />
               </div>
             </CardContent>
@@ -450,12 +451,13 @@ export default function Postagens() {
             </Card>
           ) : (
             <div className="space-y-2">
-              {activeEventos?.map((evento) => {
+              {sortedActiveEventos?.map((evento, index) => {
                 const Icon = iconMap[evento.status_label || ""] || Mail;
                 const color = badgeColor[evento.status_label || ""] || "bg-muted text-muted-foreground";
+                const isFirst = index === 0;
 
                 return (
-                  <Card key={evento.id}>
+                  <Card key={evento.id} className={isFirst ? "border-green-200 bg-green-50/30" : ""}>
                     <CardContent className="flex items-center gap-4 py-3 px-4">
                       <GripVertical className="h-4 w-4 text-muted-foreground/40 cursor-grab" />
                       <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -467,18 +469,15 @@ export default function Postagens() {
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
                             {evento.status_label}
                           </span>
+                          {isFirst && (
+                            <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">Gratuito</Badge>
+                          )}
                           {evento.is_final && (
                             <Badge variant="outline" className="text-xs">Final</Badge>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{evento.descricao}</p>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          {evento.delay_horas > 0 && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {evento.delay_horas}h após anterior
-                            </span>
-                          )}
                           {evento.enviar_email && (
                             <span className="flex items-center gap-1 text-primary">
                               <Mail className="h-3 w-3" />
@@ -493,18 +492,35 @@ export default function Postagens() {
                           )}
                         </div>
                       </div>
+                      {!isFirst && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Input
+                            type="number"
+                            min={0}
+                            className="w-16 h-8 text-xs text-center"
+                            value={Math.round(evento.delay_horas / 24)}
+                            onChange={(e) => {
+                              const dias = parseInt(e.target.value) || 0;
+                              updateEvento.mutate({ id: evento.id, delay_horas: dias * 24 });
+                            }}
+                          />
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">dias após anterior</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(evento)}>
                           <Edit2 className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => deleteEvento.mutate(evento.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {!isFirst && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => deleteEvento.mutate(evento.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -523,7 +539,7 @@ export default function Postagens() {
                 <div>
                   <p className="text-sm font-medium">Custo por Envio</p>
                   <p className="text-xs text-muted-foreground">
-                    R$ 0,15 × {emailCount} eventos com email = R$ {custoEstimado}
+                    Email de NF: gratuito · R$ 0,15 × {emailCount} emails de rastreamento = R$ {custoEstimado}
                   </p>
                 </div>
               </div>
@@ -565,12 +581,12 @@ export default function Postagens() {
               />
             </div>
             <div>
-              <Label>Delay (horas após evento anterior)</Label>
+              <Label>Delay (dias após evento anterior)</Label>
               <Input
                 type="number"
                 min={0}
-                value={editForm.delay_horas}
-                onChange={(e) => setEditForm({ ...editForm, delay_horas: parseInt(e.target.value) || 0 })}
+                value={Math.round(editForm.delay_horas / 24)}
+                onChange={(e) => setEditForm({ ...editForm, delay_horas: (parseInt(e.target.value) || 0) * 24 })}
               />
             </div>
             <div className="flex items-center justify-between">
