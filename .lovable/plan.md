@@ -1,74 +1,92 @@
 
 
-# Revisar Copys e Titulos dos Templates de Email
+# Corrigir Disparo de Emails e Redesign Visual
 
-## Problema Atual
+## Problemas Identificados
 
-1. **Titulo do header do email** mostra sempre o nome da loja (ex: "Benedito e Maria Ferragens") para todos os eventos. O usuario quer que mostre a ACAO do pedido (ex: "Pedido Entregue", "Saiu para Entrega"), exceto no email de Nota Fiscal que deve manter o nome da loja.
+### 1. Emails nao sao disparados corretamente
+O sistema atual tem um mapeamento incorreto: quando o status muda para `em_transito`, ele busca eventos com labels ["Coletado", "Em Transito", "Em Rota", "Centro Local"] mas **envia apenas o primeiro** (linha 54 do `email-trigger.ts`: `const event = events[0]`). Os demais eventos nunca sao disparados.
 
-2. **Assuntos dos emails** sao genericos (ex: "Pedido Entregue - tenis tenis"). Precisam ser mais descritivos e bonitos.
+O template "Nacional Padrao" do usuario tem 6 eventos sequenciais, mas o sistema so tem 4 status internos (pendente, em_transito, saiu_para_entrega, entregue), causando perda de eventos intermediarios.
 
-3. **Corpo dos emails** no banco de dados sao `<p>` simples sem personalidade. Precisam de copys melhores.
+### 2. Transportadora vazia
+O campo `transportadora` nos envios esta `null` no banco de dados. Nenhum valor esta sendo salvo.
+
+### 3. Visual do email fraco
+O design atual usa um gradiente generico com a logo sem tratamento.
 
 ---
 
 ## Solucao
 
-### 1. Alterar header do email na Edge Function (`send-email/index.ts`)
+### 1. Corrigir disparo: enviar TODOS os eventos correspondentes
 
-Mudar a logica do `buildEmailHtml` para:
-- Se o evento tem `enviar_nfe_pdf = true` (Nota Fiscal): header mostra logo + nome da empresa
-- Para todos os outros eventos: header mostra logo + titulo da acao (ex: "Pedido Saiu para Entrega!")
+Alterar `src/lib/email-trigger.ts` para iterar sobre **todos** os eventos correspondentes ao status (nao apenas o primeiro). Quando o status muda para `em_transito`, o sistema enviara os emails de "Coletado", "Em Transito", "Centro Local" (todos que estao mapeados para aquele status interno).
 
-O titulo da acao sera mapeado internamente na edge function com base no `status_label` do evento:
+```text
+ANTES: const event = events[0];  // so o primeiro
+DEPOIS: for (const event of events) { ... }  // todos os eventos
+```
 
-| status_label | Titulo no Header |
+Cada evento sera verificado individualmente quanto ao flag `isAtivo` e `enviar_email` antes do disparo.
+
+### 2. Transportadora padrao
+
+No `supabase/functions/send-email/index.ts`, quando o campo `transportadora` do envio estiver vazio, usar o valor padrao: **"JL Transportadora e Logistica LTDA"**.
+
+### 3. Redesign completo do email
+
+Novo layout do email no `buildEmailHtml` da Edge Function:
+
+```text
++------------------------------------------+
+|                                          |
+|    [LOGO REDONDA - fundo branco]         |
+|    Circulo branco com a logo dentro      |
+|                                          |
++------------------------------------------+
+|  FUNDO PRETO / ESCURO                    |
+|                                          |
+|  EMOJI + TITULO EM BRANCO               |
+|  Ex: "🚚 Saiu para Entrega!"            |
+|  Ex: "📦 Pedido Coletado"               |
+|  Ex: "✅ Pedido Entregue!"              |
+|                                          |
++------------------------------------------+
+|                                          |
+|  Saudacao + mensagem (fundo branco)      |
+|                                          |
+|  +------------------------------------+ |
+|  | Produto    | Tenis Premium         | |
+|  | Rastreio   | BR547454312HF         | |
+|  | Transporte | JL Transportadora...  | |
+|  | Valor      | R$ 89,90              | |
+|  +------------------------------------+ |
+|                                          |
+|  [  BOTAO CTA  ]                        |
+|                                          |
++------------------------------------------+
+|  Rodape cinza                            |
++------------------------------------------+
+```
+
+Emojis por evento:
+
+| Evento | Emoji |
 |---|---|
-| Postado (com NF) | {{empresa_nome}} (mantido) |
-| Coletado | Pedido Coletado |
-| Em Transito | Pedido em Transito |
-| Em Rota | Em Rota de Entrega |
-| Centro Local | Centro de Distribuicao |
-| Saiu para Entrega | Saiu para Entrega! |
-| Entregue | Pedido Entregue! |
-| Taxacao | Aviso de Taxacao |
-| Pago | Pagamento Confirmado |
+| Nota Fiscal / Postado | 📄 |
+| Coletado | 📦 |
+| Em Transito | 🚛 |
+| Centro Local | 📍 |
+| Em Rota | 🏍️ |
+| Saiu para Entrega | 🚚 |
+| Entregue | ✅ |
+| Taxacao | ⚠️ |
+| Pago | 💳 |
 
-### 2. Atualizar assuntos no banco de dados
+### 4. Atualizar frontend templates
 
-Atualizar os `assunto_email` de todos os eventos para copys mais profissionais:
-
-| Evento | Assunto Atual | Novo Assunto |
-|---|---|---|
-| Nota Fiscal Emitida | Nota Fiscal Emitida - {{produto}} | {{empresa_nome}} - Nota Fiscal do seu pedido |
-| Pedido Confirmado | Pedido Confirmado - {{produto}} | Seu pedido foi confirmado! |
-| Pedido Coletado | Pedido Coletado - {{produto}} | Seu pedido foi coletado pela transportadora |
-| Em Transito | Pedido em Transito - {{produto}} | Seu pedido esta a caminho! |
-| Em Rota de Entrega | Em Rota de Entrega - {{produto}} | Seu pedido esta em rota de entrega |
-| Centro de Distribuicao | Centro de Distribuicao - {{produto}} | Seu pedido chegou ao centro de distribuicao |
-| Saiu para Entrega | Saiu para Entrega - {{produto}} | Seu pedido saiu para entrega hoje! |
-| Entregue | Pedido Entregue - {{produto}} | Seu pedido foi entregue! |
-| Aguardando Pagamento | Pagamento Pendente - Taxacao - {{produto}} | Acao necessaria: seu pedido foi taxado |
-| Pagamento Confirmado | Pagamento Confirmado - {{produto}} | Pagamento confirmado - entrega sera retomada |
-
-### 3. Atualizar corpo dos emails no banco de dados
-
-Atualizar os `corpo_email` com mensagens mais calorosas e informativas (mantendo as variaveis):
-
-- **Nota Fiscal**: "Sua nota fiscal foi emitida e esta em anexo. Seu pedido sera enviado em breve!"
-- **Pedido Confirmado**: "Otima noticia! Seu pedido foi confirmado e ja estamos preparando tudo para o envio."
-- **Pedido Coletado**: "Seu pedido foi coletado pela transportadora {{transportadora}} e esta a caminho!"
-- **Em Transito**: "Seu pedido esta viajando ate voce! Acompanhe pelo codigo de rastreio."
-- **Em Rota**: "Seu pedido esta na regiao e em rota de entrega."
-- **Centro de Distribuicao**: "Seu pedido chegou ao centro de distribuicao mais proximo. Falta pouco!"
-- **Saiu para Entrega**: "Boas noticias! Seu pedido saiu para entrega hoje. Fique atento!"
-- **Entregue**: "Seu pedido foi entregue com sucesso! Esperamos que voce aproveite."
-- **Taxacao**: "Seu pedido foi taxado pela alfandega e precisa de uma acao sua para continuar."
-- **Pagamento Confirmado**: "O pagamento da taxa foi confirmado e a entrega sera retomada em breve."
-
-### 4. Atualizar templates padrao no frontend (`emailTemplates.ts`)
-
-Sincronizar os `defaultSectionsByEvent` com as novas copys para que o editor de email mostre os textos corretos.
+Sincronizar `src/components/postagens/emailTemplates.ts` com o novo visual e emojis nos titulos.
 
 ---
 
@@ -78,20 +96,30 @@ Sincronizar os `defaultSectionsByEvent` com as novas copys para que o editor de 
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/send-email/index.ts` | Logica do header: mostrar acao em vez de nome da loja (exceto NF) |
-| `src/components/postagens/emailTemplates.ts` | Atualizar `defaultSectionsByEvent` com novas copys |
-| Migracao SQL | UPDATE em massa nos `assunto_email` e `corpo_email` de `postagem_eventos` |
+| `src/lib/email-trigger.ts` | Loop por todos os eventos correspondentes em vez de so o primeiro |
+| `supabase/functions/send-email/index.ts` | Transportadora padrao + redesign HTML completo (logo redonda, header preto, emojis) |
+| `src/components/postagens/emailTemplates.ts` | Sincronizar emojis e visual nos defaults do editor |
 
-### Mudanca no header da Edge Function
-
-No `buildEmailHtml`, a variavel que aparece no header (`<p>` branco no gradiente) sera determinada assim:
+### Mudanca no email-trigger.ts
 
 ```text
-SE evento.enviar_nfe_pdf == true
-  headerTitle = empresaNome  (ex: "Benedito e Maria Ferragens")
-SENAO
-  headerTitle = mapa de titulos por status_label  (ex: "Pedido Entregue!")
+ANTES:
+  const event = events[0];
+  // verifica isAtivo, gera PDF, invoca edge function
+
+DEPOIS:
+  for (const event of events) {
+    // verifica isAtivo para CADA evento
+    // gera PDF apenas se enviar_nfe_pdf
+    // invoca edge function para CADA evento ativo
+  }
 ```
 
-A logo da empresa continuara aparecendo em TODOS os emails no header.
+### Mudanca no send-email (Edge Function)
+
+1. **Transportadora fallback**: Se `envio.transportadora` for vazio, usar "JL Transportadora e Logistica LTDA"
+2. **Logo redonda**: Envolver a imagem em um circulo branco com `border-radius:50%`
+3. **Header preto**: Background `#1a1a1a` ou `#111111` com texto branco
+4. **Emojis no titulo**: Mapa de emojis por `status_label` concatenado ao titulo
+5. **Tabela de info**: Manter estilo limpo com bordas suaves
 
