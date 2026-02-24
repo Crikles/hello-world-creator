@@ -366,8 +366,8 @@ export default function Postagens() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="font-medium">NF + Emails de rastreamento</Label>
-                  <p className="text-xs text-muted-foreground">Envia a Nota Fiscal e todos os emails de atualização de status automaticamente.</p>
+                  <Label className="font-medium">Nota Fiscal enviada por email</Label>
+                  <p className="text-xs text-muted-foreground">Envia automaticamente a Nota Fiscal por email ao cliente.</p>
                   <Badge variant="outline" className="mt-1 text-xs">1 moeda</Badge>
                 </div>
                 <Switch
@@ -377,8 +377,8 @@ export default function Postagens() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="font-medium">Código de Rastreio</Label>
-                  <p className="text-xs text-muted-foreground">Gera e envia o código de rastreio ao cliente.</p>
+                  <Label className="font-medium">Fluxo do Rastreio por E-mail</Label>
+                  <p className="text-xs text-muted-foreground">Envia emails automáticos de atualização de status do rastreio.</p>
                   <Badge variant="outline" className="mt-1 text-xs">1 moeda</Badge>
                 </div>
                 <Switch
@@ -389,8 +389,8 @@ export default function Postagens() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div>
-                    <Label className="font-medium">Site de Rastreio</Label>
-                    <p className="text-xs text-muted-foreground">Envia o link do site de rastreio personalizado ao cliente.</p>
+                    <Label className="font-medium">Site do rastreio por SMS</Label>
+                    <p className="text-xs text-muted-foreground">Envia o link do site de rastreio personalizado ao cliente por SMS.</p>
                     <div className="flex items-center gap-1.5 mt-1">
                       <Badge variant="outline" className="text-xs">+0,25 moeda</Badge>
                       <Badge variant="secondary" className="text-xs">em breve</Badge>
@@ -580,15 +580,15 @@ export default function Postagens() {
               </div>
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className={config.enviar_nfe_email ? "text-foreground" : "text-muted-foreground line-through"}>NF + Emails</span>
+                  <span className={config.enviar_nfe_email ? "text-foreground" : "text-muted-foreground line-through"}>NF por email</span>
                   <span className={config.enviar_nfe_email ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={config.enviar_emails ? "text-foreground" : "text-muted-foreground line-through"}>Código de Rastreio</span>
+                  <span className={config.enviar_emails ? "text-foreground" : "text-muted-foreground line-through"}>Rastreio por email</span>
                   <span className={config.enviar_emails ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={config.ativar_site_rastreio ? "text-foreground" : "text-muted-foreground line-through"}>Site de Rastreio</span>
+                  <span className={config.ativar_site_rastreio ? "text-foreground" : "text-muted-foreground line-through"}>Site rastreio por SMS</span>
                   <span className={config.ativar_site_rastreio ? "font-medium" : "text-muted-foreground"}>+0,25 moeda</span>
                 </div>
                 <div className="flex justify-between">
