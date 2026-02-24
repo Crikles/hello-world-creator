@@ -15,10 +15,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusTimelineColors: Record<string, string> = {
-  pendente: "bg-yellow-500",
-  em_transito: "bg-blue-500",
-  saiu_para_entrega: "bg-orange-500",
-  entregue: "bg-emerald-500",
+  pendente: "bg-primary/60",
+  em_transito: "bg-primary",
+  saiu_para_entrega: "bg-primary/80",
+  entregue: "bg-accent-foreground",
 };
 
 export default function Dashboard() {
@@ -40,7 +40,6 @@ export default function Dashboard() {
   const entregues = envios.filter((e) => e.status === "entregue").length;
   const faturamento = envios.reduce((acc, e) => acc + Number(e.valor || 0), 0);
 
-  // Build chart data from envios grouped by date
   const chartDataMap = new Map<string, { receita: number; pedidos: number }>();
   envios.forEach((e) => {
     const day = format(new Date(e.created_at), "dd/MM");
@@ -61,25 +60,25 @@ export default function Dashboard() {
       title: "Total de Pedidos",
       value: total,
       icon: Package,
-      gradient: "from-violet-600 to-purple-700",
+      gradient: "from-primary/90 to-primary/60",
     },
     {
       title: "Pendentes",
       value: pendentes,
       icon: Clock,
-      gradient: "from-orange-500 to-amber-600",
+      gradient: "from-primary/70 to-accent",
     },
     {
       title: "Em Trânsito",
       value: emTransito,
       icon: Truck,
-      gradient: "from-blue-600 to-indigo-700",
+      gradient: "from-accent to-primary/50",
     },
     {
       title: "Entregues",
       value: entregues,
       icon: CheckCircle,
-      gradient: "from-emerald-500 to-green-600",
+      gradient: "from-primary/80 to-primary/40",
     },
   ];
 
@@ -102,7 +101,7 @@ export default function Dashboard() {
               style={{ animationDelay: `${(i + 1) * 100}ms` }}
             >
               <div
-                className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${card.gradient} p-5 text-white shadow-lg transition-transform hover:scale-[1.03] cursor-default`}
+                className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${card.gradient} p-5 text-primary-foreground shadow-lg transition-transform hover:scale-[1.03] cursor-default border border-primary/20`}
               >
                 <card.icon className="absolute -top-2 -right-2 h-20 w-20 opacity-15" />
                 <p className="text-sm font-medium opacity-90">{card.title}</p>
@@ -132,17 +131,19 @@ export default function Dashboard() {
                   <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(217, 91%, 50%)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(217, 91%, 50%)" stopOpacity={0} />
+                        <stop offset="5%" stopColor="hsl(43, 74%, 49%)" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="hsl(43, 74%, 49%)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 47%)" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 47%)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 18%)" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                    <YAxis tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
                     <Tooltip
                       contentStyle={{
                         borderRadius: "8px",
-                        border: "1px solid hsl(214, 32%, 91%)",
+                        border: "1px solid hsl(0, 0%, 18%)",
+                        backgroundColor: "hsl(0, 0%, 10%)",
+                        color: "hsl(45, 30%, 92%)",
                         fontSize: "12px",
                       }}
                       formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Receita"]}
@@ -150,7 +151,7 @@ export default function Dashboard() {
                     <Area
                       type="monotone"
                       dataKey="receita"
-                      stroke="hsl(217, 91%, 50%)"
+                      stroke="hsl(43, 74%, 49%)"
                       strokeWidth={2}
                       fill="url(#colorReceita)"
                     />
@@ -165,13 +166,13 @@ export default function Dashboard() {
               <CardTitle className="text-base">Canais de Notificação</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                <Mail className="h-5 w-5 text-emerald-600" />
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-accent border border-primary/20">
+                <Mail className="h-5 w-5 text-primary" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">Email</p>
                   <p className="text-xs text-muted-foreground">Notificações ativas</p>
                 </div>
-                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Ativo</Badge>
+                <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/25">Ativo</Badge>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
                 <MessageSquare className="h-5 w-5 text-muted-foreground" />

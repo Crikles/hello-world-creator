@@ -78,7 +78,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     .danfe-root .right { text-align: right; }
     .danfe-root .barcode { background: #000; height: 50px; margin: 5px 0; }
     .danfe-root .danfe-title { font-size: 16pt; font-weight: bold; }
-    .danfe-root .empresa-value { color: #2563eb; }
+    .danfe-root .empresa-value { color: #b8860b; }
   `;
 
   const body = `<div class="danfe-root">
