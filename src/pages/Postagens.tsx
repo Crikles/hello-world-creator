@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +90,7 @@ const badgeColor: Record<string, string> = {
 
 export default function Postagens() {
   const { loja } = useLoja();
+  const { isAdmin } = useIsAdmin();
   const queryClient = useQueryClient();
   const [editingEvento, setEditingEvento] = useState<PostagemEvento | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -416,8 +418,8 @@ export default function Postagens() {
               return (
                 <Card
                   key={template.id}
-                  className="cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => applyTemplate.mutate(template.id)}
+                  className={`transition-colors ${isAdmin ? "cursor-pointer hover:border-primary/50" : "opacity-80"}`}
+                  onClick={isAdmin ? () => applyTemplate.mutate(template.id) : undefined}
                 >
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
@@ -454,7 +456,7 @@ export default function Postagens() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-foreground">Eventos do Fluxo Ativo</h2>
-            {config?.template_ativo_id && (
+            {isAdmin && config?.template_ativo_id && (
               <Button size="sm" variant="outline" onClick={() => addEvento.mutate()}>
                 <Plus className="h-4 w-4 mr-1" />
                 Adicionar
@@ -511,34 +513,40 @@ export default function Postagens() {
                       </div>
                       {!isFirst && (
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <Input
-                            type="number"
-                            min={0}
-                            className="w-16 h-8 text-xs text-center"
-                            value={Math.round(evento.delay_horas / 24)}
-                            onChange={(e) => {
-                              const dias = parseInt(e.target.value) || 0;
-                              updateEvento.mutate({ id: evento.id, delay_horas: dias * 24 });
-                            }}
-                          />
+                          {isAdmin ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              className="w-16 h-8 text-xs text-center"
+                              value={Math.round(evento.delay_horas / 24)}
+                              onChange={(e) => {
+                                const dias = parseInt(e.target.value) || 0;
+                                updateEvento.mutate({ id: evento.id, delay_horas: dias * 24 });
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xs font-medium">{Math.round(evento.delay_horas / 24)}</span>
+                          )}
                           <span className="text-xs text-muted-foreground whitespace-nowrap">dias após anterior</span>
                         </div>
                       )}
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(evento)}>
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Button>
-                        {!isFirst && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteEvento.mutate(evento.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
+                      {isAdmin && (
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(evento)}>
+                            <Edit2 className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-                      </div>
+                          {!isFirst && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => deleteEvento.mutate(evento.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
