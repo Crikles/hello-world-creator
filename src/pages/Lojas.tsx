@@ -44,6 +44,7 @@ export default function Lojas() {
       const { data, error } = await supabase
         .from("lojas")
         .select("*")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data;
