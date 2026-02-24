@@ -59,6 +59,8 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
   const endEmpresa = [e.endereco, e.numero ? `${e.numero}` : ""].filter(Boolean).join(", ");
   const endEmpresa2 = [e.bairro, e.cep ? `CEP ${e.cep}` : ""].filter(Boolean).join(" - ");
   const endEmpresa3 = [e.cidade, e.estado].filter(Boolean).join(" - ");
+  const nfNumero = String(Math.floor(Math.random() * 999999) + 1).padStart(9, "0").replace(/(\d{3})(\d{3})(\d{3})/, "$1.$2.$3");
+  const nfSerie = String(Math.floor(Math.random() * 999) + 1).padStart(3, "0");
   const valorUnit = c.valor || 0;
   const qtd = c.quantidade || 1;
   const valorTotal = valorUnit * qtd;
@@ -89,8 +91,8 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       </td>
       <td style="width: 120px; text-align: center; font-weight: bold;">
         NF-e<br>
-        N° 000.000.001<br>
-        Série 001
+        N° ${nfNumero}<br>
+        Série ${nfSerie}
       </td>
     </tr>
 
@@ -102,8 +104,8 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       </td>
       <td style="width: 120px; text-align: center; font-weight: bold;">
         NF-e<br>
-        N° 000.000.001<br>
-        Série 001
+        N° ${nfNumero}<br>
+        Série ${nfSerie}
       </td>
     </tr>
 
@@ -126,7 +128,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
         <div style="font-size: 6pt; margin: 5px 0;">Documento Auxiliar da<br>Nota Fiscal Eletrônica</div>
         <div style="display: inline-block; border: 1px solid #000; padding: 2px 15px; font-size: 12pt; font-weight: bold; margin: 5px 0;">1</div>
         <div style="font-size: 6pt;">0 - ENTRADA &nbsp; 1 - SAÍDA</div>
-        <div style="font-size: 9pt; font-weight: bold; margin-top: 5px;">N° 000.000.001<br>SÉRIE 001<br>FOLHA 1/1</div>
+        <div style="font-size: 9pt; font-weight: bold; margin-top: 5px;">N° ${nfNumero}<br>SÉRIE ${nfSerie}<br>FOLHA 1/1</div>
       </td>
       <td colspan="3" style="text-align: center;">
         <div class="barcode"></div>
