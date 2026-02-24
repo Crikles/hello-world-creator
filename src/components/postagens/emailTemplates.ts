@@ -28,6 +28,7 @@ export const variaveisDisponiveis = [
   { key: "{{valor}}", label: "Valor do pedido" },
   { key: "{{quantidade}}", label: "Quantidade" },
   { key: "{{empresa_nome}}", label: "Nome da empresa" },
+  { key: "{{empresa_logo_url}}", label: "Logo da empresa" },
 ];
 
 export const emojiSugeridos: Record<string, string[]> = {
@@ -177,6 +178,9 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,${primaryColor},${primaryColor}dd);padding:32px 40px;text-align:center;">
+              <!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+              {{#empresa_logo_url}}<img src="{{empresa_logo_url}}" alt="{{empresa_nome}}" style="max-height:120px;max-width:200px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto;" />{{/empresa_logo_url}}
+              <!--[if mso]></td></tr></table><![endif]-->
               <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">{{empresa_nome}}</p>
             </td>
           </tr>
