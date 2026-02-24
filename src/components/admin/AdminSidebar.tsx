@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Coins, Store, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Coins, Store, LogOut, Mail } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ const menuItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Usuários", url: "/admin/usuarios", icon: Users },
   { title: "Créditos", url: "/admin/creditos", icon: Coins },
+  { title: "Emails", url: "/admin/email", icon: Mail },
 ];
 
 export function AdminSidebar() {
