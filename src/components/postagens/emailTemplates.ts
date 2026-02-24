@@ -46,7 +46,7 @@ export const emojiSugeridos: Record<string, string[]> = {
 export const defaultSectionsByEvent: Record<string, EmailSections> = {
   Postado: {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Seu pedido **{{produto}}** foi postado com sucesso! 🎉\n\nO código de rastreio é: **{{codigo_rastreio}}**\n\nVocê pode acompanhar a entrega clicando no botão abaixo.",
+    mensagem: "Sua nota fiscal foi emitida e está em anexo neste e-mail. Seu pedido **{{produto}}** será enviado em breve!",
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
@@ -55,7 +55,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
   },
   Coletado: {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Seu pedido **{{produto}}** foi coletado pela transportadora {{transportadora}}!\n\nEm breve ele estará a caminho.",
+    mensagem: "Seu pedido **{{produto}}** foi coletado pela transportadora **{{transportadora}}** e já está a caminho! Acompanhe pelo código: **{{codigo_rastreio}}**",
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
@@ -64,7 +64,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
   },
   "Em Trânsito": {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Seu pedido está a caminho! 🚛\n\nO produto **{{produto}}** está em trânsito e logo chegará até você.\n\nAcompanhe pelo código: **{{codigo_rastreio}}**",
+    mensagem: "Seu pedido **{{produto}}** está viajando até você! 🚛\n\nAcompanhe a entrega pelo código de rastreio: **{{codigo_rastreio}}**",
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Acompanhar Entrega",
@@ -73,7 +73,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
   },
   "Centro Local": {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Seu pedido **{{produto}}** chegou ao centro de distribuição local! 📍\n\nEle está cada vez mais perto de você.",
+    mensagem: "Seu pedido **{{produto}}** chegou ao centro de distribuição mais próximo de você! 📍 Falta muito pouco agora.",
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
@@ -82,7 +82,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
   },
   "Saiu para Entrega": {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Boas notícias! 🚚\n\nSeu pedido **{{produto}}** saiu para entrega hoje! Fique atento, ele pode chegar a qualquer momento.",
+    mensagem: "Boas notícias! 🚚 Seu pedido **{{produto}}** saiu para entrega hoje. Fique atento, ele pode chegar a qualquer momento!",
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Acompanhar em Tempo Real",
@@ -91,7 +91,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
   },
   Entregue: {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Seu pedido foi entregue! ✅🎉\n\nEsperamos que você goste do seu **{{produto}}**!\n\nSe tiver alguma dúvida ou problema, não hesite em nos contatar.",
+    mensagem: "Seu pedido **{{produto}}** foi entregue com sucesso! ✅🎉\n\nEsperamos que você aproveite! Se tiver alguma dúvida, não hesite em nos contatar.",
     mostrar_info_pedido: true,
     mostrar_botao_cta: false,
     texto_botao_cta: "",
@@ -100,7 +100,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
   },
   "Taxação": {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Seu pedido **{{produto}}** foi taxado pela alfândega. ⚠️\n\nPara prosseguir com a entrega, é necessário realizar o pagamento da taxa.",
+    mensagem: "Seu pedido **{{produto}}** foi taxado pela alfândega. ⚠️\n\nPara que a entrega continue, é necessário realizar o pagamento da taxa. Clique no botão abaixo para mais detalhes.",
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Ver Detalhes da Taxa",
@@ -109,7 +109,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
   },
   Pago: {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Pagamento confirmado! 💳✅\n\nA taxa do seu pedido **{{produto}}** foi paga com sucesso. A entrega será retomada em breve.",
+    mensagem: "O pagamento da taxa do seu pedido **{{produto}}** foi confirmado! 💳✅\n\nA entrega será retomada em breve. Acompanhe pelo código: **{{codigo_rastreio}}**",
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
