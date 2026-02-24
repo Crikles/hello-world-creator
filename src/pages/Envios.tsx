@@ -83,7 +83,7 @@ export default function Envios() {
       if (error) throw error;
 
       if (loja?.id) {
-        await triggerShipmentEmail(id, status, loja.id);
+        triggerShipmentEmail(id, status, loja.id);
       }
     },
     onSuccess: () => {
@@ -111,7 +111,7 @@ export default function Envios() {
 
     if (loja?.id) {
       for (const id of ids) {
-        await triggerShipmentEmail(id, toStatus, loja.id);
+        triggerShipmentEmail(id, toStatus, loja.id);
       }
     }
 
