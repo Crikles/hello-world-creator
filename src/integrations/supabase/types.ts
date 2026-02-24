@@ -375,6 +375,7 @@ export type Database = {
           ativar_site_rastreio: boolean
           ativar_taxacao: boolean
           created_at: string
+          email_remetente: string | null
           enviar_emails: boolean
           enviar_nfe_email: boolean
           id: string
@@ -386,6 +387,7 @@ export type Database = {
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
           created_at?: string
+          email_remetente?: string | null
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
           id?: string
@@ -397,6 +399,7 @@ export type Database = {
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
           created_at?: string
+          email_remetente?: string | null
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
           id?: string
