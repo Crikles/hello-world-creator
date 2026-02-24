@@ -469,9 +469,6 @@ export default function Postagens() {
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
                             {evento.status_label}
                           </span>
-                          {isFirst && (
-                            <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">Gratuito</Badge>
-                          )}
                           {evento.is_final && (
                             <Badge variant="outline" className="text-xs">Final</Badge>
                           )}
