@@ -86,6 +86,7 @@ export async function triggerShipmentEmail(envioId: string, status: string, loja
             body: {
                 envio_id: shipment.id,
                 evento_id: event.id,
+                loja_id: lojaId,
                 nfe_pdf_base64,
                 nfe_filename,
             },
