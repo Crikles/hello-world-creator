@@ -108,8 +108,7 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
 
       if (error) throw error;
 
-      // Disparar e-mail em segundo plano (sem bloquear o salvamento)
-      triggerShipmentEmail(newEnvio.id, "pendente", loja.id);
+      // Email será disparado apenas quando o usuário avançar o status manualmente
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
