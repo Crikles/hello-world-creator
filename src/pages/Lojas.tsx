@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -8,16 +9,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Package, Plus, Store, LogOut } from "lucide-react";
+import { Package, Plus, Store, LogOut, Shield, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function Lojas() {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [nome, setNome] = useState("");
+
+  const { data: saldo } = useQuery({
+    queryKey: ["meu-saldo", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("creditos")
+        .select("saldo")
+        .eq("user_id", user!.id)
+        .single();
+      return data?.saldo ?? 0;
+    },
+    enabled: !!user,
+  });
 
   const { data: lojas = [], isLoading } = useQuery({
     queryKey: ["lojas"],
@@ -85,10 +100,22 @@ export default function Lojas() {
             </div>
             <h1 className="text-lg font-bold text-foreground">Minhas Lojas</h1>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sair
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-sm text-primary font-medium">
+              <Coins className="h-4 w-4" />
+              {saldo ?? 0}
+            </span>
+            {isAdmin && (
+              <Button variant="outline" size="sm" onClick={() => navigate("/admin")}>
+                <Shield className="h-4 w-4 mr-1.5" />
+                Admin
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
