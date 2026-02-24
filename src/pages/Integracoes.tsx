@@ -7,14 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useLoja } from "@/contexts/LojaContext";
+import logoVega from "@/assets/logo-vega.png";
+import logoZedy from "@/assets/logo-zedy.png";
+import logoLuna from "@/assets/logo-luna.png";
+import logoCorvex from "@/assets/logo-corvex.ico";
 
 const WEBHOOK_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
 const checkouts = [
-  { id: "vega", name: "Vega Checkout", description: "Integração com Vega Checkout", color: "hsl(var(--primary))" },
-  { id: "zedy", name: "Zedy Checkout", description: "Integração com Zedy Checkout", color: "hsl(var(--accent))" },
-  { id: "luna", name: "Luna Checkout", description: "Integração com Luna Checkout", color: "hsl(var(--secondary))" },
-  { id: "corvex", name: "Corvex Checkout", description: "Integração com Corvex Checkout", color: "hsl(var(--muted-foreground))" },
+  { id: "vega", name: "Vega Checkout", description: "Integração com Vega Checkout", logo: logoVega },
+  { id: "zedy", name: "Zedy Checkout", description: "Integração com Zedy Checkout", logo: logoZedy },
+  { id: "luna", name: "Luna Checkout", description: "Integração com Luna Checkout", logo: logoLuna },
+  { id: "corvex", name: "Corvex Checkout", description: "Integração com Corvex Checkout", logo: logoCorvex },
 ];
 
 export default function Integracoes() {
@@ -53,12 +57,11 @@ export default function Integracoes() {
           return (
             <Card key={checkout.id} className="relative overflow-hidden">
               <CardHeader className="flex flex-row items-center gap-4 pb-2">
-                <div
-                  className="h-12 w-12 rounded-lg flex items-center justify-center text-lg font-bold text-primary-foreground shrink-0"
-                  style={{ backgroundColor: checkout.color }}
-                >
-                  {checkout.name.charAt(0)}
-                </div>
+                <img
+                  src={checkout.logo}
+                  alt={checkout.name}
+                  className="h-12 w-12 rounded-lg object-contain shrink-0 bg-card"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-semibold text-base text-foreground">{checkout.name}</h3>
