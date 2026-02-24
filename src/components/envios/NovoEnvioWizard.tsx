@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLoja } from "@/contexts/LojaContext";
 import { triggerShipmentEmail } from "@/lib/email-trigger";
+import { fetchCep } from "@/lib/cep-utils";
+import { Loader2 } from "lucide-react";
 
 const UF_OPTIONS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
@@ -48,8 +50,26 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
   });
 
   const { loja } = useLoja();
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
   const set = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
+
+  const handleCepBlur = useCallback(async () => {
+    if (!form.cliente_cep || form.cliente_cep.replace(/\D/g, "").length !== 8) return;
+    setBuscandoCep(true);
+    const result = await fetchCep(form.cliente_cep);
+    setBuscandoCep(false);
+    if (result) {
+      setForm((f) => ({
+        ...f,
+        cliente_endereco: result.logradouro || f.cliente_endereco,
+        cliente_bairro: result.bairro || f.cliente_bairro,
+        cliente_cidade: result.localidade || f.cliente_cidade,
+        cliente_estado: result.uf || f.cliente_estado,
+      }));
+      toast.success("Endereço preenchido pelo CEP!");
+    }
+  }, [form.cliente_cep]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -178,7 +198,10 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">CEP *</Label>
-                <Input value={form.cliente_cep} onChange={(e) => set("cliente_cep", e.target.value)} />
+                <div className="relative">
+                  <Input value={form.cliente_cep} onChange={(e) => set("cliente_cep", e.target.value)} onBlur={handleCepBlur} />
+                  {buscandoCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                </div>
               </div>
               <div className="col-span-2 space-y-1">
                 <Label className="text-xs">Endereço *</Label>

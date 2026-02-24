@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Plus, Search, Truck, Eye, Trash2, Play, FastForward } from "lucide-react";
+import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
@@ -181,6 +182,7 @@ export default function Envios() {
                 ))}
               </SelectContent>
             </Select>
+            {loja && <ImportarPlanilha lojaId={loja.id} />}
             <Button onClick={() => setWizardOpen(true)}>
               <Plus className="h-4 w-4 mr-1" /> Novo Envio
             </Button>
