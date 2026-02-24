@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Building2, MapPin, ImagePlus, Trash2, RotateCcw, Upload, Download, Maximize2 } from "lucide-react";
+import { Save, Building2, MapPin, ImagePlus, Trash2, RotateCcw, Upload, Download, Maximize2, Loader2 } from "lucide-react";
+import { fetchCep } from "@/lib/cep-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -27,6 +28,24 @@ export default function Empresa() {
   const [iframeReady, setIframeReady] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+
+  const handleCepBlur = async () => {
+    if (!form.cep || form.cep.replace(/\D/g, "").length !== 8) return;
+    setBuscandoCep(true);
+    const result = await fetchCep(form.cep);
+    setBuscandoCep(false);
+    if (result) {
+      setForm((prev) => ({
+        ...prev,
+        endereco: result.logradouro || prev.endereco,
+        bairro: result.bairro || prev.bairro,
+        cidade: result.localidade || prev.cidade,
+        estado: result.uf || prev.estado,
+      }));
+      toast.success("Endereço preenchido pelo CEP!");
+    }
+  };
 
   const [form, setForm] = useState({
     razao_social: "",
@@ -376,7 +395,10 @@ export default function Empresa() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">CEP *</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.cep} onChange={(e) => handleChange("cep", e.target.value)} placeholder="00000-000" />
+                  <div className="relative">
+                    <Input className="bg-muted/30 focus:bg-background" value={form.cep} onChange={(e) => handleChange("cep", e.target.value)} onBlur={handleCepBlur} placeholder="00000-000" />
+                    {buscandoCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                  </div>
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs text-muted-foreground">Complemento</Label>
