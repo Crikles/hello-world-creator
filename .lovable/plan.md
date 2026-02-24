@@ -1,56 +1,59 @@
 
-# Pre-setar Tempos Realistas nos Fluxos de Email
 
-## Contexto
+# Gestao de Email Resend no Painel Admin
 
-Os delays atuais nos templates de sistema estao com valores muito baixos (2-4 horas entre eventos), o que nao reflete a realidade logistica brasileira. Vamos atualizar para tempos que fazem sentido para envios via Correios/transportadoras.
+## Resumo
 
-## Novos Tempos Propostos
+Mover toda a gestao de email para o painel administrativo. O admin controla centralmente o Resend para todas as contas -- usuarios nao precisam configurar nada.
 
-### Nacional Padrao (entrega em 7-12 dias uteis)
+## O que muda
 
-| Evento | Delay Atual | Novo Delay | Logica |
-|---|---|---|---|
-| Nota Fiscal Emitida | 0h (imediato) | 0h (imediato) | Enviado assim que postado |
-| Pedido Coletado | 2h (0 dias) | 24h (1 dia) | Coleta no dia seguinte |
-| Em Transito | 24h (1 dia) | 48h (2 dias) | Entra na malha em 2 dias |
-| Centro de Distribuicao | 48h (2 dias) | 120h (5 dias) | Transporte entre estados |
-| Saiu para Entrega | 2h (0 dias) | 24h (1 dia) | Separacao e rota no dia seguinte |
-| Entregue | 4h (0 dias) | 0h (mesmo dia) | Entrega no mesmo dia que saiu |
+### 1. Nova pagina: Admin Email (`/admin/email`)
 
-**Total estimado: ~9 dias**
+Pagina no painel admin com:
 
-### Nacional Taxacao (entrega em 12-20 dias uteis, com pausa para pagamento)
+- **Status da API Key**: indicador visual se a RESEND_API_KEY esta configurada (testar com uma chamada a edge function)
+- **Estatisticas de envio**: total de emails enviados, falhados, custo total (consultando `postagem_email_log`)
+- **Log de emails recentes**: tabela com destinatario, assunto, status, data, loja (join com `lojas` para mostrar nome)
+- **Dominio configurado**: campo informativo mostrando o dominio de envio atual (`onboarding@resend.dev` por padrao)
 
-| Evento | Delay Atual | Novo Delay | Logica |
-|---|---|---|---|
-| Nota Fiscal Emitida | 0h | 0h | Imediato |
-| Pedido Coletado | 2h | 24h (1 dia) | Coleta no dia seguinte |
-| Em Transito | 24h | 48h (2 dias) | Entra na malha |
-| Centro de Distribuicao | 48h | 120h (5 dias) | Transporte entre estados |
-| Aguardando Pagamento | 2h | 24h (1 dia) | Notificacao apos retencao |
-| Pagamento Confirmado | 0h | 72h (3 dias) | Tempo para cliente pagar taxa |
-| Saiu para Entrega | 2h | 24h (1 dia) | Liberacao e rota |
-| Entregue | 4h | 0h (mesmo dia) | Entrega no dia |
+### 2. Sidebar Admin
 
-**Total estimado: ~13 dias**
+Adicionar item "Email" no menu lateral do admin com icone `Mail`.
 
-### Nacional Expressa (entrega em 2-4 dias uteis)
+### 3. Rota no App.tsx
 
-| Evento | Delay Atual | Novo Delay | Logica |
-|---|---|---|---|
-| Pedido Confirmado | 0h | 0h | Imediato |
-| Em Rota de Entrega | 24h | 48h (2 dias) | Transporte rapido |
-| Entregue | 4h | 24h (1 dia) | Entrega no dia seguinte |
+Nova rota `/admin/email` protegida com `AdminRoute`.
 
-**Total estimado: ~3 dias**
+### 4. Remover referencia a email da pagina Configuracoes do usuario
 
-## Implementacao
+A pagina `Configuracoes.tsx` atualmente mostra um card "Em breve" sobre email. Vamos remover esse card ja que o email sera gerido pelo admin.
+
+### 5. RLS para admin ver todos os email logs
+
+Adicionar policy para admin poder ler todos os registros de `postagem_email_log` (atualmente so o dono da loja consegue ver).
+
+## Detalhes Tecnicos
+
+### Arquivos modificados
+- `src/pages/admin/AdminEmail.tsx` -- nova pagina
+- `src/components/admin/AdminSidebar.tsx` -- adicionar item "Email"
+- `src/App.tsx` -- nova rota `/admin/email`
+- `src/pages/Configuracoes.tsx` -- remover card de email (ou remover a pagina inteira se ficar vazia)
 
 ### Migracao SQL
+```sql
+CREATE POLICY "Admins can view all email logs"
+ON public.postagem_email_log
+FOR SELECT
+TO authenticated
+USING (has_role(auth.uid(), 'admin'::app_role));
+```
 
-Um UPDATE nos registros da tabela `postagem_eventos` para os templates de sistema (`is_system = true`), atualizando o campo `delay_horas` com os novos valores baseados no `status_label` e `template_id` de cada template.
+### Pagina AdminEmail
+- Query `postagem_email_log` com join em `lojas` para nome da loja
+- Cards de metricas: total enviados, total falhados, custo acumulado
+- Tabela com colunas: Data, Loja, Destinatario, Assunto, Status, Custo
+- Badge verde/vermelho para status sent/failed
+- Edge function `send-email` ja esta pronta e usa a RESEND_API_KEY do backend -- nenhuma alteracao necessaria nela
 
-### Arquivo modificado
-
-Nenhum arquivo de codigo precisa ser alterado - a mudanca e apenas nos dados do banco de dados.
