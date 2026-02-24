@@ -24,10 +24,11 @@ export async function generateDanfePdfBase64(
   container.innerHTML = `<style>${css}</style>${body}`;
   document.body.appendChild(container);
 
-  // Convert empresa-value colors to black for PDF
-  container.querySelectorAll('.empresa-value').forEach((el: Element) => {
-    (el as HTMLElement).style.color = '#000';
-  });
+  // Override gold color to black for PDF rendering
+  const styleEl = container.querySelector('style');
+  if (styleEl) {
+    styleEl.textContent = styleEl.textContent!.replace('#b8860b', '#000');
+  }
 
   await new Promise(resolve => {
     requestAnimationFrame(() => {

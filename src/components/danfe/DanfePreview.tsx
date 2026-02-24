@@ -369,9 +369,11 @@ export function DanfePreview({ open, onOpenChange, empresa, envio }: Props) {
     container.innerHTML = `<style>${css}</style>${body}`;
     document.body.appendChild(container);
 
-    container.querySelectorAll('.empresa-value').forEach((el: any) => {
-      el.style.color = '#000';
-    });
+    // Override gold color to black for PDF rendering
+    const styleEl = container.querySelector('style');
+    if (styleEl) {
+      styleEl.textContent = styleEl.textContent!.replace('#b8860b', '#000');
+    }
 
     await new Promise(resolve => {
       requestAnimationFrame(() => {
