@@ -1,134 +1,187 @@
 
-
-# Sistema Multi-Tenant: Contas de Usuario + Lojas
+# Painel Admin + Sistema de Creditos
 
 ## Resumo
 
-Transformar o sistema atual (single-tenant) em um sistema multi-usuario onde cada pessoa cria sua conta, pode ter ate 5 lojas, e cada loja tem seus proprios dados isolados (empresas, envios, pedidos, webhooks, integracoes).
+Criar um painel administrativo exclusivo para usuarios com role `admin`, com visao completa de todos os usuarios, lojas e envios do sistema. Incluir um sistema de creditos (moedas) onde o admin pode adicionar creditos a contas de usuarios.
 
 ---
 
-## Estrutura do Banco de Dados
+## 1. Banco de Dados - Novas Tabelas
 
-### Novas tabelas
-
-**1. `profiles`** - Dados do usuario
-- `id` (uuid, PK, referencia auth.users)
-- `full_name` (text)
-- `email` (text)
-- `created_at` (timestamptz)
-- Trigger automatico: cria profile quando usuario se cadastra
-
-**2. `lojas`** - Lojas do usuario (max 5)
+### Tabela `creditos`
 - `id` (uuid, PK)
-- `user_id` (uuid, FK para auth.users)
-- `nome` (text) - nome da loja
-- `slug` (text, unique) - identificador unico para URLs de webhook
-- `created_at` / `updated_at` (timestamptz)
-- Trigger de validacao: impedir mais de 5 lojas por usuario
+- `user_id` (uuid, FK auth.users) -- dono do saldo
+- `saldo` (integer, default 0) -- saldo atual de moedas
+- `updated_at` (timestamptz)
+- Trigger: criar registro automaticamente quando usuario se cadastra (saldo = 0)
+- RLS: usuario le seu proprio saldo; admin le/edita todos
 
-### Alteracoes nas tabelas existentes
-
-**3. Adicionar `loja_id` nas tabelas:**
-- `empresas` -> adicionar coluna `loja_id` (uuid, FK para lojas)
-- `envios` -> adicionar coluna `loja_id` (uuid, FK para lojas)
-- `pedidos` -> adicionar coluna `loja_id` (uuid, FK para lojas)
-- `webhook_logs` -> adicionar coluna `loja_id` (uuid, FK para lojas)
-
-### RLS Policies
-
-Todas as tabelas terao policies que garantem que o usuario so acessa dados das suas proprias lojas:
-- `profiles`: usuario le/edita apenas seu proprio perfil
-- `lojas`: usuario CRUD apenas nas suas proprias lojas
-- `empresas`, `envios`, `pedidos`, `webhook_logs`: acesso apenas para registros vinculados a lojas do usuario autenticado
+### Tabela `creditos_transacoes`
+- `id` (uuid, PK)
+- `user_id` (uuid) -- usuario que recebeu/gastou
+- `tipo` (text) -- 'adicao' | 'consumo'
+- `quantidade` (integer) -- moedas adicionadas ou consumidas
+- `descricao` (text) -- motivo (ex: "Adicionado pelo admin", "Envio de NF-e #123")
+- `admin_id` (uuid, nullable) -- quem adicionou (se foi o admin)
+- `created_at` (timestamptz)
+- RLS: usuario ve suas proprias transacoes; admin ve todas
 
 ---
 
-## Paginas Novas
+## 2. Paginas do Painel Admin
 
-### 4. Pagina de Login (`/login`)
-- Formulario com email e senha
-- Link para criar conta
-- Design no tema preto e dourado
+Todas as rotas admin ficam em `/admin/*` e sao protegidas verificando `has_role(uid, 'admin')`.
 
-### 5. Pagina de Cadastro (`/signup`)
-- Formulario com nome, email e senha
-- Confirmacao de email obrigatoria
-- Apos confirmar email, redireciona para login
+### 2a. `/admin` - Dashboard Admin
+- Total de usuarios cadastrados
+- Total de lojas no sistema
+- Total de envios processados
+- Total de creditos em circulacao
+- Cards com metricas gerais
 
-### 6. Pagina de Selecao de Loja (`/lojas`)
-- Apos login, usuario ve suas lojas
-- Botao para criar nova loja (ate 5)
-- Clicar numa loja redireciona para o Dashboard daquela loja
-- Cards com nome da loja e data de criacao
+### 2b. `/admin/usuarios` - Gestao de Usuarios
+- Tabela listando todos os usuarios (profiles + user_roles)
+- Colunas: Nome, Email, Role, Data de cadastro, Saldo de creditos, Qtd de lojas
+- Botao para adicionar creditos a um usuario (dialog com campo de quantidade e descricao)
+- Botao para ver detalhes do usuario (lojas, envios, transacoes)
 
----
-
-## Alteracoes na Navegacao
-
-### 7. Rotas protegidas
-- Todas as rotas do painel (Dashboard, Envios, etc.) exigem autenticacao
-- Rotas incluem o ID da loja: `/loja/:lojaId/dashboard`, `/loja/:lojaId/envios`, etc.
-- Componente `ProtectedRoute` que verifica se usuario esta logado
-- Componente `LojaProvider` (context) que carrega a loja selecionada
-
-### 8. Sidebar atualizado
-- Mostrar nome da loja no header do sidebar
-- Adicionar botao para trocar de loja (voltar para `/lojas`)
-- Adicionar botao de logout
+### 2c. `/admin/creditos` - Historico de Transacoes
+- Tabela com todas as transacoes de creditos do sistema
+- Filtros por usuario, tipo (adicao/consumo), data
 
 ---
 
-## Webhook Isolado por Loja
+## 3. Layout Admin
 
-### 9. URL de webhook com identificador da loja
-- Novo formato: `/functions/v1/webhook-vega?loja=SLUG_DA_LOJA`
-- A edge function `webhook-vega` recebera o `slug` da loja via query param
-- Busca o `loja_id` pelo slug e vincula o pedido/envio a loja correta
-- Pagina de Integracoes mostra a URL com o slug da loja selecionada
+### Sidebar Admin separado
+- Menu proprio com itens: Dashboard, Usuarios, Creditos
+- Botao "Voltar ao Painel" para retornar ao `/lojas`
+- Botao de logout
+- Design consistente com o tema preto e dourado
 
----
-
-## Contexto da Aplicacao
-
-### 10. LojaContext
-- Context React que armazena a loja ativa
-- Todas as queries do Supabase filtram por `loja_id`
-- Dashboard, Envios, Empresa, Integracoes, Configuracoes -- tudo filtrado pela loja ativa
+### Acesso ao Admin
+- Na pagina `/lojas`, se o usuario for admin, mostrar um botao/link "Painel Admin" no header
+- Componente `AdminRoute` que verifica a role antes de renderizar
 
 ---
 
-## Fluxo do Usuario
+## 4. Funcionalidade de Adicionar Creditos
+
+- No painel `/admin/usuarios`, o admin clica em "Adicionar Creditos" em qualquer usuario
+- Dialog abre com: campo quantidade, campo descricao
+- Ao confirmar:
+  1. Atualiza `creditos.saldo` do usuario (incrementa)
+  2. Insere registro em `creditos_transacoes` com tipo='adicao' e admin_id
+- Toast de confirmacao
+
+---
+
+## 5. Visao do Saldo pelo Usuario
+
+- No header da pagina `/lojas` ou no sidebar, mostrar o saldo de moedas do usuario logado
+- Formato: icone de moeda + numero (ex: "150 moedas")
+
+---
+
+## Detalhes Tecnicos
+
+### Migrations SQL
 
 ```text
-Cadastro (/signup)
-    |
-    v
-Confirma email
-    |
-    v
-Login (/login)
-    |
-    v
-Selecao de Loja (/lojas)
-    |-- Cria primeira loja
-    |
-    v
-Dashboard da Loja (/loja/:id/)
-    |-- Envios, Empresa, Integracoes, Config
-    |-- Pode voltar para trocar de loja
+-- Tabela creditos (saldo por usuario)
+CREATE TABLE public.creditos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  saldo INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.creditos ENABLE ROW LEVEL SECURITY;
+
+-- Tabela creditos_transacoes (historico)
+CREATE TABLE public.creditos_transacoes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  tipo TEXT NOT NULL CHECK (tipo IN ('adicao', 'consumo')),
+  quantidade INTEGER NOT NULL,
+  descricao TEXT,
+  admin_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.creditos_transacoes ENABLE ROW LEVEL SECURITY;
+
+-- RLS creditos
+CREATE POLICY "Users view own credits" ON public.creditos
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Admins full access credits" ON public.creditos
+  FOR ALL USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+-- RLS creditos_transacoes
+CREATE POLICY "Users view own transactions" ON public.creditos_transacoes
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Admins full access transactions" ON public.creditos_transacoes
+  FOR ALL USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+-- Trigger: criar saldo ao cadastrar usuario
+CREATE OR REPLACE FUNCTION public.create_user_credits()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.creditos (user_id, saldo) VALUES (NEW.id, 0);
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER on_auth_user_created_credits
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.create_user_credits();
+
+-- Admin precisa ler todos os profiles e lojas
+CREATE POLICY "Admins can view all profiles" ON public.profiles
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can view all lojas" ON public.lojas
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can view all envios" ON public.envios
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 ```
+
+### Novas rotas no App.tsx
+
+```text
+/admin          -> AdminDashboard
+/admin/usuarios -> AdminUsuarios
+/admin/creditos -> AdminCreditos
+```
+
+### Novos arquivos
+
+```text
+src/pages/admin/AdminDashboard.tsx
+src/pages/admin/AdminUsuarios.tsx
+src/pages/admin/AdminCreditos.tsx
+src/components/admin/AdminLayout.tsx
+src/components/admin/AdminSidebar.tsx
+src/components/AdminRoute.tsx
+src/hooks/useIsAdmin.ts
+```
+
+### Hook useIsAdmin
+
+- Consulta `user_roles` para verificar se o usuario logado tem role `admin`
+- Retorna `{ isAdmin, loading }`
+- Usado no `AdminRoute` e para mostrar/esconder o botao "Painel Admin"
 
 ---
 
 ## Sequencia de Implementacao
 
-1. Migration: criar tabelas `profiles` e `lojas` + adicionar `loja_id` nas tabelas existentes + RLS policies + triggers
-2. Paginas de Auth: Login e Signup com o tema preto e dourado
-3. Pagina de selecao/criacao de lojas
-4. LojaContext + ProtectedRoute
-5. Atualizar todas as paginas para filtrar por `loja_id`
-6. Atualizar Sidebar com nome da loja, troca de loja e logout
-7. Atualizar webhook-vega para receber slug da loja
-8. Atualizar pagina de Integracoes para mostrar URL com slug
-
+1. Migration: criar tabelas `creditos` e `creditos_transacoes` + RLS + triggers + policies de admin nas tabelas existentes
+2. Hook `useIsAdmin` para verificar role do usuario
+3. Componente `AdminRoute` para proteger rotas admin
+4. Layout admin (AdminLayout + AdminSidebar)
+5. Pagina AdminDashboard com metricas gerais
+6. Pagina AdminUsuarios com tabela de usuarios e funcao de adicionar creditos
+7. Pagina AdminCreditos com historico de transacoes
+8. Atualizar App.tsx com rotas admin
+9. Adicionar botao "Painel Admin" na pagina de Lojas e exibir saldo de moedas do usuario
