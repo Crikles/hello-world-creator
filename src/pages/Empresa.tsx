@@ -407,7 +407,10 @@ export default function Empresa() {
                     ● Tempo Real
                   </Badge>
                 </div>
-                <CardDescription className="text-xs">Atualiza conforme você preenche o formulário</CardDescription>
+                <CardDescription className="text-xs">
+                  Atualiza conforme você preenche o formulário.{" "}
+                  <span className="text-blue-600 font-medium">Dados em azul</span> indicam onde ficarão as informações da empresa — no PDF final, tudo será exibido em preto padrão.
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-2">
                 <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 720 }}>
