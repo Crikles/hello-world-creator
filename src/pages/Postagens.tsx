@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
@@ -22,6 +22,7 @@ import {
   MapPin,
   CreditCard,
   Box,
+  Save,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -83,6 +84,13 @@ const badgeColor: Record<string, string> = {
   "Em Rota": "bg-amber-100 text-amber-800",
 };
 
+function isEventoAtivo(evento: PostagemEvento, localConfig: PostagemConfig): boolean {
+  if (evento.enviar_nfe_pdf) return localConfig.enviar_nfe_email;
+  if (evento.status_label === "Taxação" || evento.status_label === "Pago")
+    return localConfig.ativar_taxacao;
+  return localConfig.enviar_emails;
+}
+
 function DelayInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [local, setLocal] = useState(String(Math.round(value / 24)));
   useEffect(() => { setLocal(String(Math.round(value / 24))); }, [value]);
@@ -104,6 +112,10 @@ function DelayInput({ value, onChange }: { value: number; onChange: (v: number) 
 export default function Postagens() {
   const { loja } = useLoja();
   const queryClient = useQueryClient();
+
+  // Local state for manual save
+  const [localConfig, setLocalConfig] = useState<PostagemConfig | null>(null);
+  const [localDelays, setLocalDelays] = useState<Record<string, number>>({});
 
   // Fetch system templates
   const { data: systemTemplates } = useQuery({
@@ -166,6 +178,33 @@ export default function Postagens() {
     },
     enabled: !!config?.template_ativo_id,
   });
+
+  // Sync local state from server data
+  useEffect(() => {
+    if (config) setLocalConfig({ ...config });
+  }, [config]);
+
+  useEffect(() => {
+    if (activeEventos) {
+      const delays: Record<string, number> = {};
+      activeEventos.forEach(e => { delays[e.id] = e.delay_horas; });
+      setLocalDelays(delays);
+    }
+  }, [activeEventos]);
+
+  // Detect pending changes
+  const hasChanges = useMemo(() => {
+    if (!config || !localConfig) return false;
+    const configChanged =
+      config.enviar_emails !== localConfig.enviar_emails ||
+      config.enviar_nfe_email !== localConfig.enviar_nfe_email ||
+      config.ativar_site_rastreio !== localConfig.ativar_site_rastreio ||
+      config.ativar_taxacao !== localConfig.ativar_taxacao;
+    const delaysChanged = activeEventos?.some(
+      e => localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas
+    );
+    return configChanged || !!delaysChanged;
+  }, [config, localConfig, activeEventos, localDelays]);
 
   // Apply template mutation
   const applyTemplate = useMutation({
@@ -230,42 +269,53 @@ export default function Postagens() {
     },
   });
 
-  // Toggle config
-  const toggleConfig = useMutation({
-    mutationFn: async (field: "enviar_emails" | "enviar_nfe_email" | "ativar_site_rastreio" | "ativar_taxacao") => {
-      if (!loja || !config) return;
-      await supabase
+  // Save all changes mutation
+  const saveAll = useMutation({
+    mutationFn: async () => {
+      if (!loja || !localConfig) throw new Error("Dados não disponíveis");
+
+      const { error: configErr } = await supabase
         .from("postagem_config")
-        .update({ [field]: !config[field] })
+        .update({
+          enviar_emails: localConfig.enviar_emails,
+          enviar_nfe_email: localConfig.enviar_nfe_email,
+          ativar_site_rastreio: localConfig.ativar_site_rastreio,
+          ativar_taxacao: localConfig.ativar_taxacao,
+        })
         .eq("loja_id", loja.id);
+      if (configErr) throw configErr;
+
+      if (activeEventos) {
+        for (const evento of activeEventos) {
+          if (localDelays[evento.id] !== undefined && localDelays[evento.id] !== evento.delay_horas) {
+            const { error } = await supabase
+              .from("postagem_eventos")
+              .update({ delay_horas: localDelays[evento.id] })
+              .eq("id", evento.id);
+            if (error) throw error;
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["postagem-config"] });
-    },
-  });
-
-  // Update evento delay only
-  const updateDelay = useMutation({
-    mutationFn: async ({ id, delay_horas }: { id: string; delay_horas: number }) => {
-      const { error } = await supabase
-        .from("postagem_eventos")
-        .update({ delay_horas })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["postagem-eventos-active"] });
+      toast({ title: "Configurações salvas com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao salvar configurações", variant: "destructive" });
     },
   });
 
   const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
 
   const custoMoedas = (() => {
+    if (!localConfig) return 0;
     let total = 0;
-    if (config?.enviar_nfe_email) total += 1;
-    if (config?.enviar_emails) total += 1;
-    if (config?.ativar_site_rastreio) total += 0.25;
-    if (config?.ativar_taxacao) total += 1;
+    if (localConfig.enviar_nfe_email) total += 1;
+    if (localConfig.enviar_emails) total += 1;
+    if (localConfig.ativar_site_rastreio) total += 0.25;
+    if (localConfig.ativar_taxacao) total += 1;
     return total;
   })();
 
@@ -280,7 +330,7 @@ export default function Postagens() {
         </div>
 
         {/* Configurações gerais */}
-        {config && (
+        {localConfig && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Configurações Gerais</CardTitle>
@@ -293,8 +343,8 @@ export default function Postagens() {
                   <Badge variant="outline" className="mt-1 text-xs">1 moeda</Badge>
                 </div>
                 <Switch
-                  checked={config.enviar_nfe_email}
-                  onCheckedChange={() => toggleConfig.mutate("enviar_nfe_email")}
+                  checked={localConfig.enviar_nfe_email}
+                  onCheckedChange={() => setLocalConfig(prev => prev ? { ...prev, enviar_nfe_email: !prev.enviar_nfe_email } : prev)}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -304,8 +354,8 @@ export default function Postagens() {
                   <Badge variant="outline" className="mt-1 text-xs">1 moeda</Badge>
                 </div>
                 <Switch
-                  checked={config.enviar_emails}
-                  onCheckedChange={() => toggleConfig.mutate("enviar_emails")}
+                  checked={localConfig.enviar_emails}
+                  onCheckedChange={() => setLocalConfig(prev => prev ? { ...prev, enviar_emails: !prev.enviar_emails } : prev)}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -319,9 +369,9 @@ export default function Postagens() {
                     </div>
                   </div>
                 </div>
-                 <Switch
-                  checked={config.ativar_site_rastreio}
-                  onCheckedChange={() => toggleConfig.mutate("ativar_site_rastreio")}
+                <Switch
+                  checked={localConfig.ativar_site_rastreio}
+                  onCheckedChange={() => setLocalConfig(prev => prev ? { ...prev, ativar_site_rastreio: !prev.ativar_site_rastreio } : prev)}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -333,9 +383,9 @@ export default function Postagens() {
                     <Badge variant="secondary" className="text-xs">em breve</Badge>
                   </div>
                 </div>
-                 <Switch
-                  checked={config.ativar_taxacao}
-                  onCheckedChange={() => toggleConfig.mutate("ativar_taxacao")}
+                <Switch
+                  checked={localConfig.ativar_taxacao}
+                  onCheckedChange={() => setLocalConfig(prev => prev ? { ...prev, ativar_taxacao: !prev.ativar_taxacao } : prev)}
                 />
               </div>
             </CardContent>
@@ -386,7 +436,7 @@ export default function Postagens() {
           </div>
         </div>
 
-        {/* Eventos do fluxo ativo - somente leitura, apenas delay editável */}
+        {/* Eventos do fluxo ativo */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-foreground">Eventos do Fluxo Ativo</h2>
@@ -405,9 +455,16 @@ export default function Postagens() {
                 const Icon = iconMap[evento.status_label || ""] || Mail;
                 const color = badgeColor[evento.status_label || ""] || "bg-muted text-muted-foreground";
                 const isFirst = index === 0;
+                const ativo = localConfig ? isEventoAtivo(evento, localConfig) : false;
 
                 return (
-                  <Card key={evento.id} className={isFirst ? "border-green-200 bg-green-50/30" : ""}>
+                  <Card
+                    key={evento.id}
+                    className={ativo
+                      ? "border-green-500/50 bg-green-50/30 dark:bg-green-950/20"
+                      : "border-red-500/50 bg-red-50/30 dark:bg-red-950/20"
+                    }
+                  >
                     <CardContent className="flex items-center gap-4 py-3 px-4">
                       <GripVertical className="h-4 w-4 text-muted-foreground/40" />
                       <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -442,8 +499,8 @@ export default function Postagens() {
                       {!isFirst && (
                         <div className="flex items-center gap-1.5 shrink-0">
                           <DelayInput
-                            value={evento.delay_horas}
-                            onChange={(delay_horas) => updateDelay.mutate({ id: evento.id, delay_horas })}
+                            value={localDelays[evento.id] ?? evento.delay_horas}
+                            onChange={(delay_horas) => setLocalDelays(prev => ({ ...prev, [evento.id]: delay_horas }))}
                           />
                           <span className="text-xs text-muted-foreground whitespace-nowrap">dias após anterior</span>
                         </div>
@@ -452,12 +509,25 @@ export default function Postagens() {
                   </Card>
                 );
               })}
+
+              {/* Botão Salvar */}
+              <div className="pt-4">
+                <Button
+                  onClick={() => saveAll.mutate()}
+                  disabled={!hasChanges || saveAll.isPending}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {saveAll.isPending ? "Salvando..." : "Salvar Alterações"}
+                </Button>
+              </div>
             </div>
           )}
         </div>
 
         {/* Custo estimado */}
-        {config && (
+        {localConfig && (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="py-4">
               <div className="flex items-center gap-2 mb-3">
@@ -466,20 +536,20 @@ export default function Postagens() {
               </div>
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className={config.enviar_nfe_email ? "text-foreground" : "text-muted-foreground line-through"}>NF por email</span>
-                  <span className={config.enviar_nfe_email ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
+                  <span className={localConfig.enviar_nfe_email ? "text-foreground" : "text-muted-foreground line-through"}>NF por email</span>
+                  <span className={localConfig.enviar_nfe_email ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={config.enviar_emails ? "text-foreground" : "text-muted-foreground line-through"}>Rastreio por email</span>
-                  <span className={config.enviar_emails ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
+                  <span className={localConfig.enviar_emails ? "text-foreground" : "text-muted-foreground line-through"}>Rastreio por email</span>
+                  <span className={localConfig.enviar_emails ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={config.ativar_site_rastreio ? "text-foreground" : "text-muted-foreground line-through"}>Site rastreio por SMS</span>
-                  <span className={config.ativar_site_rastreio ? "font-medium" : "text-muted-foreground"}>+0,25 moeda</span>
+                  <span className={localConfig.ativar_site_rastreio ? "text-foreground" : "text-muted-foreground line-through"}>Site rastreio por SMS</span>
+                  <span className={localConfig.ativar_site_rastreio ? "font-medium" : "text-muted-foreground"}>+0,25 moeda</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={config.ativar_taxacao ? "text-foreground" : "text-muted-foreground line-through"}>Funil de Taxação</span>
-                  <span className={config.ativar_taxacao ? "font-medium" : "text-muted-foreground"}>+1 moeda</span>
+                  <span className={localConfig.ativar_taxacao ? "text-foreground" : "text-muted-foreground line-through"}>Funil de Taxação</span>
+                  <span className={localConfig.ativar_taxacao ? "font-medium" : "text-muted-foreground"}>+1 moeda</span>
                 </div>
                 <div className="border-t pt-2 mt-2 flex justify-between">
                   <span className="font-semibold">Total por envio</span>
