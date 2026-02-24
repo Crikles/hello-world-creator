@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut } from "lucide-react";
+import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -18,9 +20,22 @@ import {
 } from "@/components/ui/sidebar";
 
 export function AppSidebar() {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { loja } = useLoja();
   const navigate = useNavigate();
+
+  const { data: saldo } = useQuery({
+    queryKey: ["meu-saldo", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("creditos")
+        .select("saldo")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data?.saldo ?? 0;
+    },
+    enabled: !!user,
+  });
 
   const base = loja ? `/loja/${loja.id}` : "";
 
@@ -48,7 +63,10 @@ export function AppSidebar() {
             <h2 className="text-sm font-bold text-sidebar-primary-foreground truncate">
               {loja?.nome || "Painel de Envios"}
             </h2>
-            <p className="text-xs text-sidebar-foreground/60">NFe + Rastreio</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Coins className="h-3 w-3 text-primary" />
+              <span className="text-xs text-primary font-medium">{saldo ?? 0} moedas</span>
+            </div>
           </div>
         </div>
       </SidebarHeader>
