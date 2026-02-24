@@ -1,68 +1,67 @@
 
 
-# Busca Automatica por CEP + Importacao de Leads via Planilha
+# Corrigir Envio de E-mails - Diagnostico e Solucao
 
-## Resumo
+## Problemas Identificados
 
-Duas funcionalidades novas:
+### Problema 1: Edge Function `send-email` usa metodo inexistente `auth.getClaims()`
 
-1. **Auto-preenchimento por CEP** - Ao digitar o CEP na pagina de Empresa e no Wizard de Novo Envio, o sistema consulta a API gratuita ViaCEP (`https://viacep.com.br/ws/{cep}/json/`) e preenche automaticamente rua, bairro, cidade e estado.
+Na linha 87 de `supabase/functions/send-email/index.ts`, o codigo usa `anonClient.auth.getClaims()` que **nao existe** no Supabase JS SDK v2. Isso faz a funcao crashar silenciosamente (sem logs), retornando 500 antes de processar qualquer coisa.
 
-2. **Upload de leads via planilha Excel** - Na pagina de Envios, um botao para importar envios em massa a partir de um arquivo CSV. Inclui tambem um botao para baixar uma planilha modelo com todas as colunas necessarias.
+A solucao correta e usar `auth.getUser()` para validar o token.
+
+### Problema 2: Join `empresas(*)` pode falhar sem FK
+
+A query `envios.select("*, empresas(*)")` em `email-trigger.ts` depende de um foreign key entre `envios.empresa_id` e `empresas.id`. Caso nao exista, o PostgREST retorna erro. Precisamos garantir que o FK existe.
+
+### Problema 3: Sem logs de diagnostico
+
+Nenhuma mensagem de log aparece na edge function, o que confirma que o crash acontece antes de qualquer processamento.
 
 ---
 
-## Detalhes Tecnicos
+## Plano de Correcao
 
-### 1. Helper de busca de CEP
+### 1. Corrigir autenticacao na Edge Function (`supabase/functions/send-email/index.ts`)
 
-Criar `src/lib/cep-utils.ts` com uma funcao `fetchCep(cep: string)` que:
-- Remove caracteres nao-numericos do CEP
-- Valida se tem 8 digitos
-- Faz fetch em `https://viacep.com.br/ws/{cep}/json/`
-- Retorna `{ logradouro, bairro, localidade, uf }` ou `null` se invalido/erro
+Substituir o bloco `getClaims` (linhas 80-93) por `getUser`:
 
-### 2. Pagina Empresa (`src/pages/Empresa.tsx`)
+```typescript
+// Verify user via token
+const anonClient = createClient(
+  SUPABASE_URL,
+  Deno.env.get("SUPABASE_ANON_KEY")!,
+  { global: { headers: { Authorization: authHeader } } }
+);
+const { data: userData, error: userError } = await anonClient.auth.getUser();
+if (userError || !userData?.user) {
+  return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    status: 401,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+```
 
-- No campo CEP (linha 379), adicionar um `onBlur` que chama `fetchCep`
-- Ao retornar dados, preenche automaticamente: `endereco` (logradouro), `bairro`, `cidade` (localidade), `estado` (uf)
-- Mostrar um indicador de carregamento sutil (spinner ou texto "Buscando...") ao lado do campo CEP enquanto consulta
+### 2. Criar FK entre `envios.empresa_id` e `empresas.id` (migracao SQL)
 
-### 3. Wizard Novo Envio (`src/components/envios/NovoEnvioWizard.tsx`)
+```sql
+ALTER TABLE public.envios
+  ADD CONSTRAINT envios_empresa_id_fkey
+  FOREIGN KEY (empresa_id) REFERENCES public.empresas(id)
+  ON DELETE SET NULL;
+```
 
-- No campo CEP do Step 2 (linha 181), adicionar `onBlur` com a mesma logica
-- Preenche: `cliente_endereco`, `cliente_bairro`, `cliente_cidade`, `cliente_estado`
-- Mesmo indicador de carregamento
+### 3. Adicionar logs de diagnostico no `email-trigger.ts`
 
-### 4. Importacao de planilha (`src/pages/Envios.tsx`)
+Adicionar `console.log` em pontos-chave para facilitar debug futuro:
+- Antes de invocar a edge function
+- Apos receber resposta
 
-Adicionar na barra de acoes:
+### Arquivos a modificar
 
-**Botao "Baixar Modelo":**
-- Gera um arquivo CSV com cabecalhos:
-  `cliente_nome, cliente_email, cliente_cpf, cliente_telefone, cliente_cep, cliente_endereco, cliente_numero, cliente_bairro, cliente_cidade, cliente_estado, cliente_complemento, produto, quantidade, valor, cfop, ncm_sh, cst, unidade, codigo_rastreio`
-- Inclui 2 linhas de exemplo preenchidas para referencia
-- Download direto via Blob/URL.createObjectURL
-
-**Botao "Importar Planilha":**
-- Abre seletor de arquivo (aceita `.csv`)
-- Faz parsing do CSV linha a linha (sem dependencia externa, usando split por `;` ou `,`)
-- Valida campos obrigatorios (cliente_nome, cliente_email, produto, valor)
-- Insere todos os registros validos na tabela `envios` com `loja_id` da loja atual e `status: "pendente"`
-- Exibe toast com quantidade importada e erros encontrados
-
-Novo componente: `src/components/envios/ImportarPlanilha.tsx` contendo:
-- Logica de parse CSV
-- Logica de download do modelo
-- Dialog de confirmacao mostrando quantos registros serao importados
-
-### Arquivos a criar/modificar
-
-| Arquivo | Acao |
+| Arquivo | Mudanca |
 |---|---|
-| `src/lib/cep-utils.ts` | Criar - helper fetchCep |
-| `src/pages/Empresa.tsx` | Modificar - auto-preenchimento CEP no onBlur |
-| `src/components/envios/NovoEnvioWizard.tsx` | Modificar - auto-preenchimento CEP no onBlur |
-| `src/components/envios/ImportarPlanilha.tsx` | Criar - componente de importacao CSV |
-| `src/pages/Envios.tsx` | Modificar - adicionar botoes de importar e baixar modelo |
+| `supabase/functions/send-email/index.ts` | Trocar `getClaims` por `getUser` |
+| Migracao SQL | Criar FK `envios.empresa_id -> empresas.id` |
+| `src/lib/email-trigger.ts` | Adicionar logs de diagnostico |
 
