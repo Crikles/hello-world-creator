@@ -319,10 +319,9 @@ export default function Postagens() {
                     </div>
                   </div>
                 </div>
-                <Switch
+                 <Switch
                   checked={config.ativar_site_rastreio}
                   onCheckedChange={() => toggleConfig.mutate("ativar_site_rastreio")}
-                  disabled
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -334,10 +333,9 @@ export default function Postagens() {
                     <Badge variant="secondary" className="text-xs">em breve</Badge>
                   </div>
                 </div>
-                <Switch
+                 <Switch
                   checked={config.ativar_taxacao}
                   onCheckedChange={() => toggleConfig.mutate("ativar_taxacao")}
-                  disabled
                 />
               </div>
             </CardContent>
