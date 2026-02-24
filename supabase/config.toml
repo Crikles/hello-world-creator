@@ -1,1 +1,16 @@
 project_id = "jnzamnnvzdecnnvvhzxn"
+
+[functions.webhook-corvex]
+verify_jwt = false
+
+[functions.webhook-luna]
+verify_jwt = false
+
+[functions.webhook-vega]
+verify_jwt = false
+
+[functions.webhook-zedy]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
