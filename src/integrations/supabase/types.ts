@@ -372,6 +372,8 @@ export type Database = {
       }
       postagem_config: {
         Row: {
+          ativar_site_rastreio: boolean
+          ativar_taxacao: boolean
           created_at: string
           enviar_emails: boolean
           enviar_nfe_email: boolean
@@ -381,6 +383,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ativar_site_rastreio?: boolean
+          ativar_taxacao?: boolean
           created_at?: string
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
@@ -390,6 +394,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ativar_site_rastreio?: boolean
+          ativar_taxacao?: boolean
           created_at?: string
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
