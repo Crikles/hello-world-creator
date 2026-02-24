@@ -9,15 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { EmailEditor } from "@/components/postagens/EmailEditor";
 import {
   Mail,
   Package,
@@ -100,16 +92,6 @@ export default function Postagens() {
   const queryClient = useQueryClient();
   const [editingEvento, setEditingEvento] = useState<PostagemEvento | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editForm, setEditForm] = useState({
-    nome: "",
-    descricao: "",
-    status_label: "",
-    delay_horas: 0,
-    enviar_email: true,
-    enviar_nfe_pdf: false,
-    assunto_email: "",
-    corpo_email: "",
-  });
 
   // Fetch system templates
   const { data: systemTemplates } = useQuery({
@@ -311,24 +293,19 @@ export default function Postagens() {
 
   const openEditDialog = (evento: PostagemEvento) => {
     setEditingEvento(evento);
-    setEditForm({
-      nome: evento.nome,
-      descricao: evento.descricao || "",
-      status_label: evento.status_label || "",
-      delay_horas: evento.delay_horas,
-      enviar_email: evento.enviar_email,
-      enviar_nfe_pdf: evento.enviar_nfe_pdf,
-      assunto_email: evento.assunto_email || "",
-      corpo_email: evento.corpo_email || "",
-    });
     setEditDialogOpen(true);
   };
 
-  const handleSaveEvento = () => {
+  const handleSaveEvento = (data: {
+    assunto_email: string;
+    corpo_email: string;
+    enviar_email: boolean;
+    enviar_nfe_pdf: boolean;
+  }) => {
     if (!editingEvento) return;
     updateEvento.mutate({
       id: editingEvento.id,
-      ...editForm,
+      ...data,
     });
   };
 
@@ -605,93 +582,21 @@ export default function Postagens() {
         )}
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Editar Evento</DialogTitle>
-            <DialogDescription>Configure os detalhes deste evento de rastreamento</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Nome do Evento</Label>
-                <Input
-                  value={editForm.nome}
-                  onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Label do Status</Label>
-                <Input
-                  value={editForm.status_label}
-                  onChange={(e) => setEditForm({ ...editForm, status_label: e.target.value })}
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Descrição</Label>
-              <Input
-                value={editForm.descricao}
-                onChange={(e) => setEditForm({ ...editForm, descricao: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Delay (dias após evento anterior)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={Math.round(editForm.delay_horas / 24)}
-                onChange={(e) => setEditForm({ ...editForm, delay_horas: (parseInt(e.target.value) || 0) * 24 })}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label>Enviar email neste evento</Label>
-              <Switch
-                checked={editForm.enviar_email}
-                onCheckedChange={(v) => setEditForm({ ...editForm, enviar_email: v })}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label>Anexar PDF da NFe</Label>
-              <Switch
-                checked={editForm.enviar_nfe_pdf}
-                onCheckedChange={(v) => setEditForm({ ...editForm, enviar_nfe_pdf: v })}
-              />
-            </div>
-            {editForm.enviar_email && (
-              <>
-                <div>
-                  <Label>Assunto do Email</Label>
-                  <Input
-                    value={editForm.assunto_email}
-                    onChange={(e) => setEditForm({ ...editForm, assunto_email: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Corpo do Email (HTML)</Label>
-                  <Textarea
-                    rows={5}
-                    value={editForm.corpo_email}
-                    onChange={(e) => setEditForm({ ...editForm, corpo_email: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Variáveis: {"{{cliente_nome}}"}, {"{{produto}}"}, {"{{codigo_rastreio}}"}, {"{{empresa_nome}}"}, {"{{status}}"}
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveEvento} disabled={updateEvento.isPending}>
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Email Editor */}
+      {editingEvento && (
+        <EmailEditor
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          eventoNome={editingEvento.nome}
+          statusLabel={editingEvento.status_label || ""}
+          initialAssunto={editingEvento.assunto_email || ""}
+          initialCorpo={editingEvento.corpo_email || ""}
+          enviarEmail={editingEvento.enviar_email}
+          enviarNfePdf={editingEvento.enviar_nfe_pdf}
+          onSave={handleSaveEvento}
+          saving={updateEvento.isPending}
+        />
+      )}
     </AppLayout>
   );
 }
