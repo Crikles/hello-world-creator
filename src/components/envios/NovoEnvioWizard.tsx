@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLoja } from "@/contexts/LojaContext";
 
 const UF_OPTIONS = [
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA",
-  "PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+  "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
 const steps = ["Dados do Cliente", "Endereço de Entrega", "Produto & Fiscal"];
@@ -45,11 +46,24 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
     unidade: "UN",
   });
 
+  const { loja } = useLoja();
+
   const set = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (!loja?.id) throw new Error("Loja não selecionada");
+
+      // Buscar a empresa vinculada a esta loja
+      const { data: empresa } = await supabase
+        .from("empresas")
+        .select("id")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+
       const { error } = await supabase.from("envios").insert({
+        loja_id: loja.id,
+        empresa_id: empresa?.id || null,
         cliente_nome: form.cliente_nome,
         cliente_email: form.cliente_email,
         cliente_cpf: form.cliente_cpf || null,
@@ -68,6 +82,7 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         ncm_sh: form.ncm_sh || null,
         cst: form.cst || null,
         unidade: form.unidade || "UN",
+        status: "pendente"
       } as any);
       if (error) throw error;
     },
@@ -76,7 +91,10 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
       resetAndClose();
       toast.success("Pedido salvo com sucesso!");
     },
-    onError: () => toast.error("Erro ao salvar pedido."),
+    onError: (error: any) => {
+      console.error("Erro ao salvar envio:", error);
+      toast.error(error.message || "Erro ao salvar pedido.");
+    },
   });
 
   const resetAndClose = () => {
@@ -108,11 +126,10 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
           {steps.map((s, i) => (
             <div key={s} className="flex items-center gap-2">
               <div
-                className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  i <= step
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-                }`}
+                className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${i <= step
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+                  }`}
               >
                 {i + 1}
               </div>
