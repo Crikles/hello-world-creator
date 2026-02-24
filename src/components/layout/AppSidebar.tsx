@@ -6,6 +6,12 @@ import { useLoja } from "@/contexts/LojaContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+
+// Preload checkout logos so they're cached before user navigates to Integracoes
+import "@/assets/logo-vega.png";
+import "@/assets/logo-zedy.png";
+import "@/assets/logo-luna.png";
+import "@/assets/logo-corvex.ico";
 import {
   Sidebar,
   SidebarContent,
