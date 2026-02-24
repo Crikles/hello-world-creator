@@ -255,12 +255,12 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td colspan="7" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
     </tr>
     <tr>
-      <td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell">Trans Prada LTDA</span></td>
+      <td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell">JL Transportes de Cargas LTDA</span></td>
       <td><span class="label">FRETE POR CONTA</span><br><span class="value">0 - REMETENTE</span></td>
       <td><span class="label">CÓDIGO ANTT</span><br><span class="value"></span></td>
       <td><span class="label">PLACA DO VEÍCULO</span><br><span class="value">FOD9C97</span></td>
       <td><span class="label">UF</span><br><span class="value">SP</span></td>
-      <td><span class="label">CNPJ / CPF</span><br><span class="value">45.706.927/0001-80</span></td>
+      <td><span class="label">CNPJ / CPF</span><br><span class="value">00.320.378/0001-72</span></td>
     </tr>
     <tr>
       <td colspan="3"><span class="label">ENDEREÇO</span><br><span class="value">Rua Aristeu, 248</span></td>
