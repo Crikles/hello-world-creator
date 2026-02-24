@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DanfePreview, buildDanfeHtml, getDanfeCssAndBody } from "@/components/danfe/DanfePreview";
+import { useLoja } from "@/contexts/LojaContext";
 
 const UF_OPTIONS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA",
@@ -19,6 +20,7 @@ const UF_OPTIONS = [
 
 export default function Empresa() {
   const queryClient = useQueryClient();
+  const { loja } = useLoja();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewIframeRef = useRef<HTMLIFrameElement>(null);
   const [danfeOpen, setDanfeOpen] = useState(false);
@@ -43,12 +45,14 @@ export default function Empresa() {
   });
 
   const { data: empresa } = useQuery({
-    queryKey: ["empresa"],
+    queryKey: ["empresa", loja?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("*").limit(1).maybeSingle();
+      if (!loja) return null;
+      const { data, error } = await supabase.from("empresas").select("*").eq("loja_id", loja.id).limit(1).maybeSingle();
       if (error) throw error;
       return data;
     },
+    enabled: !!loja,
   });
 
   useEffect(() => {
@@ -85,7 +89,7 @@ export default function Empresa() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const logo_url = await uploadLogo();
-      const payload = { ...form, logo_url } as any;
+      const payload = { ...form, logo_url, loja_id: loja?.id } as any;
       if (empresa) {
         const { error } = await supabase.from("empresas").update(payload).eq("id", empresa.id);
         if (error) throw error;

@@ -19,17 +19,42 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const url = new URL(req.url);
+    const lojaSlug = url.searchParams.get("loja");
+
+    if (!lojaSlug) {
+      return new Response(JSON.stringify({ error: "Missing 'loja' query parameter" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const payload = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Resolve loja by slug
+    const { data: lojaData, error: lojaError } = await supabase
+      .from("lojas")
+      .select("id")
+      .eq("slug", lojaSlug)
+      .maybeSingle();
+
+    if (lojaError || !lojaData) {
+      return new Response(JSON.stringify({ error: "Loja not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const lojaId = lojaData.id;
+
     const status = payload.status || "";
     const isAbandonedCart = status === "abandoned_cart";
     const eventType = isAbandonedCart ? "abandoned_cart" : "sale";
 
-    // Determine transaction token based on event type
     const transactionToken = isAbandonedCart
       ? payload.abandoned_cart_code || payload.checkout_id || `ac_${Date.now()}`
       : payload.transaction_token || `tx_${Date.now()}`;
@@ -41,6 +66,7 @@ Deno.serve(async (req) => {
       status: status,
       payload: payload,
       processed: false,
+      loja_id: lojaId,
     });
 
     // 2. Normalize customer data
@@ -48,7 +74,6 @@ Deno.serve(async (req) => {
     const address = payload.address || {};
     const products = payload.products || [];
 
-    // For v1 abandoned cart, products come from plans
     let normalizedProducts = products;
     if (isAbandonedCart && payload.plans && !products.length) {
       normalizedProducts = [];
@@ -67,16 +92,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Parse total_price - can be string with decimals ("236.00") or centavos integer ("23600")
     let totalPrice = 0;
     const rawPrice = payload.total_price;
     if (rawPrice != null) {
       const priceStr = String(rawPrice);
       if (priceStr.includes(".")) {
-        // String with decimals like "236.00" -> convert to centavos
         totalPrice = Math.round(parseFloat(priceStr) * 100);
       } else {
-        // Already in centavos
         totalPrice = parseInt(priceStr, 10) || 0;
       }
     }
@@ -102,6 +124,7 @@ Deno.serve(async (req) => {
       address_complement: address.complement || null,
       products: normalizedProducts,
       raw_payload: payload,
+      loja_id: lojaId,
     };
 
     const { data: existingPedido } = await supabase
@@ -109,19 +132,18 @@ Deno.serve(async (req) => {
       .select("id, envio_id")
       .eq("checkout_provider", "vega")
       .eq("transaction_token", transactionToken)
+      .eq("loja_id", lojaId)
       .maybeSingle();
 
     let pedidoId: string;
 
     if (existingPedido) {
-      // Update existing
       await supabase
         .from("pedidos")
         .update({ ...pedidoData, updated_at: new Date().toISOString() })
         .eq("id", existingPedido.id);
       pedidoId = existingPedido.id;
     } else {
-      // Insert new
       const { data: newPedido } = await supabase
         .from("pedidos")
         .insert(pedidoData)
@@ -150,6 +172,7 @@ Deno.serve(async (req) => {
         quantidade: firstProduct.quantity || 1,
         valor: totalPrice / 100,
         status: "pendente",
+        loja_id: lojaId,
       };
 
       const { data: newEnvio } = await supabase
@@ -171,6 +194,7 @@ Deno.serve(async (req) => {
       .from("webhook_logs")
       .update({ processed: true })
       .eq("checkout_provider", "vega")
+      .eq("loja_id", lojaId)
       .order("created_at", { ascending: false })
       .limit(1);
 
