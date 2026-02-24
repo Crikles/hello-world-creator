@@ -14,6 +14,7 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +39,21 @@ export default function Signup() {
     }
   };
 
+  const handleResend = async () => {
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: window.location.origin + "/login" },
+    });
+    setResending(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Email reenviado com sucesso!");
+    }
+  };
+
   if (success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -49,9 +65,14 @@ export default function Signup() {
               Enviamos um link de confirmação para <strong className="text-foreground">{email}</strong>.
               Confirme seu email para poder fazer login.
             </p>
-            <Link to="/login">
-              <Button variant="outline" className="mt-2">Voltar para Login</Button>
-            </Link>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" onClick={handleResend} disabled={resending}>
+                {resending ? "Reenviando..." : "Enviar Novamente"}
+              </Button>
+              <Link to="/login">
+                <Button variant="ghost" className="w-full">Voltar para Login</Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
