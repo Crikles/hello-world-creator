@@ -1,45 +1,56 @@
 
+# Pre-setar Tempos Realistas nos Fluxos de Email
 
-# Postagens - Corrigir Labels dos Toggles de Configuracao
+## Contexto
 
-## Problema
+Os delays atuais nos templates de sistema estao com valores muito baixos (2-4 horas entre eventos), o que nao reflete a realidade logistica brasileira. Vamos atualizar para tempos que fazem sentido para envios via Correios/transportadoras.
 
-Os toggles atuais estao com nomes incorretos. O usuario quer separar claramente:
-- **Nota Fiscal** = primeiro email (NF)
-- **Rastreio por Email** = os emails de atualizacao de status que vem depois da NF
-- **Site de Rastreio por SMS** = envia o link do site de rastreio via SMS (nao email)
-- **Funil de Taxacao** = fluxo de taxacao com Email + SMS
+## Novos Tempos Propostos
 
-## Mudancas nos 4 Toggles
+### Nacional Padrao (entrega em 7-12 dias uteis)
 
-| Toggle atual | Toggle correto | Campo no banco | Custo |
+| Evento | Delay Atual | Novo Delay | Logica |
 |---|---|---|---|
-| NF + Emails de rastreamento | **Nota Fiscal enviada por email** | `enviar_nfe_email` | 1 moeda |
-| Codigo de Rastreio | **Fluxo do Rastreio por E-mail** | `enviar_emails` | 1 moeda |
-| Site de Rastreio | **Site do rastreio por SMS** | `ativar_site_rastreio` | +0,25 moeda |
-| Funil de Taxacao | **Funil de Taxacao** (sem mudanca) | `ativar_taxacao` | +1 moeda |
+| Nota Fiscal Emitida | 0h (imediato) | 0h (imediato) | Enviado assim que postado |
+| Pedido Coletado | 2h (0 dias) | 24h (1 dia) | Coleta no dia seguinte |
+| Em Transito | 24h (1 dia) | 48h (2 dias) | Entra na malha em 2 dias |
+| Centro de Distribuicao | 48h (2 dias) | 120h (5 dias) | Transporte entre estados |
+| Saiu para Entrega | 2h (0 dias) | 24h (1 dia) | Separacao e rota no dia seguinte |
+| Entregue | 4h (0 dias) | 0h (mesmo dia) | Entrega no mesmo dia que saiu |
 
-## Detalhes das descricoes atualizadas
+**Total estimado: ~9 dias**
 
-1. **Nota Fiscal enviada por email** - "Envia automaticamente a Nota Fiscal por email ao cliente."
-2. **Fluxo do Rastreio por E-mail** - "Envia emails automaticos de atualizacao de status do rastreio."
-3. **Site do rastreio por SMS** - "Envia o link do site de rastreio personalizado ao cliente por SMS."
-4. **Funil de Taxacao** - "Ativa o fluxo de taxacao com envio de Email e SMS ao cliente."
+### Nacional Taxacao (entrega em 12-20 dias uteis, com pausa para pagamento)
 
-## Secao de custo por envio
+| Evento | Delay Atual | Novo Delay | Logica |
+|---|---|---|---|
+| Nota Fiscal Emitida | 0h | 0h | Imediato |
+| Pedido Coletado | 2h | 24h (1 dia) | Coleta no dia seguinte |
+| Em Transito | 24h | 48h (2 dias) | Entra na malha |
+| Centro de Distribuicao | 48h | 120h (5 dias) | Transporte entre estados |
+| Aguardando Pagamento | 2h | 24h (1 dia) | Notificacao apos retencao |
+| Pagamento Confirmado | 0h | 72h (3 dias) | Tempo para cliente pagar taxa |
+| Saiu para Entrega | 2h | 24h (1 dia) | Liberacao e rota |
+| Entregue | 4h | 0h (mesmo dia) | Entrega no dia |
 
-Atualizar o breakdown para refletir os novos nomes:
+**Total estimado: ~13 dias**
 
-```text
-NF por email ............. 1 moeda (se ativo)
-Rastreio por email ....... 1 moeda (se ativo)
-Site rastreio por SMS .... +0,25 moeda (se ativo)
-Funil de Taxacao ......... +1 moeda (se ativo)
-────────────────────────────────
-Total por envio: X moedas
-```
+### Nacional Expressa (entrega em 2-4 dias uteis)
 
-## Arquivo a modificar
+| Evento | Delay Atual | Novo Delay | Logica |
+|---|---|---|---|
+| Pedido Confirmado | 0h | 0h | Imediato |
+| Em Rota de Entrega | 24h | 48h (2 dias) | Transporte rapido |
+| Entregue | 4h | 24h (1 dia) | Entrega no dia seguinte |
 
-**`src/pages/Postagens.tsx`** - Apenas renomear labels, descricoes e textos do breakdown de custo. Nenhuma mudanca de logica ou banco de dados.
+**Total estimado: ~3 dias**
 
+## Implementacao
+
+### Migracao SQL
+
+Um UPDATE nos registros da tabela `postagem_eventos` para os templates de sistema (`is_system = true`), atualizando o campo `delay_horas` com os novos valores baseados no `status_label` e `template_id` de cada template.
+
+### Arquivo modificado
+
+Nenhum arquivo de codigo precisa ser alterado - a mudanca e apenas nos dados do banco de dados.
