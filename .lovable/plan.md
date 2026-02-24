@@ -1,107 +1,157 @@
 
-# Renomear e Excluir Loja na pagina "Minhas Lojas"
+
+# Editor de Email Personalizado por Evento de Postagem
 
 ## Resumo
 
-Adicionar um menu de acoes (tres pontinhos) em cada card de loja com as opcoes "Renomear" e "Excluir". Renomear abre um dialog para editar o nome. Excluir abre um AlertDialog de confirmacao antes de remover a loja.
+Transformar a edicao de email de cada evento de postagem em uma experiencia sofisticada e visual. Em vez de um simples textarea com HTML, criar um editor rico com preview ao vivo, templates de email bonitos, emojis nos assuntos, e uma interface intuitiva para o usuario montar o email perfeito para cada etapa do rastreio.
 
 ## O que muda
 
-### 1. Menu de acoes no card da loja
+### 1. Novo componente: EmailEditor
 
-Cada card tera um botao com icone `MoreVertical` (ou `Ellipsis`) no canto superior direito. Ao clicar, abre um DropdownMenu com duas opcoes:
-- **Renomear** (icone `Pencil`) -- abre dialog para editar o nome
-- **Excluir** (icone `Trash2`, texto vermelho) -- abre AlertDialog de confirmacao
+Um componente dedicado que substitui o dialog atual de edicao. Ele sera aberto em um Dialog grande (full-width) com duas colunas:
 
-O clique no botao de menu nao navega para a loja (stopPropagation).
+- **Coluna esquerda**: Formulario de edicao com campos inteligentes
+- **Coluna direita**: Preview ao vivo do email renderizado
 
-### 2. Dialog de Renomear
+### 2. Campos do editor
 
-- Input pre-preenchido com o nome atual
-- Mutation que faz `UPDATE lojas SET nome = ? WHERE id = ?`
-- Invalida query `["lojas"]` ao concluir
+**Assunto do Email:**
+- Input com sugestoes de emojis por tipo de evento (ex: "Pedido entregue! check_verde", "Seu pedido esta em transito caminhao")
+- Badges clicaveis para inserir variaveis ({{cliente_nome}}, {{produto}}, {{codigo_rastreio}}, etc)
+- Preview do assunto como apareceria na caixa de entrada (como no screenshot)
 
-### 3. AlertDialog de Excluir
+**Corpo do Email:**
+- Editor visual com blocos de conteudo:
+  - Saudacao personalizada
+  - Mensagem principal com area de texto rico
+  - Bloco de informacoes do pedido (tabela com produto, codigo rastreio, etc)
+  - Bloco de CTA (botao de rastreamento)
+  - Rodape com dados da empresa
+- Cada bloco pode ser habilitado/desabilitado via toggle
+- As variaveis sao inseridas via botoes/chips clicaveis
 
-- Mensagem de aviso: "Tem certeza? Todos os dados da loja serao perdidos (envios, pedidos, empresa, etc)."
-- Botao de confirmacao em vermelho
-- Mutation que faz `DELETE FROM lojas WHERE id = ?`
-- O banco ja tem RLS policy "Users can delete own lojas" -- nenhuma migracao necessaria
+### 3. Templates de email pre-definidos por evento
 
-### 4. Cascata de exclusao (migracao SQL)
+Cada tipo de evento tera um template HTML bonito e responsivo pre-configurado:
 
-Atualmente as tabelas filhas (`envios`, `pedidos`, `empresas`, `webhook_logs`, `postagem_config`, `postagem_email_log`, `postagem_templates`) referenciam `loja_id` mas provavelmente sem `ON DELETE CASCADE`. Precisamos verificar e, se necessario, adicionar cascade para que ao excluir a loja, os dados relacionados sejam removidos automaticamente.
+- **Postado**: "Ola {{cliente_nome}}, seu pedido {{produto}} foi postado! Codigo de rastreio: {{codigo_rastreio}}"
+- **Em Transito**: "Seu pedido esta a caminho! Acompanhe pelo codigo {{codigo_rastreio}}"
+- **Saiu para Entrega**: "Boas noticias! Seu pedido esta saindo para entrega hoje"
+- **Entregue**: "Pedido entregue! Esperamos que voce goste do seu {{produto}}"
+- **Taxacao**: (sera personalizado posteriormente, placeholder por enquanto)
 
-Caso as foreign keys nao tenham cascade, sera necessaria uma migracao para dropar e recriar as constraints com `ON DELETE CASCADE`.
+Os templates usam um layout HTML inline-styled (compativel com email clients) com:
+- Logo da empresa (se disponivel)
+- Cores primarias configuráveis
+- Layout responsivo para mobile
+- Fonte limpa e moderna
 
-**Nota:** Ao verificar o schema, as tabelas filhas nao possuem foreign keys formais para `loja_id` (a secao foreign-keys esta vazia em todas). Isso significa que a exclusao da loja nao sera bloqueada por constraints, mas os dados orfaos ficarao no banco. Para limpeza, adicionaremos uma database function ou faremos deletes manuais antes de excluir a loja.
+### 4. Preview ao vivo
+
+A coluna direita mostra o email renderizado em tempo real:
+- Simula a aparencia de uma caixa de entrada (como o screenshot: remetente, assunto, preview)
+- Abaixo, mostra o corpo do email renderizado em um iframe/container
+- Substitui variaveis por dados de exemplo ("Tiago Elias", "Camiseta Polo", "BR547454312HF")
+
+### 5. Secao de variaveis disponiveis
+
+Um painel com chips/badges clicaveis para cada variavel:
+- {{cliente_nome}} - Nome do cliente
+- {{cliente_email}} - Email do cliente
+- {{produto}} - Nome do produto
+- {{codigo_rastreio}} - Codigo de rastreio
+- {{transportadora}} - Transportadora
+- {{valor}} - Valor do pedido
+- {{quantidade}} - Quantidade
+
+Ao clicar, a variavel e inserida na posicao do cursor (tanto no assunto quanto no corpo).
 
 ## Detalhes Tecnicos
 
-### Arquivo modificado
-- `src/pages/Lojas.tsx`
+### Arquivos
 
-### Novos imports
-- `DropdownMenu`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuTrigger` de `@/components/ui/dropdown-menu`
-- `AlertDialog`, `AlertDialogAction`, `AlertDialogCancel`, `AlertDialogContent`, `AlertDialogDescription`, `AlertDialogFooter`, `AlertDialogHeader`, `AlertDialogTitle` de `@/components/ui/alert-dialog`
-- Icones: `MoreVertical`, `Pencil`, `Trash2`
+- `src/components/postagens/EmailEditor.tsx` -- novo componente principal do editor
+- `src/components/postagens/EmailPreview.tsx` -- componente de preview do email
+- `src/components/postagens/emailTemplates.ts` -- templates HTML para cada tipo de evento
+- `src/pages/Postagens.tsx` -- substituir o dialog de edicao atual pelo novo editor
 
-### Novos states
-- `renameDialog`: `{ open: boolean, lojaId: string, nome: string }`
-- `deleteDialog`: `{ open: boolean, lojaId: string, nome: string }`
+### Estrutura do EmailEditor
 
-### Novas mutations
-
-```typescript
-// Renomear
-const renameMutation = useMutation({
-  mutationFn: async ({ id, nome }: { id: string; nome: string }) => {
-    const { error } = await supabase
-      .from("lojas")
-      .update({ nome })
-      .eq("id", id);
-    if (error) throw error;
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["lojas"] });
-    toast.success("Loja renomeada!");
-  },
-});
-
-// Excluir (limpa dados relacionados primeiro)
-const deleteMutation = useMutation({
-  mutationFn: async (id: string) => {
-    // Deletar dados relacionados (sem FK cascade)
-    await supabase.from("postagem_email_log").delete().eq("loja_id", id);
-    await supabase.from("postagem_config").delete().eq("loja_id", id);
-    await supabase.from("envios").delete().eq("loja_id", id);
-    await supabase.from("pedidos").delete().eq("loja_id", id);
-    await supabase.from("empresas").delete().eq("loja_id", id);
-    await supabase.from("webhook_logs").delete().eq("loja_id", id);
-    // Deletar templates e eventos da loja
-    const { data: templates } = await supabase
-      .from("postagem_templates")
-      .select("id")
-      .eq("loja_id", id);
-    if (templates?.length) {
-      const ids = templates.map(t => t.id);
-      await supabase.from("postagem_eventos").delete().in("template_id", ids);
-      await supabase.from("postagem_templates").delete().eq("loja_id", id);
-    }
-    // Finalmente deletar a loja
-    const { error } = await supabase.from("lojas").delete().eq("id", id);
-    if (error) throw error;
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["lojas"] });
-    toast.success("Loja excluida com sucesso!");
-  },
-});
+```text
++---------------------------------------------------+
+|  Editar Email: "Pedido Entregue"                   |
++------------------------+--------------------------+
+| EDICAO                 | PREVIEW                  |
+|                        |                          |
+| [Assunto]              | From: Loja X             |
+| Pedido entregue! [V]   | Sub: Pedido entregue! V  |
+|                        | Preview text...          |
+| [Variaveis]            |                          |
+| {{nome}} {{produto}}   | +----------------------+ |
+| {{rastreio}} ...       | |  [Logo]              | |
+|                        | |  Ola Tiago,          | |
+| [Saudacao]             | |  Seu pedido foi...   | |
+| Ola {{cliente_nome}},  | |                      | |
+|                        | |  Produto: Camiseta   | |
+| [Mensagem]             | |  Rastreio: BR547...  | |
+| Seu pedido foi ...     | |                      | |
+|                        | |  [Rastrear Pedido]   | |
+| [x] Mostrar info       | |                      | |
+| [x] Mostrar botao CTA  | |  Att, Loja X         | |
+| [ ] Anexar NFe          | +----------------------+ |
++------------------------+--------------------------+
+|              [Cancelar]  [Salvar]                  |
++---------------------------------------------------+
 ```
 
-### UI do card (dentro do map)
-- Adicionar botao `MoreVertical` com DropdownMenu no canto do card
-- `e.stopPropagation()` no trigger para nao navegar ao clicar no menu
+### Template HTML base
+
+Cada template sera um HTML inline-styled responsivo. O corpo do email sera construido por secoes:
+
+```typescript
+interface EmailSections {
+  saudacao: string;        // "Ola {{cliente_nome}},"
+  mensagem: string;        // mensagem principal
+  mostrar_info_pedido: boolean;  // tabela com produto, rastreio, etc
+  mostrar_botao_cta: boolean;    // botao "Rastrear Pedido"
+  texto_botao_cta: string;       // "Rastrear Pedido"
+  url_botao_cta: string;         // link do rastreio
+  rodape: string;                // "Atenciosamente, {{empresa_nome}}"
+}
+```
+
+Esses campos serao armazenados no `corpo_email` como HTML gerado. O editor monta o HTML a partir das secoes e salva o HTML final no campo existente.
+
+### Preview com dados de exemplo
+
+```typescript
+const dadosExemplo = {
+  cliente_nome: "Tiago Elias Manoel Bernardes",
+  cliente_email: "tiago@email.com",
+  produto: "Camiseta Polo Premium",
+  codigo_rastreio: "BR547454312HF",
+  transportadora: "Correios",
+  valor: "89,90",
+  quantidade: "1",
+  empresa_nome: "Minha Loja",
+};
+```
+
+### Emojis sugeridos por evento
+
+```typescript
+const emojiSugeridos: Record<string, string[]> = {
+  "Postado": ["📦", "✨", "🎉"],
+  "Em Transito": ["🚛", "📍", "🛣️"],
+  "Saiu para Entrega": ["🚚", "🏠", "📬"],
+  "Entregue": ["✅", "🎁", "💚"],
+  "Taxacao": ["⚠️", "📋", "💰"],
+};
+```
 
 ### Nenhuma migracao SQL necessaria
-As policies de UPDATE e DELETE ja existem para a tabela `lojas`. As tabelas filhas nao tem FK formal, entao a exclusao manual dos dados relacionados resolve.
+
+Os campos `assunto_email` e `corpo_email` da tabela `postagem_eventos` ja existem e sao suficientes. O editor gera HTML e salva nesses mesmos campos.
+
