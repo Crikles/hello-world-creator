@@ -15,6 +15,7 @@ import Envios from "./pages/Envios";
 import Empresa from "./pages/Empresa";
 import Integracoes from "./pages/Integracoes";
 import Configuracoes from "./pages/Configuracoes";
+import Postagens from "./pages/Postagens";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminCreditos from "./pages/admin/AdminCreditos";
@@ -28,6 +29,7 @@ function LojaRoutes() {
       <Routes>
         <Route index element={<Dashboard />} />
         <Route path="envios" element={<Envios />} />
+        <Route path="postagens" element={<Postagens />} />
         <Route path="empresa" element={<Empresa />} />
         <Route path="integracoes" element={<Integracoes />} />
         <Route path="configuracoes" element={<Configuracoes />} />

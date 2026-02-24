@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins } from "lucide-react";
+import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins, Mail } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
@@ -48,6 +48,7 @@ export function AppSidebar() {
   const menuItems = [
     { title: "Dashboard", url: base, icon: LayoutDashboard },
     { title: "Envios", url: `${base}/envios`, icon: Package },
+    { title: "Postagens", url: `${base}/postagens`, icon: Mail },
     { title: "Empresa", url: `${base}/empresa`, icon: Building2 },
     { title: "Integrações", url: `${base}/integracoes`, icon: Plug },
     { title: "Configurações", url: `${base}/configuracoes`, icon: Settings },

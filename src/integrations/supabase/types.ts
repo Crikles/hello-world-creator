@@ -370,6 +370,203 @@ export type Database = {
           },
         ]
       }
+      postagem_config: {
+        Row: {
+          created_at: string
+          enviar_emails: boolean
+          enviar_nfe_email: boolean
+          id: string
+          loja_id: string
+          template_ativo_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enviar_emails?: boolean
+          enviar_nfe_email?: boolean
+          id?: string
+          loja_id: string
+          template_ativo_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enviar_emails?: boolean
+          enviar_nfe_email?: boolean
+          id?: string
+          loja_id?: string
+          template_ativo_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postagem_config_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postagem_config_template_ativo_id_fkey"
+            columns: ["template_ativo_id"]
+            isOneToOne: false
+            referencedRelation: "postagem_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postagem_email_log: {
+        Row: {
+          assunto: string | null
+          created_at: string
+          custo: number
+          destinatario: string
+          envio_id: string | null
+          evento_id: string | null
+          id: string
+          loja_id: string
+          status: string
+        }
+        Insert: {
+          assunto?: string | null
+          created_at?: string
+          custo?: number
+          destinatario: string
+          envio_id?: string | null
+          evento_id?: string | null
+          id?: string
+          loja_id: string
+          status?: string
+        }
+        Update: {
+          assunto?: string | null
+          created_at?: string
+          custo?: number
+          destinatario?: string
+          envio_id?: string | null
+          evento_id?: string | null
+          id?: string
+          loja_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postagem_email_log_envio_id_fkey"
+            columns: ["envio_id"]
+            isOneToOne: false
+            referencedRelation: "envios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postagem_email_log_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "postagem_eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postagem_email_log_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postagem_eventos: {
+        Row: {
+          assunto_email: string | null
+          corpo_email: string | null
+          created_at: string
+          delay_horas: number
+          descricao: string | null
+          enviar_email: boolean
+          enviar_nfe_pdf: boolean
+          id: string
+          is_final: boolean
+          nome: string
+          ordem: number
+          status_label: string | null
+          template_id: string
+        }
+        Insert: {
+          assunto_email?: string | null
+          corpo_email?: string | null
+          created_at?: string
+          delay_horas?: number
+          descricao?: string | null
+          enviar_email?: boolean
+          enviar_nfe_pdf?: boolean
+          id?: string
+          is_final?: boolean
+          nome: string
+          ordem?: number
+          status_label?: string | null
+          template_id: string
+        }
+        Update: {
+          assunto_email?: string | null
+          corpo_email?: string | null
+          created_at?: string
+          delay_horas?: number
+          descricao?: string | null
+          enviar_email?: boolean
+          enviar_nfe_pdf?: boolean
+          id?: string
+          is_final?: boolean
+          nome?: string
+          ordem?: number
+          status_label?: string | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postagem_eventos_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "postagem_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postagem_templates: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          is_system: boolean
+          loja_id: string | null
+          nome: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          is_system?: boolean
+          loja_id?: string | null
+          nome: string
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          is_system?: boolean
+          loja_id?: string | null
+          nome?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postagem_templates_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -474,6 +671,10 @@ export type Database = {
         | "em_transito"
         | "saiu_para_entrega"
         | "entregue"
+        | "coletado"
+        | "centro_local"
+        | "taxacao"
+        | "pagamento_confirmado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -607,6 +808,10 @@ export const Constants = {
         "em_transito",
         "saiu_para_entrega",
         "entregue",
+        "coletado",
+        "centro_local",
+        "taxacao",
+        "pagamento_confirmado",
       ],
     },
   },
