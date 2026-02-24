@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLoja } from "@/contexts/LojaContext";
+import { triggerShipmentEmail } from "@/lib/email-trigger";
 
 const UF_OPTIONS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
@@ -57,11 +58,11 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
       // Buscar a empresa vinculada a esta loja
       const { data: empresa } = await supabase
         .from("empresas")
-        .select("id")
+        .select("*")
         .eq("loja_id", loja.id)
         .maybeSingle();
 
-      const { error } = await supabase.from("envios").insert({
+      const { data: newEnvio, error } = await supabase.from("envios").insert({
         loja_id: loja.id,
         empresa_id: empresa?.id || null,
         cliente_nome: form.cliente_nome,
@@ -83,8 +84,12 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         cst: form.cst || null,
         unidade: form.unidade || "UN",
         status: "pendente"
-      } as any);
+      } as any).select().single();
+
       if (error) throw error;
+
+      // Disparar e-mail inicial se configurado
+      await triggerShipmentEmail(newEnvio.id, "pendente", loja.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });

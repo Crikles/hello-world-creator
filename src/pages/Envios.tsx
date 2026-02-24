@@ -15,6 +15,7 @@ import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
+import { triggerShipmentEmail } from "@/lib/email-trigger";
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
@@ -79,6 +80,10 @@ export default function Envios() {
     mutationFn: async ({ id, status }: { id: string; status: ShipmentStatus }) => {
       const { error } = await supabase.from("envios").update({ status }).eq("id", id);
       if (error) throw error;
+
+      if (loja?.id) {
+        await triggerShipmentEmail(id, status, loja.id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
@@ -102,6 +107,13 @@ export default function Envios() {
     if (ids.length === 0) return toast.info("Nenhum envio encontrado.");
     const { error } = await supabase.from("envios").update({ status: toStatus }).in("id", ids);
     if (error) return toast.error("Erro ao atualizar.");
+
+    if (loja?.id) {
+      for (const id of ids) {
+        await triggerShipmentEmail(id, toStatus, loja.id);
+      }
+    }
+
     queryClient.invalidateQueries({ queryKey: ["envios"] });
     toast.success(`${ids.length} envio(s) atualizados!`);
   };
