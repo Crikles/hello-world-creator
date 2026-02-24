@@ -28,6 +28,7 @@ export type Database = {
           id: string
           inscricao_estadual: string | null
           logo_url: string | null
+          loja_id: string | null
           nome_fantasia: string | null
           numero: string | null
           razao_social: string
@@ -47,6 +48,7 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           logo_url?: string | null
+          loja_id?: string | null
           nome_fantasia?: string | null
           numero?: string | null
           razao_social: string
@@ -66,13 +68,22 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           logo_url?: string | null
+          loja_id?: string | null
           nome_fantasia?: string | null
           numero?: string | null
           razao_social?: string
           telefone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "empresas_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       envios: {
         Row: {
@@ -93,6 +104,7 @@ export type Database = {
           cst: string | null
           empresa_id: string | null
           id: string
+          loja_id: string | null
           ncm_sh: string | null
           nfe_chave_acesso: string | null
           nfe_numero: string | null
@@ -123,6 +135,7 @@ export type Database = {
           cst?: string | null
           empresa_id?: string | null
           id?: string
+          loja_id?: string | null
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
           nfe_numero?: string | null
@@ -153,6 +166,7 @@ export type Database = {
           cst?: string | null
           empresa_id?: string | null
           id?: string
+          loja_id?: string | null
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
           nfe_numero?: string | null
@@ -173,7 +187,41 @@ export type Database = {
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "envios_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      lojas: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       pedidos: {
         Row: {
@@ -193,6 +241,7 @@ export type Database = {
           customer_phone: string | null
           envio_id: string | null
           id: string
+          loja_id: string | null
           method: string | null
           products: Json | null
           raw_payload: Json | null
@@ -218,6 +267,7 @@ export type Database = {
           customer_phone?: string | null
           envio_id?: string | null
           id?: string
+          loja_id?: string | null
           method?: string | null
           products?: Json | null
           raw_payload?: Json | null
@@ -243,6 +293,7 @@ export type Database = {
           customer_phone?: string | null
           envio_id?: string | null
           id?: string
+          loja_id?: string | null
           method?: string | null
           products?: Json | null
           raw_payload?: Json | null
@@ -259,7 +310,35 @@ export type Database = {
             referencedRelation: "envios"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pedidos_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+        }
+        Relationships: []
       }
       webhook_logs: {
         Row: {
@@ -267,6 +346,7 @@ export type Database = {
           created_at: string
           event_type: string
           id: string
+          loja_id: string | null
           payload: Json
           processed: boolean
           status: string | null
@@ -276,6 +356,7 @@ export type Database = {
           created_at?: string
           event_type: string
           id?: string
+          loja_id?: string | null
           payload: Json
           processed?: boolean
           status?: string | null
@@ -285,18 +366,30 @@ export type Database = {
           created_at?: string
           event_type?: string
           id?: string
+          loja_id?: string | null
           payload?: Json
           processed?: boolean
           status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      user_owns_loja: {
+        Args: { _loja_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       shipment_status:

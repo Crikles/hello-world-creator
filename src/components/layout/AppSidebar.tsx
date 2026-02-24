@@ -1,5 +1,9 @@
-import { LayoutDashboard, Package, Building2, Plug, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLoja } from "@/contexts/LojaContext";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -10,17 +14,29 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Envios", url: "/envios", icon: Package },
-  { title: "Empresa", url: "/empresa", icon: Building2 },
-  { title: "Integrações", url: "/integracoes", icon: Plug },
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
-];
-
 export function AppSidebar() {
+  const { signOut } = useAuth();
+  const { loja } = useLoja();
+  const navigate = useNavigate();
+
+  const base = loja ? `/loja/${loja.id}` : "";
+
+  const menuItems = [
+    { title: "Dashboard", url: base, icon: LayoutDashboard },
+    { title: "Envios", url: `${base}/envios`, icon: Package },
+    { title: "Empresa", url: `${base}/empresa`, icon: Building2 },
+    { title: "Integrações", url: `${base}/integracoes`, icon: Plug },
+    { title: "Configurações", url: `${base}/configuracoes`, icon: Settings },
+  ];
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
@@ -28,8 +44,10 @@ export function AppSidebar() {
           <div className="h-9 w-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
             <Package className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
-          <div>
-            <h2 className="text-sm font-bold text-sidebar-primary-foreground">Painel de Envios</h2>
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-sidebar-primary-foreground truncate">
+              {loja?.nome || "Painel de Envios"}
+            </h2>
             <p className="text-xs text-sidebar-foreground/60">NFe + Rastreio</p>
           </div>
         </div>
@@ -46,7 +64,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/"}
+                      end={item.url === base}
                       className="flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     >
@@ -60,6 +78,26 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-3 border-t border-sidebar-border space-y-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground"
+          onClick={() => navigate("/lojas")}
+        >
+          <Store className="h-4 w-4 mr-2" />
+          Trocar de Loja
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-sidebar-foreground/70 hover:text-destructive"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Sair
+        </Button>
+      </SidebarFooter>
     </Sidebar>
   );
 }

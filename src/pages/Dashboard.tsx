@@ -5,6 +5,7 @@ import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp } f
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { useLoja } from "@/contexts/LojaContext";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const statusLabels: Record<string, string> = {
@@ -22,16 +23,21 @@ const statusTimelineColors: Record<string, string> = {
 };
 
 export default function Dashboard() {
+  const { loja } = useLoja();
+
   const { data: envios = [] } = useQuery({
-    queryKey: ["envios"],
+    queryKey: ["envios", loja?.id],
     queryFn: async () => {
+      if (!loja) return [];
       const { data, error } = await supabase
         .from("envios")
         .select("*")
+        .eq("loja_id", loja.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!loja,
   });
 
   const total = envios.length;

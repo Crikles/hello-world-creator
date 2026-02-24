@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Plus, Search, Truck, Eye, Trash2, Play, FastForward } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
@@ -57,17 +58,21 @@ export default function Envios() {
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [autoEnvio, setAutoEnvio] = useState(false);
   const queryClient = useQueryClient();
+  const { loja } = useLoja();
 
   const { data: envios = [] } = useQuery({
-    queryKey: ["envios"],
+    queryKey: ["envios", loja?.id],
     queryFn: async () => {
+      if (!loja) return [];
       const { data, error } = await supabase
         .from("envios")
         .select("*")
+        .eq("loja_id", loja.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!loja,
   });
 
   const updateStatusMutation = useMutation({

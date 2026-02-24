@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useLoja } from "@/contexts/LojaContext";
 
 const WEBHOOK_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -19,13 +20,19 @@ const checkouts = [
 export default function Integracoes() {
   const [activeMap, setActiveMap] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { loja } = useLoja();
 
   const toggleCheckout = (id: string) => {
     setActiveMap((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const getWebhookUrl = (id: string) => {
+    const slug = loja?.slug || "SUA_LOJA";
+    return `${WEBHOOK_BASE}/webhook-${id}?loja=${slug}`;
+  };
+
   const copyWebhook = async (id: string) => {
-    const url = `${WEBHOOK_BASE}/webhook-${id}`;
+    const url = getWebhookUrl(id);
     await navigator.clipboard.writeText(url);
     setCopiedId(id);
     toast({ title: "URL copiada!", description: "Webhook copiado para a área de transferência." });
@@ -46,7 +53,6 @@ export default function Integracoes() {
           return (
             <Card key={checkout.id} className="relative overflow-hidden">
               <CardHeader className="flex flex-row items-center gap-4 pb-2">
-                {/* Placeholder logo */}
                 <div
                   className="h-12 w-12 rounded-lg flex items-center justify-center text-lg font-bold text-primary-foreground shrink-0"
                   style={{ backgroundColor: checkout.color }}
@@ -64,12 +70,11 @@ export default function Integracoes() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Webhook URL */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Webhook URL</label>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md truncate text-foreground">
-                      {WEBHOOK_BASE}/webhook-{checkout.id}
+                      {getWebhookUrl(checkout.id)}
                     </code>
                     <Button
                       variant="outline"
@@ -77,7 +82,7 @@ export default function Integracoes() {
                       className="shrink-0"
                       onClick={() => copyWebhook(checkout.id)}
                     >
-                    {copiedId === checkout.id ? (
+                      {copiedId === checkout.id ? (
                         <Check className="h-4 w-4 text-primary" />
                       ) : (
                         <Copy className="h-4 w-4" />
@@ -86,7 +91,6 @@ export default function Integracoes() {
                   </div>
                 </div>
 
-                {/* Toggle */}
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-sm text-muted-foreground">Ativar integração</span>
                   <Switch checked={isActive} onCheckedChange={() => toggleCheckout(checkout.id)} />
