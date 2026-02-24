@@ -175,6 +175,122 @@ export type Database = {
           },
         ]
       }
+      pedidos: {
+        Row: {
+          address_city: string | null
+          address_complement: string | null
+          address_country: string | null
+          address_district: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip_code: string | null
+          checkout_provider: string
+          created_at: string
+          customer_document: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          envio_id: string | null
+          id: string
+          method: string | null
+          products: Json | null
+          raw_payload: Json | null
+          status: string
+          total_price: number
+          transaction_token: string
+          updated_at: string
+        }
+        Insert: {
+          address_city?: string | null
+          address_complement?: string | null
+          address_country?: string | null
+          address_district?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip_code?: string | null
+          checkout_provider: string
+          created_at?: string
+          customer_document?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          envio_id?: string | null
+          id?: string
+          method?: string | null
+          products?: Json | null
+          raw_payload?: Json | null
+          status: string
+          total_price?: number
+          transaction_token: string
+          updated_at?: string
+        }
+        Update: {
+          address_city?: string | null
+          address_complement?: string | null
+          address_country?: string | null
+          address_district?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip_code?: string | null
+          checkout_provider?: string
+          created_at?: string
+          customer_document?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          envio_id?: string | null
+          id?: string
+          method?: string | null
+          products?: Json | null
+          raw_payload?: Json | null
+          status?: string
+          total_price?: number
+          transaction_token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_envio_id_fkey"
+            columns: ["envio_id"]
+            isOneToOne: false
+            referencedRelation: "envios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_logs: {
+        Row: {
+          checkout_provider: string
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          processed: boolean
+          status: string | null
+        }
+        Insert: {
+          checkout_provider: string
+          created_at?: string
+          event_type: string
+          id?: string
+          payload: Json
+          processed?: boolean
+          status?: string | null
+        }
+        Update: {
+          checkout_provider?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+          status?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
