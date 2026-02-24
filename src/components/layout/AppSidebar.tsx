@@ -66,7 +66,7 @@ export function AppSidebar() {
             <Package className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-sidebar-primary-foreground truncate">
+            <h2 className="text-sm font-bold text-primary truncate">
               {loja?.nome || "Painel de Envios"}
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
