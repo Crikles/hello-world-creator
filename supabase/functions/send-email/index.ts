@@ -48,19 +48,32 @@ function markdownToHtml(text: string): string {
     .replace(/\n/g, "<br>");
 }
 
+function getHeaderTitle(statusLabel: string, enviarNfePdf: boolean, empresaNome: string): string {
+  if (enviarNfePdf) return empresaNome;
+  const titleMap: Record<string, string> = {
+    "Postado": "Pedido Postado",
+    "Coletado": "Pedido Coletado",
+    "Em Trânsito": "Pedido em Trânsito",
+    "Em Rota": "Em Rota de Entrega",
+    "Centro Local": "Centro de Distribuição",
+    "Saiu para Entrega": "Saiu para Entrega!",
+    "Entregue": "Pedido Entregue!",
+    "Taxação": "Aviso de Taxação",
+    "Pago": "Pagamento Confirmado",
+  };
+  return titleMap[statusLabel] || statusLabel || empresaNome;
+}
+
 function buildEmailHtml(
   evento: Record<string, unknown>,
   envio: Record<string, unknown>,
   extras: Record<string, string>,
   primaryColor = "#6366f1"
 ): string {
-  // Parse sections from the evento's corpo_email or use defaults
   const corpoEmail = (evento.corpo_email as string) || "";
-  const assunto = (evento.assunto_email as string) || "";
   const statusLabel = (evento.status_label as string) || "";
+  const enviarNfePdf = (evento.enviar_nfe_pdf as boolean) || false;
 
-  // Try to extract sections from corpo_email if it has structured content
-  // Otherwise build from the raw content
   let saudacao = `Olá {{cliente_nome}},`;
   let mensagem = corpoEmail || `Atualização sobre o seu pedido **{{produto}}**.`;
   let rodape = `Atenciosamente,\n{{empresa_nome}}`;
@@ -69,7 +82,6 @@ function buildEmailHtml(
   let textoBotaoCta = "Rastrear Pedido";
   let urlBotaoCta = "https://rastreamento.correios.com.br/app/index.php";
 
-  // If corpo_email looks like raw HTML (from old system), strip tags and use as message
   if (corpoEmail.includes("<p>") || corpoEmail.includes("<div>")) {
     mensagem = corpoEmail
       .replace(/<br\s*\/?>/gi, "\n")
@@ -78,7 +90,6 @@ function buildEmailHtml(
       .trim();
   }
 
-  // Customize based on status
   if (statusLabel === "Entregue") {
     mostrarBotaoCta = false;
     textoBotaoCta = "";
@@ -119,6 +130,7 @@ function buildEmailHtml(
 
   const empresaNome = extras.empresa_nome || "Loja";
   const empresaLogoUrl = extras.empresa_logo_url || "";
+  const headerTitle = getHeaderTitle(statusLabel, enviarNfePdf, empresaNome);
 
   const logoBlock = empresaLogoUrl
     ? `<img src="${empresaLogoUrl}" alt="${empresaNome}" style="max-height:120px;max-width:200px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto;" />`
@@ -139,7 +151,7 @@ function buildEmailHtml(
           <tr>
             <td style="background:linear-gradient(135deg,${primaryColor},${primaryColor}dd);padding:32px 40px;text-align:center;">
               ${logoBlock}
-              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${empresaNome}</p>
+              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${headerTitle}</p>
             </td>
           </tr>
           <!-- Body -->
