@@ -10,13 +10,16 @@ interface SendEmailRequest {
   envio_id: string;
   evento_id: string;
   loja_id: string;
+  nfe_pdf_base64?: string;
+  nfe_filename?: string;
 }
 
 function replaceVariables(
   text: string,
-  envio: Record<string, unknown>
+  envio: Record<string, unknown>,
+  extras: Record<string, string> = {}
 ): string {
-  return text
+  let result = text
     .replace(/\{\{cliente_nome\}\}/g, (envio.cliente_nome as string) || "")
     .replace(/\{\{cliente_email\}\}/g, (envio.cliente_email as string) || "")
     .replace(/\{\{produto\}\}/g, (envio.produto as string) || "")
@@ -30,6 +33,21 @@ function replaceVariables(
     )
     .replace(/\{\{valor\}\}/g, String(envio.valor || "0"))
     .replace(/\{\{quantidade\}\}/g, String(envio.quantidade || "1"));
+
+  // Replace extras (empresa_nome, empresa_logo_url)
+  for (const [key, value] of Object.entries(extras)) {
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
+  }
+
+  // Handle conditional logo block: {{#empresa_logo_url}}...{{/empresa_logo_url}}
+  const logoUrl = extras.empresa_logo_url || "";
+  if (logoUrl) {
+    result = result.replace(/\{\{#empresa_logo_url\}\}/g, "").replace(/\{\{\/empresa_logo_url\}\}/g, "");
+  } else {
+    result = result.replace(/\{\{#empresa_logo_url\}\}[\s\S]*?\{\{\/empresa_logo_url\}\}/g, "");
+  }
+
+  return result;
 }
 
 Deno.serve(async (req) => {
@@ -74,7 +92,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { envio_id, evento_id, loja_id } =
+    const { envio_id, evento_id, loja_id, nfe_pdf_base64, nfe_filename } =
       (await req.json()) as SendEmailRequest;
 
     if (!envio_id || !evento_id || !loja_id) {
@@ -103,40 +121,60 @@ Deno.serve(async (req) => {
       throw new Error(`Evento not found: ${eventoError?.message}`);
     }
 
-    // Fetch empresa data for "from" name
+    // Fetch empresa data for "from" name and logo
     let fromName = "Loja";
+    let empresaLogoUrl = "";
+    let empresaNome = "Loja";
     if (envio.empresa_id) {
       const { data: empresa } = await supabase
         .from("empresas")
-        .select("nome_fantasia, razao_social")
+        .select("nome_fantasia, razao_social, logo_url")
         .eq("id", envio.empresa_id)
         .single();
 
       if (empresa) {
         fromName = empresa.nome_fantasia || empresa.razao_social || "Loja";
+        empresaNome = fromName;
+        empresaLogoUrl = empresa.logo_url || "";
       }
     }
+
+    const extras = {
+      empresa_nome: empresaNome,
+      empresa_logo_url: empresaLogoUrl,
+    };
 
     // Replace template variables
     const subject = replaceVariables(
       evento.assunto_email || "Atualização do seu pedido",
-      envio
+      envio,
+      extras
     );
-    const htmlBody = replaceVariables(evento.corpo_email || "", envio);
+    const htmlBody = replaceVariables(evento.corpo_email || "", envio, extras);
+
+    // Build attachments array
+    const attachments = nfe_pdf_base64
+      ? [{ filename: nfe_filename || "NF-e.pdf", content: nfe_pdf_base64 }]
+      : undefined;
 
     // Send email via Resend
+    const resendBody: Record<string, unknown> = {
+      from: `${fromName} <onboarding@resend.dev>`,
+      to: [envio.cliente_email],
+      subject,
+      html: htmlBody,
+    };
+    if (attachments) {
+      resendBody.attachments = attachments;
+    }
+
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: `${fromName} <onboarding@resend.dev>`,
-        to: [envio.cliente_email],
-        subject,
-        html: htmlBody,
-      }),
+      body: JSON.stringify(resendBody),
     });
 
     const resendData = await resendResponse.json();
