@@ -1,0 +1,203 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const url = new URL(req.url);
+    const lojaSlug = url.searchParams.get("loja");
+
+    if (!lojaSlug) {
+      return new Response(JSON.stringify({ error: "Missing 'loja' query parameter" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const payload = await req.json();
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Resolve loja by slug
+    const { data: lojaData, error: lojaError } = await supabase
+      .from("lojas")
+      .select("id")
+      .eq("slug", lojaSlug)
+      .maybeSingle();
+
+    if (lojaError || !lojaData) {
+      return new Response(JSON.stringify({ error: "Loja not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const lojaId = lojaData.id;
+    const event = payload.event || "";
+    const status = payload.status || "";
+    const transactionToken = String(payload.id || `luna_${Date.now()}`);
+
+    // Map event to event_type
+    const eventTypeMap: Record<string, string> = {
+      "event_sale_paid": "sale",
+      "event_sale_pending": "pending",
+      "event_sale_waiting_payment": "waiting_payment",
+      "event_sale_refused": "refused",
+      "sale_cart_abandoned": "abandoned_cart",
+    };
+    const eventType = eventTypeMap[event] || event;
+
+    // 1. Log the webhook
+    await supabase.from("webhook_logs").insert({
+      checkout_provider: "luna",
+      event_type: eventType,
+      status,
+      payload,
+      processed: false,
+      loja_id: lojaId,
+    });
+
+    // 2. Normalize data
+    const client = payload.client || {};
+    const address = payload.address || {};
+    const items = payload.items || [];
+
+    const totalPrice = Math.round(parseFloat(String(payload.amount || "0")) * 100);
+
+    const normalizedProducts = items.map((item: any) => ({
+      code: String(item.id || ""),
+      title: item.name || "",
+      quantity: parseInt(String(item.quantity || "1"), 10),
+      amount: Math.round(parseFloat(String(item.price || "0")) * 100),
+    }));
+
+    // 3. Upsert into pedidos
+    const pedidoData = {
+      checkout_provider: "luna",
+      transaction_token: transactionToken,
+      status,
+      method: payload.method || null,
+      total_price: totalPrice,
+      customer_name: client.name || null,
+      customer_document: client.doc || null,
+      customer_email: client.email || null,
+      customer_phone: client.phone || null,
+      address_street: address.street || null,
+      address_number: address.number || null,
+      address_district: address.neighborhood || null,
+      address_zip_code: address.zipcode || null,
+      address_city: address.city || null,
+      address_state: address.state || null,
+      address_country: null,
+      address_complement: address.complement || null,
+      products: normalizedProducts,
+      raw_payload: payload,
+      loja_id: lojaId,
+    };
+
+    const { data: existingPedido } = await supabase
+      .from("pedidos")
+      .select("id, envio_id")
+      .eq("checkout_provider", "luna")
+      .eq("transaction_token", transactionToken)
+      .eq("loja_id", lojaId)
+      .maybeSingle();
+
+    let pedidoId: string;
+
+    if (existingPedido) {
+      await supabase
+        .from("pedidos")
+        .update({ ...pedidoData, updated_at: new Date().toISOString() })
+        .eq("id", existingPedido.id);
+      pedidoId = existingPedido.id;
+    } else {
+      const { data: newPedido } = await supabase
+        .from("pedidos")
+        .insert(pedidoData)
+        .select("id")
+        .single();
+      pedidoId = newPedido?.id;
+    }
+
+    // 4. If paid and no envio linked yet, create envio
+    if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
+      const firstProduct = normalizedProducts[0] || {};
+
+      const envioData = {
+        cliente_nome: client.name || "Cliente Luna",
+        cliente_email: client.email || "sem-email@luna.com",
+        cliente_cpf: client.doc || null,
+        cliente_telefone: client.phone || null,
+        cliente_endereco: address.street || null,
+        cliente_numero: address.number || null,
+        cliente_bairro: address.neighborhood || null,
+        cliente_cep: address.zipcode || null,
+        cliente_cidade: address.city || null,
+        cliente_estado: address.state || null,
+        cliente_complemento: address.complement || null,
+        produto: firstProduct.title || "Produto Luna",
+        quantidade: firstProduct.quantity || 1,
+        valor: totalPrice / 100,
+        status: "pendente",
+        loja_id: lojaId,
+      };
+
+      const { data: newEnvio } = await supabase
+        .from("envios")
+        .insert(envioData)
+        .select("id")
+        .single();
+
+      if (newEnvio) {
+        await supabase
+          .from("pedidos")
+          .update({ envio_id: newEnvio.id })
+          .eq("id", pedidoId);
+      }
+    }
+
+    // 5. Mark webhook as processed
+    await supabase
+      .from("webhook_logs")
+      .update({ processed: true })
+      .eq("checkout_provider", "luna")
+      .eq("loja_id", lojaId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    return new Response(
+      JSON.stringify({ success: true, event_type: eventType, status }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error("Webhook Luna error:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+});
