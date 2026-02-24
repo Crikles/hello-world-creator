@@ -1,63 +1,90 @@
 
 
-# Postagens - Reestruturar Interface com NF Gratuita e Configuracao de Dias
+# Postagens - Novo Modelo de Precificacao por Moedas
 
 ## Resumo
 
-Reorganizar a pagina de Postagens para refletir as regras de negocio corretas:
-- O primeiro email (Nota Fiscal) e sempre gratuito e enviado automaticamente
-- Os demais emails de rastreamento sao opcionais e cobrados R$ 0,15 cada
-- A configuracao de delay deve usar "dias" em vez de "horas" e ficar visivel diretamente na lista de eventos (sem precisar abrir o dialog)
+Reestruturar o sistema de custos e configuracoes da pagina Postagens para refletir o novo modelo de precificacao baseado em moedas, com opcoes modulares que o usuario pode ativar/desativar.
+
+---
+
+## Novo Modelo de Precos
+
+| Funcionalidade | Custo |
+|---|---|
+| NF + Emails (fluxo padrao completo) | 1 moeda |
+| Codigo de Rastreio | 1 moeda |
+| Site de Rastreio (envio do link) | +0,25 moeda |
+| Funil de Taxacao (Email + SMS) | +1 moeda |
+
+**Custo base:** 2 moedas (NF+Emails + Rastreio)
+**Custo maximo:** 3,25 moedas (base + site rastreio + taxacao)
 
 ---
 
 ## Mudancas na Interface
 
-### 1. Secao "Configuracoes Gerais" - Reestruturar toggles
+### 1. Secao "Configuracoes Gerais" - Novos toggles modulares
 
-Substituir os dois toggles atuais por:
+Substituir os toggles atuais por:
 
-- **Enviar NF (primeiro email padrao)** - Toggle para enviar o email da Nota Fiscal (gratuito, sempre o primeiro evento do fluxo). Descricao: "Envia automaticamente a Nota Fiscal por email ao cliente. Este email e gratuito."
-- **Ativar emails de rastreamento** - Toggle para ativar/desativar os demais emails do fluxo (cobrados R$ 0,15 cada). Descricao: "Envia emails automaticos de atualizacao de status. Cada email custa R$ 0,15."
+- **NF + Emails de rastreamento** (sempre ativo, 1 moeda) - Toggle principal do fluxo de emails. Descricao: "Envia a Nota Fiscal e todos os emails de atualizacao de status automaticamente."
+- **Codigo de Rastreio** (1 moeda) - Toggle para gerar/enviar codigo de rastreio. Descricao: "Gera e envia o codigo de rastreio ao cliente."
+- **Site de Rastreio** (+0,25 moeda) - Toggle para enviar link do site de rastreio. Descricao: "Envia o link do site de rastreio personalizado ao cliente. (em breve)"
+- **Funil de Taxacao** (+1 moeda) - Toggle para ativar fluxo de taxacao com Email + SMS. Descricao: "Ativa o fluxo de taxacao com envio de Email e SMS ao cliente. (em breve)"
 
-Isso substituira os campos `enviar_nfe_email` e `enviar_emails` respectivamente.
+### 2. Secao "Custo por Envio" - Atualizar calculo
 
-### 2. Eventos do Fluxo - Configuracao de dias inline
+Substituir o calculo antigo (R$ 0,15 por email) pelo novo modelo de moedas:
 
-Na lista de eventos ativos, para cada evento (exceto o primeiro - NF), mostrar um campo de input numerico inline para configurar o delay em **dias** (nao horas) apos o evento anterior. Isso permite que o usuario configure os tempos diretamente na lista sem abrir o dialog de edicao.
+Mostrar breakdown dinamico baseado nos toggles ativos:
+```
+NF + Emails .............. 1 moeda
+Rastreio ................. 1 moeda
+Site de Rastreio ......... +0,25 moeda (se ativo)
+Funil de Taxacao ......... +1 moeda (se ativo)
+─────────────────────────────────
+Total por envio: X moedas
+```
 
-- O primeiro evento (Nota Fiscal Emitida) nao tera campo de delay (e instantaneo)
-- Os demais eventos mostrarao: `[input numerico] dias apos anterior`
-- O campo `delay_horas` no banco continuara sendo usado, mas sera tratado como dias no frontend (multiplicando por 24 ao salvar e dividindo por 24 ao exibir)
+### 3. Remover referencia a R$ 0,15
 
-### 3. Custo estimado - Excluir NF da contagem
+Todas as referencias ao custo de R$ 0,15 por email serao removidas e substituidas pelo modelo de moedas.
 
-O calculo de custo estimado deve excluir o primeiro evento (NF), que e gratuito:
-- Contar apenas eventos com `enviar_email = true` e `ordem > 1` (ou que nao sejam o primeiro)
-- Mostrar: "R$ 0,15 x {N} emails de rastreamento = R$ {total}"
-- Mencionar que o email de NF e gratuito
+---
 
-### 4. Evento de NF - Visual diferenciado
+## Banco de Dados
 
-O primeiro evento (Nota Fiscal Emitida) tera um visual diferente:
-- Badge "Gratuito" em verde
-- Nao mostrara botao de remover (e obrigatorio)
-- Nao mostrara campo de delay
+### Adicionar colunas na tabela `postagem_config`
+
+Duas novas colunas booleanas:
+
+- `ativar_site_rastreio` (boolean, default false) - toggle do site de rastreio
+- `ativar_taxacao` (boolean, default false) - toggle do funil de taxacao
+
+As colunas existentes `enviar_nfe_email` e `enviar_emails` serao reaproveitadas:
+- `enviar_nfe_email` -> representara "NF + Emails" (toggle principal)
+- `enviar_emails` -> representara "Codigo de Rastreio"
+
+---
+
+## Arquivos a Modificar
+
+### `src/pages/Postagens.tsx`
+- Atualizar interface `PostagemConfig` com novos campos
+- Reestruturar secao de Configuracoes Gerais com 4 toggles
+- Atualizar secao de custo estimado para usar moedas
+- Adicionar logica de calculo dinamico do custo total
+- Remover todas as referencias a R$ 0,15
+
+### Migracao SQL
+- Adicionar colunas `ativar_site_rastreio` e `ativar_taxacao` na tabela `postagem_config`
 
 ---
 
 ## Detalhes Tecnicos
 
-### Arquivos a modificar
-
-**`src/pages/Postagens.tsx`**:
-- Reestruturar a secao de "Configuracoes Gerais" com os dois novos toggles
-- Adicionar input de dias inline para cada evento na lista (exceto o primeiro)
-- Atualizar calculo de custo para excluir o primeiro evento (NF gratuita)
-- Diferenciar visualmente o primeiro evento (NF) com badge "Gratuito" e sem botao de remover
-- Converter delay_horas para dias no display (dividir por 24) e ao salvar (multiplicar por 24)
-
-### Banco de dados
-
-Nenhuma alteracao necessaria. Os campos existentes (`enviar_nfe_email`, `enviar_emails`, `delay_horas`) sao suficientes para suportar as mudancas. O `delay_horas` sera reinterpretado como dias no frontend.
+- Os toggles "Site de Rastreio" e "Funil de Taxacao" ficarao visiveis mas com badge "(em breve)" pois serao implementados posteriormente
+- O calculo de custo sera feito no frontend: `custoTotal = 1 (NF+Emails) + 1 (Rastreio) + (siteRastreio ? 0.25 : 0) + (taxacao ? 1 : 0)`
+- A mutation `toggleConfig` sera estendida para suportar os novos campos
 
