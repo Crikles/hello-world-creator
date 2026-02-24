@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Building2, Settings } from "lucide-react";
+import { LayoutDashboard, Package, Building2, Plug, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -16,6 +16,7 @@ const menuItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Envios", url: "/envios", icon: Package },
   { title: "Empresa", url: "/empresa", icon: Building2 },
+  { title: "Integrações", url: "/integracoes", icon: Plug },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
