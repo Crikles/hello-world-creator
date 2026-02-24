@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Package, Plus, Store, LogOut, Shield, Coins } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Package, Plus, Store, LogOut, Shield, Coins, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -20,6 +22,8 @@ export default function Lojas() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [nome, setNome] = useState("");
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; lojaId: string; nome: string }>({ open: false, lojaId: "", nome: "" });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; lojaId: string; nome: string }>({ open: false, lojaId: "", nome: "" });
 
   const { data: saldo } = useQuery({
     queryKey: ["meu-saldo", user?.id],
@@ -77,6 +81,44 @@ export default function Lojas() {
         toast.error("Erro ao criar loja.");
       }
     },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, nome }: { id: string; nome: string }) => {
+      const { error } = await supabase.from("lojas").update({ nome }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lojas"] });
+      setRenameDialog({ open: false, lojaId: "", nome: "" });
+      toast.success("Loja renomeada!");
+    },
+    onError: () => toast.error("Erro ao renomear loja."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from("postagem_email_log").delete().eq("loja_id", id);
+      await supabase.from("postagem_config").delete().eq("loja_id", id);
+      await supabase.from("envios").delete().eq("loja_id", id);
+      await supabase.from("pedidos").delete().eq("loja_id", id);
+      await supabase.from("empresas").delete().eq("loja_id", id);
+      await supabase.from("webhook_logs").delete().eq("loja_id", id);
+      const { data: templates } = await supabase.from("postagem_templates").select("id").eq("loja_id", id);
+      if (templates?.length) {
+        const ids = templates.map(t => t.id);
+        await supabase.from("postagem_eventos").delete().in("template_id", ids);
+        await supabase.from("postagem_templates").delete().eq("loja_id", id);
+      }
+      const { error } = await supabase.from("lojas").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lojas"] });
+      setDeleteDialog({ open: false, lojaId: "", nome: "" });
+      toast.success("Loja excluída com sucesso!");
+    },
+    onError: () => toast.error("Erro ao excluir loja."),
   });
 
   const handleCreate = (e: React.FormEvent) => {
@@ -194,6 +236,31 @@ export default function Lojas() {
                         Criada em {format(new Date(loja.created_at), "dd/MM/yyyy")}
                       </p>
                     </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => setRenameDialog({ open: true, lojaId: loja.id, nome: loja.nome })}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Renomear
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteDialog({ open: true, lojaId: loja.id, nome: loja.nome })}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>
@@ -201,6 +268,58 @@ export default function Lojas() {
           </div>
         )}
       </main>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialog.open} onOpenChange={(open) => !open && setRenameDialog({ open: false, lojaId: "", nome: "" })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renomear Loja</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!renameDialog.nome.trim()) return;
+              renameMutation.mutate({ id: renameDialog.lojaId, nome: renameDialog.nome.trim() });
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Nome da Loja</Label>
+              <Input
+                value={renameDialog.nome}
+                onChange={(e) => setRenameDialog((prev) => ({ ...prev, nome: e.target.value }))}
+                required
+                className="bg-muted/30 focus:bg-background"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={renameMutation.isPending}>
+              {renameMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete AlertDialog */}
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => !open && setDeleteDialog({ open: false, lojaId: "", nome: "" })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir "{deleteDialog.nome}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza? Todos os dados da loja serão perdidos (envios, pedidos, empresa, etc). Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteMutation.mutate(deleteDialog.lojaId)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
