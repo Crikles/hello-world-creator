@@ -1,45 +1,95 @@
 
-# Restringir Edicao de Email para Admin
+
+# Mover Edicao de Email para Admin e Restringir Fluxos
 
 ## Resumo
 
-Remover a capacidade de usuarios comuns editarem os templates de email na pagina de Postagens. O botao de editar email (icone de lapis) e o botao de adicionar/excluir eventos serao visiveis apenas para admins. Usuarios comuns verao os eventos do fluxo apenas em modo leitura.
+Tres mudancas principais:
+1. A edicao de email (EmailEditor) sai da pagina Postagens e vai para o painel Admin, editando os **templates de sistema** (afeta todas as contas)
+2. Remover o botao "Adicionar Evento" completamente
+3. Usuarios comuns so podem editar os **dias de delay** dos eventos -- nenhum outro controle de edicao de fluxo
 
 ## O que muda
 
 ### 1. Pagina Postagens (`src/pages/Postagens.tsx`)
 
-- Importar o hook `useIsAdmin` 
-- Chamar `const { isAdmin } = useIsAdmin()` no componente
-- **Botao de editar email** (Edit2, linha 528): renderizar apenas se `isAdmin`
-- **Botao de excluir evento** (Trash2, linha 531-539): renderizar apenas se `isAdmin`
-- **Botao "Adicionar" evento** (Plus, linha 458): renderizar apenas se `isAdmin`
-- **Input de delay** (dias apos anterior, linhas 514-525): tornar `disabled` se nao for admin, ou renderizar como texto estático
-- **Templates pre-configurados** (cards clicaveis, linha 417-449): remover o `onClick` para usuarios nao-admin, ou desabilitar a interacao
+- **Remover** o botao "Adicionar" evento (linhas 459-464) -- completamente, nem para admin
+- **Remover** o botao de editar email (Edit2, linhas 535-537) -- completamente
+- **Remover** o botao de excluir evento (Trash2, linhas 538-547) -- completamente
+- **Remover** o componente EmailEditor e todo o estado associado (`editingEvento`, `editDialogOpen`, `openEditDialog`, `handleSaveEvento`)
+- **Remover** as mutations `deleteEvento` e `addEvento`
+- **Manter** apenas o input de delay (dias) editavel pelo usuario para cada evento (ja funciona)
+- O import de `useIsAdmin` pode ser removido ja que nao sera mais usado nesta pagina
 
-### 2. Nenhum arquivo novo necessario
+### 2. Painel Admin - Nova pagina de Templates (`src/pages/admin/AdminTemplates.tsx`)
 
-O hook `useIsAdmin` ja existe e funciona corretamente.
+Nova pagina no admin que lista os templates de sistema e seus eventos. Ao clicar em editar um evento, abre o EmailEditor existente. As alteracoes sao feitas nos **eventos dos templates de sistema**, afetando todas as contas que usam aquele template.
 
-### 3. Nenhuma migracao SQL necessaria
+Funcionalidades:
+- Lista os templates de sistema com seus eventos
+- Botao de editar email em cada evento (abre EmailEditor)
+- Ao salvar, atualiza o `postagem_eventos` do template de sistema
 
-As RLS policies ja impedem que usuarios editem templates de sistema. Os templates clonados pertencem a loja do usuario, entao a restricao e feita no frontend para UX.
+### 3. Rota e Sidebar do Admin
+
+- Nova rota `/admin/templates` no `App.tsx`
+- Novo item no menu da sidebar admin (`AdminSidebar.tsx`): "Templates" com icone `FileText`
+
+### 4. RLS - Adicionar policy para admin editar eventos de templates de sistema
+
+Atualmente, os eventos de templates de sistema so tem policy de SELECT para "Anyone can read". Precisamos de uma policy para admin poder UPDATE (editar assunto, corpo, etc) nos eventos de templates de sistema.
 
 ## Detalhes Tecnicos
 
-### Alteracoes no `src/pages/Postagens.tsx`
+### Arquivos modificados
+- `src/pages/Postagens.tsx` -- remover botoes de edicao, EmailEditor, mutations desnecessarias
+- `src/components/admin/AdminSidebar.tsx` -- adicionar item "Templates"
+- `src/App.tsx` -- adicionar rota `/admin/templates`
 
-```typescript
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+### Arquivos novos
+- `src/pages/admin/AdminTemplates.tsx` -- pagina de gestao de templates no admin
 
-// Dentro do componente:
-const { isAdmin } = useIsAdmin();
+### Migracao SQL necessaria
+
+Adicionar policy para admin editar eventos de templates de sistema:
+
+```sql
+CREATE POLICY "Admins can manage system template eventos"
+ON public.postagem_eventos
+FOR ALL
+TO authenticated
+USING (has_role(auth.uid(), 'admin'::app_role))
+WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 ```
 
-Condicionar os elementos interativos:
+### AdminTemplates.tsx - Estrutura
 
-- `{isAdmin && <Button onClick={() => openEditDialog(evento)}>...}` -- botao editar
-- `{isAdmin && !isFirst && <Button onClick={() => deleteEvento.mutate(evento.id)}>...}` -- botao excluir
-- `{isAdmin && config?.template_ativo_id && <Button onClick={() => addEvento.mutate()}>...}` -- botao adicionar
-- Input de delay: `disabled={!isAdmin}` ou substituir por texto "X dias"
-- Cards de template: `onClick={isAdmin ? () => applyTemplate.mutate(template.id) : undefined}` e remover `cursor-pointer` se nao admin
+```text
++------------------------------------------+
+| Gestao de Templates                      |
+| Edite os templates de email do sistema   |
++------------------------------------------+
+| Template: Fluxo Padrao                   |
+| +--------------------------------------+ |
+| | Postado  | Assunto: ...  [Editar]    | |
+| | Em Transito | Assunto: ... [Editar]  | |
+| | Entregue | Assunto: ...    [Editar]  | |
+| +--------------------------------------+ |
+|                                          |
+| Template: Fluxo Completo                 |
+| +--------------------------------------+ |
+| | ...                                  | |
+| +--------------------------------------+ |
++------------------------------------------+
+```
+
+Ao clicar em "Editar", abre o EmailEditor com os dados do evento. Ao salvar, faz UPDATE no evento do template de sistema. Como o template e de sistema (`is_system = true`), a alteracao reflete globalmente.
+
+### Postagens.tsx - O que sobra
+
+O usuario comum vera:
+- Configuracoes gerais (toggles de NF, rastreio, etc)
+- Templates pre-configurados (cards clicaveis para aplicar)
+- Eventos do fluxo ativo em modo leitura, podendo editar apenas os dias de delay
+- Custo estimado
+
