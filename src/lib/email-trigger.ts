@@ -29,12 +29,9 @@ export async function triggerShipmentEmail(envioId: string, status: string, loja
 
         // 3. Find relevant events
         const statusLabelsMap: Record<string, string[]> = {
-            pendente: ["Postado", "Pedido Confirmado", "Nota Fiscal Emitida"],
-            coletado: ["Coletado"],
-            em_transito: ["Em Trânsito", "Em Rota", "Centro Local"],
+            em_transito: ["Postado", "Pedido Confirmado", "Nota Fiscal Emitida", "Coletado", "Em Trânsito", "Em Rota", "Centro Local"],
             saiu_para_entrega: ["Saiu para Entrega"],
             entregue: ["Entregue"],
-            centro_local: ["Centro Local"],
             taxacao: ["Taxação"],
             pagamento_confirmado: ["Pago"],
         };

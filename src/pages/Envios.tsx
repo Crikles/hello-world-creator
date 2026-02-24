@@ -33,7 +33,7 @@ const statusColors: Record<string, string> = {
 };
 
 const statusProgress: Record<string, number> = {
-  pendente: 25,
+  pendente: 0,
   em_transito: 50,
   saiu_para_entrega: 75,
   entregue: 100,
