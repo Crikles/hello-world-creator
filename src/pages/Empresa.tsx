@@ -245,18 +245,18 @@ export default function Empresa() {
                   Dados que aparecerão na sua Nota Fiscal Eletrônica
                 </p>
               </div>
-              <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/20">
+              <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20">
                 🇧🇷 Nacional
               </Badge>
             </div>
           </div>
 
           {/* Logo Card */}
-          <Card className="border-l-4 border-l-violet-500 shadow-sm hover:shadow-md transition-shadow">
+          <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-violet-500/10">
-                  <ImagePlus className="h-4 w-4 text-violet-600" />
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <ImagePlus className="h-4 w-4 text-primary" />
                 </div>
                 Logo da Empresa
               </CardTitle>
@@ -266,7 +266,7 @@ export default function Empresa() {
               <div className="flex items-center gap-6">
                 {logoPreview ? (
                   <div className="relative group">
-                    <img src={logoPreview} alt="Logo" className="w-24 h-24 object-contain rounded-lg border-2 border-violet-200 bg-white p-1" />
+                    <img src={logoPreview} alt="Logo" className="w-24 h-24 object-contain rounded-lg border-2 border-primary/30 bg-card p-1" />
                     <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={() => fileInputRef.current?.click()}>
                         <Upload className="h-3.5 w-3.5" />
@@ -279,7 +279,7 @@ export default function Empresa() {
                 ) : (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-24 h-24 rounded-lg border-2 border-dashed border-violet-300 bg-violet-50/50 hover:bg-violet-50 hover:border-violet-400 transition-all flex flex-col items-center justify-center gap-1 text-violet-500 cursor-pointer"
+                    className="w-24 h-24 rounded-lg border-2 border-dashed border-primary/30 bg-accent/50 hover:bg-accent hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-1 text-primary cursor-pointer"
                   >
                     <Upload className="h-5 w-5" />
                     <span className="text-[10px] font-medium">Upload</span>
@@ -332,11 +332,11 @@ export default function Empresa() {
           </Card>
 
           {/* Address Card */}
-          <Card className="border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-shadow">
+          <Card className="border-l-4 border-l-primary/60 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-emerald-500/10">
-                  <MapPin className="h-4 w-4 text-emerald-600" />
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <MapPin className="h-4 w-4 text-primary" />
                 </div>
                 Endereço da Empresa
               </CardTitle>
@@ -403,17 +403,17 @@ export default function Empresa() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">Nota Fiscal (Preview)</CardTitle>
-                  <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 text-[10px] px-2 py-0.5">
+                  <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px] px-2 py-0.5">
                     ● Tempo Real
                   </Badge>
                 </div>
                 <CardDescription className="text-xs">
                   Atualiza conforme você preenche o formulário.{" "}
-                  <span className="text-blue-600 font-medium">Dados em azul</span> indicam onde ficarão as informações da empresa — no PDF final, tudo será exibido em preto padrão.
+                  <span className="text-primary font-medium">Dados em dourado</span> indicam onde ficarão as informações da empresa — no PDF final, tudo será exibido em preto padrão.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-2">
-                <div className="rounded-lg border border-border/60 bg-white overflow-hidden" style={{ height: 720 }}>
+                <div className="rounded-lg border border-border/60 bg-card overflow-hidden" style={{ height: 720 }}>
                   <div style={{ transform: "scale(0.62)", transformOrigin: "top left", width: "161.3%", height: "161.3%" }}>
                     <iframe
                       ref={previewIframeRef}

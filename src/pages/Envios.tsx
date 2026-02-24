@@ -23,10 +23,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  pendente: "bg-yellow-100 text-yellow-800",
-  em_transito: "bg-blue-100 text-blue-800",
-  saiu_para_entrega: "bg-orange-100 text-orange-800",
-  entregue: "bg-green-100 text-green-800",
+  pendente: "bg-primary/20 text-primary",
+  em_transito: "bg-accent text-accent-foreground",
+  saiu_para_entrega: "bg-primary/30 text-primary",
+  entregue: "bg-primary/15 text-primary",
 };
 
 const statusProgress: Record<string, number> = {
