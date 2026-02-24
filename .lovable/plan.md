@@ -1,139 +1,134 @@
 
-# Integração Vega Checkout - Webhook Backend
 
-## O que será feito
+# Sistema Multi-Tenant: Contas de Usuario + Lojas
 
-Criar a infraestrutura backend completa para receber webhooks da Vega Checkout, processando dois tipos de eventos:
+## Resumo
 
-1. **Venda (sale)** - Pedido pago, pendente, recusado, estornado, etc.
-2. **Carrinho Abandonado (abandoned_cart)** - Carrinhos abandonados para recuperação
-
-Os dados recebidos serão normalizados e salvos na tabela `envios`, criando automaticamente novos envios quando uma venda for aprovada.
+Transformar o sistema atual (single-tenant) em um sistema multi-usuario onde cada pessoa cria sua conta, pode ter ate 5 lojas, e cada loja tem seus proprios dados isolados (empresas, envios, pedidos, webhooks, integracoes).
 
 ---
 
-## Estrutura das mudanças
+## Estrutura do Banco de Dados
 
-### 1. Nova tabela: `webhook_logs`
+### Novas tabelas
 
-Tabela para registrar todos os webhooks recebidos (para debug e auditoria):
-
-- `id` (uuid, PK)
-- `checkout_provider` (text) - ex: "vega"
-- `event_type` (text) - ex: "sale", "abandoned_cart"
-- `status` (text) - status recebido do checkout
-- `payload` (jsonb) - payload completo do webhook
-- `processed` (boolean) - se já foi processado
+**1. `profiles`** - Dados do usuario
+- `id` (uuid, PK, referencia auth.users)
+- `full_name` (text)
+- `email` (text)
 - `created_at` (timestamptz)
+- Trigger automatico: cria profile quando usuario se cadastra
 
-### 2. Nova tabela: `pedidos`
-
-Tabela dedicada para armazenar pedidos vindos dos checkouts, separada dos envios manuais:
-
+**2. `lojas`** - Lojas do usuario (max 5)
 - `id` (uuid, PK)
-- `checkout_provider` (text) - "vega", "zedy", etc.
-- `transaction_token` (text) - ID unico da transacao no checkout
-- `status` (text) - approved, pending, refused, charge_back, refunded, expired, abandoned_cart
-- `method` (text) - pix, billet, credit_card
-- `total_price` (integer) - valor em centavos
-- `customer_name` (text)
-- `customer_document` (text)
-- `customer_email` (text)
-- `customer_phone` (text)
-- `address_street` (text)
-- `address_number` (text)
-- `address_district` (text)
-- `address_zip_code` (text)
-- `address_city` (text)
-- `address_state` (text)
-- `address_country` (text)
-- `address_complement` (text)
-- `products` (jsonb) - array de produtos
-- `raw_payload` (jsonb) - payload original completo
-- `envio_id` (uuid, FK nullable para envios) - vinculo com envio criado
-- `created_at` (timestamptz)
-- `updated_at` (timestamptz)
+- `user_id` (uuid, FK para auth.users)
+- `nome` (text) - nome da loja
+- `slug` (text, unique) - identificador unico para URLs de webhook
+- `created_at` / `updated_at` (timestamptz)
+- Trigger de validacao: impedir mais de 5 lojas por usuario
 
-### 3. Edge Function: `webhook-vega`
+### Alteracoes nas tabelas existentes
 
-Endpoint: `POST /functions/v1/webhook-vega`
+**3. Adicionar `loja_id` nas tabelas:**
+- `empresas` -> adicionar coluna `loja_id` (uuid, FK para lojas)
+- `envios` -> adicionar coluna `loja_id` (uuid, FK para lojas)
+- `pedidos` -> adicionar coluna `loja_id` (uuid, FK para lojas)
+- `webhook_logs` -> adicionar coluna `loja_id` (uuid, FK para lojas)
 
-A funcao vai:
+### RLS Policies
 
-1. Receber o POST da Vega Checkout
-2. Identificar o tipo de evento pelo campo `status`:
-   - Se `status` = `abandoned_cart` --> registrar como carrinho abandonado
-   - Outros status (`approved`, `pending`, `refused`, etc.) --> registrar como venda
-3. Salvar o log completo em `webhook_logs`
-4. Normalizar os dados do cliente, endereço e produtos
-5. Inserir/atualizar na tabela `pedidos`
-6. Se `status` = `approved`, criar automaticamente um registro na tabela `envios` com status "pendente" e vincular ao pedido
-7. Retornar HTTP 200
-
-Mapeamento dos campos da Vega para o nosso sistema:
-
-```text
-Vega                    -->  pedidos
-transaction_token       -->  transaction_token
-status                  -->  status
-method                  -->  method
-total_price             -->  total_price (ja em centavos)
-customer.name           -->  customer_name
-customer.document       -->  customer_document
-customer.email          -->  customer_email
-customer.phone          -->  customer_phone
-address.*               -->  address_*
-products                -->  products (jsonb)
-
-Quando approved:
-pedidos                 -->  envios
-customer_name           -->  cliente_nome
-customer_email          -->  cliente_email
-customer_document       -->  cliente_cpf
-customer_phone          -->  cliente_telefone
-address_*               -->  cliente_endereco, cliente_bairro, etc.
-products[0].title       -->  produto
-products[0].quantity    -->  quantidade
-total_price / 100       -->  valor
-```
-
-### 4. Configuracao do config.toml
-
-Adicionar a edge function com `verify_jwt = false` pois webhooks externos nao enviam JWT:
-
-```toml
-[functions.webhook-vega]
-verify_jwt = false
-```
-
-### 5. Atualizacao da pagina de Integracoes (opcional visual)
-
-Nenhuma mudanca visual necessaria agora -- a pagina ja mostra o webhook URL correto. Futuramente podemos mostrar o ultimo webhook recebido e contadores.
+Todas as tabelas terao policies que garantem que o usuario so acessa dados das suas proprias lojas:
+- `profiles`: usuario le/edita apenas seu proprio perfil
+- `lojas`: usuario CRUD apenas nas suas proprias lojas
+- `empresas`, `envios`, `pedidos`, `webhook_logs`: acesso apenas para registros vinculados a lojas do usuario autenticado
 
 ---
 
-## Fluxo completo
+## Paginas Novas
+
+### 4. Pagina de Login (`/login`)
+- Formulario com email e senha
+- Link para criar conta
+- Design no tema preto e dourado
+
+### 5. Pagina de Cadastro (`/signup`)
+- Formulario com nome, email e senha
+- Confirmacao de email obrigatoria
+- Apos confirmar email, redireciona para login
+
+### 6. Pagina de Selecao de Loja (`/lojas`)
+- Apos login, usuario ve suas lojas
+- Botao para criar nova loja (ate 5)
+- Clicar numa loja redireciona para o Dashboard daquela loja
+- Cards com nome da loja e data de criacao
+
+---
+
+## Alteracoes na Navegacao
+
+### 7. Rotas protegidas
+- Todas as rotas do painel (Dashboard, Envios, etc.) exigem autenticacao
+- Rotas incluem o ID da loja: `/loja/:lojaId/dashboard`, `/loja/:lojaId/envios`, etc.
+- Componente `ProtectedRoute` que verifica se usuario esta logado
+- Componente `LojaProvider` (context) que carrega a loja selecionada
+
+### 8. Sidebar atualizado
+- Mostrar nome da loja no header do sidebar
+- Adicionar botao para trocar de loja (voltar para `/lojas`)
+- Adicionar botao de logout
+
+---
+
+## Webhook Isolado por Loja
+
+### 9. URL de webhook com identificador da loja
+- Novo formato: `/functions/v1/webhook-vega?loja=SLUG_DA_LOJA`
+- A edge function `webhook-vega` recebera o `slug` da loja via query param
+- Busca o `loja_id` pelo slug e vincula o pedido/envio a loja correta
+- Pagina de Integracoes mostra a URL com o slug da loja selecionada
+
+---
+
+## Contexto da Aplicacao
+
+### 10. LojaContext
+- Context React que armazena a loja ativa
+- Todas as queries do Supabase filtram por `loja_id`
+- Dashboard, Envios, Empresa, Integracoes, Configuracoes -- tudo filtrado pela loja ativa
+
+---
+
+## Fluxo do Usuario
 
 ```text
-Vega Checkout --> POST webhook-vega
-                    |
-                    v
-              Salva webhook_logs
-                    |
-                    v
-              Upsert pedidos (by transaction_token + provider)
-                    |
-                    v
-              Se approved? --> Cria envio com status "pendente"
-                    |
-                    v
-              Retorna 200 OK
+Cadastro (/signup)
+    |
+    v
+Confirma email
+    |
+    v
+Login (/login)
+    |
+    v
+Selecao de Loja (/lojas)
+    |-- Cria primeira loja
+    |
+    v
+Dashboard da Loja (/loja/:id/)
+    |-- Envios, Empresa, Integracoes, Config
+    |-- Pode voltar para trocar de loja
 ```
 
-## Detalhes tecnicos
+---
 
-- A edge function usara `SUPABASE_SERVICE_ROLE_KEY` (ja configurado nos secrets) para inserir dados sem precisar de autenticacao do usuario
-- O `verify_jwt` sera `false` para permitir que a Vega envie webhooks sem token
-- A tabela `pedidos` tera um indice unico em `(checkout_provider, transaction_token)` para evitar duplicatas e permitir atualizacoes de status
-- RLS sera desabilitado nas tabelas `webhook_logs` e `pedidos` pois o acesso sera feito apenas via service role key na edge function (nao pelo frontend)
-- Para carrinho abandonado (v2.0), usaremos o campo `abandoned_cart_code` como `transaction_token`
+## Sequencia de Implementacao
+
+1. Migration: criar tabelas `profiles` e `lojas` + adicionar `loja_id` nas tabelas existentes + RLS policies + triggers
+2. Paginas de Auth: Login e Signup com o tema preto e dourado
+3. Pagina de selecao/criacao de lojas
+4. LojaContext + ProtectedRoute
+5. Atualizar todas as paginas para filtrar por `loja_id`
+6. Atualizar Sidebar com nome da loja, troca de loja e logout
+7. Atualizar webhook-vega para receber slug da loja
+8. Atualizar pagina de Integracoes para mostrar URL com slug
+
