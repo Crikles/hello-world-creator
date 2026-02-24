@@ -82,6 +82,13 @@ export async function triggerShipmentEmail(envioId: string, status: string, loja
         }
 
         // 6. Invoke edge function
+        console.log("Invoking send-email edge function:", {
+            envio_id: shipment.id,
+            evento_id: event.id,
+            loja_id: lojaId,
+            has_nfe_pdf: !!nfe_pdf_base64,
+        });
+
         const { data: funcData, error: funcErr } = await supabase.functions.invoke("send-email", {
             body: {
                 envio_id: shipment.id,
@@ -94,6 +101,7 @@ export async function triggerShipmentEmail(envioId: string, status: string, loja
 
         if (funcErr) {
             console.error("Edge function invocation failed:", funcErr);
+            console.error("Error details:", JSON.stringify(funcErr));
         } else {
             console.log("Email trigger success:", funcData);
         }
