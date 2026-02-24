@@ -1,90 +1,45 @@
 
 
-# Postagens - Novo Modelo de Precificacao por Moedas
+# Postagens - Corrigir Labels dos Toggles de Configuracao
 
-## Resumo
+## Problema
 
-Reestruturar o sistema de custos e configuracoes da pagina Postagens para refletir o novo modelo de precificacao baseado em moedas, com opcoes modulares que o usuario pode ativar/desativar.
+Os toggles atuais estao com nomes incorretos. O usuario quer separar claramente:
+- **Nota Fiscal** = primeiro email (NF)
+- **Rastreio por Email** = os emails de atualizacao de status que vem depois da NF
+- **Site de Rastreio por SMS** = envia o link do site de rastreio via SMS (nao email)
+- **Funil de Taxacao** = fluxo de taxacao com Email + SMS
 
----
+## Mudancas nos 4 Toggles
 
-## Novo Modelo de Precos
+| Toggle atual | Toggle correto | Campo no banco | Custo |
+|---|---|---|---|
+| NF + Emails de rastreamento | **Nota Fiscal enviada por email** | `enviar_nfe_email` | 1 moeda |
+| Codigo de Rastreio | **Fluxo do Rastreio por E-mail** | `enviar_emails` | 1 moeda |
+| Site de Rastreio | **Site do rastreio por SMS** | `ativar_site_rastreio` | +0,25 moeda |
+| Funil de Taxacao | **Funil de Taxacao** (sem mudanca) | `ativar_taxacao` | +1 moeda |
 
-| Funcionalidade | Custo |
-|---|---|
-| NF + Emails (fluxo padrao completo) | 1 moeda |
-| Codigo de Rastreio | 1 moeda |
-| Site de Rastreio (envio do link) | +0,25 moeda |
-| Funil de Taxacao (Email + SMS) | +1 moeda |
+## Detalhes das descricoes atualizadas
 
-**Custo base:** 2 moedas (NF+Emails + Rastreio)
-**Custo maximo:** 3,25 moedas (base + site rastreio + taxacao)
+1. **Nota Fiscal enviada por email** - "Envia automaticamente a Nota Fiscal por email ao cliente."
+2. **Fluxo do Rastreio por E-mail** - "Envia emails automaticos de atualizacao de status do rastreio."
+3. **Site do rastreio por SMS** - "Envia o link do site de rastreio personalizado ao cliente por SMS."
+4. **Funil de Taxacao** - "Ativa o fluxo de taxacao com envio de Email e SMS ao cliente."
 
----
+## Secao de custo por envio
 
-## Mudancas na Interface
+Atualizar o breakdown para refletir os novos nomes:
 
-### 1. Secao "Configuracoes Gerais" - Novos toggles modulares
-
-Substituir os toggles atuais por:
-
-- **NF + Emails de rastreamento** (sempre ativo, 1 moeda) - Toggle principal do fluxo de emails. Descricao: "Envia a Nota Fiscal e todos os emails de atualizacao de status automaticamente."
-- **Codigo de Rastreio** (1 moeda) - Toggle para gerar/enviar codigo de rastreio. Descricao: "Gera e envia o codigo de rastreio ao cliente."
-- **Site de Rastreio** (+0,25 moeda) - Toggle para enviar link do site de rastreio. Descricao: "Envia o link do site de rastreio personalizado ao cliente. (em breve)"
-- **Funil de Taxacao** (+1 moeda) - Toggle para ativar fluxo de taxacao com Email + SMS. Descricao: "Ativa o fluxo de taxacao com envio de Email e SMS ao cliente. (em breve)"
-
-### 2. Secao "Custo por Envio" - Atualizar calculo
-
-Substituir o calculo antigo (R$ 0,15 por email) pelo novo modelo de moedas:
-
-Mostrar breakdown dinamico baseado nos toggles ativos:
-```
-NF + Emails .............. 1 moeda
-Rastreio ................. 1 moeda
-Site de Rastreio ......... +0,25 moeda (se ativo)
+```text
+NF por email ............. 1 moeda (se ativo)
+Rastreio por email ....... 1 moeda (se ativo)
+Site rastreio por SMS .... +0,25 moeda (se ativo)
 Funil de Taxacao ......... +1 moeda (se ativo)
-─────────────────────────────────
+────────────────────────────────
 Total por envio: X moedas
 ```
 
-### 3. Remover referencia a R$ 0,15
+## Arquivo a modificar
 
-Todas as referencias ao custo de R$ 0,15 por email serao removidas e substituidas pelo modelo de moedas.
-
----
-
-## Banco de Dados
-
-### Adicionar colunas na tabela `postagem_config`
-
-Duas novas colunas booleanas:
-
-- `ativar_site_rastreio` (boolean, default false) - toggle do site de rastreio
-- `ativar_taxacao` (boolean, default false) - toggle do funil de taxacao
-
-As colunas existentes `enviar_nfe_email` e `enviar_emails` serao reaproveitadas:
-- `enviar_nfe_email` -> representara "NF + Emails" (toggle principal)
-- `enviar_emails` -> representara "Codigo de Rastreio"
-
----
-
-## Arquivos a Modificar
-
-### `src/pages/Postagens.tsx`
-- Atualizar interface `PostagemConfig` com novos campos
-- Reestruturar secao de Configuracoes Gerais com 4 toggles
-- Atualizar secao de custo estimado para usar moedas
-- Adicionar logica de calculo dinamico do custo total
-- Remover todas as referencias a R$ 0,15
-
-### Migracao SQL
-- Adicionar colunas `ativar_site_rastreio` e `ativar_taxacao` na tabela `postagem_config`
-
----
-
-## Detalhes Tecnicos
-
-- Os toggles "Site de Rastreio" e "Funil de Taxacao" ficarao visiveis mas com badge "(em breve)" pois serao implementados posteriormente
-- O calculo de custo sera feito no frontend: `custoTotal = 1 (NF+Emails) + 1 (Rastreio) + (siteRastreio ? 0.25 : 0) + (taxacao ? 1 : 0)`
-- A mutation `toggleConfig` sera estendida para suportar os novos campos
+**`src/pages/Postagens.tsx`** - Apenas renomear labels, descricoes e textos do breakdown de custo. Nenhuma mudanca de logica ou banco de dados.
 
