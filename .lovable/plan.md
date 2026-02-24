@@ -1,92 +1,48 @@
 
-
-# Corrigir Disparo de Emails e Redesign Visual
+# Corrigir Barra de Progresso e Disparo de Emails
 
 ## Problemas Identificados
 
-### 1. Emails nao sao disparados corretamente
-O sistema atual tem um mapeamento incorreto: quando o status muda para `em_transito`, ele busca eventos com labels ["Coletado", "Em Transito", "Em Rota", "Centro Local"] mas **envia apenas o primeiro** (linha 54 do `email-trigger.ts`: `const event = events[0]`). Os demais eventos nunca sao disparados.
+### 1. Barra de progresso comeca em 25%
+No arquivo `src/pages/Envios.tsx`, o status `pendente` tem valor de progresso `25` (linha 36). Deveria ser `0` para indicar que o envio esta na estaca zero.
 
-O template "Nacional Padrao" do usuario tem 6 eventos sequenciais, mas o sistema so tem 4 status internos (pendente, em_transito, saiu_para_entrega, entregue), causando perda de eventos intermediarios.
+### 2. Faltam 2 emails dos 6 do fluxo
+O usuario tem 6 eventos no fluxo ativo:
 
-### 2. Transportadora vazia
-O campo `transportadora` nos envios esta `null` no banco de dados. Nenhum valor esta sendo salvo.
+| Ordem | Evento | status_label | Disparado? |
+|---|---|---|---|
+| 1 | Nota Fiscal Emitida | Postado | NAO |
+| 2 | Pedido Coletado | Coletado | NAO |
+| 3 | Em Transito | Em Transito | SIM |
+| 4 | Centro de Distribuicao | Centro Local | SIM |
+| 5 | Saiu para Entrega | Saiu para Entrega | SIM |
+| 6 | Entregue | Entregue | SIM |
 
-### 3. Visual do email fraco
-O design atual usa um gradiente generico com a logo sem tratamento.
+**Causa raiz**: Quando o usuario clica "Iniciar Pendentes" (pendente -> em_transito), o mapeamento em `email-trigger.ts` busca apenas os labels `["Em Transito", "Em Rota", "Centro Local"]` para o status `em_transito`. Os labels "Postado" (NF) e "Coletado" nao estao incluidos nesse mapeamento, entao esses 2 emails nunca sao enviados.
+
+O status interno `coletado` existe no mapa mas nunca e usado como status real do sistema (o sistema so tem: pendente, em_transito, saiu_para_entrega, entregue).
 
 ---
 
 ## Solucao
 
-### 1. Corrigir disparo: enviar TODOS os eventos correspondentes
+### 1. Zerar a barra de progresso para status pendente
 
-Alterar `src/lib/email-trigger.ts` para iterar sobre **todos** os eventos correspondentes ao status (nao apenas o primeiro). Quando o status muda para `em_transito`, o sistema enviara os emails de "Coletado", "Em Transito", "Centro Local" (todos que estao mapeados para aquele status interno).
+Alterar o valor de `pendente` no objeto `statusProgress` de `25` para `0`.
 
-```text
-ANTES: const event = events[0];  // so o primeiro
-DEPOIS: for (const event of events) { ... }  // todos os eventos
-```
+### 2. Incluir todos os eventos anteriores no disparo
 
-Cada evento sera verificado individualmente quanto ao flag `isAtivo` e `enviar_email` antes do disparo.
+Quando o status muda de `pendente` para `em_transito` (botao "Iniciar"), o sistema deve disparar TODOS os eventos intermediarios que seriam pulados. Isso significa incluir "Postado", "Pedido Confirmado", "Nota Fiscal Emitida" e "Coletado" junto com "Em Transito", "Em Rota" e "Centro Local" no mapeamento do status `em_transito`.
 
-### 2. Transportadora padrao
-
-No `supabase/functions/send-email/index.ts`, quando o campo `transportadora` do envio estiver vazio, usar o valor padrao: **"JL Transportadora e Logistica LTDA"**.
-
-### 3. Redesign completo do email
-
-Novo layout do email no `buildEmailHtml` da Edge Function:
+Novo mapeamento:
 
 ```text
-+------------------------------------------+
-|                                          |
-|    [LOGO REDONDA - fundo branco]         |
-|    Circulo branco com a logo dentro      |
-|                                          |
-+------------------------------------------+
-|  FUNDO PRETO / ESCURO                    |
-|                                          |
-|  EMOJI + TITULO EM BRANCO               |
-|  Ex: "🚚 Saiu para Entrega!"            |
-|  Ex: "📦 Pedido Coletado"               |
-|  Ex: "✅ Pedido Entregue!"              |
-|                                          |
-+------------------------------------------+
-|                                          |
-|  Saudacao + mensagem (fundo branco)      |
-|                                          |
-|  +------------------------------------+ |
-|  | Produto    | Tenis Premium         | |
-|  | Rastreio   | BR547454312HF         | |
-|  | Transporte | JL Transportadora...  | |
-|  | Valor      | R$ 89,90              | |
-|  +------------------------------------+ |
-|                                          |
-|  [  BOTAO CTA  ]                        |
-|                                          |
-+------------------------------------------+
-|  Rodape cinza                            |
-+------------------------------------------+
+em_transito: ["Postado", "Pedido Confirmado", "Nota Fiscal Emitida", "Coletado", "Em Transito", "Em Rota", "Centro Local"]
 ```
 
-Emojis por evento:
+Como o status `pendente` nao dispara emails (standby), ao iniciar o fluxo (pendente -> em_transito), todos os eventos da ordem 1 ate a ordem 4 serao processados sequencialmente. A verificacao individual de `isAtivo` e `enviar_email` continua garantindo que apenas eventos habilitados sejam enviados.
 
-| Evento | Emoji |
-|---|---|
-| Nota Fiscal / Postado | 📄 |
-| Coletado | 📦 |
-| Em Transito | 🚛 |
-| Centro Local | 📍 |
-| Em Rota | 🏍️ |
-| Saiu para Entrega | 🚚 |
-| Entregue | ✅ |
-| Taxacao | ⚠️ |
-| Pago | 💳 |
-
-### 4. Atualizar frontend templates
-
-Sincronizar `src/components/postagens/emailTemplates.ts` com o novo visual e emojis nos titulos.
+O mapeamento de `pendente` sera removido ja que nunca e usado.
 
 ---
 
@@ -96,30 +52,5 @@ Sincronizar `src/components/postagens/emailTemplates.ts` com o novo visual e emo
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/lib/email-trigger.ts` | Loop por todos os eventos correspondentes em vez de so o primeiro |
-| `supabase/functions/send-email/index.ts` | Transportadora padrao + redesign HTML completo (logo redonda, header preto, emojis) |
-| `src/components/postagens/emailTemplates.ts` | Sincronizar emojis e visual nos defaults do editor |
-
-### Mudanca no email-trigger.ts
-
-```text
-ANTES:
-  const event = events[0];
-  // verifica isAtivo, gera PDF, invoca edge function
-
-DEPOIS:
-  for (const event of events) {
-    // verifica isAtivo para CADA evento
-    // gera PDF apenas se enviar_nfe_pdf
-    // invoca edge function para CADA evento ativo
-  }
-```
-
-### Mudanca no send-email (Edge Function)
-
-1. **Transportadora fallback**: Se `envio.transportadora` for vazio, usar "JL Transportadora e Logistica LTDA"
-2. **Logo redonda**: Envolver a imagem em um circulo branco com `border-radius:50%`
-3. **Header preto**: Background `#1a1a1a` ou `#111111` com texto branco
-4. **Emojis no titulo**: Mapa de emojis por `status_label` concatenado ao titulo
-5. **Tabela de info**: Manter estilo limpo com bordas suaves
-
+| `src/pages/Envios.tsx` | Alterar `statusProgress.pendente` de `25` para `0` |
+| `src/lib/email-trigger.ts` | Expandir o mapeamento de `em_transito` para incluir labels de NF e Coletado, remover `pendente` e `coletado` do mapa |
