@@ -67,6 +67,8 @@ interface PostagemConfig {
   template_ativo_id: string | null;
   enviar_emails: boolean;
   enviar_nfe_email: boolean;
+  ativar_site_rastreio: boolean;
+  ativar_taxacao: boolean;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -241,7 +243,7 @@ export default function Postagens() {
 
   // Toggle config
   const toggleConfig = useMutation({
-    mutationFn: async (field: "enviar_emails" | "enviar_nfe_email") => {
+    mutationFn: async (field: "enviar_emails" | "enviar_nfe_email" | "ativar_site_rastreio" | "ativar_taxacao") => {
       if (!loja || !config) return;
       await supabase
         .from("postagem_config")
@@ -331,8 +333,15 @@ export default function Postagens() {
   };
 
   const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
-  const emailCount = sortedActiveEventos?.filter((e, i) => i > 0 && e.enviar_email).length ?? 0;
-  const custoEstimado = (emailCount * 0.15).toFixed(2);
+
+  const custoMoedas = (() => {
+    let total = 0;
+    if (config?.enviar_nfe_email) total += 1;
+    if (config?.enviar_emails) total += 1;
+    if (config?.ativar_site_rastreio) total += 0.25;
+    if (config?.ativar_taxacao) total += 1;
+    return total;
+  })();
 
   const activeTemplate = config?.template_ativo_id
     ? systemTemplates?.find((t) => t.id === config.template_ativo_id) || null
@@ -357,8 +366,9 @@ export default function Postagens() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="font-medium">Enviar NF (primeiro email padrão)</Label>
-                  <p className="text-xs text-muted-foreground">Envia automaticamente a Nota Fiscal por email ao cliente. Este email é gratuito.</p>
+                  <Label className="font-medium">NF + Emails de rastreamento</Label>
+                  <p className="text-xs text-muted-foreground">Envia a Nota Fiscal e todos os emails de atualização de status automaticamente.</p>
+                  <Badge variant="outline" className="mt-1 text-xs">1 moeda</Badge>
                 </div>
                 <Switch
                   checked={config.enviar_nfe_email}
@@ -367,12 +377,45 @@ export default function Postagens() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="font-medium">Ativar emails de rastreamento</Label>
-                  <p className="text-xs text-muted-foreground">Envia emails automáticos de atualização de status. Cada email custa R$ 0,15.</p>
+                  <Label className="font-medium">Código de Rastreio</Label>
+                  <p className="text-xs text-muted-foreground">Gera e envia o código de rastreio ao cliente.</p>
+                  <Badge variant="outline" className="mt-1 text-xs">1 moeda</Badge>
                 </div>
                 <Switch
                   checked={config.enviar_emails}
                   onCheckedChange={() => toggleConfig.mutate("enviar_emails")}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div>
+                    <Label className="font-medium">Site de Rastreio</Label>
+                    <p className="text-xs text-muted-foreground">Envia o link do site de rastreio personalizado ao cliente.</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-xs">+0,25 moeda</Badge>
+                      <Badge variant="secondary" className="text-xs">em breve</Badge>
+                    </div>
+                  </div>
+                </div>
+                <Switch
+                  checked={config.ativar_site_rastreio}
+                  onCheckedChange={() => toggleConfig.mutate("ativar_site_rastreio")}
+                  disabled
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium">Funil de Taxação</Label>
+                  <p className="text-xs text-muted-foreground">Ativa o fluxo de taxação com envio de Email e SMS ao cliente.</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Badge variant="outline" className="text-xs">+1 moeda</Badge>
+                    <Badge variant="secondary" className="text-xs">em breve</Badge>
+                  </div>
+                </div>
+                <Switch
+                  checked={config.ativar_taxacao}
+                  onCheckedChange={() => toggleConfig.mutate("ativar_taxacao")}
+                  disabled
                 />
               </div>
             </CardContent>
@@ -528,19 +571,35 @@ export default function Postagens() {
         </div>
 
         {/* Custo estimado */}
-        {config?.template_ativo_id && activeEventos && (
+        {config && (
           <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-2 mb-3">
                 <Coins className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-sm font-medium">Custo por Envio</p>
-                  <p className="text-xs text-muted-foreground">
-                    Email de NF: gratuito · R$ 0,15 × {emailCount} emails de rastreamento = R$ {custoEstimado}
-                  </p>
+                <p className="text-sm font-medium">Custo por Envio</p>
+              </div>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className={config.enviar_nfe_email ? "text-foreground" : "text-muted-foreground line-through"}>NF + Emails</span>
+                  <span className={config.enviar_nfe_email ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={config.enviar_emails ? "text-foreground" : "text-muted-foreground line-through"}>Código de Rastreio</span>
+                  <span className={config.enviar_emails ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={config.ativar_site_rastreio ? "text-foreground" : "text-muted-foreground line-through"}>Site de Rastreio</span>
+                  <span className={config.ativar_site_rastreio ? "font-medium" : "text-muted-foreground"}>+0,25 moeda</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={config.ativar_taxacao ? "text-foreground" : "text-muted-foreground line-through"}>Funil de Taxação</span>
+                  <span className={config.ativar_taxacao ? "font-medium" : "text-muted-foreground"}>+1 moeda</span>
+                </div>
+                <div className="border-t pt-2 mt-2 flex justify-between">
+                  <span className="font-semibold">Total por envio</span>
+                  <span className="text-lg font-bold text-primary">{custoMoedas} {custoMoedas === 1 ? "moeda" : "moedas"}</span>
                 </div>
               </div>
-              <span className="text-lg font-bold text-primary">R$ {custoEstimado}</span>
             </CardContent>
           </Card>
         )}
