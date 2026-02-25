@@ -1,31 +1,81 @@
 
 
-# Ajustes no Preview de Taxacao e Campo "Cor do Header"
+# Integracao SMS via Integrax - Disparo no "Pedido Coletado"
 
-## Mudanca 1: Transportadora no preview do site
+## Resumo
 
-No componente `TaxacaoTrackingPreview` (linha 309), a transportadora mostra `{empresaNome}` (nome da loja do usuario). O correto e exibir um texto fixo de exemplo, ja que na pagina real a transportadora vem do envio. Sera trocado para "JL Transportes" como dado de exemplo.
+Quando o toggle "Site do rastreio por SMS" estiver ativo, o sistema enviara um unico SMS ao cliente no momento do evento com status_label "Coletado". O SMS contem o primeiro nome do cliente e o link de rastreio personalizado, sem acentos, com no maximo 150 caracteres.
 
-**Arquivo:** `src/components/postagens/TaxacaoConfig.tsx`
-- Linha 309: trocar `{empresaNome}` por `Benedito e Maria Ferragens` (dado de exemplo fixo, igual aos outros dados do preview como "Maria Silva" e "Camiseta Polo Premium")
+## Exemplo de SMS
 
-Na verdade, olhando a imagem do usuario, a transportadora no preview mostra "Benedito e Maria Ferragens" -- esse e o nome da empresa/loja do usuario. O campo transportadora deveria mostrar "JL Transportes" (a transportadora real). Vou fixar como "JL Transportes".
+```text
+Ola Maria, seu codigo de rastreio foi liberado, fique atento a seu email, acesse: https://rastreio.logisticajltransportes.com/r/BRABC1234567
+```
 
-## Mudanca 2: Campo "Cor do Header"
+## Mudancas
 
-O campo "Cor do Header" existe na configuracao (linha 686-699) mas nao e usado em nenhum lugar visivel:
-- Na pagina `/p` real, o header e branco fixo
-- No preview do site, o header tambem e branco fixo
+### 1. Salvar secret INTEGRAX_API_KEY
 
-**Opcao escolhida:** Remover o campo "Cor do Header" do formulario e manter apenas "Cor do Botao". O campo `cor_header` continua sendo salvo no corpo do email (para nao quebrar compatibilidade), mas o input visual sera removido ja que nao tem efeito pratico em nenhuma pagina.
+Token: `55104f2b-cdd9-4e8c-9d7a-a2f83fcc2ff1`
+
+### 2. Criar Edge Function `send-sms`
+
+**Arquivo:** `supabase/functions/send-sms/index.ts`
+
+Endpoint da API: `https://sms.aresfun.com/v1/integration/{TOKEN}/send-sms`
+
+Fluxo:
+1. Recebe `envio_id` e `loja_id` no body
+2. Busca o envio no banco: `cliente_nome`, `cliente_telefone`, `codigo_rastreio`
+3. Valida que `cliente_telefone` existe
+4. Extrai primeiro nome do cliente
+5. Remove acentos com `normalize("NFD").replace(/[\u0300-\u036f]/g, "")`
+6. Monta mensagem: `Ola {nome}, seu codigo de rastreio foi liberado, fique atento a seu email, acesse: https://rastreio.logisticajltransportes.com/r/{codigo}`
+7. Trunca em 150 caracteres
+8. Formata telefone para `55XXXXXXXXXXX` (limpa caracteres especiais, prefixa 55 se necessario)
+9. POST para `https://sms.aresfun.com/v1/integration/55104f2b-cdd9-4e8c-9d7a-a2f83fcc2ff1/send-sms` com payload:
+   ```json
+   { "to": ["5511999999999"], "from": "29094", "message": "..." }
+   ```
+10. Retorna sucesso/erro
+
+Adicionar `verify_jwt = false` no `supabase/config.toml`.
+
+### 3. Alterar `src/lib/email-trigger.ts`
+
+Apos o bloco de envio de email (apos linha 134), adicionar verificacao:
+- Se `config.ativar_site_rastreio === true`
+- Se `nextEvent.status_label === "Coletado"`
+- Se o envio possui `cliente_telefone`
+
+Se todas verdadeiras, invocar `supabase.functions.invoke("send-sms", { body: { envio_id, loja_id } })`.
+
+O SMS e disparado apenas uma vez por envio, pois cada evento so e processado uma vez (controle via `ultimo_evento_ordem`).
+
+### 4. Remover badge "em breve" da UI
+
+**Arquivo:** `src/pages/Postagens.tsx`
+
+Na linha 392, remover `<Badge variant="secondary" className="text-xs">em breve</Badge>` da secao "Site do rastreio por SMS".
 
 ## Detalhes Tecnicos
 
-### Arquivo: `src/components/postagens/TaxacaoConfig.tsx`
+### Formato do telefone
 
-1. **Linha 309** — Trocar `{empresaNome}` por `JL Transportes` no campo Transportadora do preview
-2. **Linhas 684-699** — Remover o grid de 2 colunas das cores e deixar apenas "Cor do Botao" como campo unico (remover "Cor do Header")
-3. **Linha 700+** — Ajustar o grid da "Cor do Botao" para ocupar a largura completa em vez de metade
+O campo `cliente_telefone` sera limpo (remover espacos, parenteses, hifens) e prefixado com "55" se nao comecar com "55", garantindo formato `55XXXXXXXXXXX`.
 
-O `cor_header` continuara sendo salvo no `corpo_email` para manter compatibilidade com dados existentes, mas o usuario nao vera mais esse campo na interface.
+### Remocao de acentos
+
+```javascript
+text.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+```
+
+### Arquivos alterados/criados
+
+| Arquivo | Acao |
+|---------|------|
+| `supabase/functions/send-sms/index.ts` | Criar |
+| `supabase/config.toml` | Adicionar config send-sms (automatico) |
+| `src/lib/email-trigger.ts` | Adicionar disparo SMS no evento "Coletado" |
+| `src/pages/Postagens.tsx` | Remover badge "em breve" |
 
