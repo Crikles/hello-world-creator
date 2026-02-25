@@ -1,61 +1,31 @@
 
 
-# Ajuste na Configuracao de Taxacao: Separar Email e Site
+# Ajustes no Preview de Taxacao e Campo "Cor do Header"
 
-## Problema Atual
+## Mudanca 1: Transportadora no preview do site
 
-O campo "Mensagem da Taxa" no painel de configuracao afeta tanto o preview do Email quanto o preview do Site Rastreio. No entanto, no site real (`/p/:envioId`), essa mensagem nao aparece -- la existe uma mensagem fixa padrao. Alem disso, o preview do Site Rastreio nao corresponde a pagina real de pagamento.
+No componente `TaxacaoTrackingPreview` (linha 309), a transportadora mostra `{empresaNome}` (nome da loja do usuario). O correto e exibir um texto fixo de exemplo, ja que na pagina real a transportadora vem do envio. Sera trocado para "JL Transportes" como dado de exemplo.
 
-## Mudancas Planejadas
+**Arquivo:** `src/components/postagens/TaxacaoConfig.tsx`
+- Linha 309: trocar `{empresaNome}` por `Benedito e Maria Ferragens` (dado de exemplo fixo, igual aos outros dados do preview como "Maria Silva" e "Camiseta Polo Premium")
 
-### 1. Separar "Mensagem da Taxa" -- apenas para Email
+Na verdade, olhando a imagem do usuario, a transportadora no preview mostra "Benedito e Maria Ferragens" -- esse e o nome da empresa/loja do usuario. O campo transportadora deveria mostrar "JL Transportes" (a transportadora real). Vou fixar como "JL Transportes".
 
-No formulario de configuracao (`TaxacaoConfig.tsx`), o campo "Mensagem da Taxa" sera movido para uma secao claramente identificada como "Configuracoes do Email". Um label ou subtitulo indicara que essa mensagem aparece apenas no email enviado ao cliente.
+## Mudanca 2: Campo "Cor do Header"
 
-Os campos que afetam o site de pagamento ficam em secao separada:
-- Mensagem do Botao
-- Valor
-- Prazo
-- Link de Checkout
-- Cores
-- Toggles (mostrar valor, mostrar prazo)
+O campo "Cor do Header" existe na configuracao (linha 686-699) mas nao e usado em nenhum lugar visivel:
+- Na pagina `/p` real, o header e branco fixo
+- No preview do site, o header tambem e branco fixo
 
-### 2. Preview do Site Rastreio espelhando a pagina `/p` real
-
-O componente `TaxacaoTrackingPreview` sera reescrito para espelhar o layout real da pagina `Pagamento.tsx` em vez do mockup atual de timeline. O novo preview mostrara:
-
-- Header com logo redonda + nome da empresa + "PAGAMENTO SEGURO"
-- Indicador de etapas (Pedido > Taxacao > Liberacao > Entrega)
-- Card "Resumo da Cobranca" com dados exemplo (nome, CPF, endereco, produto, transportadora, rastreio)
-- Total a pagar com o valor configurado
-- Mensagem fixa padrao (a mesma que aparece na pagina real)
-- Card "Efetuar Pagamento" com metodo PIX e botao com texto/cor personalizavel
-- Prazo de pagamento
-- Selos de seguranca
-
-O preview NAO usara a "Mensagem da Taxa" (que e exclusiva do email).
-
-### 3. Remover "Mensagem da Taxa" do preview do Site
-
-No preview do site, a mensagem exibida sera sempre a mensagem fixa padrao que ja existe na pagina `/p` real: "Sua encomenda foi retida pela fiscalizacao aduaneira e aguarda a quitacao da taxa de liberacao..."
+**Opcao escolhida:** Remover o campo "Cor do Header" do formulario e manter apenas "Cor do Botao". O campo `cor_header` continua sendo salvo no corpo do email (para nao quebrar compatibilidade), mas o input visual sera removido ja que nao tem efeito pratico em nenhuma pagina.
 
 ## Detalhes Tecnicos
 
 ### Arquivo: `src/components/postagens/TaxacaoConfig.tsx`
 
-**Formulario (secao esquerda):**
-- Reorganizar campos em duas subsecoes visuais:
-  1. "Configuracoes do Site de Pagamento": Mensagem do Botao, Valor, Prazo, Link de Checkout, Mostrar valor, Mostrar prazo, Cor do Header, Cor do Botao
-  2. "Mensagem do Email": Campo "Mensagem da Taxa" com nota explicativa de que so aparece no email
+1. **Linha 309** — Trocar `{empresaNome}` por `JL Transportes` no campo Transportadora do preview
+2. **Linhas 684-699** — Remover o grid de 2 colunas das cores e deixar apenas "Cor do Botao" como campo unico (remover "Cor do Header")
+3. **Linha 700+** — Ajustar o grid da "Cor do Botao" para ocupar a largura completa em vez de metade
 
-**Preview do Site (componente `TaxacaoTrackingPreview`):**
-- Reescrever para mostrar um mini-espelho da pagina `/p` real em formato mobile
-- Incluir: header com logo redonda, steps, resumo com dados exemplo, valor, mensagem fixa, botao PIX com texto e cor personalizaveis, prazo, selos de seguranca
-- Nao usar `settings.mensagem_taxa` -- usar a mensagem fixa padrao
-
-**Preview do Email:**
-- Continua usando `settings.mensagem_taxa` normalmente (sem mudancas)
-
-### Arquivo: `src/pages/Pagamento.tsx`
-- Sem alteracoes necessarias (ja usa mensagem fixa)
+O `cor_header` continuara sendo salvo no `corpo_email` para manter compatibilidade com dados existentes, mas o usuario nao vera mais esse campo na interface.
 
