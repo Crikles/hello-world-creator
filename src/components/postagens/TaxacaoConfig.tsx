@@ -21,6 +21,8 @@ import {
     Clock,
     MessageSquare,
     MousePointerClick,
+    Package,
+    Truck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
