@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { isLogisticsDomain } from "@/lib/domain-config";
 import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins, Mail, AlertTriangle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,8 +66,8 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <img
-            src="/logojltransportes.png"
-            alt="Logística JL Transportes"
+            src={isLogisticsDomain() ? "/logojltransportes.png" : "/logo-magnus.png"}
+            alt={isLogisticsDomain() ? "Logística JL Transportes" : "Magnus Frete"}
             className="h-14 w-14 rounded-lg object-contain"
           />
           <div className="min-w-0">
