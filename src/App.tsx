@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { LojaProvider } from "@/contexts/LojaContext";
+import { isLogisticsDomain } from "@/lib/domain-config";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Lojas from "./pages/Lojas";
@@ -44,59 +45,76 @@ function LojaRoutes() {
   );
 }
 
+function LogisticsRoutes() {
+  return (
+    <Routes>
+      <Route path="/p/:envioId" element={<Pagamento />} />
+      <Route path="/r" element={<Rastreio />} />
+      <Route path="/r/:codigoParam" element={<Rastreio />} />
+      <Route path="*" element={<Navigate to="/r" replace />} />
+    </Routes>
+  );
+}
+
+function PanelRoutes() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/p/:envioId" element={<Pagamento />} />
+        <Route path="/r" element={<Rastreio />} />
+        <Route path="/r/:codigoParam" element={<Rastreio />} />
+        <Route
+          path="/lojas"
+          element={
+            <ProtectedRoute>
+              <Lojas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/loja/:lojaId/*"
+          element={
+            <ProtectedRoute>
+              <LojaRoutes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={<AdminRoute><AdminDashboard /></AdminRoute>}
+        />
+        <Route
+          path="/admin/usuarios"
+          element={<AdminRoute><AdminUsuarios /></AdminRoute>}
+        />
+        <Route
+          path="/admin/email"
+          element={<AdminRoute><AdminEmail /></AdminRoute>}
+        />
+        <Route
+          path="/admin/creditos"
+          element={<AdminRoute><AdminCreditos /></AdminRoute>}
+        />
+        <Route
+          path="/admin/templates"
+          element={<AdminRoute><AdminTemplates /></AdminRoute>}
+        />
+        <Route path="/" element={<Navigate to="/lojas" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/p/:envioId" element={<Pagamento />} />
-            <Route path="/r" element={<Rastreio />} />
-            <Route path="/r/:codigoParam" element={<Rastreio />} />
-            <Route
-              path="/lojas"
-              element={
-                <ProtectedRoute>
-                  <Lojas />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/loja/:lojaId/*"
-              element={
-                <ProtectedRoute>
-                  <LojaRoutes />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={<AdminRoute><AdminDashboard /></AdminRoute>}
-            />
-            <Route
-              path="/admin/usuarios"
-              element={<AdminRoute><AdminUsuarios /></AdminRoute>}
-            />
-            <Route
-              path="/admin/email"
-              element={<AdminRoute><AdminEmail /></AdminRoute>}
-            />
-            <Route
-              path="/admin/creditos"
-              element={<AdminRoute><AdminCreditos /></AdminRoute>}
-            />
-            <Route
-              path="/admin/templates"
-              element={<AdminRoute><AdminTemplates /></AdminRoute>}
-            />
-            <Route path="/" element={<Navigate to="/lojas" replace />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
+        {isLogisticsDomain() ? <LogisticsRoutes /> : <PanelRoutes />}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
