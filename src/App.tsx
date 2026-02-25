@@ -48,10 +48,11 @@ function LojaRoutes() {
 function LogisticsRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<Rastreio />} />
       <Route path="/p/:envioId" element={<Pagamento />} />
       <Route path="/r" element={<Rastreio />} />
       <Route path="/r/:codigoParam" element={<Rastreio />} />
-      <Route path="*" element={<Navigate to="/r" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
