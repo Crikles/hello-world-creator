@@ -37,7 +37,7 @@ export default function Login() {
             alt={isLogistics ? "Logística JL Transportes" : "Magnus Frete"}
             className="h-32 w-auto object-contain mb-2"
           />
-          <h1 className="text-2xl font-bold text-foreground">{isLogistics ? "Logística JL Transportes" : "Magnus Frete"}</h1>
+          {isLogistics && <h1 className="text-2xl font-bold text-foreground">Logística JL Transportes</h1>}
           <p className="text-sm text-muted-foreground">{isLogistics ? "Gestão de Envios & Rastreio" : "Plataforma de Gestão de Fretes"}</p>
         </div>
 
