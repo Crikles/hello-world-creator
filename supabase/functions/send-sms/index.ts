@@ -16,13 +16,38 @@ function formatPhone(phone: string): string {
   return "55" + cleaned;
 }
 
+const smsMessages: Record<string, (name: string, link: string) => string> = {
+  "Coletado": (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
+  "Postado": (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
+  "Em Transito": (name) => `Ola ${name}, seu produto esta no status: [EM TRANSITO] Confira sua caixa de email.`,
+  "Centro Local": (name) => `Ola ${name}, seu produto esta no status: [CENTRO DE DISTRIBUICAO] Confira sua caixa de email.`,
+  "Taxacao": (name) => `Ola ${name}, seu produto esta no status: [EM OBSERVACAO] Confira sua caixa de email.`,
+  "Pago": (name) => `Ola ${name}, seu produto esta no status: [PAGAMENTO CONFIRMADO] Confira sua caixa de email.`,
+  "Saiu para Entrega": (name) => `Ola ${name}, seu produto esta no status: [SAIU PARA ENTREGA] Confira sua caixa de email.`,
+  "Em Rota": (name) => `Ola ${name}, seu produto esta no status: [SAIU PARA ENTREGA] Confira sua caixa de email.`,
+  "Entregue": (name) => `Ola ${name}, seu produto esta no status: [ENTREGUE] Confira sua caixa de email.`,
+};
+
+function getMessageForStatus(statusLabel: string | undefined, firstName: string, link: string): string {
+  if (!statusLabel) {
+    return smsMessages["Coletado"](firstName, link);
+  }
+  const normalizedKey = removeAccents(statusLabel);
+  const msgFn = smsMessages[normalizedKey];
+  if (msgFn) {
+    return msgFn(firstName, link);
+  }
+  // Fallback for unknown status
+  return `Ola ${firstName}, seu produto esta no status: [${removeAccents(statusLabel).toUpperCase()}] Confira sua caixa de email.`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { envio_id, loja_id } = await req.json();
+    const { envio_id, loja_id, status_label } = await req.json();
 
     if (!envio_id || !loja_id) {
       return new Response(
@@ -60,16 +85,12 @@ Deno.serve(async (req) => {
     const code = envio.codigo_rastreio || "";
     const link = `https://rastreio.logisticajltransportes.com/r/${code}`;
 
-    let message = removeAccents(
-      `Ola ${firstName}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`
-    );
-
-    if (message.length > 150) {
-      message = message.substring(0, 150);
-    }
+    const message = removeAccents(getMessageForStatus(status_label, firstName, link));
 
     const phone = formatPhone(envio.cliente_telefone);
     const token = Deno.env.get("INTEGRAX_API_KEY")!;
+
+    console.log("Sending SMS:", { phone, status_label, messageLength: message.length });
 
     const smsResponse = await fetch(
       `https://sms.aresfun.com/v1/integration/${token}/send-sms`,
