@@ -113,15 +113,17 @@ function buildEmailHtml(
   evento: Record<string, unknown>,
   envio: Record<string, unknown>,
   extras: Record<string, string>,
-  primaryColor = "#6366f1"
+  primaryColor = "#6366f1",
+  appBaseUrl = "https://app.jltransportes.pro"
 ): string {
   // --- Check for Taxação-specific settings ---
   const statusLabel = (evento.status_label as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const taxSettings = (statusLabel === "Taxação") ? parseTaxacaoSettings(corpoEmail) : null;
+  const envioId = (envio.id as string) || "";
 
   if (taxSettings) {
-    return buildTaxacaoEmailHtml(envio, extras, taxSettings);
+    return buildTaxacaoEmailHtml(envio, extras, taxSettings, envioId, appBaseUrl);
   }
 
   const enviarNfePdf = (evento.enviar_nfe_pdf as boolean) || false;
@@ -351,7 +353,9 @@ function buildEmailHtml(
 function buildTaxacaoEmailHtml(
   envio: Record<string, unknown>,
   extras: Record<string, string>,
-  tax: TaxacaoSettings
+  tax: TaxacaoSettings,
+  envioId: string,
+  appBaseUrl: string
 ): string {
   const empresaNome = extras.empresa_nome || "Loja";
   const empresaLogoUrl = extras.empresa_logo_url || "";
@@ -363,9 +367,8 @@ function buildTaxacaoEmailHtml(
   const rastreio = replaceVariables("{{codigo_rastreio}}", envio, extras);
   const mensagem = replaceVariables(tax.mensagem_taxa, envio, extras);
 
-  const paymentMethods = tax.forma_pagamento === "Todos"
-    ? "PIX, Cartão ou Boleto"
-    : tax.forma_pagamento;
+  // Link to the public payment page instead of direct checkout
+  const paymentPageUrl = `${appBaseUrl}/p/${envioId}`;
 
   const prazoHtml = tax.mostrar_prazo && tax.prazo_dias
     ? `<p style="margin:6px 0 0;font-size:11px;color:#78716c;">Prazo: ${tax.prazo_dias} dias para pagamento</p>`
@@ -389,7 +392,7 @@ function buildTaxacaoEmailHtml(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Aviso de Taxação</title>
+  <title>Taxa de Importação</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 16px;">
@@ -418,10 +421,10 @@ function buildTaxacaoEmailHtml(
           <td style="padding:28px 40px 0;text-align:center;">
             <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
               <tr><td style="background-color:#fef3c7;color:#92400e;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:6px 20px;border-radius:20px;">
-                ⚠️ Taxa Pendente
+                ⚠️ Taxa de Importação
               </td></tr>
             </table>
-            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Aviso de Taxação</p>
+            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Pagamento Pendente</p>
           </td>
         </tr>
 
@@ -443,10 +446,9 @@ function buildTaxacaoEmailHtml(
                   ${valorHtml}
                   <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
                     <tr><td style="background-color:${tax.cor_botao};border-radius:50px;box-shadow:0 4px 16px ${tax.cor_botao}44;">
-                      <a href="${tax.url_pagamento || "#"}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 48px;font-size:15px;font-weight:800;letter-spacing:0.3px;">${tax.texto_botao}</a>
+                      <a href="${paymentPageUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 48px;font-size:15px;font-weight:800;letter-spacing:0.3px;">${tax.texto_botao}</a>
                     </td></tr>
                   </table>
-                  <p style="margin:14px 0 0;font-size:12px;color:#78716c;">Aceita: ${paymentMethods}</p>
                   ${prazoHtml}
                 </td>
               </tr>
@@ -626,7 +628,9 @@ Deno.serve(async (req) => {
       envio,
       extras
     );
-    const htmlBody = buildEmailHtml(evento, envio, extras);
+    // Determine app base URL for payment page links
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://app.jltransportes.pro";
+    const htmlBody = buildEmailHtml(evento, envio, extras, "#6366f1", appBaseUrl);
 
     // Build attachments array
     const attachments = nfe_pdf_base64

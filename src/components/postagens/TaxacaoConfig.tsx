@@ -81,9 +81,7 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
         ? `<p style="margin:6px 0 0;font-size:11px;color:#78716c;">Prazo: ${settings.prazo_dias} dias para pagamento</p>`
         : "";
 
-    const paymentMethods = settings.forma_pagamento === "Todos"
-        ? "PIX, Cartão ou Boleto"
-        : settings.forma_pagamento;
+
 
     const logoHtml = empresaLogoUrl
         ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
@@ -126,10 +124,10 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
           <td style="padding:28px 40px 0;text-align:center;">
             <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
               <tr><td style="background-color:#fef3c7;color:#92400e;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:6px 20px;border-radius:20px;">
-                ⚠️ Taxa Pendente
+                ⚠️ Taxa de Importação
               </td></tr>
             </table>
-            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Aviso de Taxação</p>
+            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Pagamento Pendente</p>
           </td>
         </tr>
 
@@ -154,7 +152,6 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
                       <a href="#" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 48px;font-size:15px;font-weight:800;letter-spacing:0.3px;">${settings.texto_botao}</a>
                     </td></tr>
                   </table>
-                  <p style="margin:14px 0 0;font-size:12px;color:#78716c;">Aceita: ${paymentMethods}</p>
                   ${prazoHtml}
                 </td>
               </tr>
@@ -179,7 +176,7 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
                   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
                     <tr><td style="padding:14px 16px;">
                       <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🚛 Transp.</p>
-                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;">Correios</p>
+                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;">JL Transportes</p>
                     </td></tr>
                   </table>
                 </td>
@@ -498,10 +495,10 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                 <div>
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5 text-amber-500" />
-                        Taxação
+                        Taxa de Importação
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Configure o processo de pagamento de taxas alfandegárias
+                        Configure o pagamento de taxas alfandegárias via link de checkout
                     </p>
                 </div>
                 {!config?.template_ativo_id && (
@@ -527,34 +524,8 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {/* Payment method tabs */}
-                            <div className="flex gap-1 p-0.5 bg-muted rounded-lg">
-                                <button
-                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-colors ${settings.forma_pagamento !== "PIX"
-                                        ? "bg-primary text-primary-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                    onClick={() => set("forma_pagamento", "Todos")}
-                                >
-                                    <LinkIcon className="h-3.5 w-3.5" />
-                                    Link Pagamento
-                                </button>
-                                <button
-                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-colors ${settings.forma_pagamento === "PIX"
-                                        ? "bg-primary text-primary-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                    onClick={() => set("forma_pagamento", "PIX")}
-                                >
-                                    <CreditCard className="h-3.5 w-3.5" />
-                                    PIX
-                                </button>
-                            </div>
-
                             <p className="text-xs text-muted-foreground">
-                                {settings.forma_pagamento !== "PIX"
-                                    ? "Com essa opção, você redireciona o cliente para sua página de checkout."
-                                    : "Com essa opção, o cliente paga via PIX diretamente."}
+                                O email leva o cliente para uma página de pagamento personalizada com o link do seu checkout.
                             </p>
 
                             {/* Tax Message */}
@@ -624,39 +595,25 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                                 </div>
                             </div>
 
-                            {/* Payment URL */}
+                            {/* Checkout URL */}
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-medium flex items-center gap-1">
                                     <ExternalLink className="h-3 w-3" />
-                                    URL de Pagamento
+                                    Link de Checkout
                                 </Label>
                                 <Input
                                     type="url"
                                     value={settings.url_pagamento}
                                     onChange={(e) => set("url_pagamento", e.target.value)}
-                                    placeholder="https://seusite.com/pagamento"
+                                    placeholder="https://seusite.com/checkout"
                                     className="text-sm"
                                 />
+                                <p className="text-[10px] text-muted-foreground">
+                                    Este link será exibido no botão de pagamento da página do cliente
+                                </p>
                             </div>
 
-                            {/* Payment Form */}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-medium">Forma de pagamento</Label>
-                                <Select
-                                    value={settings.forma_pagamento}
-                                    onValueChange={(v) => set("forma_pagamento", v)}
-                                >
-                                    <SelectTrigger className="text-sm">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Todos">Todos (PIX, Cartão, Boleto)</SelectItem>
-                                        <SelectItem value="PIX">PIX</SelectItem>
-                                        <SelectItem value="Cartão">Cartão de Crédito</SelectItem>
-                                        <SelectItem value="Boleto">Boleto Bancário</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+
 
                             {/* Toggles */}
                             <div className="flex items-center justify-between">

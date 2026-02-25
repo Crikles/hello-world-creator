@@ -22,6 +22,8 @@ import AdminCreditos from "./pages/admin/AdminCreditos";
 import AdminEmail from "./pages/admin/AdminEmail";
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import NotFound from "./pages/NotFound";
+import Pagamento from "./pages/Pagamento";
+import Rastreio from "./pages/Rastreio";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +52,9 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/p/:envioId" element={<Pagamento />} />
+            <Route path="/r" element={<Rastreio />} />
+            <Route path="/r/:codigoParam" element={<Rastreio />} />
             <Route
               path="/lojas"
               element={
