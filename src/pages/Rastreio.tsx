@@ -399,7 +399,7 @@ export default function Rastreio() {
                 <div className="footer-content">
                     <div className="footer-top">
                         <div className="f-brand">
-                            <img src={logoUrl} alt={empresaNome} />
+                            <img src="/logojltransportes.png" alt="Logística JL Transportes" style={{ width: 220 }} />
                             <p>Soluções completas em logística<br />e transporte de encomendas.</p>
                         </div>
                         <div className="f-links">
@@ -968,7 +968,7 @@ const styles = `
     justify-content: space-between;
     margin-bottom: 60px;
 }
-.f-brand img { height: 40px; margin-bottom: 20px; }
+.f-brand img { height: auto; width: 220px; margin-bottom: 20px; }
 .f-brand p { font-size: 14px; color: #475569; line-height: 1.6; }
 
 .f-links { display: flex; gap: 80px; }
