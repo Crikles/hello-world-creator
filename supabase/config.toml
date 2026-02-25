@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.send-email]
 verify_jwt = false
+
+[functions.rastreio-info]
+verify_jwt = false
+
+[functions.pagamento-info]
+verify_jwt = false
