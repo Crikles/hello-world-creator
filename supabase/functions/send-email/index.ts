@@ -114,7 +114,7 @@ function buildEmailHtml(
   envio: Record<string, unknown>,
   extras: Record<string, string>,
   primaryColor = "#6366f1",
-  appBaseUrl = "https://app.jltransportes.pro"
+  appBaseUrl = "https://rastreio.logisticajltransportes.com"
 ): string {
   // --- Check for Taxação-specific settings ---
   const statusLabel = (evento.status_label as string) || "";
@@ -630,7 +630,7 @@ Deno.serve(async (req) => {
       extras
     );
     // Determine app base URL for payment page links
-    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://app.jltransportes.pro";
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com";
     const htmlBody = buildEmailHtml(evento, envio, extras, "#6366f1", appBaseUrl);
 
     // Build attachments array
