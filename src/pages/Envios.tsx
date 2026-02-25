@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,22 @@ export default function Envios() {
     enabled: !!loja,
   });
 
+  // Realtime listener for envios updates
+  useEffect(() => {
+    if (!loja?.id) return;
+    const channel = supabase
+      .channel(`envios-realtime-${loja.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "envios", filter: `loja_id=eq.${loja.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["envios", loja.id] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [loja?.id, queryClient]);
+
   const advanceMutation = useMutation({
     mutationFn: async (envioId: string) => {
       if (!loja?.id) throw new Error("No loja");
@@ -145,13 +161,21 @@ export default function Envios() {
 
   const getProgress = (envio: any) => {
     if (totalEventos === 0) return 0;
-    const ordem = (envio as any).ultimo_evento_ordem ?? 0;
+    const ordem = envio.ultimo_evento_ordem ?? 0;
     return Math.round((ordem / totalEventos) * 100);
   };
 
+  const getCurrentStep = (envio: any) => {
+    return envio.ultimo_evento_ordem ?? 0;
+  };
+
   const canAdvance = (envio: any) => {
-    const ordem = (envio as any).ultimo_evento_ordem ?? 0;
+    const ordem = envio.ultimo_evento_ordem ?? 0;
     return totalEventos > 0 && ordem < totalEventos;
+  };
+
+  const getDisplayStatus = (envio: any) => {
+    return (envio as any).status_label || statusLabels[envio.status] || envio.status;
   };
 
   return (
@@ -247,12 +271,16 @@ export default function Envios() {
                       <TableCell>R$ {Number(envio.valor).toFixed(2)}</TableCell>
                       <TableCell className="font-mono text-xs">{envio.codigo_rastreio || "—"}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={statusColors[envio.status]}>
-                          {statusLabels[envio.status]}
+                        <Badge variant="secondary" className={statusColors[envio.status] || "bg-muted text-muted-foreground"}>
+                          {getDisplayStatus(envio)}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="w-24">
+                        <div className="w-28 space-y-1">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{getCurrentStep(envio)}/{totalEventos}</span>
+                            <span>{getProgress(envio)}%</span>
+                          </div>
                           <Progress value={getProgress(envio)} className="h-2" />
                         </div>
                       </TableCell>

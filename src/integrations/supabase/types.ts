@@ -163,6 +163,7 @@ export type Database = {
           produto: string
           quantidade: number
           status: Database["public"]["Enums"]["shipment_status"]
+          status_label: string | null
           transportadora: string | null
           ultimo_evento_ordem: number
           unidade: string
@@ -195,6 +196,7 @@ export type Database = {
           produto: string
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
+          status_label?: string | null
           transportadora?: string | null
           ultimo_evento_ordem?: number
           unidade?: string
@@ -227,6 +229,7 @@ export type Database = {
           produto?: string
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
+          status_label?: string | null
           transportadora?: string | null
           ultimo_evento_ordem?: number
           unidade?: string
