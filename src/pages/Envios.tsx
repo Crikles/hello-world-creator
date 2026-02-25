@@ -152,9 +152,9 @@ export default function Envios() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                batchUpdate("em_transito", "saiu_para_entrega");
-                batchUpdate("saiu_para_entrega", "entregue");
+              onClick={async () => {
+                await batchUpdate("em_transito", "saiu_para_entrega");
+                await batchUpdate("saiu_para_entrega", "entregue");
               }}
             >
               <FastForward className="h-3.5 w-3.5 mr-1" /> Avançar Todos
