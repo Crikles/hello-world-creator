@@ -174,14 +174,26 @@ export default function Rastreio() {
                         {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
                 </div>
-                {mobileMenuOpen && (
-                    <div className="nav-mobile-menu">
-                        <a href="#" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Início</a>
-                        <a href="#rastrear" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Rastrear</a>
-                        <a href="#contato" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Contato</a>
-                    </div>
-                )}
             </nav>
+            {/* Mobile menu overlay */}
+            {mobileMenuOpen && (
+                <>
+                    <div className="nav-mobile-overlay" onClick={() => setMobileMenuOpen(false)} />
+                    <div className="nav-mobile-drawer">
+                        <div className="nav-mobile-drawer-header">
+                            <img src="/logojltransportes.png" alt="Logística JL Transportes" style={{ width: 120 }} />
+                            <button className="nav-mobile-close" onClick={() => setMobileMenuOpen(false)} aria-label="Fechar">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="nav-mobile-drawer-links">
+                            <a href="#" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Início</a>
+                            <a href="#rastrear" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Rastrear</a>
+                            <a href="#contato" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Contato</a>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* ═══════════ HERO SECTION ═══════════ */}
             <section className="hero-section">
@@ -499,25 +511,58 @@ const styles = `
     color: #0f172a;
     padding: 8px;
 }
-.nav-mobile-menu {
+.nav-mobile-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1100;
+}
+.nav-mobile-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 280px;
+    max-width: 80vw;
+    height: 100vh;
+    background: white;
+    z-index: 1200;
     display: flex;
     flex-direction: column;
-    background: rgba(255,255,255,0.98);
-    padding: 16px 24px;
-    gap: 8px;
-    border-top: 1px solid rgba(0,0,0,0.06);
+    box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+    animation: slideIn 0.25s ease-out;
+}
+@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.nav-mobile-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.nav-mobile-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #0f172a;
+    padding: 4px;
+}
+.nav-mobile-drawer-links {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0;
 }
 .nav-mobile-link {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     color: #0f172a;
     text-decoration: none;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-    transition: color 0.2s;
+    padding: 14px 24px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    transition: background 0.2s, color 0.2s;
 }
 .nav-mobile-link:hover {
     color: var(--primary);
+    background: rgba(99,102,241,0.04);
 }
 .nav-tag-wrapper {
     display: flex;
@@ -1003,11 +1048,11 @@ const styles = `
   .hero-section { padding: 120px 16px 60px; }
   .main-title { font-size: 28px; letter-spacing: -1px; }
   .hero-desc { font-size: 14px; }
-  .search-input-wrapper { flex-direction: column; padding: 8px; border-radius: 16px; }
+  .search-input-wrapper { flex-direction: column; padding: 12px; border-radius: 16px; gap: 8px; }
   .search-icon { display: none; }
-  .main-input { font-size: 13px; height: 48px; padding: 0 16px; text-align: center; }
-  .search-submit { width: 100%; justify-content: center; border-radius: 12px; height: 48px; }
-  .search-box { margin: 0 auto 40px; }
+  .main-input { font-size: 14px; height: 48px; padding: 0 16px; text-align: center; width: 100%; min-width: 0; }
+  .search-submit { width: 100%; justify-content: center; border-radius: 12px; height: 48px; flex-shrink: 0; }
+  .search-box { margin: 0 auto 40px; padding: 0 4px; }
   .quick-stats { flex-direction: column; gap: 16px; align-items: center; }
 
   .results-section { padding: 24px 16px; }
