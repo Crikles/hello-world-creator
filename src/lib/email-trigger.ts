@@ -1,7 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import { generateDanfePdfBase64, generateNfeFilename } from "./nfe-utils";
 
-export async function triggerShipmentEmail(envioId: string, status: string, lojaId: string) {
+type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entregue";
+
+/**
+ * Triggers only the NEXT email event for a shipment.
+ * Returns the new status and ultimo_evento_ordem, or null if nothing to send.
+ */
+export async function triggerNextEmail(envioId: string, lojaId: string): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
     try {
         // 1. Fetch shipment with empresa details
         const { data: shipment, error: sErr } = await supabase
@@ -12,7 +18,7 @@ export async function triggerShipmentEmail(envioId: string, status: string, loja
 
         if (sErr || !shipment) {
             console.error("Trigger fail: shipment not found", envioId);
-            return;
+            return null;
         }
 
         // 2. Fetch store configuration
@@ -24,89 +30,112 @@ export async function triggerShipmentEmail(envioId: string, status: string, loja
 
         if (cErr || !config || !config.template_ativo_id) {
             console.log("Trigger skip: no active template for loja", lojaId);
-            return;
+            return null;
         }
 
-        // 3. Find relevant events
-        const statusLabelsMap: Record<string, string[]> = {
-            em_transito: ["Postado", "Pedido Confirmado", "Nota Fiscal Emitida", "Coletado", "Em Trânsito", "Em Rota", "Centro Local"],
-            saiu_para_entrega: ["Saiu para Entrega"],
-            entregue: ["Entregue"],
-            taxacao: ["Taxação"],
-            pagamento_confirmado: ["Pago"],
-        };
-
-        const targetLabels = statusLabelsMap[status] || [status];
-
-        const { data: events, error: eErr } = await supabase
+        // 3. Fetch ALL events for the active template, ordered
+        const { data: allEvents, error: eErr } = await supabase
             .from("postagem_eventos")
             .select("*")
             .eq("template_id", config.template_ativo_id)
-            .in("status_label", targetLabels)
             .order("ordem", { ascending: true });
 
-        if (eErr || !events || events.length === 0) {
-            console.log("Trigger skip: no matching event for status", status);
-            return;
+        if (eErr || !allEvents || allEvents.length === 0) {
+            console.log("Trigger skip: no events in template");
+            return null;
         }
 
-        // 4. Loop through ALL matching events
-        for (const event of events) {
-            // Check if event is active based on shop flags
-            let isAtivo = false;
-            if (event.enviar_nfe_pdf) {
-                isAtivo = config.enviar_nfe_email;
-            } else if (event.status_label === "Taxação" || event.status_label === "Pago") {
-                isAtivo = config.ativar_taxacao;
-            } else {
-                isAtivo = config.enviar_emails;
+        // 4. Find the NEXT event (ordem > ultimo_evento_ordem)
+        const currentOrdem = (shipment as any).ultimo_evento_ordem ?? 0;
+        const nextEvent = allEvents.find(e => e.ordem > currentOrdem);
+
+        if (!nextEvent) {
+            console.log("Trigger skip: no more events to send");
+            return null;
+        }
+
+        // 5. Determine new status based on position
+        const totalEvents = allEvents.length;
+        const eventIndex = allEvents.indexOf(nextEvent);
+        let newStatus: ShipmentStatus;
+
+        if (eventIndex === totalEvents - 1) {
+            newStatus = "entregue";
+        } else if (eventIndex === totalEvents - 2) {
+            newStatus = "saiu_para_entrega";
+        } else {
+            newStatus = "em_transito";
+        }
+
+        // 6. Update envio with new ordem and status
+        const { error: uErr } = await supabase
+            .from("envios")
+            .update({ 
+                ultimo_evento_ordem: nextEvent.ordem, 
+                status: newStatus 
+            })
+            .eq("id", envioId);
+
+        if (uErr) {
+            console.error("Failed to update envio ordem/status:", uErr);
+            return null;
+        }
+
+        // 7. Check if this event should actually send an email
+        let isAtivo = false;
+        if (nextEvent.enviar_nfe_pdf) {
+            isAtivo = config.enviar_nfe_email;
+        } else if (nextEvent.status_label === "Taxação" || nextEvent.status_label === "Pago") {
+            isAtivo = config.ativar_taxacao;
+        } else {
+            isAtivo = config.enviar_emails;
+        }
+
+        if (!isAtivo || !nextEvent.enviar_email) {
+            console.log("Trigger skip: event disabled, but status advanced", nextEvent.nome);
+            return { status: newStatus, ultimoOrdem: nextEvent.ordem };
+        }
+
+        // 8. Build payload and send
+        let nfe_pdf_base64 = "";
+        let nfe_filename = "";
+
+        if (nextEvent.enviar_nfe_pdf && shipment.empresas) {
+            try {
+                nfe_pdf_base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
+                nfe_filename = generateNfeFilename();
+            } catch (pdfErr) {
+                console.error("PDF generation failed:", pdfErr);
             }
+        }
 
-            if (!isAtivo || !event.enviar_email) {
-                console.log("Trigger skip: event/config disabled", event.nome);
-                continue;
-            }
+        console.log("Invoking send-email for event:", {
+            envio_id: shipment.id,
+            evento_id: nextEvent.id,
+            evento_nome: nextEvent.nome,
+            loja_id: lojaId,
+        });
 
-            // Build payload
-            let nfe_pdf_base64 = "";
-            let nfe_filename = "";
-
-            if (event.enviar_nfe_pdf && shipment.empresas) {
-                try {
-                    nfe_pdf_base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
-                    nfe_filename = generateNfeFilename();
-                } catch (pdfErr) {
-                    console.error("PDF generation failed:", pdfErr);
-                }
-            }
-
-            // Invoke edge function for this event
-            console.log("Invoking send-email for event:", {
+        const { error: funcErr } = await supabase.functions.invoke("send-email", {
+            body: {
                 envio_id: shipment.id,
-                evento_id: event.id,
-                evento_nome: event.nome,
+                evento_id: nextEvent.id,
                 loja_id: lojaId,
-                has_nfe_pdf: !!nfe_pdf_base64,
-            });
+                nfe_pdf_base64,
+                nfe_filename,
+            },
+        });
 
-            const { data: funcData, error: funcErr } = await supabase.functions.invoke("send-email", {
-                body: {
-                    envio_id: shipment.id,
-                    evento_id: event.id,
-                    loja_id: lojaId,
-                    nfe_pdf_base64,
-                    nfe_filename,
-                },
-            });
-
-            if (funcErr) {
-                console.error("Edge function failed for event:", event.nome, funcErr);
-            } else {
-                console.log("Email sent for event:", event.nome, funcData);
-            }
+        if (funcErr) {
+            console.error("Edge function failed for event:", nextEvent.nome, funcErr);
+        } else {
+            console.log("Email sent for event:", nextEvent.nome);
         }
+
+        return { status: newStatus, ultimoOrdem: nextEvent.ordem };
 
     } catch (err) {
         console.error("Global trigger error:", err);
+        return null;
     }
 }

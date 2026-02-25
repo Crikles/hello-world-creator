@@ -1,0 +1,1 @@
+ALTER TABLE public.envios ADD COLUMN ultimo_evento_ordem integer NOT NULL DEFAULT 0;
