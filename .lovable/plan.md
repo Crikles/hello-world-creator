@@ -1,81 +1,80 @@
 
 
-# Integracao SMS via Integrax - Disparo no "Pedido Coletado"
+# SMS em Todos os Eventos do Fluxo
 
 ## Resumo
 
-Quando o toggle "Site do rastreio por SMS" estiver ativo, o sistema enviara um unico SMS ao cliente no momento do evento com status_label "Coletado". O SMS contem o primeiro nome do cliente e o link de rastreio personalizado, sem acentos, com no maximo 150 caracteres.
+Expandir o disparo de SMS para todos os eventos do fluxo de rastreio (nao apenas "Coletado"). Cada status_label tera uma mensagem especifica. A edge function `send-sms` passara a receber o `status_label` do evento para selecionar a mensagem correta.
 
-## Exemplo de SMS
+## Mapeamento de Mensagens por status_label
 
-```text
-Ola Maria, seu codigo de rastreio foi liberado, fique atento a seu email, acesse: https://rastreio.logisticajltransportes.com/r/BRABC1234567
-```
+| status_label | Mensagem SMS |
+|---|---|
+| Postado | `Ola {name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [{link}] FIQUE ATENTO A SEU EMAIL.` (mantido) |
+| Coletado | `Ola {name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [{link}] FIQUE ATENTO A SEU EMAIL.` (mantido, usado tambem para "Pedido Confirmado") |
+| Em Transito | `Ola {name}, seu produto esta no status: [EM TRANSITO] Confira sua caixa de email.` |
+| Centro Local | `Ola {name}, seu produto esta no status: [CENTRO DE DISTRIBUICAO] Confira sua caixa de email.` |
+| Taxacao | `Ola {name}, seu produto esta no status: [EM OBSERVACAO] Confira sua caixa de email.` |
+| Pago | `Ola {name}, seu produto esta no status: [PAGAMENTO CONFIRMADO] Confira sua caixa de email.` |
+| Saiu para Entrega / Em Rota | `Ola {name}, seu produto esta no status: [SAIU PARA ENTREGA] Confira sua caixa de email.` |
+| Entregue | `Ola {name}, seu produto esta no status: [ENTREGUE] Confira sua caixa de email.` |
+
+Nota: "Pago" nao foi mencionado explicitamente, adicionei como `[PAGAMENTO CONFIRMADO]`. "Centro Local" e "Postado" tambem foram cobertos seguindo a mesma logica.
 
 ## Mudancas
 
-### 1. Salvar secret INTEGRAX_API_KEY
+### 1. Edge Function `send-sms` (editar)
 
-Token: `55104f2b-cdd9-4e8c-9d7a-a2f83fcc2ff1`
+- Aceitar novo parametro opcional `status_label` no body
+- Criar um mapa de mensagens por status_label
+- Se `status_label` for "Coletado" ou "Postado" ou nao informado, usar a mensagem atual (com link de rastreio)
+- Para os demais, usar o template `Ola {name}, seu produto esta no status: [STATUS] Confira sua caixa de email.`
+- Remover limite de 150 caracteres (as mensagens novas sao curtas o suficiente) ou aumentar para 160
 
-### 2. Criar Edge Function `send-sms`
+### 2. `src/lib/email-trigger.ts` (editar)
 
-**Arquivo:** `supabase/functions/send-sms/index.ts`
-
-Endpoint da API: `https://sms.aresfun.com/v1/integration/{TOKEN}/send-sms`
-
-Fluxo:
-1. Recebe `envio_id` e `loja_id` no body
-2. Busca o envio no banco: `cliente_nome`, `cliente_telefone`, `codigo_rastreio`
-3. Valida que `cliente_telefone` existe
-4. Extrai primeiro nome do cliente
-5. Remove acentos com `normalize("NFD").replace(/[\u0300-\u036f]/g, "")`
-6. Monta mensagem: `Ola {nome}, seu codigo de rastreio foi liberado, fique atento a seu email, acesse: https://rastreio.logisticajltransportes.com/r/{codigo}`
-7. Trunca em 150 caracteres
-8. Formata telefone para `55XXXXXXXXXXX` (limpa caracteres especiais, prefixa 55 se necessario)
-9. POST para `https://sms.aresfun.com/v1/integration/55104f2b-cdd9-4e8c-9d7a-a2f83fcc2ff1/send-sms` com payload:
-   ```json
-   { "to": ["5511999999999"], "from": "29094", "message": "..." }
-   ```
-10. Retorna sucesso/erro
-
-Adicionar `verify_jwt = false` no `supabase/config.toml`.
-
-### 3. Alterar `src/lib/email-trigger.ts`
-
-Apos o bloco de envio de email (apos linha 134), adicionar verificacao:
-- Se `config.ativar_site_rastreio === true`
-- Se `nextEvent.status_label === "Coletado"`
-- Se o envio possui `cliente_telefone`
-
-Se todas verdadeiras, invocar `supabase.functions.invoke("send-sms", { body: { envio_id, loja_id } })`.
-
-O SMS e disparado apenas uma vez por envio, pois cada evento so e processado uma vez (controle via `ultimo_evento_ordem`).
-
-### 4. Remover badge "em breve" da UI
-
-**Arquivo:** `src/pages/Postagens.tsx`
-
-Na linha 392, remover `<Badge variant="secondary" className="text-xs">em breve</Badge>` da secao "Site do rastreio por SMS".
+- Remover a condicao que restringe SMS apenas ao status "Coletado"
+- Disparar SMS em TODOS os eventos quando `config.ativar_site_rastreio === true` e `shipment.cliente_telefone` existir
+- Passar `status_label` do evento atual para a edge function
 
 ## Detalhes Tecnicos
 
-### Formato do telefone
+### Edge Function - Mapa de mensagens
 
-O campo `cliente_telefone` sera limpo (remover espacos, parenteses, hifens) e prefixado com "55" se nao comecar com "55", garantindo formato `55XXXXXXXXXXX`.
-
-### Remocao de acentos
-
-```javascript
-text.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+```text
+const smsMessages: Record<string, (name: string, link: string) => string> = {
+  "Coletado": (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
+  "Postado":  (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
+  "Em Transito":       (name) => `Ola ${name}, seu produto esta no status: [EM TRANSITO] Confira sua caixa de email.`,
+  "Centro Local":      (name) => `Ola ${name}, seu produto esta no status: [CENTRO DE DISTRIBUICAO] Confira sua caixa de email.`,
+  "Taxacao":           (name) => `Ola ${name}, seu produto esta no status: [EM OBSERVACAO] Confira sua caixa de email.`,
+  "Pago":              (name) => `Ola ${name}, seu produto esta no status: [PAGAMENTO CONFIRMADO] Confira sua caixa de email.`,
+  "Saiu para Entrega": (name) => `Ola ${name}, seu produto esta no status: [SAIU PARA ENTREGA] Confira sua caixa de email.`,
+  "Em Rota":           (name) => `Ola ${name}, seu produto esta no status: [SAIU PARA ENTREGA] Confira sua caixa de email.`,
+  "Entregue":          (name) => `Ola ${name}, seu produto esta no status: [ENTREGUE] Confira sua caixa de email.`,
+};
 ```
 
-### Arquivos alterados/criados
+O status_label vem com acentos do banco (ex: "Em Trânsito", "Taxação"). A funcao usara `removeAccents()` para normalizar a chave antes de buscar no mapa.
+
+### email-trigger.ts - Disparo expandido
+
+O bloco de SMS muda de:
+```text
+if (config.ativar_site_rastreio && nextEvent.status_label === "Coletado" && shipment.cliente_telefone)
+```
+
+Para:
+```text
+if (config.ativar_site_rastreio && shipment.cliente_telefone)
+```
+
+E o body passa a incluir `status_label: nextEvent.status_label`.
+
+### Arquivos alterados
 
 | Arquivo | Acao |
-|---------|------|
-| `supabase/functions/send-sms/index.ts` | Criar |
-| `supabase/config.toml` | Adicionar config send-sms (automatico) |
-| `src/lib/email-trigger.ts` | Adicionar disparo SMS no evento "Coletado" |
-| `src/pages/Postagens.tsx` | Remover badge "em breve" |
+|---|---|
+| `supabase/functions/send-sms/index.ts` | Adicionar mapa de mensagens por status_label |
+| `src/lib/email-trigger.ts` | Remover filtro "Coletado", passar status_label |
 
