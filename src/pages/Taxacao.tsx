@@ -120,7 +120,7 @@ export default function Taxacao() {
     const approveMutation = useMutation({
         mutationFn: async (envioId: string) => {
             if (!loja?.id) throw new Error("Loja não encontrada");
-            const result = await triggerNextEmail(envioId, loja.id);
+            const result = await triggerNextEmail(envioId, loja.id, true);
             if (!result) throw new Error("Erro ao avançar o fluxo");
             return result;
         },
