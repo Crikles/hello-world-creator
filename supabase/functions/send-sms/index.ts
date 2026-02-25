@@ -19,13 +19,13 @@ function formatPhone(phone: string): string {
 const smsMessages: Record<string, (name: string, link: string) => string> = {
   "Coletado": (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
   "Postado": (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
-  "Em Transito": (name) => `Ola ${name}, seu produto esta no status: [EM TRANSITO] Confira sua caixa de email.`,
-  "Centro Local": (name) => `Ola ${name}, seu produto esta no status: [CENTRO DE DISTRIBUICAO] Confira sua caixa de email.`,
-  "Taxacao": (name) => `Ola ${name}, seu produto esta no status: [EM OBSERVACAO] Confira sua caixa de email.`,
-  "Pago": (name) => `Ola ${name}, seu produto esta no status: [PAGAMENTO CONFIRMADO] Confira sua caixa de email.`,
-  "Saiu para Entrega": (name) => `Ola ${name}, seu produto esta no status: [SAIU PARA ENTREGA] Confira sua caixa de email.`,
-  "Em Rota": (name) => `Ola ${name}, seu produto esta no status: [SAIU PARA ENTREGA] Confira sua caixa de email.`,
-  "Entregue": (name) => `Ola ${name}, seu produto esta no status: [ENTREGUE] Confira sua caixa de email.`,
+  "Em Transito": (name, link) => `Ola ${name}, seu produto esta em transito. Acesse: [${link}] para acompanhar.`,
+  "Centro Local": (name, link) => `Ola ${name}, seu produto esta no centro de distribuicao. Acesse: [${link}] para acompanhar.`,
+  "Taxacao": (name, link) => `Ola ${name}, seu produto esta em observacao. Acesse: [${link}] e confira seu email.`,
+  "Pago": (name, link) => `Ola ${name}, pagamento confirmado. Acesse: [${link}] para acompanhar a entrega.`,
+  "Saiu para Entrega": (name, link) => `Ola ${name}, seu produto saiu para entrega. Acesse: [${link}] para acompanhar.`,
+  "Em Rota": (name, link) => `Ola ${name}, seu produto saiu para entrega. Acesse: [${link}] para acompanhar.`,
+  "Entregue": (name, link) => `Ola ${name}, seu produto foi entregue! Acesse: [${link}] para mais detalhes.`,
 };
 
 function getMessageForStatus(statusLabel: string | undefined, firstName: string, link: string): string {
@@ -37,8 +37,7 @@ function getMessageForStatus(statusLabel: string | undefined, firstName: string,
   if (msgFn) {
     return msgFn(firstName, link);
   }
-  // Fallback for unknown status
-  return `Ola ${firstName}, seu produto esta no status: [${removeAccents(statusLabel).toUpperCase()}] Confira sua caixa de email.`;
+  return `Ola ${firstName}, atualizacao do seu pedido. Acesse: [${link}] para acompanhar.`;
 }
 
 Deno.serve(async (req) => {
