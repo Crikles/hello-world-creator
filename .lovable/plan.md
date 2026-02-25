@@ -1,77 +1,109 @@
 
-# Isolamento Completo de Rotas entre Dominios
+# Ajustes na Navbar e Responsividade da Pagina de Rastreio
 
-## Problema
+## O que sera feito
 
-Ao acessar `logisticajltransportes.com/r/`, o usuario e redirecionado para `app.magnusfrete.site/r/`. Isso provavelmente acontece porque o DNS do dominio de logistica esta configurado como **redirecionamento** (redirect 301/302) em vez de **apontamento A record** para o IP do Lovable. Alem disso, as rotas `/r` e `/p` estao disponiveis em ambos os dominios no codigo atual.
+### 1. Navbar - Logo substituindo o texto
 
-## O que precisa ser feito
+Na navegacao superior (`.main-nav`), a logo atualmente aparece pequena ao lado do texto "Logistica JL Transportes". A mudanca sera:
 
-### 1. DNS (acao do usuario na Hostinger)
+- Remover o `brand-name` (texto "Logistica JL Transportes") do JSX
+- Aumentar o tamanho da logo (de 64px para ~120px de largura)
+- Manter apenas o subtitulo "Transportes & Logistica" abaixo da logo
+- A logo passa a ser o elemento principal de identidade visual
 
-O dominio `logisticajltransportes.com` precisa ter um **A record** apontando para `185.158.133.1` (IP do Lovable), e NAO um redirecionamento para outro dominio. Se houver um redirect configurado na Hostinger, ele precisa ser removido.
+### 2. Responsividade completa para mobile
 
-### 2. Remover rotas `/r` e `/p` do PanelRoutes (codigo)
+Atualmente so existe um media query para 1024px (grid do layout de resultados). Serao adicionados estilos responsivos para:
 
-Atualmente, `PanelRoutes` (dominio `app.magnusfrete.site`) inclui as rotas de rastreio e pagamento. Essas rotas devem ser removidas para que o painel nao sirva paginas de logistica.
+**Navbar (mobile)**
+- Logo menor (~80px)
+- Padding lateral reduzido
+- Altura da nav reduzida
 
-### 3. Confirmar que LogisticsRoutes so tem rastreio/pagamento
+**Hero Section (mobile)**
+- Padding reduzido
+- Titulo com fonte menor
+- Input de busca em stack vertical (input em cima, botao embaixo ocupando largura total)
+- Stats em coluna vertical ou grid 1x3 mais compacto
 
-Ja esta correto no codigo atual - apenas `/`, `/r`, `/r/:codigoParam` e `/p/:envioId`.
+**Resultados (mobile)**
+- Cards com padding reduzido
+- Tracking number com fonte menor
+- Timeline com padding reduzido
+
+**Footer (mobile)**
+- Layout em coluna (stack vertical)
+- Links em coluna
+- Bottom footer em coluna
 
 ---
 
 ## Detalhes Tecnicos
 
-### Arquivo: `src/App.tsx`
+### Arquivo: `src/pages/Rastreio.tsx`
 
-Remover estas rotas de `PanelRoutes`:
+**JSX (linhas 139-149)** - Remover `brand-name`, manter so a logo e o subtitulo:
 
 ```tsx
-// REMOVER estas linhas:
-<Route path="/p/:envioId" element={<Pagamento />} />
-<Route path="/r" element={<Rastreio />} />
-<Route path="/r/:codigoParam" element={<Rastreio />} />
+<nav className="main-nav">
+  <div className="nav-inner">
+    <div className="nav-brand">
+      <img src={logoUrl} alt={empresaNome} className="nav-logo" />
+      <span className="brand-tag">Transportes & Logistica</span>
+    </div>
+  </div>
+</nav>
 ```
 
-Resultado final do `PanelRoutes`:
+**CSS** - Ajustar `.nav-logo` para tamanho maior e adicionar media queries:
 
-```tsx
-function PanelRoutes() {
-  return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/lojas" element={<ProtectedRoute><Lojas /></ProtectedRoute>} />
-        <Route path="/loja/:lojaId/*" element={<ProtectedRoute><LojaRoutes /></ProtectedRoute>} />
-        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-        <Route path="/admin/usuarios" element={<AdminRoute><AdminUsuarios /></AdminRoute>} />
-        <Route path="/admin/email" element={<AdminRoute><AdminEmail /></AdminRoute>} />
-        <Route path="/admin/creditos" element={<AdminRoute><AdminCreditos /></AdminRoute>} />
-        <Route path="/admin/templates" element={<AdminRoute><AdminTemplates /></AdminRoute>} />
-        <Route path="/" element={<Navigate to="/lojas" replace />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AuthProvider>
-  );
+```css
+.nav-logo {
+  height: auto;
+  width: 140px;
+}
+.brand-tag {
+  /* manter estilo atual */
 }
 ```
 
-`LogisticsRoutes` permanece como esta (sem alteracao).
+**Media queries a adicionar** (no final do bloco `styles`):
 
-### Arquivo: `src/lib/domain-config.ts`
+```css
+@media (max-width: 768px) {
+  /* Nav */
+  .main-nav { height: 70px; }
+  .nav-inner { padding: 0 16px; }
+  .nav-logo { width: 100px; }
+  .brand-tag { font-size: 8px; }
 
-Adicionar `www.logisticajltransportes.com` para cobrir acesso com www (ja esta la, confirmar).
+  /* Hero */
+  .hero-section { padding: 120px 16px 60px; }
+  .main-title { font-size: 28px; }
+  .hero-desc { font-size: 14px; }
+  .search-input-wrapper { flex-direction: column; }
+  .main-input { font-size: 13px; }
+  .search-submit { width: 100%; justify-content: center; border-radius: 12px; }
+  .quick-stats { flex-direction: column; gap: 16px; }
 
----
+  /* Results */
+  .results-section { padding: 24px 16px; }
+  .package-label-card { padding: 20px; border-radius: 16px; }
+  .tracking-number { font-size: 20px; }
+  .data-main { padding: 20px; border-radius: 16px; }
 
-## Resumo das mudancas
+  /* Footer */
+  .site-footer { padding: 40px 16px 24px; }
+  .footer-top { flex-direction: column; gap: 32px; }
+  .f-links { flex-direction: column; gap: 24px; }
+  .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+}
+```
+
+### Resumo
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/App.tsx` | Remover rotas `/r`, `/r/:codigoParam` e `/p/:envioId` do PanelRoutes |
-
-## Acao necessaria do usuario
-
-Verificar na Hostinger se `logisticajltransportes.com` tem um **redirecionamento** configurado para `app.magnusfrete.site`. Se sim, remover esse redirecionamento e configurar apenas o **A record** apontando para `185.158.133.1`.
+| `src/pages/Rastreio.tsx` | JSX: remover brand-name, manter logo + subtitulo |
+| `src/pages/Rastreio.tsx` | CSS: aumentar logo, adicionar media queries mobile |
