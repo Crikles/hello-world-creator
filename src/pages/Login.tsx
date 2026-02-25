@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LogIn } from "lucide-react";
 import { toast } from "sonner";
+import { isLogisticsDomain } from "@/lib/domain-config";
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const isLogistics = isLogisticsDomain();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,12 +33,12 @@ export default function Login() {
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-3">
           <img
-            src="/logojltransportes.png"
-            alt="Logística JL Transportes"
+            src={isLogistics ? "/logojltransportes.png" : "/logo-magnus.png"}
+            alt={isLogistics ? "Logística JL Transportes" : "Magnus Frete"}
             className="h-32 w-auto object-contain mb-2"
           />
-          <h1 className="text-2xl font-bold text-foreground">Logística JL Transportes</h1>
-          <p className="text-sm text-muted-foreground">Gestão de Envios & Rastreio</p>
+          <h1 className="text-2xl font-bold text-foreground">{isLogistics ? "Logística JL Transportes" : "Magnus Frete"}</h1>
+          <p className="text-sm text-muted-foreground">{isLogistics ? "Gestão de Envios & Rastreio" : "Plataforma de Gestão de Fretes"}</p>
         </div>
 
         <Card>
