@@ -389,7 +389,6 @@ export default function Postagens() {
                         <p className="text-xs text-muted-foreground">Envia o link do site de rastreio personalizado ao cliente por SMS.</p>
                         <div className="flex items-center gap-1.5 mt-1">
                           <Badge variant="outline" className="text-xs">+0,25 moeda</Badge>
-                          <Badge variant="secondary" className="text-xs">em breve</Badge>
                         </div>
                       </div>
                     </div>
