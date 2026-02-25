@@ -220,90 +220,141 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
 
 /* ─────────────────────── Tracking Site Preview ─────────────────────── */
 
-function TaxacaoTrackingPreview({ settings, empresaNome }: { settings: TaxacaoSettings; empresaNome: string }) {
+function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: TaxacaoSettings; empresaNome: string; logoUrl: string }) {
     const valor = parseFloat(settings.valor_exemplo) || 0;
     const valorFormatted = valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-
-    const headerColor = settings.cor_header || "#f59e0b";
-
+    // We use a simplified version of the Rastreio.tsx styles for mobile view
     return (
-        <div className="bg-white rounded-2xl border-2 border-border/50 shadow-xl max-w-[340px] mx-auto overflow-hidden">
-            {/* Header */}
-            <div
-                className="px-5 py-4 flex items-center justify-between"
-                style={{ background: `linear-gradient(135deg, ${headerColor}, ${headerColor}dd)` }}
-            >
-                <div>
-                    <p className="text-white font-bold text-sm flex items-center gap-1.5">
-                        📦 Rastreie Seu Pedido
-                    </p>
-                    <p className="text-white/80 text-xs">{empresaNome}</p>
+        <div className="bg-[#f8fafc] rounded-2xl border-2 border-border/50 shadow-xl max-w-[360px] mx-auto overflow-hidden font-sans text-[#0f172a] text-left">
+            {/* Nav Mirror */}
+            <div className="h-14 bg-white/80 backdrop-blur-md border-b border-black/5 px-4 flex items-center justify-between">
+                <img src={logoUrl || "/logojltransportes.png"} alt="Logo" className="h-6 w-auto" />
+                <div className="flex flex-col gap-1">
+                    <div className="w-5 h-0.5 bg-slate-800 rounded-full" />
+                    <div className="w-5 h-0.5 bg-slate-800 rounded-full" />
                 </div>
-                <button className="text-white/60 text-lg">×</button>
             </div>
 
-            {/* Tracking code */}
-            <div className="px-5 py-4 border-b border-border/30">
-                <p className="text-[10px] text-gray-500 mb-0.5">Código de Rastreamento</p>
-                <p className="text-base font-bold tracking-wider text-gray-900">BR847293651XY</p>
-            </div>
+            {/* Results Area Mirror (Mobile View) */}
+            <div className="p-4 space-y-4">
+                {/* Package Label Card (Dark Blue style from Rastreio.tsx) */}
+                <div className="bg-[#0f172a] text-white rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                    <div className="flex justify-between items-start mb-6">
+                        <div className="bg-white/5 py-1 px-2.5 rounded-md flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-[#10b981] rounded-full shadow-[0_0_8px_#10b981]" />
+                            <span className="text-[9px] font-extrabold tracking-wider uppercase">Taxação</span>
+                        </div>
+                        <Package className="w-4 h-4 text-white/40" />
+                    </div>
 
-            {/* Timeline */}
-            <div className="px-5 py-3 space-y-2">
-                <div className="flex items-start gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 mt-1 shrink-0" />
-                    <div>
-                        <p className="text-xs font-semibold text-gray-800">Objeto postado</p>
-                        <p className="text-[10px] text-gray-500">São Paulo - SP</p>
+                    <div className="mb-6">
+                        <span className="text-[8px] font-bold text-slate-500 tracking-widest block mb-1">IDENTIFIER</span>
+                        <div className="font-mono text-xl font-bold tracking-tight">BR847293651XY</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 mb-4">
+                        <div>
+                            <span className="text-[8px] font-bold text-slate-500 tracking-widest block mb-0.5 uppercase">Produto</span>
+                            <span className="text-xs font-semibold block truncate">Camiseta Polo Premium (x1)</span>
+                        </div>
+                        <div>
+                            <span className="text-[8px] font-bold text-slate-500 tracking-widest block mb-0.5 uppercase">Transportadora</span>
+                            <span className="text-xs font-semibold block uppercase">{empresaNome}</span>
+                        </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5">
+                        <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1.5">
+                            <span>Progresso da Entrega</span>
+                            <span>65%</span>
+                        </div>
+                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full bg-[#6366f1] w-[65%] rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-start gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 mt-1 shrink-0" />
-                    <div>
-                        <p className="text-xs font-semibold text-gray-800">Em trânsito</p>
-                        <p className="text-[10px] text-gray-500">Curitiba - PR</p>
+
+                {/* Timeline Area (White card from Rastreio.tsx) */}
+                <div className="bg-white rounded-2xl p-5 border border-black/5 shadow-sm">
+                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-dashed border-slate-200 text-left">
+                        <h3 className="text-[10px] font-extrabold tracking-widest text-[#0f172a] uppercase text-left w-full">Atividade Recente</h3>
+                        <div className="flex items-center gap-1 text-[9px] font-semibold text-slate-400 whitespace-nowrap">
+                            <Clock size={10} />
+                            <span>Sincronizado</span>
+                        </div>
                     </div>
-                </div>
-                <div className="flex items-start gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full mt-1 shrink-0 animate-pulse" style={{ backgroundColor: headerColor }} />
-                    <div>
-                        <p className="text-xs font-semibold" style={{ color: headerColor }}>Aguardando pagamento de taxa</p>
-                        <p className="text-[10px] text-gray-500">Receita Federal</p>
+
+                    <div className="relative pl-8 space-y-6">
+                        {/* Timeline Line */}
+                        <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100" />
+
+                        {/* Recent Event with Tax Card */}
+                        <div className="relative">
+                            <div
+                                className="absolute -left-[27px] top-0 w-5 h-5 rounded-md flex items-center justify-center z-10 shadow-sm border border-white"
+                                style={{ backgroundColor: settings.cor_header }}
+                            >
+                                <AlertTriangle size={12} className="text-white" />
+                            </div>
+                            <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm text-left">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-xs font-bold" style={{ color: settings.cor_header }}>Aguardando pagamento</span>
+                                    <span className="text-[8px] font-black text-[#6366f1] bg-[#6366f1]/10 px-1.5 py-0.5 rounded">ATUAL</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">Fiscalização aduaneira concluída</p>
+
+                                {/* Embedded Tax Card - The one being customized */}
+                                <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: settings.cor_botao }}>
+                                    <div className="text-center py-1.5 border-b" style={{ backgroundColor: `${settings.cor_botao}10`, borderColor: `${settings.cor_botao}25` }}>
+                                        <p className="text-[9px] font-extrabold" style={{ color: settings.cor_botao }}>⚠ ATENÇÃO - TAXA PENDENTE</p>
+                                    </div>
+                                    <div className="p-4 text-center bg-white">
+                                        <p className="text-[11px] text-[#475569] mb-3 leading-relaxed font-medium">{settings.mensagem_taxa}</p>
+                                        {settings.mostrar_valor && (
+                                            <div className="mb-3">
+                                                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Valor da Taxa</p>
+                                                <p className="text-2xl font-black text-[#0f172a]">R$ {valorFormatted}</p>
+                                            </div>
+                                        )}
+                                        <div
+                                            className="py-2.5 rounded-lg text-white font-bold text-xs shadow-md transition-transform active:scale-95"
+                                            style={{ backgroundColor: settings.cor_botao }}
+                                        >
+                                            {settings.texto_botao}
+                                        </div>
+                                        {settings.mostrar_prazo && settings.prazo_dias && (
+                                            <p className="text-[10px] text-[#f43f5e] font-bold mt-2.5 flex items-center justify-center gap-1">
+                                                <Clock size={10} />
+                                                Limite: {settings.prazo_dias} dias
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
+                                    <span className="text-[9px] font-extrabold text-slate-400">TAXAÇÃO</span>
+                                    <span className="text-[10px] font-semibold text-slate-500">Hoje, 14:20</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Old Event */}
+                        <div className="relative opacity-40">
+                            <div className="absolute -left-[27px] top-0.5 w-5 h-5 rounded-md bg-white border-2 border-slate-200 flex items-center justify-center z-10">
+                                <Truck size={12} className="text-slate-400" />
+                            </div>
+                            <div className="bg-slate-50 rounded-xl p-3 text-left">
+                                <span className="text-xs font-bold text-slate-700">Em Trânsito</span>
+                                <p className="text-[10px] text-slate-500">Curitiba - PR</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Tax Card */}
-            <div className="mx-4 mb-4 rounded-xl border-2 overflow-hidden" style={{ borderColor: settings.cor_botao }}>
-                <div className="text-center py-1.5 border-b" style={{ backgroundColor: `${settings.cor_botao}15`, borderColor: `${settings.cor_botao}40` }}>
-                    <p className="text-[11px] font-bold" style={{ color: settings.cor_botao }}>⚠ ATENÇÃO - TAXA PENDENTE</p>
-                </div>
-                <div className="p-4 text-center bg-white">
-                    <p className="text-xs text-gray-700 mb-3 leading-relaxed">{settings.mensagem_taxa}</p>
-                    {settings.mostrar_valor && (
-                        <>
-                            <p className="text-[10px] text-gray-500 font-medium">Valor da Taxa</p>
-                            <p className="text-2xl font-extrabold my-1 text-gray-900">R$ {valorFormatted}</p>
-                        </>
-                    )}
-                    <a
-                        href={settings.url_pagamento || "#"}
-                        className="block mt-3 py-2.5 rounded-full text-white font-bold text-sm transition-transform hover:scale-105"
-                        style={{ backgroundColor: settings.cor_botao }}
-                    >
-                        {settings.texto_botao}
-                    </a>
-                    <p className="text-[10px] text-gray-500 mt-2">
-                        {settings.forma_pagamento === "Todos"
-                            ? "Pagamento via PIX, Cartão ou Boleto"
-                            : `Pagamento via ${settings.forma_pagamento}`}
-                    </p>
-                </div>
-            </div>
-
-            <div className="border-t px-5 py-3 text-center">
-                <p className="text-[10px] text-gray-400">Este é um exemplo de como seus clientes verão a taxa</p>
+            <div className="bg-slate-50 border-t border-black/5 px-5 py-3 text-center">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Visualização em tempo real do site de rastreio</p>
             </div>
         </div>
     );
@@ -714,7 +765,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                             </div>
 
                             {previewTab === "site" ? (
-                                <TaxacaoTrackingPreview settings={settings} empresaNome={empresaNome} />
+                                <TaxacaoTrackingPreview settings={settings} empresaNome={empresaNome} logoUrl={empresaLogoUrl} />
                             ) : (
                                 <div className="border rounded-lg overflow-hidden bg-[#f0f0f0]">
                                     <iframe
