@@ -140,10 +140,7 @@ export default function Rastreio() {
                 <div className="nav-inner">
                     <div className="nav-brand">
                         <img src={logoUrl} alt={empresaNome} className="nav-logo" />
-                        <div className="brand-text">
-                            <span className="brand-name">{empresaNome}</span>
-                            <span className="brand-tag">Transportes & Logística</span>
-                        </div>
+                        <span className="brand-tag">Transportes & Logística</span>
                     </div>
                 </div>
             </nav>
@@ -431,24 +428,13 @@ const styles = `
 }
 .nav-brand {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
 }
 .nav-logo {
-    height: 64px;
-    width: auto;
-    margin-right: 8px;
-}
-.brand-text {
-    display: flex;
-    flex-direction: column;
-}
-.brand-name {
-    font-size: 18px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -0.5px;
-    color: #0f172a;
+    height: auto;
+    width: 140px;
 }
 .brand-tag {
     font-size: 10px;
@@ -456,7 +442,6 @@ const styles = `
     color: var(--primary);
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-top: 2px;
 }
 
 /* ─── HERO ─── */
@@ -917,5 +902,38 @@ const styles = `
     border-radius: 12px;
     font-weight: 700;
     cursor: pointer;
+}
+
+/* ─── MOBILE RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .main-nav { height: 70px; }
+  .nav-inner { padding: 0 16px; }
+  .nav-logo { width: 100px; }
+  .brand-tag { font-size: 8px; }
+
+  .hero-section { padding: 120px 16px 60px; }
+  .main-title { font-size: 28px; letter-spacing: -1px; }
+  .hero-desc { font-size: 14px; }
+  .search-input-wrapper { flex-direction: column; padding: 8px; border-radius: 16px; }
+  .search-icon { display: none; }
+  .main-input { font-size: 13px; height: 48px; padding: 0 16px; text-align: center; }
+  .search-submit { width: 100%; justify-content: center; border-radius: 12px; height: 48px; }
+  .search-box { margin: 0 auto 40px; }
+  .quick-stats { flex-direction: column; gap: 16px; align-items: center; }
+
+  .results-section { padding: 24px 16px; }
+  .package-label-card { padding: 20px; border-radius: 16px; }
+  .tracking-number { font-size: 20px; }
+  .data-main { padding: 20px; border-radius: 16px; }
+  .journey-line { padding-left: 32px; }
+  .point-indicator { left: -32px; }
+  .point-content { padding: 16px; }
+  .timeline-header { margin-bottom: 24px; }
+
+  .site-footer { padding: 40px 16px 24px; }
+  .footer-top { flex-direction: column; gap: 32px; }
+  .f-links { flex-direction: column; gap: 24px; }
+  .f-links .f-col { gap: 0; }
+  .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
 }
 `;
