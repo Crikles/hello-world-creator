@@ -140,6 +140,13 @@ export default function Rastreio() {
                 <div className="nav-inner">
                     <div className="nav-brand">
                         <img src={logoUrl} alt={empresaNome} className="nav-logo" />
+                    </div>
+                    <div className="nav-links">
+                        <a href="#" className="nav-link">Início</a>
+                        <a href="#rastrear" className="nav-link">Rastrear</a>
+                        <a href="#contato" className="nav-link">Contato</a>
+                    </div>
+                    <div className="nav-tag-wrapper">
                         <span className="brand-tag">Transportes & Logística</span>
                     </div>
                 </div>
@@ -428,13 +435,31 @@ const styles = `
 }
 .nav-brand {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
+    align-items: center;
 }
 .nav-logo {
     height: auto;
-    width: 140px;
+    width: 180px;
+}
+.nav-links {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+}
+.nav-link {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    text-decoration: none;
+    letter-spacing: -0.3px;
+    transition: color 0.2s;
+}
+.nav-link:hover {
+    color: var(--primary);
+}
+.nav-tag-wrapper {
+    display: flex;
+    align-items: center;
 }
 .brand-tag {
     font-size: 10px;
@@ -908,8 +933,9 @@ const styles = `
 @media (max-width: 768px) {
   .main-nav { height: 70px; }
   .nav-inner { padding: 0 16px; }
-  .nav-logo { width: 100px; }
-  .brand-tag { font-size: 8px; }
+  .nav-logo { width: 120px; }
+  .nav-links { display: none; }
+  .nav-tag-wrapper { display: none; }
 
   .hero-section { padding: 120px 16px 60px; }
   .main-title { font-size: 28px; letter-spacing: -1px; }
