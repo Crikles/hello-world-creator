@@ -1,58 +1,61 @@
 
-# Melhorias na Tabela de Envios
 
-## Problemas Identificados
+# Correção do Rastreio: Rota, URL nos E-mails e Exibição em Tempo Real
 
-1. **Status incorreto**: Apos o primeiro avanço (NF), o status mostra "Em Transito" porque a logica atual so usa 4 status fixos (pendente, em_transito, saiu_para_entrega, entregue). Os eventos tem um campo `status_label` com valores mais detalhados (Postado, Coletado, Em Transito, Centro Local, etc.) que devem ser exibidos.
+## Problema Principal
 
-2. **Progresso sem indicador numerico**: A barra de progresso nao mostra em qual etapa o envio esta (ex: "1/6").
+O link no e-mail direciona para `logisticajltransportes.com/r/BRADDD365C04`, mas:
 
-3. **Atualizacao em tempo real**: Apos clicar em "Avancar", a tabela precisa atualizar imediatamente.
+1. O DNS do domínio customizado ainda não está configurado, então o site não carrega
+2. Mesmo acessando pelo domínio do Lovable (`magnusfrete.lovable.app`), a rota `/r/:codigo` só existe no modo "logística" (LogisticsRoutes), e o domínio principal usa PanelRoutes -- que não tem essa rota, resultando em "Not Found"
+3. A página de rastreio precisa exibir dados do cliente e etapas em tempo real
 
----
+## Solução
 
-## Solucao
+### 1. Adicionar rota `/r/:codigoParam` também no PanelRoutes (App.tsx)
 
-### 1. Novo campo `status_label` na tabela `envios`
-
-Adicionar uma coluna `status_label` (text, nullable) para armazenar o label do evento atual diretamente no envio. Isso permite exibir "Postado", "Coletado", "Centro Local", etc., sem depender dos 4 status fixos.
-
-**Migracao SQL:**
-```sql
-ALTER TABLE envios ADD COLUMN status_label text;
-```
-
-### 2. Atualizar `email-trigger.ts`
-
-Ao avancar um evento, salvar tambem o `status_label` do evento no envio:
+Atualmente, a rota de rastreio só existe dentro de `LogisticsRoutes`. Precisamos adicioná-la também em `PanelRoutes` para que funcione independente do domínio:
 
 ```typescript
-// Na funcao triggerNextEmail, ao fazer update:
-.update({ 
-  ultimo_evento_ordem: nextEvent.ordem, 
-  status: newStatus,
-  status_label: nextEvent.status_label  // NOVO
-})
+// Em PanelRoutes, adicionar antes do catch-all:
+<Route path="/r" element={<Rastreio />} />
+<Route path="/r/:codigoParam" element={<Rastreio />} />
+<Route path="/p/:envioId" element={<Pagamento />} />
 ```
 
-### 3. Atualizar `Envios.tsx`
+### 2. Atualizar URL no e-mail (send-email edge function)
 
-**Status**: Exibir `envio.status_label` quando disponivel, senao usar o mapeamento antigo como fallback.
+Trocar o domínio fixo pela URL do projeto Lovable (que funciona agora), usando uma variável de ambiente ou o domínio publicado:
 
-**Progresso**: Substituir a barra de progresso por um indicador numerico com a barra, mostrando "1/6", "3/6", etc.
+```typescript
+// De:
+let urlBotaoCta = `https://logisticajltransportes.com/r/${codigoRastreio}`;
+// Para:
+let urlBotaoCta = `https://magnusfrete.lovable.app/r/${codigoRastreio}`;
+```
 
-**Tempo real**: Usar optimistic updates nas mutations para refletir mudancas imediatamente na UI, e tambem adicionar um listener de realtime na tabela `envios` para capturar mudancas feitas em batch.
+Quando o DNS do domínio customizado estiver configurado, basta trocar de volta.
+
+### 3. Atualizar templates de e-mail (emailTemplates.ts)
+
+Todas as `url_botao_cta` nos templates padrão também apontam para o domínio customizado. Atualizar para usar o domínio funcional.
+
+### 4. Exibir dados do cliente na página de rastreio
+
+A página de Rastreio já exibe `cliente_nome` e detalhes do envio. A edge function `rastreio-info` já retorna esses dados. Nenhuma mudança necessária aqui, pois já funciona -- o problema era apenas a rota inacessível.
+
+### 5. Formatação do produto na página de rastreio
+
+Aplicar a mesma função `formatProduto` (que parseia o JSON de produtos) na página de rastreio, para exibir nomes legíveis em vez de JSON bruto.
 
 ---
 
-## Detalhes Tecnicos
+## Resumo dos Arquivos a Modificar
 
-### Arquivo: `src/lib/email-trigger.ts`
-- Adicionar `status_label: nextEvent.status_label` ao `.update()` (linha 73)
+| Arquivo | Mudança |
+|---|---|
+| `src/App.tsx` | Adicionar rotas `/r` e `/r/:codigoParam` no PanelRoutes |
+| `supabase/functions/send-email/index.ts` | Trocar domínio da URL do botão CTA |
+| `src/components/postagens/emailTemplates.ts` | Atualizar URLs dos templates |
+| `src/pages/Rastreio.tsx` | Adicionar formatação de produto (JSON para texto legível) |
 
-### Arquivo: `src/pages/Envios.tsx`
-- Atualizar coluna Status para usar `envio.status_label || statusLabels[envio.status]`
-- Atualizar coluna Progresso para mostrar texto "X/N" junto com a barra
-- Adicionar `useEffect` com `supabase.channel('envios').on('postgres_changes', ...)` para atualizar a query automaticamente
-- Habilitar realtime na tabela envios via SQL: `ALTER PUBLICATION supabase_realtime ADD TABLE public.envios;`
-- Nas mutations de batch, invalidar queries apos cada avanço individual para feedback imediato
