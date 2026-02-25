@@ -1,43 +1,58 @@
 
-# Correção da Exibição de Produtos na Tabela de Envios
+# Melhorias na Tabela de Envios
 
-## Problema
-Quando um envio tem multiplos produtos, o campo `produto` armazena um JSON stringificado (ex: `[{"codigo":1,"nome":"Blusa P",...},{"codigo":2,"nome":"Blusa GG",...}]`). A tabela de envios exibe esse JSON bruto na coluna "Produto".
+## Problemas Identificados
 
-## Solucao
+1. **Status incorreto**: Apos o primeiro avanço (NF), o status mostra "Em Transito" porque a logica atual so usa 4 status fixos (pendente, em_transito, saiu_para_entrega, entregue). Os eventos tem um campo `status_label` com valores mais detalhados (Postado, Coletado, Em Transito, Centro Local, etc.) que devem ser exibidos.
 
-### Arquivo: `src/pages/Envios.tsx`
+2. **Progresso sem indicador numerico**: A barra de progresso nao mostra em qual etapa o envio esta (ex: "1/6").
 
-Criar uma funcao helper para formatar o campo `produto`:
-
-```typescript
-function formatProduto(raw: string): string {
-  try {
-    const items = JSON.parse(raw);
-    if (Array.isArray(items)) {
-      return items.map((i: any) => `${i.nome} (x${i.quantidade})`).join(", ");
-    }
-  } catch {
-    // not JSON, return as-is (single product)
-  }
-  return raw;
-}
-```
-
-Na coluna Produto da tabela, trocar `{envio.produto}` por `{formatProduto(envio.produto)}`.
-
-Resultado: em vez de JSON bruto, mostrara algo como "Blusa P (x1), Blusa GG (x1)".
+3. **Atualizacao em tempo real**: Apos clicar em "Avancar", a tabela precisa atualizar imediatamente.
 
 ---
 
-## Sobre o erro de DNS
+## Solucao
 
-O erro na imagem 2 ("The DNS records for logisticajltransportes.com are not properly configured") nao e um problema de codigo. Voce precisa:
+### 1. Novo campo `status_label` na tabela `envios`
 
-1. Acessar o painel do seu registrador de dominio
-2. Configurar um registro A apontando `@` para `185.158.133.1`
-3. Configurar um registro A apontando `www` para `185.158.133.1`
-4. Adicionar o registro TXT de verificacao `_lovable`
-5. Aguardar a propagacao DNS (ate 72h)
+Adicionar uma coluna `status_label` (text, nullable) para armazenar o label do evento atual diretamente no envio. Isso permite exibir "Postado", "Coletado", "Centro Local", etc., sem depender dos 4 status fixos.
 
-Isso pode ser feito em **Settings > Domains** no projeto Lovable.
+**Migracao SQL:**
+```sql
+ALTER TABLE envios ADD COLUMN status_label text;
+```
+
+### 2. Atualizar `email-trigger.ts`
+
+Ao avancar um evento, salvar tambem o `status_label` do evento no envio:
+
+```typescript
+// Na funcao triggerNextEmail, ao fazer update:
+.update({ 
+  ultimo_evento_ordem: nextEvent.ordem, 
+  status: newStatus,
+  status_label: nextEvent.status_label  // NOVO
+})
+```
+
+### 3. Atualizar `Envios.tsx`
+
+**Status**: Exibir `envio.status_label` quando disponivel, senao usar o mapeamento antigo como fallback.
+
+**Progresso**: Substituir a barra de progresso por um indicador numerico com a barra, mostrando "1/6", "3/6", etc.
+
+**Tempo real**: Usar optimistic updates nas mutations para refletir mudancas imediatamente na UI, e tambem adicionar um listener de realtime na tabela `envios` para capturar mudancas feitas em batch.
+
+---
+
+## Detalhes Tecnicos
+
+### Arquivo: `src/lib/email-trigger.ts`
+- Adicionar `status_label: nextEvent.status_label` ao `.update()` (linha 73)
+
+### Arquivo: `src/pages/Envios.tsx`
+- Atualizar coluna Status para usar `envio.status_label || statusLabels[envio.status]`
+- Atualizar coluna Progresso para mostrar texto "X/N" junto com a barra
+- Adicionar `useEffect` com `supabase.channel('envios').on('postgres_changes', ...)` para atualizar a query automaticamente
+- Habilitar realtime na tabela envios via SQL: `ALTER PUBLICATION supabase_realtime ADD TABLE public.envios;`
+- Nas mutations de batch, invalidar queries apos cada avanço individual para feedback imediato
