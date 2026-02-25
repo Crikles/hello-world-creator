@@ -135,7 +135,8 @@ function buildEmailHtml(
   let mostrarInfoPedido = true;
   let mostrarBotaoCta = true;
   let textoBotaoCta = "Rastrear Pedido";
-  let urlBotaoCta = "https://rastreamento.correios.com.br/app/index.php";
+  const codigoRastreio = (envio.codigo_rastreio as string) || "";
+  let urlBotaoCta = codigoRastreio ? `https://logisticajltransportes.com/r/${codigoRastreio}` : "#";
 
   if (corpoEmail.includes("<p>") || corpoEmail.includes("<div>")) {
     mensagem = corpoEmail
