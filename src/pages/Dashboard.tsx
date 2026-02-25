@@ -39,6 +39,24 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
+  const { data: postagemConfig } = useQuery({
+    queryKey: ["postagem_config_dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return null;
+      const { data, error } = await supabase
+        .from("postagem_config")
+        .select("ativar_site_rastreio, enviar_emails")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!loja,
+  });
+
+  const smsAtivo = postagemConfig?.ativar_site_rastreio ?? false;
+  const emailAtivo = postagemConfig?.enviar_emails ?? false;
+
   const total = envios.length;
   const pendentes = envios.filter((e) => e.status === "pendente").length;
   const emTransito = envios.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega").length;
@@ -172,21 +190,21 @@ export default function Dashboard() {
               <CardTitle className="text-base">Canais de Notificação</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-accent border border-primary/20">
-                <Mail className="h-5 w-5 text-primary" />
+              <div className={`flex items-center gap-3 p-3 rounded-lg ${emailAtivo ? "bg-accent border-primary/20" : "bg-muted/50 border-border"} border`}>
+                <Mail className={`h-5 w-5 ${emailAtivo ? "text-primary" : "text-muted-foreground"}`} />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">Email</p>
-                  <p className="text-xs text-muted-foreground">Notificações ativas</p>
+                  <p className="text-xs text-muted-foreground">{emailAtivo ? "Notificações ativas" : "Não configurado"}</p>
                 </div>
-                <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/25">Ativo</Badge>
+                <Badge className={emailAtivo ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/25" : ""} variant={emailAtivo ? "default" : "secondary"}>{emailAtivo ? "Ativo" : "Inativo"}</Badge>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
-                <MessageSquare className="h-5 w-5 text-muted-foreground" />
+              <div className={`flex items-center gap-3 p-3 rounded-lg ${smsAtivo ? "bg-accent border-primary/20" : "bg-muted/50 border-border"} border`}>
+                <MessageSquare className={`h-5 w-5 ${smsAtivo ? "text-primary" : "text-muted-foreground"}`} />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">SMS</p>
-                  <p className="text-xs text-muted-foreground">Não configurado</p>
+                  <p className="text-xs text-muted-foreground">{smsAtivo ? "Notificações ativas" : "Não configurado"}</p>
                 </div>
-                <Badge variant="secondary">Inativo</Badge>
+                <Badge className={smsAtivo ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/25" : ""} variant={smsAtivo ? "default" : "secondary"}>{smsAtivo ? "Ativo" : "Inativo"}</Badge>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
                 <Package className="h-5 w-5 text-muted-foreground" />
