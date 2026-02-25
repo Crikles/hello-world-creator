@@ -24,6 +24,7 @@ import AdminTemplates from "./pages/admin/AdminTemplates";
 import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
 import Rastreio from "./pages/Rastreio";
+import Taxacao from "./pages/Taxacao";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ function LojaRoutes() {
         <Route path="empresa" element={<Empresa />} />
         <Route path="integracoes" element={<Integracoes />} />
         <Route path="configuracoes" element={<Configuracoes />} />
+        <Route path="taxacao" element={<Taxacao />} />
       </Routes>
     </LojaProvider>
   );

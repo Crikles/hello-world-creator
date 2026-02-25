@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Package, LogIn } from "lucide-react";
+import { LogIn } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Login() {
@@ -30,11 +30,13 @@ export default function Login() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center">
-            <Package className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">Painel de Envios</h1>
-          <p className="text-sm text-muted-foreground">NFe + Rastreio Automático</p>
+          <img
+            src="/logo-magnus.png"
+            alt="Magnus Frete"
+            className="h-20 w-auto object-contain"
+          />
+          <h1 className="text-2xl font-bold text-foreground">Magnus Frete</h1>
+          <p className="text-sm text-muted-foreground">Gestão de Envios & Rastreio</p>
         </div>
 
         <Card>

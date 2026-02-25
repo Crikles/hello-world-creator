@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins, Mail } from "lucide-react";
+import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins, Mail, AlertTriangle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
@@ -49,6 +49,7 @@ export function AppSidebar() {
     { title: "Dashboard", url: base, icon: LayoutDashboard },
     { title: "Envios", url: `${base}/envios`, icon: Package },
     { title: "Postagens", url: `${base}/postagens`, icon: Mail },
+    { title: "Taxação", url: `${base}/taxacao`, icon: AlertTriangle },
     { title: "Empresa", url: `${base}/empresa`, icon: Building2 },
     { title: "Integrações", url: `${base}/integracoes`, icon: Plug },
     { title: "Configurações", url: `${base}/configuracoes`, icon: Settings },
@@ -63,12 +64,14 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
-            <Package className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
+          <img
+            src="/logo-magnus.png"
+            alt="Magnus Frete"
+            className="h-9 w-9 rounded-lg object-contain"
+          />
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-primary truncate">
-              {loja?.nome || "Painel de Envios"}
+              {loja?.nome || "Magnus Frete"}
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <Coins className="h-3 w-3 text-primary" />
