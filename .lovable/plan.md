@@ -1,96 +1,33 @@
 
-# Navbar - Layout com Logo, Links Centrais e Tag Lateral
+# Correção do Layout da Navbar - Flexbox horizontal
 
-## O que sera feito
+## Problema
 
-Reorganizar a navbar da pagina de rastreio em 3 secoes:
+O `.nav-inner` não tem `display: flex` e `justify-content: space-between`, fazendo com que os links e a tag "Transportes & Logística" apareçam empilhados abaixo da logo, em vez de ficarem distribuídos horizontalmente na mesma linha.
 
-- **Esquerda**: Logo (um pouco maior, ~180px)
-- **Centro**: Links de navegacao "Inicio", "Rastrear", "Contato"
-- **Direita**: Tag "Transportes & Logistica"
+## Correção
 
-Para mobile, os links centrais serao ocultados ou reorganizados com um menu hamburger simplificado.
-
----
-
-## Detalhes Tecnicos
+Adicionar as propriedades flexbox faltantes no `.nav-inner`:
 
 ### Arquivo: `src/pages/Rastreio.tsx`
 
-**JSX (linhas 139-146)** - Reestruturar a nav em 3 blocos:
-
-```tsx
-<nav className="main-nav">
-  <div className="nav-inner">
-    <div className="nav-brand">
-      <img src={logoUrl} alt={empresaNome} className="nav-logo" />
-    </div>
-    <div className="nav-links">
-      <a href="#" className="nav-link">Início</a>
-      <a href="#rastrear" className="nav-link">Rastrear</a>
-      <a href="#contato" className="nav-link">Contato</a>
-    </div>
-    <div className="nav-tag-wrapper">
-      <span className="brand-tag">Transportes & Logística</span>
-    </div>
-  </div>
-</nav>
-```
-
-**CSS** - Ajustar `.nav-inner` para `justify-content: space-between` e adicionar estilos dos links:
+**CSS (linhas 430-434)** - Adicionar flex layout ao `.nav-inner`:
 
 ```css
 .nav-inner {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* ... existente */
-}
-.nav-brand {
-  display: flex;
-  align-items: center;
-}
-.nav-logo {
-  height: auto;
-  width: 180px;
-}
-.nav-links {
-  display: flex;
-  gap: 32px;
-  align-items: center;
-}
-.nav-link {
-  font-size: 14px;
-  font-weight: 600;
-  color: #0f172a;
-  text-decoration: none;
-  letter-spacing: -0.3px;
-  transition: color 0.2s;
-}
-.nav-link:hover {
-  color: var(--primary);
-}
-.nav-tag-wrapper {
-  display: flex;
-  align-items: center;
 }
 ```
 
-**Mobile (media query 768px)** - Esconder links centrais e tag, manter so a logo:
+Isso vai distribuir os 3 blocos corretamente:
+- Esquerda: Logo
+- Centro: Links (Início, Rastrear, Contato)
+- Direita: Transportes & Logística
 
-```css
-@media (max-width: 768px) {
-  .nav-logo { width: 120px; }
-  .nav-links { display: none; }
-  .nav-tag-wrapper { display: none; }
-}
-```
-
----
-
-## Resumo
-
-| Arquivo | Mudanca |
-|---|---|
-| `src/pages/Rastreio.tsx` | JSX: reestruturar nav em 3 blocos (logo / links / tag) |
-| `src/pages/Rastreio.tsx` | CSS: layout flexbox space-between, estilos dos links, logo maior (180px), mobile esconde links e tag |
+Apenas 1 linha de mudança no CSS, nenhuma alteração no JSX.
