@@ -21,7 +21,7 @@ const smsMessages: Record<string, (name: string, link: string) => string> = {
   "Postado": (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
   "Em Transito": (name, link) => `Ola ${name}, seu produto esta em transito. Acesse: [${link}] para acompanhar.`,
   "Centro Local": (name, link) => `Ola ${name}, seu produto esta no centro de distribuicao. Acesse: [${link}] para acompanhar.`,
-  "Taxacao": (name, link) => `Ola ${name}, seu produto esta em observacao. Acesse: [${link}] e confira seu email.`,
+  "Taxacao": (name, link) => `Ola ${name}, seu produto esta em observacao. Confira seu e-mail e acesse: [${link}]`,
   "Pago": (name, link) => `Ola ${name}, pagamento confirmado. Acesse: [${link}] para acompanhar a entrega.`,
   "Saiu para Entrega": (name, link) => `Ola ${name}, seu produto saiu para entrega. Acesse: [${link}] para acompanhar.`,
   "Em Rota": (name, link) => `Ola ${name}, seu produto saiu para entrega. Acesse: [${link}] para acompanhar.`,
