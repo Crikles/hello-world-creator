@@ -306,7 +306,7 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                         </div>
                         <div className="flex justify-between">
                             <span className="font-bold text-slate-500 uppercase">Transportadora</span>
-                            <span className="font-bold text-[#020617]">{empresaNome}</span>
+                            <span className="font-bold text-[#020617]">JL Transportes</span>
                         </div>
 
                         <div className="h-px bg-slate-100 my-1" />
@@ -681,38 +681,20 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                             </div>
 
                             {/* Colors */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-medium">Cor do Header</Label>
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="color"
-                                            value={settings.cor_header}
-                                            onChange={(e) => set("cor_header", e.target.value)}
-                                            className="w-8 h-8 rounded cursor-pointer border border-border"
-                                        />
-                                        <Input
-                                            value={settings.cor_header}
-                                            onChange={(e) => set("cor_header", e.target.value)}
-                                            className="text-xs font-mono flex-1"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-medium">Cor do Botão</Label>
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="color"
-                                            value={settings.cor_botao}
-                                            onChange={(e) => set("cor_botao", e.target.value)}
-                                            className="w-8 h-8 rounded cursor-pointer border border-border"
-                                        />
-                                        <Input
-                                            value={settings.cor_botao}
-                                            onChange={(e) => set("cor_botao", e.target.value)}
-                                            className="text-xs font-mono flex-1"
-                                        />
-                                    </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-medium">Cor do Botão</Label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={settings.cor_botao}
+                                        onChange={(e) => set("cor_botao", e.target.value)}
+                                        className="w-8 h-8 rounded cursor-pointer border border-border"
+                                    />
+                                    <Input
+                                        value={settings.cor_botao}
+                                        onChange={(e) => set("cor_botao", e.target.value)}
+                                        className="text-xs font-mono flex-1"
+                                    />
                                 </div>
                             </div>
                         </CardContent>
