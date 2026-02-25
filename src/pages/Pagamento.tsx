@@ -61,25 +61,19 @@ export default function Pagamento() {
             try {
                 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
                 const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
                 const response = await fetch(
                     `${supabaseUrl}/functions/v1/pagamento-info?envio_id=${envioId}`,
                     {
                         method: "GET",
-                        headers: {
-                            "Authorization": `Bearer ${anonKey}`,
-                            "apikey": anonKey,
-                        },
+                        headers: { "Authorization": `Bearer ${anonKey}`, "apikey": anonKey },
                     }
                 );
-
                 if (!response.ok) {
                     const errBody = await response.json().catch(() => ({}));
                     setError(errBody.error || "Envio não encontrado");
                     setLoading(false);
                     return;
                 }
-
                 const result = await response.json();
                 if (result.envio) setEnvio(result.envio);
                 if (result.empresa) setEmpresa(result.empresa);
@@ -93,480 +87,552 @@ export default function Pagamento() {
         })();
     }, [envioId]);
 
-    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Loja";
+    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Magnus Frete";
     const logoUrl = empresa?.logo_url || "";
     const accentColor = tax.cor_botao || "#2563eb";
-    const headerColor = tax.cor_header || "#f59e0b";
 
-    // ─── Loading State ───
+    // Loading
     if (loading) {
         return (
-            <PageShell empresaNome="Carregando..." logoUrl="" accentColor="#6366f1">
-                <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "80px 24px",
-                }}>
-                    <div style={{ textAlign: "center" }}>
-                        <div style={{
-                            width: 40, height: 40,
-                            border: "3px solid rgba(255,255,255,0.1)",
-                            borderTopColor: "#6366f1",
-                            borderRadius: "50%",
-                            animation: "spin 0.8s linear infinite",
-                            margin: "0 auto 16px",
-                        }} />
-                        <p style={{ color: "#94a3b8", fontSize: 14 }}>Carregando...</p>
-                        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                    </div>
+            <div className="pag-root">
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+                <div className="pag-loading">
+                    <div className="pag-spinner" />
+                    <p>Carregando...</p>
                 </div>
-            </PageShell>
+                <style>{pagStyles}</style>
+            </div>
         );
     }
 
-    // ─── Error State ───
+    // Error
     if (error || !envio) {
         return (
-            <PageShell empresaNome="Pagamento" logoUrl="" accentColor="#6366f1">
-                <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "80px 24px",
-                }}>
-                    <div style={{
-                        textAlign: "center" as const,
-                        background: "rgba(30, 41, 59, 0.6)",
-                        border: "1px solid rgba(239, 68, 68, 0.3)",
-                        padding: 48,
-                        borderRadius: 24,
-                        maxWidth: 420,
-                        backdropFilter: "blur(20px)",
-                    }}>
-                        <div style={{ fontSize: 48, marginBottom: 12 }}>😕</div>
-                        <h2 style={{ color: "#f8fafc", fontSize: 22, fontWeight: 700, margin: "0 0 8px" }}>
-                            Página não encontrada
-                        </h2>
-                        <p style={{ color: "#94a3b8", fontSize: 14, margin: 0 }}>
-                            {error || "Este link pode ter expirado ou ser inválido."}
-                        </p>
+            <div className="pag-root">
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+                <PagHeader empresaNome="Pagamento" logoUrl="" />
+                <div className="pag-error-wrap">
+                    <div className="pag-error-card">
+                        <div className="pag-error-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 8v4" />
+                                <path d="M12 16h.01" />
+                            </svg>
+                        </div>
+                        <h2>Página não encontrada</h2>
+                        <p>{error || "Este link pode ter expirado ou ser inválido."}</p>
                     </div>
                 </div>
-            </PageShell>
+                <style>{pagStyles}</style>
+            </div>
         );
     }
 
-    // ─── Values ───
     const valor = parseFloat(tax.valor_exemplo) || 0;
     const valorFormatted = valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     return (
-        <PageShell empresaNome={empresaNome} logoUrl={logoUrl} accentColor={accentColor}>
-            {/* Hero gradient */}
-            <section style={{
-                position: "relative" as const,
-                overflow: "hidden",
-                padding: "60px 24px 40px",
-                background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
-            }}>
-                {/* Decorative orb */}
-                <div style={{
-                    position: "absolute" as const,
-                    top: -80, right: -60,
-                    width: 300, height: 300,
-                    borderRadius: "50%",
-                    background: `radial-gradient(circle, ${headerColor}15 0%, transparent 70%)`,
-                    pointerEvents: "none" as const,
-                }} />
+        <div className="pag-root">
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-                <div style={{
-                    maxWidth: 640,
-                    margin: "0 auto",
-                    textAlign: "center" as const,
-                    position: "relative" as const,
-                    zIndex: 1,
-                }}>
-                    <div style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 8,
-                        background: "rgba(245, 158, 11, 0.1)",
-                        border: "1px solid rgba(245, 158, 11, 0.25)",
-                        borderRadius: 20,
-                        padding: "6px 16px",
-                        marginBottom: 16,
-                    }}>
-                        <span style={{ fontSize: 14 }}>⚠️</span>
-                        <span style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: "#fbbf24",
-                            letterSpacing: 0.5,
-                            textTransform: "uppercase" as const,
-                        }}>
-                            Taxa de Importação
-                        </span>
+            {/* Header */}
+            <PagHeader empresaNome={empresaNome} logoUrl={logoUrl} />
+
+            {/* Hero */}
+            <section className="pag-hero">
+                <div className="pag-hero-bg-grid" />
+                <div className="pag-hero-glow pag-glow-1" />
+                <div className="pag-hero-glow pag-glow-2" />
+
+                <div className="pag-hero-content">
+                    <div className="pag-hero-badge">
+                        <span>⚠️</span>
+                        <span>Taxa de Importação</span>
                     </div>
-
-                    <h1 style={{
-                        margin: "0 0 8px",
-                        fontSize: "clamp(24px, 4vw, 36px)",
-                        fontWeight: 800,
-                        color: "#f8fafc",
-                        letterSpacing: -0.5,
-                    }}>
-                        Pagamento Pendente
+                    <h1 className="pag-hero-title">
+                        Pagamento <span className="pag-accent">Pendente</span>
                     </h1>
-                    <p style={{
-                        margin: 0,
-                        fontSize: 15,
-                        color: "#94a3b8",
-                    }}>
-                        Olá <strong style={{ color: "#e2e8f0" }}>{envio.cliente_nome || "Cliente"}</strong>, há uma taxa pendente no seu envio
+                    <p className="pag-hero-subtitle">
+                        Olá <strong>{envio.cliente_nome || "Cliente"}</strong>, há uma taxa pendente no seu envio
                     </p>
                 </div>
             </section>
 
             {/* Content */}
-            <section style={{
-                padding: "0 24px 60px",
-                marginTop: -10,
-            }}>
-                <div style={{
-                    maxWidth: 520,
-                    margin: "0 auto",
-                    display: "flex",
-                    flexDirection: "column" as const,
-                    gap: 20,
-                }}>
-                    {/* Tax Message Card */}
-                    <div style={{
-                        background: "rgba(30, 41, 59, 0.6)",
-                        border: "1px solid rgba(255,255,255,0.06)",
-                        borderRadius: 20,
-                        padding: "28px 32px",
-                        backdropFilter: "blur(20px)",
-                    }}>
-                        <p style={{
-                            margin: 0,
-                            fontSize: 15,
-                            color: "#cbd5e1",
-                            lineHeight: 1.7,
-                        }}>
-                            {tax.mensagem_taxa}
-                        </p>
+            <section className="pag-content">
+                <div className="pag-content-inner">
+                    {/* Tax message */}
+                    <div className="pag-msg-card">
+                        <div className="pag-msg-icon">📋</div>
+                        <div>
+                            <h3 className="pag-msg-title">Informações sobre a taxa</h3>
+                            <p className="pag-msg-text">{tax.mensagem_taxa}</p>
+                        </div>
                     </div>
 
-                    {/* Payment CTA Card */}
-                    <div style={{
-                        background: "rgba(30, 41, 59, 0.6)",
-                        border: `2px solid ${accentColor}33`,
-                        borderRadius: 20,
-                        overflow: "hidden",
-                        backdropFilter: "blur(20px)",
-                    }}>
-                        {/* Header strip */}
-                        <div style={{
-                            height: 4,
-                            background: `linear-gradient(90deg, ${headerColor}, ${accentColor})`,
-                        }} />
+                    {/* Payment CTA */}
+                    <div className="pag-cta-card">
+                        <div className="pag-cta-strip" style={{ background: `linear-gradient(90deg, ${tax.cor_header || "#f59e0b"}, ${accentColor})` }} />
 
-                        <div style={{
-                            padding: "32px 32px",
-                            textAlign: "center" as const,
-                        }}>
+                        <div className="pag-cta-body">
                             {tax.mostrar_valor && (
-                                <>
-                                    <p style={{
-                                        margin: "0 0 2px",
-                                        fontSize: 11,
-                                        color: "#64748b",
-                                        fontWeight: 600,
-                                        textTransform: "uppercase" as const,
-                                        letterSpacing: 1,
-                                    }}>
-                                        Valor da taxa
-                                    </p>
-                                    <p style={{
-                                        margin: "0 0 28px",
-                                        fontSize: 42,
-                                        fontWeight: 800,
-                                        color: "#f8fafc",
-                                        letterSpacing: -1.5,
-                                    }}>
-                                        <span style={{ fontSize: 22, color: "#94a3b8", fontWeight: 600 }}>R$ </span>
+                                <div className="pag-cta-valor">
+                                    <span className="pag-cta-label">Valor da taxa</span>
+                                    <span className="pag-cta-amount">
+                                        <span className="pag-cta-currency">R$ </span>
                                         {valorFormatted}
-                                    </p>
-                                </>
+                                    </span>
+                                </div>
                             )}
 
                             <a
                                 href={tax.url_pagamento || "#"}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                className="pag-cta-btn"
                                 style={{
-                                    display: "inline-block",
                                     background: `linear-gradient(135deg, ${accentColor}, ${accentColor}dd)`,
-                                    color: "#fff",
-                                    textDecoration: "none",
-                                    padding: "16px 56px",
-                                    borderRadius: 14,
-                                    fontSize: 16,
-                                    fontWeight: 800,
-                                    letterSpacing: 0.5,
                                     boxShadow: `0 4px 24px ${accentColor}44`,
-                                    transition: "all 0.25s",
-                                    cursor: "pointer",
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = "translateY(-3px)";
-                                    e.currentTarget.style.boxShadow = `0 8px 32px ${accentColor}55`;
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = "translateY(0)";
-                                    e.currentTarget.style.boxShadow = `0 4px 24px ${accentColor}44`;
                                 }}
                             >
                                 {tax.texto_botao}
                             </a>
 
                             {tax.mostrar_prazo && tax.prazo_dias && (
-                                <p style={{
-                                    margin: "16px 0 0",
-                                    fontSize: 12,
-                                    color: "#64748b",
-                                }}>
-                                    ⏰ Prazo: <strong style={{ color: "#94a3b8" }}>{tax.prazo_dias} dias</strong> para pagamento
+                                <p className="pag-cta-prazo">
+                                    ⏰ Prazo: <strong>{tax.prazo_dias} dias</strong> para pagamento
                                 </p>
                             )}
                         </div>
                     </div>
 
-                    {/* Order Info */}
-                    <div style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: 12,
-                    }}>
-                        <InfoCard icon="📦" label="Produto" value={envio.produto || "—"} />
-                        <InfoCard icon="🚛" label="Transportadora" value={envio.transportadora || "JL Transportes"} />
+                    {/* Info grid */}
+                    <div className="pag-info-grid">
+                        <div className="pag-info-tile">
+                            <span className="pag-info-label">📦 Produto</span>
+                            <span className="pag-info-value">{envio.produto || "—"}</span>
+                        </div>
+                        <div className="pag-info-tile">
+                            <span className="pag-info-label">🚛 Transportadora</span>
+                            <span className="pag-info-value">{envio.transportadora || "—"}</span>
+                        </div>
                     </div>
 
-                    {/* Tracking Code */}
+                    {/* Tracking code */}
                     {envio.codigo_rastreio && (
-                        <div style={{
-                            background: "rgba(30, 41, 59, 0.6)",
-                            border: "1px solid rgba(255,255,255,0.06)",
-                            borderRadius: 16,
-                            padding: "16px 20px",
-                            textAlign: "center" as const,
-                            backdropFilter: "blur(20px)",
-                        }}>
-                            <p style={{
-                                margin: "0 0 4px",
-                                fontSize: 10,
-                                fontWeight: 600,
-                                color: "#64748b",
-                                letterSpacing: 1,
-                                textTransform: "uppercase" as const,
-                            }}>
-                                🔍 Código de Rastreio
-                            </p>
-                            <Link
-                                to={`/r/${envio.codigo_rastreio}`}
-                                style={{
-                                    fontSize: 20,
-                                    fontWeight: 800,
-                                    color: "#818cf8",
-                                    letterSpacing: 2,
-                                    fontFamily: "'Courier New', Courier, monospace",
-                                    textDecoration: "none",
-                                    transition: "color 0.2s",
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.color = "#a5b4fc"; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.color = "#818cf8"; }}
-                            >
+                        <div className="pag-tracking-card">
+                            <span className="pag-tracking-label">🔍 Código de Rastreio</span>
+                            <Link to={`/r/${envio.codigo_rastreio}`} className="pag-tracking-code">
                                 {envio.codigo_rastreio}
                             </Link>
-                            <p style={{
-                                margin: "4px 0 0",
-                                fontSize: 11,
-                                color: "#475569",
-                            }}>
-                                Clique para rastrear seu envio
-                            </p>
+                            <span className="pag-tracking-hint">Clique para rastrear seu envio →</span>
                         </div>
                     )}
                 </div>
             </section>
-        </PageShell>
-    );
-}
-
-/* ─── Shared Layout Shell (same as Rastreio) ─── */
-function PageShell({
-    children,
-    empresaNome,
-    logoUrl,
-    accentColor,
-}: {
-    children: React.ReactNode;
-    empresaNome: string;
-    logoUrl: string;
-    accentColor: string;
-}) {
-    return (
-        <div style={{
-            minHeight: "100vh",
-            display: "flex",
-            flexDirection: "column" as const,
-            background: "#0f172a",
-            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-            WebkitFontSmoothing: "antialiased",
-        }}>
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-
-            {/* Header */}
-            <header style={{
-                background: "rgba(15, 23, 42, 0.95)",
-                backdropFilter: "blur(20px)",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
-                padding: "0 24px",
-                height: 72,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                position: "sticky" as const,
-                top: 0,
-                zIndex: 50,
-            }}>
-                <div style={{
-                    maxWidth: 1100,
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                        {logoUrl ? (
-                            <img
-                                src={logoUrl}
-                                alt={empresaNome}
-                                style={{
-                                    height: 40, width: 40,
-                                    borderRadius: 10,
-                                    objectFit: "cover" as const,
-                                    border: "2px solid rgba(255,255,255,0.1)",
-                                }}
-                            />
-                        ) : (
-                            <div style={{
-                                height: 40, width: 40,
-                                borderRadius: 10,
-                                background: `linear-gradient(135deg, ${accentColor}, ${accentColor}aa)`,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 18,
-                                fontWeight: 800,
-                                color: "#fff",
-                                border: "2px solid rgba(255,255,255,0.1)",
-                            }}>
-                                {empresaNome.charAt(0)}
-                            </div>
-                        )}
-                        <div>
-                            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#f8fafc", letterSpacing: -0.3 }}>
-                                {empresaNome}
-                            </p>
-                            <p style={{ margin: 0, fontSize: 11, color: "#64748b", fontWeight: 500, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
-                                Pagamento de Taxa
-                            </p>
-                        </div>
-                    </div>
-
-                    <nav style={{ display: "flex", gap: 8 }}>
-                        <NavLink href="/r" label="Rastreio" icon="📦" />
-                    </nav>
-                </div>
-            </header>
-
-            <main style={{ flex: 1 }}>{children}</main>
 
             {/* Footer */}
-            <footer style={{
-                borderTop: "1px solid rgba(255,255,255,0.06)",
-                padding: "40px 24px",
-                textAlign: "center" as const,
-            }}>
-                <p style={{ margin: "0 0 8px", fontSize: 13, color: "#475569" }}>
-                    © {new Date().getFullYear()} {empresaNome}. Todos os direitos reservados.
-                </p>
-                <p style={{ margin: 0, fontSize: 11, color: "#334155" }}>
-                    Rastreamento inteligente • Atualizações em tempo real
-                </p>
+            <footer className="pag-footer">
+                <div className="pag-footer-inner">
+                    <p>© {new Date().getFullYear()} {empresaNome}. Todos os direitos reservados.</p>
+                    <p className="pag-footer-sub">Rastreamento inteligente • Atualizações em tempo real</p>
+                </div>
             </footer>
+
+            <style>{pagStyles}</style>
         </div>
     );
 }
 
-function NavLink({ href, label, icon }: { href: string; label: string; icon: string }) {
+/* ─── Header Component ─── */
+function PagHeader({ empresaNome, logoUrl }: { empresaNome: string; logoUrl: string }) {
     return (
-        <Link
-            to={href}
-            style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 16px",
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#94a3b8",
-                background: "transparent",
-                textDecoration: "none",
-                transition: "all 0.2s",
-                border: "1px solid transparent",
-            }}
-        >
-            <span style={{ fontSize: 14 }}>{icon}</span>
-            {label}
-        </Link>
+        <header className="pag-header">
+            <div className="pag-header-inner">
+                <div className="pag-brand">
+                    {logoUrl ? (
+                        <img src={logoUrl} alt={empresaNome} className="pag-logo" />
+                    ) : (
+                        <img src="/logo-magnus.png" alt="Magnus Frete" className="pag-logo" />
+                    )}
+                    <span className="pag-brand-name">{empresaNome}</span>
+                </div>
+                <nav className="pag-nav">
+                    <Link to="/r" className="pag-nav-link">📦 Rastrear</Link>
+                </nav>
+            </div>
+        </header>
     );
 }
 
-function InfoCard({ icon, label, value }: { icon: string; label: string; value: string }) {
-    return (
-        <div style={{
-            background: "rgba(30, 41, 59, 0.6)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 14,
-            padding: "14px 16px",
-            backdropFilter: "blur(20px)",
-        }}>
-            <p style={{
-                margin: "0 0 4px",
-                fontSize: 10,
-                fontWeight: 600,
-                color: "#64748b",
-                letterSpacing: 0.5,
-                textTransform: "uppercase" as const,
-            }}>
-                <span style={{ marginRight: 4 }}>{icon}</span>
-                {label}
-            </p>
-            <p style={{
-                margin: 0,
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#e2e8f0",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap" as const,
-            }}>
-                {value}
-            </p>
-        </div>
-    );
-}
+/* ─── Styles ─── */
+const pagStyles = `
+    .pag-root {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #f8fafc;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        color: #1e293b;
+    }
+
+    /* Loading */
+    .pag-loading {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+    }
+    .pag-spinner {
+        width: 40px; height: 40px;
+        border: 3px solid #e2e8f0;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: pag-spin 0.8s linear infinite;
+    }
+    @keyframes pag-spin { to { transform: rotate(360deg); } }
+    .pag-loading p { color: #94a3b8; font-size: 14px; margin: 0; }
+
+    /* Error */
+    .pag-error-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 24px;
+    }
+    .pag-error-card {
+        background: #fff;
+        border: 1px solid #fecaca;
+        border-radius: 20px;
+        padding: 48px 40px;
+        text-align: center;
+        max-width: 420px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .pag-error-icon {
+        width: 56px; height: 56px;
+        border-radius: 50%;
+        background: #fef2f2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+    }
+    .pag-error-icon svg { width: 28px; height: 28px; color: #ef4444; }
+    .pag-error-card h2 { margin: 0 0 8px; font-size: 18px; font-weight: 700; color: #1e293b; }
+    .pag-error-card p { margin: 0; font-size: 14px; color: #64748b; }
+
+    /* Header */
+    .pag-header {
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        height: 72px;
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+    }
+    .pag-header-inner {
+        max-width: 1200px;
+        width: 100%;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .pag-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .pag-logo {
+        height: 44px;
+        width: auto;
+        object-fit: contain;
+    }
+    .pag-brand-name {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.5px;
+    }
+    .pag-nav { display: flex; gap: 8px; }
+    .pag-nav-link {
+        padding: 8px 20px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #64748b;
+        text-decoration: none;
+        border-radius: 10px;
+        transition: all 0.2s;
+    }
+    .pag-nav-link:hover { color: #0f172a; background: #f1f5f9; }
+
+    /* Hero */
+    .pag-hero {
+        position: relative;
+        overflow: hidden;
+        padding: 60px 24px 50px;
+        background: linear-gradient(135deg, #0a1628 0%, #0f2847 40%, #0c1f3d 70%, #0a1628 100%);
+    }
+    .pag-hero-bg-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 60px 60px;
+        pointer-events: none;
+    }
+    .pag-hero-glow {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        filter: blur(80px);
+    }
+    .pag-glow-1 {
+        width: 400px; height: 400px;
+        top: -150px; right: -80px;
+        background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%);
+    }
+    .pag-glow-2 {
+        width: 300px; height: 300px;
+        bottom: -120px; left: -60px;
+        background: radial-gradient(circle, rgba(37,99,235,0.1) 0%, transparent 70%);
+    }
+    .pag-hero-content {
+        max-width: 640px;
+        margin: 0 auto;
+        text-align: center;
+        position: relative;
+        z-index: 2;
+    }
+    .pag-hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        border-radius: 20px;
+        padding: 6px 16px;
+        margin-bottom: 16px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #fbbf24;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .pag-hero-title {
+        margin: 0 0 12px;
+        font-size: clamp(24px, 4vw, 40px);
+        font-weight: 800;
+        color: #ffffff;
+        letter-spacing: -0.5px;
+    }
+    .pag-accent {
+        background: linear-gradient(135deg, #f59e0b, #f97316);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .pag-hero-subtitle {
+        margin: 0;
+        font-size: 15px;
+        color: rgba(148, 163, 184, 0.9);
+    }
+    .pag-hero-subtitle strong { color: #e2e8f0; }
+
+    /* Content */
+    .pag-content {
+        padding: 40px 24px 60px;
+    }
+    .pag-content-inner {
+        max-width: 560px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    /* Message card */
+    .pag-msg-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 24px;
+        display: flex;
+        gap: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .pag-msg-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .pag-msg-title {
+        margin: 0 0 6px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .pag-msg-text {
+        margin: 0;
+        font-size: 14px;
+        color: #64748b;
+        line-height: 1.7;
+    }
+
+    /* CTA card */
+    .pag-cta-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    .pag-cta-strip {
+        height: 4px;
+    }
+    .pag-cta-body {
+        padding: 36px 32px;
+        text-align: center;
+    }
+    .pag-cta-valor {
+        margin-bottom: 28px;
+    }
+    .pag-cta-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+    }
+    .pag-cta-amount {
+        font-size: 44px;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -1.5px;
+    }
+    .pag-cta-currency {
+        font-size: 22px;
+        color: #94a3b8;
+        font-weight: 600;
+    }
+    .pag-cta-btn {
+        display: inline-block;
+        color: #fff;
+        text-decoration: none;
+        padding: 16px 56px;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        transition: all 0.25s;
+        cursor: pointer;
+    }
+    .pag-cta-btn:hover {
+        transform: translateY(-3px);
+        filter: brightness(1.1);
+    }
+    .pag-cta-prazo {
+        margin: 16px 0 0;
+        font-size: 12px;
+        color: #94a3b8;
+    }
+    .pag-cta-prazo strong { color: #64748b; }
+
+    /* Info grid */
+    .pag-info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .pag-info-tile {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .pag-info-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 600;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+    .pag-info-value {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Tracking card */
+    .pag-tracking-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .pag-tracking-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 600;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+    }
+    .pag-tracking-code {
+        display: block;
+        font-size: 22px;
+        font-weight: 800;
+        color: #3b82f6;
+        font-family: 'Courier New', Courier, monospace;
+        letter-spacing: 2px;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .pag-tracking-code:hover { color: #60a5fa; }
+    .pag-tracking-hint {
+        display: block;
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 4px;
+    }
+
+    /* Footer */
+    .pag-footer {
+        background: #0a1628;
+        padding: 32px 24px;
+        text-align: center;
+        margin-top: auto;
+    }
+    .pag-footer-inner p {
+        margin: 0;
+        font-size: 12px;
+        color: #475569;
+    }
+    .pag-footer-sub {
+        margin-top: 6px !important;
+        font-size: 11px !important;
+        color: #334155 !important;
+    }
+`;
