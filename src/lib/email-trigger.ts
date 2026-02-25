@@ -133,6 +133,23 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             console.log("Email sent for event:", nextEvent.nome);
         }
 
+        // SMS dispatch on "Coletado" event
+        if (
+            config.ativar_site_rastreio &&
+            nextEvent.status_label === "Coletado" &&
+            shipment.cliente_telefone
+        ) {
+            console.log("Dispatching SMS for envio:", envioId);
+            const { error: smsErr } = await supabase.functions.invoke("send-sms", {
+                body: { envio_id: envioId, loja_id: lojaId },
+            });
+            if (smsErr) {
+                console.error("SMS dispatch failed:", smsErr);
+            } else {
+                console.log("SMS sent successfully for envio:", envioId);
+            }
+        }
+
         return { status: newStatus, ultimoOrdem: nextEvent.ordem };
 
     } catch (err) {
