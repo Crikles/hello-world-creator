@@ -311,13 +311,27 @@ export default function Postagens() {
 
   const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
 
+  // Fetch system config values
+  const { data: systemConfigValues } = useQuery({
+    queryKey: ["system-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("system_config")
+        .select("key, value");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      (data || []).forEach((r: { key: string; value: number }) => { map[r.key] = Number(r.value); });
+      return map;
+    },
+  });
+
   const custoMoedas = (() => {
-    if (!localConfig) return 0;
+    if (!localConfig || !systemConfigValues) return 0;
     let total = 0;
-    if (localConfig.enviar_nfe_email) total += 1;
-    if (localConfig.enviar_emails) total += 1;
-    if (localConfig.ativar_site_rastreio) total += 0.25;
-    if (localConfig.ativar_taxacao) total += 1;
+    if (localConfig.enviar_nfe_email) total += systemConfigValues.custo_nfe_email ?? 1;
+    if (localConfig.enviar_emails) total += systemConfigValues.custo_email_rastreio ?? 1;
+    if (localConfig.ativar_site_rastreio) total += systemConfigValues.custo_sms_rastreio ?? 0.25;
+    if (localConfig.ativar_taxacao) total += systemConfigValues.custo_taxacao ?? 1;
     return total;
   })();
 

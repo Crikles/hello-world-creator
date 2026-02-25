@@ -603,6 +603,30 @@ export type Database = {
         }
         Relationships: []
       }
+      system_config: {
+        Row: {
+          created_at: string
+          key: string
+          label: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          label?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          label?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
