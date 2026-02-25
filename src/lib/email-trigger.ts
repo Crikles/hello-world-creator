@@ -133,15 +133,14 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             console.log("Email sent for event:", nextEvent.nome);
         }
 
-        // SMS dispatch on "Coletado" event
+        // SMS dispatch on all events
         if (
             config.ativar_site_rastreio &&
-            nextEvent.status_label === "Coletado" &&
             shipment.cliente_telefone
         ) {
-            console.log("Dispatching SMS for envio:", envioId);
+            console.log("Dispatching SMS for envio:", envioId, "status:", nextEvent.status_label);
             const { error: smsErr } = await supabase.functions.invoke("send-sms", {
-                body: { envio_id: envioId, loja_id: lojaId },
+                body: { envio_id: envioId, loja_id: lojaId, status_label: nextEvent.status_label },
             });
             if (smsErr) {
                 console.error("SMS dispatch failed:", smsErr);
