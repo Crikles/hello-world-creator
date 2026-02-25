@@ -65,13 +65,13 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <img
-            src="/logo-magnus.png"
-            alt="Magnus Frete"
+            src="/logojltransportes.png"
+            alt="Logística JL Transportes"
             className="h-9 w-9 rounded-lg object-contain"
           />
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-primary truncate">
-              {loja?.nome || "Magnus Frete"}
+              {loja?.nome || "Logística JL Transportes"}
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <Coins className="h-3 w-3 text-primary" />

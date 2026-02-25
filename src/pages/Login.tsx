@@ -31,11 +31,11 @@ export default function Login() {
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-3">
           <img
-            src="/logo-magnus.png"
-            alt="Magnus Frete"
+            src="/logojltransportes.png"
+            alt="Logística JL Transportes"
             className="h-20 w-auto object-contain"
           />
-          <h1 className="text-2xl font-bold text-foreground">Magnus Frete</h1>
+          <h1 className="text-2xl font-bold text-foreground">Logística JL Transportes</h1>
           <p className="text-sm text-muted-foreground">Gestão de Envios & Rastreio</p>
         </div>
 

@@ -1,5 +1,24 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
+import {
+    Package,
+    Search,
+    ArrowRight,
+    CheckCircle2,
+    Truck,
+    MapPin,
+    Calendar,
+    AlertTriangle,
+    Clock,
+    ShieldCheck,
+    ExternalLink,
+    ChevronRight,
+    Target,
+    BarChart3,
+    Star,
+    Zap,
+    Box
+} from "lucide-react";
 
 /* ─── Types ─── */
 interface EnvioData {
@@ -28,27 +47,20 @@ interface EventoData {
     delay_horas: number;
 }
 
-/* ─── Status config ─── */
-const statusConfig: Record<string, { icon: string; color: string; bg: string }> = {
-    "Postado": { icon: "📦", color: "#3b82f6", bg: "rgba(59,130,246,0.1)" },
-    "Coletado": { icon: "📋", color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
-    "Em Trânsito": { icon: "🚛", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    "Centro Local": { icon: "📍", color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
-    "Saiu para Entrega": { icon: "🏍️", color: "#f97316", bg: "rgba(249,115,22,0.1)" },
-    "Entregue": { icon: "✅", color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
-    "Taxação": { icon: "⚠️", color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
-    "Pago": { icon: "💳", color: "#10b981", bg: "rgba(16,185,129,0.1)" },
-    "Em Rota": { icon: "🚚", color: "#eab308", bg: "rgba(234,179,8,0.1)" },
+/* ─── Status Visual Config ─── */
+const statusConfig: Record<string, { icon: any; color: string; label: string }> = {
+    "Postado": { icon: Box, color: "#6366f1", label: "Postado" },
+    "Coletado": { icon: Zap, color: "#8b5cf6", label: "Coletado" },
+    "Em Trânsito": { icon: Truck, color: "#06b6d4", label: "Em Trânsito" },
+    "Centro Local": { icon: MapPin, color: "#fbbf24", label: "Centro Local" },
+    "Saiu para Entrega": { icon: Truck, color: "#f97316", label: "Saiu para Entrega" },
+    "Entregue": { icon: CheckCircle2, color: "#22c55e", label: "Entregue" },
+    "Taxação": { icon: AlertTriangle, color: "#ef4444", label: "Fiscalização" },
+    "Pago": { icon: ShieldCheck, color: "#10b981", label: "Taxa Paga" },
+    "Em Rota": { icon: Truck, color: "#eab308", label: "Em Rota" },
 };
 
-const shipmentLabels: Record<string, string> = {
-    pendente: "Pendente",
-    em_transito: "Em Trânsito",
-    saiu_para_entrega: "Saiu para Entrega",
-    entregue: "Entregue",
-};
-
-/* ─── Page ─── */
+/* ─── Page Component ─── */
 export default function Rastreio() {
     const { codigoParam } = useParams<{ codigoParam: string }>();
     const [searchParams] = useSearchParams();
@@ -79,7 +91,7 @@ export default function Rastreio() {
             );
             if (!response.ok) {
                 const errBody = await response.json().catch(() => ({}));
-                setError(errBody.error || "Código não encontrado");
+                setError(errBody.error || "Código não identificado no sistema");
                 setEnvio(null);
                 setEventos([]);
             } else {
@@ -88,10 +100,10 @@ export default function Rastreio() {
                 setEmpresa(result.empresa || null);
                 setEventos(result.eventos || []);
                 setTotalEventos(result.totalEventos || 0);
-                if (!result.envio) setError("Código não encontrado");
+                if (!result.envio) setError("Certifique-se de que o código está correto");
             }
         } catch {
-            setError("Erro ao buscar dados do rastreio");
+            setError("Ocorreu uma falha na conexão com os servidores");
         } finally {
             setLoading(false);
             setSearched(true);
@@ -113,204 +125,215 @@ export default function Rastreio() {
         window.history.replaceState(null, "", `/r/${cleaned}`);
     };
 
-    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Magnus Frete";
-    const logoUrl = empresa?.logo_url || "";
+    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes";
+    const logoUrl = empresa?.logo_url || "/logojltransportes.png";
     const progress = totalEventos > 0 && envio
-        ? Math.round((envio.ultimo_evento_ordem / totalEventos) * 100)
+        ? Math.min(100, Math.round((envio.ultimo_evento_ordem / totalEventos) * 100))
         : 0;
 
     return (
-        <div className="rastreio-root">
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+        <div className="rastreio-container">
+            <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-            {/* ═══════════ HEADER ═══════════ */}
-            <header className="rastreio-header">
-                <div className="rastreio-header-inner">
-                    <div className="rastreio-brand">
-                        {logoUrl ? (
-                            <img src={logoUrl} alt={empresaNome} className="rastreio-logo" />
-                        ) : (
-                            <img src="/logo-magnus.png" alt="Magnus Frete" className="rastreio-logo" />
-                        )}
-                        <span className="rastreio-brand-name">{empresaNome}</span>
+            {/* ═══════════ NAVIGATION ═══════════ */}
+            <nav className="main-nav">
+                <div className="nav-inner">
+                    <div className="nav-brand">
+                        <img src={logoUrl} alt={empresaNome} className="nav-logo" />
+                        <div className="brand-text">
+                            <span className="brand-name">{empresaNome}</span>
+                            <span className="brand-tag">Transportes & Logística</span>
+                        </div>
                     </div>
-                    <nav className="rastreio-nav">
-                        <a href="#rastrear" className="rastreio-nav-link active">Rastrear</a>
-                        <a href="#contato" className="rastreio-nav-link">Contato</a>
-                    </nav>
                 </div>
-            </header>
+            </nav>
 
-            {/* ═══════════ HERO ═══════════ */}
-            <section className="rastreio-hero">
-                {/* Background decorations */}
-                <div className="hero-bg-grid" />
-                <div className="hero-glow hero-glow-1" />
-                <div className="hero-glow hero-glow-2" />
-                <div className="hero-particles">
-                    <div className="particle p1">📦</div>
-                    <div className="particle p2">🚛</div>
-                    <div className="particle p3">✈️</div>
+            {/* ═══════════ HERO SECTION ═══════════ */}
+            <section className="hero-section">
+                <div className="industrial-grid" />
+                <div className="hero-decoration">
+                    <div className="glow-orb" />
                 </div>
 
-                <div className="hero-content" id="rastrear">
-                    <h1 className="hero-title">
-                        Rastreie sua encomenda<br />
-                        <span className="hero-title-accent">em tempo real</span>
-                    </h1>
-                    <p className="hero-subtitle">
-                        Digite o código abaixo e acompanhe sua encomenda
-                    </p>
+                <div className="hero-content">
+                    <div className="title-area">
+                        <div className="badge">
+                            <Zap size={14} className="text-primary" strokeWidth={3} />
+                            <span>GLOBAL TRACKING ENGINE</span>
+                        </div>
+                        <h1 className="main-title">
+                            Monitore sua <span className="highlight">entrega</span> <br />
+                            em cada etapa do caminho
+                        </h1>
+                        <p className="hero-desc">
+                            Rastreamento de alta precisão com sincronização em tempo real. <br />
+                            Transparência total desde o despacho até a sua porta.
+                        </p>
+                    </div>
 
-                    {/* Search */}
-                    <form onSubmit={handleSearch} className="hero-search">
-                        <div className="hero-search-inner">
-                            <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="11" cy="11" r="8" />
-                                <path d="m21 21-4.3-4.3" />
-                            </svg>
+                    <form onSubmit={handleSearch} className="search-box">
+                        <div className="search-input-wrapper">
+                            <Search className="search-icon" size={20} />
                             <input
-                                id="tracking-input"
                                 type="text"
                                 value={searchInput}
                                 onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
-                                placeholder="Ex: JL123456789BR"
-                                className="hero-input"
+                                placeholder="DIGITE O CÓDIGO DE RASTREIO"
+                                className="main-input"
                             />
                             <button
                                 type="submit"
-                                disabled={loading || searchInput.trim().length < 3}
-                                className="hero-btn"
+                                disabled={loading}
+                                className="search-submit"
                             >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
-                                    <circle cx="11" cy="11" r="8" />
-                                    <path d="m21 21-4.3-4.3" />
-                                </svg>
-                                {loading ? "Buscando..." : "Rastrear"}
+                                {loading ? (
+                                    <div className="spinner" />
+                                ) : (
+                                    <>
+                                        <span>RASTREAR</span>
+                                        <ArrowRight size={18} />
+                                    </>
+                                )}
                             </button>
                         </div>
                     </form>
 
-                    {/* Stats */}
-                    <div className="hero-stats">
-                        <div className="hero-stat">
-                            <div className="stat-icon">🎯</div>
-                            <div className="stat-value">98%</div>
-                            <div className="stat-label">Satisfação garantida</div>
+                    <div className="quick-stats">
+                        <div className="q-stat">
+                            <Target size={20} className="q-icon" />
+                            <div className="q-text">
+                                <span className="q-val">99.8%</span>
+                                <span className="q-lab">Precisão de Rota</span>
+                            </div>
                         </div>
-                        <div className="hero-stat">
-                            <div className="stat-icon">📈</div>
-                            <div className="stat-value">+12k</div>
-                            <div className="stat-label">Entregas realizadas</div>
+                        <div className="q-stat">
+                            <BarChart3 size={20} className="q-icon" />
+                            <div className="q-text">
+                                <span className="q-val">+2M</span>
+                                <span className="q-lab">Envios Mensais</span>
+                            </div>
                         </div>
-                        <div className="hero-stat">
-                            <div className="stat-icon">⭐</div>
-                            <div className="stat-value">4.7/5</div>
-                            <div className="stat-label">Avaliação média</div>
+                        <div className="q-stat">
+                            <Star size={20} className="q-icon" />
+                            <div className="q-text">
+                                <span className="q-val">24/7</span>
+                                <span className="q-lab">Suporte Ativo</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* ═══════════ RESULTS ═══════════ */}
+            {/* ═══════════ RESULTS SECTION ═══════════ */}
             {searched && (
-                <section className="rastreio-results">
-                    <div className="results-container">
-                        {/* Error */}
-                        {error && !envio && (
-                            <div className="result-error">
-                                <div className="error-icon-wrap">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="error-icon">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <path d="M12 8v4" />
-                                        <path d="M12 16h.01" />
-                                    </svg>
+                <section className="results-section">
+                    <div className="results-wrapper">
+                        {error && !envio ? (
+                            <div className="error-state">
+                                <div className="error-visual">
+                                    <AlertTriangle size={48} />
                                 </div>
-                                <h3 className="error-title">Não encontrado</h3>
-                                <p className="error-desc">Código de rastreamento inválido ou não registrado.</p>
+                                <h2>Informação não localizada</h2>
+                                <p>{error}</p>
+                                <button onClick={() => window.location.reload()} className="retry-btn">Tentar novamente</button>
                             </div>
-                        )}
-
-                        {/* Results */}
-                        {envio && (
-                            <div className="results-grid">
-                                {/* Left: Info */}
-                                <div className="result-card result-info">
-                                    {/* Status badge + progress */}
-                                    <div className="info-status-row">
-                                        <div className="status-badge" data-delivered={envio.status === "entregue" ? "true" : "false"}>
-                                            <span>{envio.status === "entregue" ? "✅" : "📦"}</span>
-                                            {shipmentLabels[envio.status] || envio.status}
+                        ) : envio && (
+                            <div className="data-layout">
+                                {/* Left Side: Details & Highlights */}
+                                <div className="data-sidebar">
+                                    <div className="package-label-card">
+                                        <div className="label-header">
+                                            <div className="label-status">
+                                                <div className="pulse-dot" />
+                                                <span>{envio.status.toUpperCase()}</span>
+                                            </div>
+                                            <Package size={20} />
                                         </div>
-                                        <span className="progress-text">{progress}%</span>
+
+                                        <div className="label-tracking">
+                                            <span className="label-tag">IDENTIFIER</span>
+                                            <div className="tracking-number">{envio.codigo_rastreio}</div>
+                                        </div>
+
+                                        <div className="label-grid">
+                                            <div className="label-item">
+                                                <span className="label-tag">PRODUTO</span>
+                                                <span className="label-val">{envio.produto || "Encomenda"}</span>
+                                            </div>
+                                            <div className="label-item">
+                                                <span className="label-tag">TRANSPORTADORA</span>
+                                                <span className="label-val">{envio.transportadora}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="progress-container">
+                                            <div className="progress-info">
+                                                <span>Progresso da Entrega</span>
+                                                <span>{progress}%</span>
+                                            </div>
+                                            <div className="progress-track">
+                                                <div className="progress-fill" style={{ width: `${progress}%` }} />
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* Progress bar */}
-                                    <div className="progress-bar-track">
-                                        <div
-                                            className="progress-bar-fill"
-                                            data-delivered={envio.status === "entregue" ? "true" : "false"}
-                                            style={{ width: `${progress}%` }}
-                                        />
-                                    </div>
-
-                                    {/* Tracking code */}
-                                    <div className="tracking-code-section">
-                                        <label className="field-label">Código de rastreio</label>
-                                        <div className="tracking-code">{envio.codigo_rastreio}</div>
-                                    </div>
-
-                                    {/* Info grid */}
-                                    <div className="info-grid">
-                                        <InfoTile icon="📦" label="Produto" value={envio.produto || "—"} />
-                                        <InfoTile icon="🚛" label="Transportadora" value={envio.transportadora} />
-                                        <InfoTile icon="👤" label="Destinatário" value={envio.cliente_nome} />
-                                        <InfoTile icon="📅" label="Data Envio" value={new Date(envio.created_at).toLocaleDateString("pt-BR")} />
+                                    <div className="meta-info-area">
+                                        <div className="meta-tile">
+                                            <UserIcon />
+                                            <div className="meta-content">
+                                                <span className="meta-label">Destinatário</span>
+                                                <span className="meta-value">{envio.cliente_nome}</span>
+                                            </div>
+                                        </div>
+                                        <div className="meta-tile">
+                                            <CalendarIcon />
+                                            <div className="meta-content">
+                                                <span className="meta-label">Despachado em</span>
+                                                <span className="meta-value">{new Date(envio.created_at).toLocaleDateString("pt-BR")}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Right: Timeline */}
-                                <div className="result-card result-timeline">
-                                    <h3 className="timeline-title">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 20, height: 20 }}>
-                                            <path d="M12 8v4l3 3" />
-                                            <circle cx="12" cy="12" r="10" />
-                                        </svg>
-                                        Histórico de movimentação
-                                    </h3>
+                                {/* Right Side: Intelligent Timeline */}
+                                <div className="data-main">
+                                    <div className="timeline-header">
+                                        <h3>ATIVIDADE RECENTE</h3>
+                                        <div className="sync-info">
+                                            <Clock size={12} />
+                                            <span>Sincronizado há poucos segundos</span>
+                                        </div>
+                                    </div>
 
                                     {eventos.length === 0 ? (
-                                        <p className="timeline-empty">Nenhuma movimentação registrada ainda.</p>
+                                        <div className="empty-timeline">
+                                            <p>Aguardando atualizações da transportadora para este código.</p>
+                                        </div>
                                     ) : (
-                                        <div className="timeline">
+                                        <div className="journey-line">
                                             {[...eventos].reverse().map((ev, idx) => {
                                                 const isLatest = idx === 0;
-                                                const cfg = statusConfig[ev.status_label || ""] || { icon: "📌", color: "#64748b", bg: "rgba(100,116,139,0.1)" };
+                                                const config = statusConfig[ev.status_label || ""] || { icon: MapPin, color: "#64748b", label: "Atualização" };
+                                                const Icon = config.icon;
 
                                                 return (
-                                                    <div key={ev.ordem} className={`timeline-item ${isLatest ? "latest" : ""}`}>
-                                                        <div className="timeline-line" />
-                                                        <div
-                                                            className="timeline-dot"
-                                                            style={{
-                                                                background: isLatest ? cfg.color : "transparent",
-                                                                borderColor: isLatest ? cfg.color : "rgba(100,116,139,0.3)",
-                                                                boxShadow: isLatest ? `0 0 16px ${cfg.color}40` : "none",
-                                                            }}
-                                                        >
-                                                            <span className="timeline-dot-icon">{cfg.icon}</span>
-                                                        </div>
-                                                        <div className="timeline-content">
-                                                            <div className="timeline-header">
-                                                                <span className="timeline-name">{ev.nome}</span>
-                                                                {isLatest && (
-                                                                    <span className="timeline-badge" style={{ color: cfg.color, borderColor: `${cfg.color}40`, background: cfg.bg }}>
-                                                                        Atual
-                                                                    </span>
-                                                                )}
+                                                    <div key={ev.ordem} className={`journey-point ${isLatest ? 'latest' : ''}`}>
+                                                        <div className="point-indicator">
+                                                            <div className="indicator-line" />
+                                                            <div className="indicator-node" style={{ backgroundColor: isLatest ? config.color : undefined, borderColor: isLatest ? config.color : undefined }}>
+                                                                <Icon size={16} color={isLatest ? "white" : "#64748b"} />
                                                             </div>
-                                                            {ev.descricao && <p className="timeline-desc">{ev.descricao}</p>}
-                                                            <span className="timeline-label">{ev.status_label || "Atualização"}</span>
+                                                        </div>
+                                                        <div className="point-content">
+                                                            <div className="point-header">
+                                                                <span className="point-title">{ev.nome}</span>
+                                                                {isLatest && <span className="current-badge">LOCALIZAÇÃO ATUAL</span>}
+                                                            </div>
+                                                            {ev.descricao && <p className="point-desc">{ev.descricao}</p>}
+                                                            <div className="point-footer">
+                                                                <span className="point-meta">{ev.status_label}</span>
+                                                                <span className="point-date">{new Date(envio.updated_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );
@@ -325,662 +348,573 @@ export default function Rastreio() {
             )}
 
             {/* ═══════════ FOOTER ═══════════ */}
-            <footer className="rastreio-footer" id="contato">
-                <div className="footer-inner">
-                    <div className="footer-grid">
-                        <div className="footer-col footer-about">
-                            <div className="footer-brand">
-                                {logoUrl ? (
-                                    <img src={logoUrl} alt={empresaNome} className="footer-logo" />
-                                ) : (
-                                    <img src="/logo-magnus.png" alt="Magnus Frete" className="footer-logo" />
-                                )}
-                                <span className="footer-brand-name">{empresaNome}</span>
+            <footer className="site-footer">
+                <div className="footer-content">
+                    <div className="footer-top">
+                        <div className="f-brand">
+                            <img src={logoUrl} alt={empresaNome} />
+                            <p>Soluções completas em logística<br />e transporte de encomendas.</p>
+                        </div>
+                        <div className="f-links">
+                            <div className="f-col">
+                                <h5>CONTATO</h5>
+                                <a href="mailto:contato@logisticajltransportes.com">contato@logisticajltransportes.com</a>
+                                <a href="tel:08006589589">0800 658 9589</a>
                             </div>
-                            <p className="footer-desc">
-                                Transportadora líder em operações logísticas. Reconhecida de todos os Portos por segurança e eficiência.
-                            </p>
-                        </div>
-                        <div className="footer-col">
-                            <h4 className="footer-heading">Links Rápidos</h4>
-                            <a href="#rastrear" className="footer-link">Rastrear Encomenda</a>
-                            <a href="#contato" className="footer-link">Sobre a Empresa</a>
-                        </div>
-                        <div className="footer-col">
-                            <h4 className="footer-heading">Contato</h4>
-                            <p className="footer-contact">📧 suporte@magnusfrete.com</p>
-                            <p className="footer-contact">📞 (11) 9999-9999</p>
-                        </div>
-                        <div className="footer-col">
-                            <h4 className="footer-heading">Certificações</h4>
-                            <div className="footer-badges">
-                                <span className="footer-cert">🔒 SSL/HTTPS</span>
-                                <span className="footer-cert">✅ Confiável</span>
+                            <div className="f-col">
+                                <h5>INFORMAÇÕES</h5>
+                                <a href="#">Termos de Serviço</a>
+                                <a href="#">Política de Privacidade</a>
                             </div>
                         </div>
                     </div>
                     <div className="footer-bottom">
-                        <p>© {new Date().getFullYear()} {empresaNome}. Todos os direitos reservados.</p>
+                        <span>© {new Date().getFullYear()} {empresaNome}. Todos os direitos reservados.</span>
+                        <div className="security-capsules">
+                            <div className="cap"><ShieldCheck size={12} /> 256-BIT SSL</div>
+                            <div className="cap"><CheckCircle2 size={12} /> VERIFICADO</div>
+                        </div>
                     </div>
                 </div>
             </footer>
 
-            {/* ═══════════ STYLES ═══════════ */}
-            <style>{`
-                /* ─── Reset & Base ─── */
-                .rastreio-root {
-                    min-height: 100vh;
-                    display: flex;
-                    flex-direction: column;
-                    background: #f8fafc;
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    -webkit-font-smoothing: antialiased;
-                    color: #1e293b;
-                }
-
-                /* ─── HEADER ─── */
-                .rastreio-header {
-                    background: #fff;
-                    border-bottom: 1px solid #e2e8f0;
-                    position: sticky;
-                    top: 0;
-                    z-index: 100;
-                    height: 72px;
-                    display: flex;
-                    align-items: center;
-                    padding: 0 24px;
-                }
-                .rastreio-header-inner {
-                    max-width: 1200px;
-                    width: 100%;
-                    margin: 0 auto;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                }
-                .rastreio-brand {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                }
-                .rastreio-logo {
-                    height: 44px;
-                    width: auto;
-                    object-fit: contain;
-                }
-                .rastreio-brand-name {
-                    font-size: 20px;
-                    font-weight: 800;
-                    color: #0f172a;
-                    letter-spacing: -0.5px;
-                }
-                .rastreio-nav {
-                    display: flex;
-                    gap: 8px;
-                }
-                .rastreio-nav-link {
-                    padding: 8px 20px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    color: #64748b;
-                    text-decoration: none;
-                    border-radius: 10px;
-                    transition: all 0.2s;
-                }
-                .rastreio-nav-link:hover {
-                    color: #0f172a;
-                    background: #f1f5f9;
-                }
-                .rastreio-nav-link.active {
-                    color: #0f172a;
-                    background: #f1f5f9;
-                }
-
-                /* ─── HERO ─── */
-                .rastreio-hero {
-                    position: relative;
-                    overflow: hidden;
-                    padding: 80px 24px 70px;
-                    background: linear-gradient(135deg, #0a1628 0%, #0f2847 40%, #0c1f3d 70%, #0a1628 100%);
-                }
-                .hero-bg-grid {
-                    position: absolute;
-                    inset: 0;
-                    background-image:
-                        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-                    background-size: 60px 60px;
-                    pointer-events: none;
-                }
-                .hero-glow {
-                    position: absolute;
-                    border-radius: 50%;
-                    pointer-events: none;
-                    filter: blur(80px);
-                }
-                .hero-glow-1 {
-                    width: 500px; height: 500px;
-                    top: -200px; right: -100px;
-                    background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%);
-                }
-                .hero-glow-2 {
-                    width: 400px; height: 400px;
-                    bottom: -200px; left: -100px;
-                    background: radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 70%);
-                }
-                .hero-particles {
-                    position: absolute;
-                    inset: 0;
-                    pointer-events: none;
-                    overflow: hidden;
-                }
-                .particle {
-                    position: absolute;
-                    font-size: 20px;
-                    opacity: 0.15;
-                    animation: float 12s ease-in-out infinite;
-                }
-                .p1 { top: 15%; left: 10%; animation-delay: 0s; }
-                .p2 { top: 60%; right: 8%; animation-delay: -4s; }
-                .p3 { bottom: 20%; left: 25%; animation-delay: -8s; }
-                @keyframes float {
-                    0%, 100% { transform: translateY(0px) rotate(0deg); }
-                    33% { transform: translateY(-15px) rotate(5deg); }
-                    66% { transform: translateY(8px) rotate(-3deg); }
-                }
-
-                .hero-content {
-                    max-width: 680px;
-                    margin: 0 auto;
-                    text-align: center;
-                    position: relative;
-                    z-index: 2;
-                }
-                .hero-title {
-                    margin: 0 0 16px;
-                    font-size: clamp(30px, 5vw, 48px);
-                    font-weight: 800;
-                    color: #ffffff;
-                    line-height: 1.15;
-                    letter-spacing: -1px;
-                }
-                .hero-title-accent {
-                    background: linear-gradient(135deg, #38bdf8, #06b6d4);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                }
-                .hero-subtitle {
-                    margin: 0 0 36px;
-                    font-size: 16px;
-                    color: rgba(148, 163, 184, 0.9);
-                    line-height: 1.6;
-                }
-
-                /* Search */
-                .hero-search {
-                    max-width: 560px;
-                    margin: 0 auto 40px;
-                }
-                .hero-search-inner {
-                    display: flex;
-                    align-items: center;
-                    background: rgba(255,255,255,0.07);
-                    border: 2px solid rgba(255,255,255,0.1);
-                    border-radius: 16px;
-                    overflow: hidden;
-                    transition: border-color 0.3s, box-shadow 0.3s;
-                    position: relative;
-                }
-                .hero-search-inner:focus-within {
-                    border-color: rgba(56,189,248,0.5);
-                    box-shadow: 0 0 30px rgba(56,189,248,0.12);
-                }
-                .search-icon {
-                    width: 20px; height: 20px;
-                    margin-left: 20px;
-                    color: rgba(148,163,184,0.6);
-                    flex-shrink: 0;
-                }
-                .hero-input {
-                    flex: 1;
-                    height: 56px;
-                    padding: 0 16px;
-                    background: transparent;
-                    border: none;
-                    outline: none;
-                    font-size: 16px;
-                    font-weight: 600;
-                    font-family: 'Courier New', Courier, monospace;
-                    letter-spacing: 1.5px;
-                    color: #f1f5f9;
-                }
-                .hero-input::placeholder {
-                    color: rgba(100,116,139,0.6);
-                    font-weight: 400;
-                    letter-spacing: 0;
-                    font-family: 'Inter', sans-serif;
-                }
-                .hero-btn {
-                    height: 44px;
-                    padding: 0 28px;
-                    margin-right: 6px;
-                    font-size: 14px;
-                    font-weight: 700;
-                    font-family: 'Inter', sans-serif;
-                    color: #fff;
-                    background: linear-gradient(135deg, #0ea5e9, #0284c7);
-                    border: none;
-                    border-radius: 12px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    white-space: nowrap;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    flex-shrink: 0;
-                }
-                .hero-btn:hover:not(:disabled) {
-                    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
-                    transform: translateY(-1px);
-                    box-shadow: 0 4px 20px rgba(14,165,233,0.3);
-                }
-                .hero-btn:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }
-
-                /* Stats */
-                .hero-stats {
-                    display: flex;
-                    justify-content: center;
-                    gap: 24px;
-                    flex-wrap: wrap;
-                }
-                .hero-stat {
-                    background: rgba(255,255,255,0.05);
-                    border: 1px solid rgba(255,255,255,0.08);
-                    border-radius: 16px;
-                    padding: 18px 28px;
-                    min-width: 140px;
-                    text-align: center;
-                    backdrop-filter: blur(8px);
-                    transition: transform 0.2s, border-color 0.2s;
-                }
-                .hero-stat:hover {
-                    transform: translateY(-2px);
-                    border-color: rgba(56,189,248,0.2);
-                }
-                .stat-icon {
-                    font-size: 18px;
-                    margin-bottom: 6px;
-                }
-                .stat-value {
-                    font-size: 24px;
-                    font-weight: 800;
-                    color: #f1f5f9;
-                    letter-spacing: -0.5px;
-                }
-                .stat-label {
-                    font-size: 11px;
-                    color: rgba(148,163,184,0.7);
-                    font-weight: 500;
-                    margin-top: 2px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-
-                /* ─── RESULTS ─── */
-                .rastreio-results {
-                    padding: 40px 24px 60px;
-                    background: #f8fafc;
-                }
-                .results-container {
-                    max-width: 1100px;
-                    margin: 0 auto;
-                }
-
-                /* Error */
-                .result-error {
-                    max-width: 480px;
-                    margin: 0 auto;
-                    background: #fff;
-                    border: 1px solid #fecaca;
-                    border-radius: 20px;
-                    padding: 48px 32px;
-                    text-align: center;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-                }
-                .error-icon-wrap {
-                    margin: 0 auto 16px;
-                    width: 56px; height: 56px;
-                    border-radius: 50%;
-                    background: #fef2f2;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .error-icon { width: 28px; height: 28px; color: #ef4444; }
-                .error-title { margin: 0 0 8px; font-size: 18px; font-weight: 700; color: #1e293b; }
-                .error-desc { margin: 0; font-size: 14px; color: #64748b; }
-
-                /* Results grid */
-                .results-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 24px;
-                }
-                @media (max-width: 800px) {
-                    .results-grid { grid-template-columns: 1fr; }
-                }
-
-                .result-card {
-                    background: #fff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 20px;
-                    padding: 32px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-                }
-
-                /* Info card */
-                .info-status-row {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 16px;
-                }
-                .status-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    padding: 6px 16px;
-                    border-radius: 10px;
-                    font-size: 12px;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    background: rgba(59,130,246,0.08);
-                    color: #3b82f6;
-                    border: 1px solid rgba(59,130,246,0.15);
-                }
-                .status-badge[data-delivered="true"] {
-                    background: rgba(34,197,94,0.08);
-                    color: #16a34a;
-                    border-color: rgba(34,197,94,0.15);
-                }
-                .progress-text {
-                    font-size: 14px;
-                    font-weight: 700;
-                    color: #64748b;
-                }
-                .progress-bar-track {
-                    height: 6px;
-                    background: #f1f5f9;
-                    border-radius: 3px;
-                    margin-bottom: 28px;
-                    overflow: hidden;
-                }
-                .progress-bar-fill {
-                    height: 100%;
-                    background: linear-gradient(90deg, #3b82f6, #0ea5e9);
-                    border-radius: 3px;
-                    transition: width 0.6s ease;
-                }
-                .progress-bar-fill[data-delivered="true"] {
-                    background: linear-gradient(90deg, #22c55e, #4ade80);
-                }
-
-                .tracking-code-section {
-                    margin-bottom: 24px;
-                }
-                .field-label {
-                    display: block;
-                    font-size: 10px;
-                    font-weight: 600;
-                    color: #94a3b8;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                    margin-bottom: 4px;
-                }
-                .tracking-code {
-                    font-size: 22px;
-                    font-weight: 800;
-                    color: #0f172a;
-                    font-family: 'Courier New', Courier, monospace;
-                    letter-spacing: 2px;
-                }
-
-                .info-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 12px;
-                }
-                .info-tile {
-                    background: #f8fafc;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 12px;
-                    padding: 14px 16px;
-                }
-                .info-tile-label {
-                    margin: 0 0 4px;
-                    font-size: 10px;
-                    font-weight: 600;
-                    color: #94a3b8;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .info-tile-value {
-                    margin: 0;
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #1e293b;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
-
-                /* Timeline */
-                .result-timeline {
-                    max-height: 500px;
-                    overflow-y: auto;
-                }
-                .timeline-title {
-                    margin: 0 0 24px;
-                    font-size: 16px;
-                    font-weight: 700;
-                    color: #0f172a;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-                .timeline-empty {
-                    text-align: center;
-                    color: #94a3b8;
-                    font-size: 14px;
-                    padding: 32px 0;
-                }
-
-                .timeline {
-                    position: relative;
-                }
-                .timeline-item {
-                    display: flex;
-                    gap: 16px;
-                    padding: 14px 0;
-                    position: relative;
-                }
-                .timeline-line {
-                    position: absolute;
-                    left: 19px;
-                    top: 50px;
-                    bottom: -14px;
-                    width: 2px;
-                    background: #e2e8f0;
-                }
-                .timeline-item:last-child .timeline-line { display: none; }
-
-                .timeline-dot {
-                    width: 40px; height: 40px;
-                    border-radius: 12px;
-                    border: 2px solid;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    z-index: 1;
-                    background: #fff;
-                    transition: all 0.2s;
-                }
-                .timeline-dot-icon { font-size: 16px; }
-
-                .timeline-content { flex: 1; padding-top: 4px; }
-                .timeline-header {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    margin-bottom: 4px;
-                    flex-wrap: wrap;
-                }
-                .timeline-name {
-                    font-size: 14px;
-                    font-weight: 600;
-                    color: #334155;
-                }
-                .timeline-item.latest .timeline-name {
-                    color: #0f172a;
-                    font-weight: 700;
-                }
-                .timeline-badge {
-                    font-size: 10px;
-                    font-weight: 700;
-                    padding: 2px 10px;
-                    border-radius: 6px;
-                    border: 1px solid;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .timeline-desc {
-                    margin: 0 0 4px;
-                    font-size: 13px;
-                    color: #64748b;
-                    line-height: 1.5;
-                }
-                .timeline-label {
-                    font-size: 11px;
-                    color: #94a3b8;
-                    font-weight: 500;
-                }
-
-                /* ─── FOOTER ─── */
-                .rastreio-footer {
-                    background: #0a1628;
-                    color: #94a3b8;
-                    padding: 60px 24px 0;
-                    margin-top: auto;
-                }
-                .footer-inner {
-                    max-width: 1100px;
-                    margin: 0 auto;
-                }
-                .footer-grid {
-                    display: grid;
-                    grid-template-columns: 1.5fr 1fr 1fr 1fr;
-                    gap: 40px;
-                    padding-bottom: 40px;
-                    border-bottom: 1px solid rgba(255,255,255,0.06);
-                }
-                @media (max-width: 800px) {
-                    .footer-grid { grid-template-columns: 1fr 1fr; }
-                }
-                @media (max-width: 500px) {
-                    .footer-grid { grid-template-columns: 1fr; }
-                }
-                .footer-brand {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    margin-bottom: 14px;
-                }
-                .footer-logo {
-                    height: 36px;
-                    width: auto;
-                    object-fit: contain;
-                    filter: brightness(1.2);
-                }
-                .footer-brand-name {
-                    font-size: 18px;
-                    font-weight: 800;
-                    color: #f1f5f9;
-                    letter-spacing: -0.3px;
-                }
-                .footer-desc {
-                    font-size: 13px;
-                    line-height: 1.7;
-                    color: #64748b;
-                    margin: 0;
-                }
-                .footer-heading {
-                    font-size: 13px;
-                    font-weight: 700;
-                    color: #e2e8f0;
-                    text-transform: uppercase;
-                    letter-spacing: 0.8px;
-                    margin: 0 0 16px;
-                }
-                .footer-link {
-                    display: block;
-                    font-size: 13px;
-                    color: #64748b;
-                    text-decoration: none;
-                    margin-bottom: 10px;
-                    transition: color 0.2s;
-                }
-                .footer-link:hover { color: #38bdf8; }
-                .footer-contact {
-                    font-size: 13px;
-                    color: #64748b;
-                    margin: 0 0 8px;
-                }
-                .footer-badges {
-                    display: flex;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                }
-                .footer-cert {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 4px;
-                    font-size: 11px;
-                    font-weight: 600;
-                    color: #94a3b8;
-                    background: rgba(255,255,255,0.05);
-                    border: 1px solid rgba(255,255,255,0.08);
-                    border-radius: 8px;
-                    padding: 6px 14px;
-                }
-                .footer-bottom {
-                    padding: 24px 0;
-                    text-align: center;
-                }
-                .footer-bottom p {
-                    margin: 0;
-                    font-size: 12px;
-                    color: #475569;
-                }
-            `}</style>
+            <style>{styles}</style>
         </div>
     );
 }
 
-/* ─── Sub-components ─── */
-function InfoTile({ icon, label, value }: { icon: string; label: string; value: string }) {
-    return (
-        <div className="info-tile">
-            <p className="info-tile-label">
-                <span style={{ marginRight: 4 }}>{icon}</span>
-                {label}
-            </p>
-            <p className="info-tile-value">{value}</p>
-        </div>
-    );
+/* ─── Inline Icons ─── */
+const UserIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+);
+const CalendarIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg>
+);
+
+/* ─── Styles ─── */
+const styles = `
+:root {
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --bg-dark: #020617;
+  --card-dark: #0f172a;
+  --border-dark: rgba(255,255,255,0.08);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
 }
+
+.rastreio-container {
+  min-height: 100vh;
+  background: white;
+  color: #0f172a;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ─── NAVIGATION ─── */
+.main-nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 80px;
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.8);
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+}
+.nav-inner {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.nav-logo {
+    height: 48px;
+    width: auto;
+}
+.brand-text {
+    display: flex;
+    flex-direction: column;
+}
+.brand-name {
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    color: #0f172a;
+}
+.brand-tag {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+}
+
+/* ─── HERO ─── */
+.hero-section {
+  padding: 180px 40px 100px;
+  background: #020617;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+.industrial-grid {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+.glow-orb {
+  position: absolute;
+  top: -100px; right: -100px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+  filter: blur(60px);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.2);
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--primary);
+  margin-bottom: 24px;
+}
+.main-title {
+  font-size: clamp(32px, 6vw, 64px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  margin-bottom: 24px;
+}
+.main-title .highlight {
+  background: linear-gradient(135deg, #818cf8, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-desc {
+  font-size: 18px;
+  color: #94a3b8;
+  max-width: 600px;
+  margin: 0 auto 48px;
+  line-height: 1.6;
+}
+
+/* Search Box */
+.search-box {
+  max-width: 680px;
+  margin: 0 auto 64px;
+}
+.search-input-wrapper {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  padding: 8px 8px 8px 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.search-input-wrapper:focus-within {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(99,102,241,0.5);
+  box-shadow: 0 0 40px rgba(99,102,241,0.15);
+  transform: translateY(-2px);
+}
+.search-icon { color: #475569; }
+.main-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  height: 56px;
+  padding: 0 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 500;
+  color: white;
+  outline: none;
+  letter-spacing: 1px;
+}
+.main-input::placeholder { color: #334155; letter-spacing: 0; font-family: 'Plus Jakarta Sans'; }
+.search-submit {
+  height: 56px;
+  padding: 0 32px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.search-submit:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: scale(1.02);
+}
+.search-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.quick-stats {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+}
+.q-stat {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.q-icon { color: #334155; }
+.q-text { display: flex; flex-direction: column; text-align: left; }
+.q-val { font-size: 20px; font-weight: 800; color: white; line-height: 1; }
+.q-lab { font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; margin-top: 4px; }
+
+/* ─── RESULTS ─── */
+.results-section {
+    padding: 60px 40px 100px;
+    background: #f8fafc;
+}
+.results-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.data-layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 40px;
+    align-items: start;
+}
+@media (max-width: 1024px) {
+  .data-layout { grid-template-columns: 1fr; }
+}
+
+/* Sidebar Card (Label style) */
+.package-label-card {
+    background: #0f172a;
+    color: white;
+    border-radius: 24px;
+    padding: 32px;
+    position: relative;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+.label-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+}
+.label-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    background: rgba(255,255,255,0.05);
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+.pulse-dot {
+    width: 6px; height: 6px;
+    background: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #10b981;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+.label-tracking { margin-bottom: 32px; }
+.label-tag {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+}
+.tracking-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -1px;
+}
+
+.label-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+}
+.label-val { font-size: 16px; font-weight: 600; display: block; }
+
+.progress-container { margin-top: 24px; }
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 8px;
+}
+.progress-track {
+    height: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 4px;
+    transition: width 1s ease-out;
+}
+
+.meta-info-area {
+    margin-top: 24px;
+    display: grid;
+    gap: 12px;
+}
+.meta-tile {
+    background: white;
+    padding: 20px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border: 1px solid rgba(0,0,0,0.03);
+}
+.meta-content { display: flex; flex-direction: column; }
+.meta-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+.meta-value { font-size: 15px; font-weight: 700; color: #1e293b; }
+
+/* Main Timeline */
+.data-main {
+    background: white;
+    border-radius: 24px;
+    padding: 40px;
+    border: 1px solid rgba(0,0,0,0.03);
+}
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed #e2e8f0;
+}
+.timeline-header h3 {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #0f172a;
+}
+.sync-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.journey-line {
+    position: relative;
+    padding-left: 40px;
+}
+.journey-point {
+    position: relative;
+    padding-bottom: 40px;
+}
+.journey-point:last-child { padding-bottom: 0; }
+
+.point-indicator {
+    position: absolute;
+    left: -40px;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    display: flex;
+    justify-content: center;
+}
+.indicator-line {
+    position: absolute;
+    top: 32px;
+    bottom: -8px;
+    width: 2px;
+    background: #f1f5f9;
+}
+.journey-point:last-child .indicator-line { display: none; }
+.indicator-node {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: white;
+    border: 2px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    transition: all 0.3s;
+}
+
+.point-content {
+    background: #f8fafc;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+}
+.journey-point.latest .point-content {
+    background: white;
+    border-color: rgba(99,102,241,0.1);
+    box-shadow: 0 10px 30px rgba(99,102,241,0.05);
+}
+
+.point-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.point-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.current-badge {
+    font-size: 9px;
+    font-weight: 900;
+    color: var(--primary);
+    background: rgba(99,102,241,0.08);
+    padding: 4px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+.point-desc {
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+.point-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 12px;
+}
+.point-meta {
+    font-size: 11px;
+    font-weight: 800;
+    color: #94a3b8;
+}
+.point-date {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+}
+
+/* ─── FOOTER ─── */
+.site-footer {
+    background: #020617;
+    padding: 80px 40px 40px;
+    color: white;
+}
+.footer-content { max-width: 1200px; margin: 0 auto; }
+.footer-top {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 60px;
+}
+.f-brand img { height: 40px; margin-bottom: 20px; }
+.f-brand p { font-size: 14px; color: #475569; line-height: 1.6; }
+
+.f-links { display: flex; gap: 80px; }
+.f-col h5 { font-size: 12px; font-weight: 800; color: white; letter-spacing: 1px; margin-bottom: 20px; }
+.f-col a { display: block; font-size: 14px; color: #475569; text-decoration: none; margin-bottom: 12px; }
+.f-col a:hover { color: var(--primary); }
+
+.footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 40px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px;
+    color: #334155;
+}
+.security-capsules { display: flex; gap: 12px; }
+.cap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.03);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error State */
+.error-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+}
+.error-visual {
+    width: 80px; height: 80px;
+    background: #fef2f2;
+    color: #ef4444;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+}
+.error-state h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+.error-state p { color: #64748b; margin-bottom: 32px; }
+.retry-btn {
+    padding: 12px 32px;
+    background: #0f172a;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+`;
