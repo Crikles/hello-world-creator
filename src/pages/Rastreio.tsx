@@ -62,6 +62,24 @@ const statusConfig: Record<string, { icon: any; color: string; label: string }> 
     "Em Rota": { icon: Truck, color: "#eab308", label: "Em Rota" },
 };
 
+function formatProduto(raw: string): string {
+  try {
+    const items = JSON.parse(raw);
+    if (Array.isArray(items)) {
+      return items
+        .map((item: any) => {
+          const name = item.name || item.nome || item.title || "Produto";
+          const qty = item.quantity || item.quantidade || 1;
+          return qty > 1 ? `${name} (x${qty})` : name;
+        })
+        .join(", ");
+    }
+  } catch {
+    // not JSON, return as-is
+  }
+  return raw;
+}
+
 /* ─── Page Component ─── */
 export default function Rastreio() {
     const { codigoParam } = useParams<{ codigoParam: string }>();
@@ -275,7 +293,7 @@ export default function Rastreio() {
                                         <div className="label-grid">
                                             <div className="label-item">
                                                 <span className="label-tag">PRODUTO</span>
-                                                <span className="label-val">{envio.produto || "Encomenda"}</span>
+                                                <span className="label-val">{formatProduto(envio.produto) || "Encomenda"}</span>
                                             </div>
                                             <div className="label-item">
                                                 <span className="label-tag">TRANSPORTADORA</span>
