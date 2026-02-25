@@ -678,6 +678,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch custo_envio_email from system_config
+    let custoEmail = 0.15;
+    const { data: configCusto } = await supabase
+      .from("system_config")
+      .select("value")
+      .eq("key", "custo_envio_email")
+      .maybeSingle();
+    if (configCusto) custoEmail = Number(configCusto.value);
+
     await supabase.from("postagem_email_log").insert({
       loja_id,
       envio_id,
@@ -685,7 +694,7 @@ Deno.serve(async (req) => {
       destinatario: envio.cliente_email,
       assunto: subject,
       status: "sent",
-      custo: 0.15,
+      custo: custoEmail,
     });
 
     return new Response(

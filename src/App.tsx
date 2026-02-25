@@ -23,6 +23,7 @@ import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminCreditos from "./pages/admin/AdminCreditos";
 import AdminEmail from "./pages/admin/AdminEmail";
 import AdminTemplates from "./pages/admin/AdminTemplates";
+import AdminValores from "./pages/admin/AdminValores";
 import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
 import Rastreio from "./pages/Rastreio";
@@ -99,6 +100,10 @@ function PanelRoutes() {
         <Route
           path="/admin/templates"
           element={<AdminRoute><AdminTemplates /></AdminRoute>}
+        />
+        <Route
+          path="/admin/valores"
+          element={<AdminRoute><AdminValores /></AdminRoute>}
         />
         <Route path="/r" element={<Rastreio />} />
         <Route path="/r/:codigoParam" element={<Rastreio />} />
