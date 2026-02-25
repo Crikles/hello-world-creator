@@ -1,47 +1,30 @@
 
 
-# Corrigir Dominio de Logistica e URL de Taxacao
+# Corrigir Bug: Logo da Navbar Mudando ao Rolar
 
-## Problema 1: Dominio rastreio.logisticajltransportes.com nao carrega as rotas
+## Problema
 
-O dominio propagou mas a aplicacao publicada precisa reconhecer o hostname para renderizar as rotas de logistica (`LogisticsRoutes`). O `domain-config.ts` ja esta correto com `rastreio.logisticajltransportes.com`. O problema pode ser que o app precisa ser republicado apos a configuracao do dominio customizado. Vou verificar se ha algum outro bloqueio.
-
-**Acao**: Confirmar que o dominio esta adicionado nas configuracoes do projeto Lovable (Settings > Domains) e republicar.
-
-## Problema 2: URL errada no email de Taxacao
-
-O botao do email de taxacao esta apontando para `https://app.jltransportes.pro/p/{envioId}` porque o codigo usa uma variavel `appBaseUrl` com fallback para esse dominio antigo.
-
-**Arquivo**: `supabase/functions/send-email/index.ts`
-
-Existem 2 lugares que precisam ser corrigidos:
-
-1. **Linha 117** - Parametro default da funcao `buildEmailHtml`:
-```
-appBaseUrl = "https://app.jltransportes.pro"
-```
-Trocar para:
-```
-appBaseUrl = "https://rastreio.logisticajltransportes.com"
+Na linha 150, a variavel `logoUrl` usa `empresa?.logo_url` como primeira opcao:
+```typescript
+const logoUrl = empresa?.logo_url || "/logojltransportes.png";
 ```
 
-2. **Linha 633** - Onde o `appBaseUrl` e definido antes de chamar `buildEmailHtml`:
-```
-const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://app.jltransportes.pro";
-```
-Trocar para:
-```
-const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com";
+Quando a pagina carrega e os dados do rastreio retornam, o estado `empresa` e preenchido com os dados da empresa do usuario (incluindo o logo customizado). Isso faz a navbar trocar o logo da JL Transportes pelo logo da empresa cadastrada no painel.
+
+## Solucao
+
+A navbar deve **sempre** exibir o logo fixo da JL Transportes (`/logojltransportes.png`). O logo da empresa do usuario nao deve aparecer na navbar.
+
+### Arquivo: `src/pages/Rastreio.tsx`
+
+**Linha 163** - Trocar `logoUrl` por logo fixo na nav:
+```tsx
+// De:
+<img src={logoUrl} alt={empresaNome} className="nav-logo" />
+
+// Para:
+<img src="/logojltransportes.png" alt="Logística JL Transportes" className="nav-logo" />
 ```
 
-Isso faz com que o link de pagamento no email de taxacao aponte para `https://rastreio.logisticajltransportes.com/p/{envioId}`, que ja tem a rota `/p/:envioId` configurada no `LogisticsRoutes`.
-
-## Resumo
-
-| Arquivo | Mudanca |
-|---|---|
-| `supabase/functions/send-email/index.ts` (linha 117) | Default de `appBaseUrl` para `rastreio.logisticajltransportes.com` |
-| `supabase/functions/send-email/index.ts` (linha 633) | Fallback de `appBaseUrl` para `rastreio.logisticajltransportes.com` |
-
-Apos as mudancas, a edge function sera redeployada automaticamente.
+Opcionalmente, as variaveis `logoUrl` e `empresaNome` podem ser mantidas caso sejam usadas em outro lugar da pagina (ex: exibir o logo da loja nos detalhes do envio), mas a navbar ficara com logo fixo.
 
