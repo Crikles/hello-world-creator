@@ -1,49 +1,45 @@
 
+# Corrigir: Email de "Pago" nao disparado ao aprovar pela Taxacao
 
-# Melhorias na Pagina de Pagamento (Taxacao)
+## Problema Identificado
 
-## Mudancas Planejadas
+No arquivo `src/lib/email-trigger.ts` (linha 86-97), quando o proximo evento tem `status_label === "Pago"`, o envio do email depende do toggle `config.ativar_taxacao`:
 
-### 1. Logo sempre redonda (estilo avatar)
-A logo da empresa no header sera exibida com `border-radius: 50%` e dimensoes fixas (ex: 48x48), garantindo formato circular igual aos emails.
+```typescript
+} else if (nextEvent.status_label === "Taxação" || nextEvent.status_label === "Pago") {
+    isAtivo = config.ativar_taxacao;  // Se false, email nao envia
+}
+```
 
-### 2. Resumo da Cobranca com todos os dados do cliente
-A edge function `pagamento-info` atualmente retorna apenas `cliente_nome`. Sera atualizada para retornar tambem: `cliente_cpf`, `cliente_endereco`, `cliente_numero`, `cliente_bairro`, `cliente_cidade`, `cliente_estado`, `cliente_cep`.
+Quando o usuario clica "Aprovar" na pagina Taxacao, o status avanca para "Pago" (a atualizacao do banco ocorre antes na linha 71), mas o email e pulado se `ativar_taxacao` for `false` ou em cenarios onde o toggle nao esta ativo. A aprovacao manual e uma acao explicita - o email deve sempre ser enviado.
 
-No frontend, o card "Resumo da Cobranca" exibira:
-- Nome do cliente
-- CPF (com mascara XXX.XXX.XXX-XX)
-- Endereco completo (rua, numero, bairro, cidade/UF, CEP)
-- Produto
-- Referencia (codigo de rastreio)
-- Transportadora
+## Solucao
 
-### 3. Pagamento somente via PIX
-O tile de metodo de pagamento mudara de "PIX ou Cartao" para apenas "PIX". O icone `CreditCard` sera removido da area de metodos.
+Adicionar um parametro opcional `forceSendEmail` na funcao `triggerNextEmail`. Quando chamado pela pagina de Taxacao (aprovacao manual), esse parametro forca o envio do email independente dos toggles de configuracao.
 
-### 4. Mensagem fixa padrao profissional
-A mensagem abaixo do "Total a Pagar" sera fixa (ignorando a do email) com texto profissional:
+### Arquivo: `src/lib/email-trigger.ts`
 
-> "Sua encomenda foi retida pela fiscalizacao aduaneira e aguarda a quitacao da taxa de liberacao. O pagamento e indispensavel para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente."
+1. Alterar a assinatura da funcao para aceitar `forceSendEmail?: boolean`
+2. Na verificacao de email (linha 95), adicionar condicao: se `forceSendEmail` for `true`, ignorar o check de `isAtivo`
 
-### 5. Responsividade mobile completa
-Ajustes CSS para telas pequenas:
-- Header empilha logo + "voltar" verticalmente
-- Grid de 2 colunas vira coluna unica (ja existe para < 900px)
-- Padding reduzido no card de pagamento
-- Fonte do valor total ajustada
-- Botao de pagamento com altura adaptada
+```text
+// Antes (linha 95):
+if (!isAtivo || !nextEvent.enviar_email) {
 
-## Arquivos Alterados
+// Depois:
+if ((!isAtivo && !forceSendEmail) || !nextEvent.enviar_email) {
+```
 
-### `supabase/functions/pagamento-info/index.ts`
-- Linha 44: Adicionar campos do cliente no select: `cliente_cpf, cliente_endereco, cliente_numero, cliente_bairro, cliente_cidade, cliente_estado, cliente_cep`
-- Linhas 91-98: Incluir esses campos no objeto de resposta
+### Arquivo: `src/pages/Taxacao.tsx`
 
-### `src/pages/Pagamento.tsx`
-- **Interface `EnvioData`**: Adicionar campos `cliente_cpf`, `cliente_endereco`, `cliente_numero`, `cliente_bairro`, `cliente_cidade`, `cliente_estado`, `cliente_cep`
-- **Header (linha 147)**: Aplicar estilo circular na logo (`border-radius: 50%; width: 48px; height: 48px; object-fit: cover`)
-- **Resumo da Cobranca (linhas 180-192)**: Adicionar linhas para Nome, CPF, Endereco
-- **Mensagem fixa (linha 204)**: Substituir `{tax.mensagem_taxa}` por texto fixo padrao
-- **Metodo pagamento (linha 227)**: Trocar "PIX ou Cartao" por "PIX"
-- **CSS responsivo**: Adicionar media queries para mobile (padding, font-size, layout do header)
+Alterar a chamada do `triggerNextEmail` no `approveMutation` (linha 123) para passar `forceSendEmail = true`:
+
+```typescript
+const result = await triggerNextEmail(envioId, loja.id, true);
+```
+
+### Impacto
+
+- A pagina de Envios continua funcionando normalmente (sem o parametro, comportamento padrao)
+- A pagina de Taxacao sempre envia o email de "Pago" ao aprovar manualmente
+- O toggle `ativar_taxacao` continua controlando o disparo automatico dos eventos de Taxacao/Pago no fluxo normal
