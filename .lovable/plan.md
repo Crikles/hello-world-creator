@@ -1,45 +1,61 @@
 
-# Corrigir: Email de "Pago" nao disparado ao aprovar pela Taxacao
 
-## Problema Identificado
+# Ajuste na Configuracao de Taxacao: Separar Email e Site
 
-No arquivo `src/lib/email-trigger.ts` (linha 86-97), quando o proximo evento tem `status_label === "Pago"`, o envio do email depende do toggle `config.ativar_taxacao`:
+## Problema Atual
 
-```typescript
-} else if (nextEvent.status_label === "Taxação" || nextEvent.status_label === "Pago") {
-    isAtivo = config.ativar_taxacao;  // Se false, email nao envia
-}
-```
+O campo "Mensagem da Taxa" no painel de configuracao afeta tanto o preview do Email quanto o preview do Site Rastreio. No entanto, no site real (`/p/:envioId`), essa mensagem nao aparece -- la existe uma mensagem fixa padrao. Alem disso, o preview do Site Rastreio nao corresponde a pagina real de pagamento.
 
-Quando o usuario clica "Aprovar" na pagina Taxacao, o status avanca para "Pago" (a atualizacao do banco ocorre antes na linha 71), mas o email e pulado se `ativar_taxacao` for `false` ou em cenarios onde o toggle nao esta ativo. A aprovacao manual e uma acao explicita - o email deve sempre ser enviado.
+## Mudancas Planejadas
 
-## Solucao
+### 1. Separar "Mensagem da Taxa" -- apenas para Email
 
-Adicionar um parametro opcional `forceSendEmail` na funcao `triggerNextEmail`. Quando chamado pela pagina de Taxacao (aprovacao manual), esse parametro forca o envio do email independente dos toggles de configuracao.
+No formulario de configuracao (`TaxacaoConfig.tsx`), o campo "Mensagem da Taxa" sera movido para uma secao claramente identificada como "Configuracoes do Email". Um label ou subtitulo indicara que essa mensagem aparece apenas no email enviado ao cliente.
 
-### Arquivo: `src/lib/email-trigger.ts`
+Os campos que afetam o site de pagamento ficam em secao separada:
+- Mensagem do Botao
+- Valor
+- Prazo
+- Link de Checkout
+- Cores
+- Toggles (mostrar valor, mostrar prazo)
 
-1. Alterar a assinatura da funcao para aceitar `forceSendEmail?: boolean`
-2. Na verificacao de email (linha 95), adicionar condicao: se `forceSendEmail` for `true`, ignorar o check de `isAtivo`
+### 2. Preview do Site Rastreio espelhando a pagina `/p` real
 
-```text
-// Antes (linha 95):
-if (!isAtivo || !nextEvent.enviar_email) {
+O componente `TaxacaoTrackingPreview` sera reescrito para espelhar o layout real da pagina `Pagamento.tsx` em vez do mockup atual de timeline. O novo preview mostrara:
 
-// Depois:
-if ((!isAtivo && !forceSendEmail) || !nextEvent.enviar_email) {
-```
+- Header com logo redonda + nome da empresa + "PAGAMENTO SEGURO"
+- Indicador de etapas (Pedido > Taxacao > Liberacao > Entrega)
+- Card "Resumo da Cobranca" com dados exemplo (nome, CPF, endereco, produto, transportadora, rastreio)
+- Total a pagar com o valor configurado
+- Mensagem fixa padrao (a mesma que aparece na pagina real)
+- Card "Efetuar Pagamento" com metodo PIX e botao com texto/cor personalizavel
+- Prazo de pagamento
+- Selos de seguranca
 
-### Arquivo: `src/pages/Taxacao.tsx`
+O preview NAO usara a "Mensagem da Taxa" (que e exclusiva do email).
 
-Alterar a chamada do `triggerNextEmail` no `approveMutation` (linha 123) para passar `forceSendEmail = true`:
+### 3. Remover "Mensagem da Taxa" do preview do Site
 
-```typescript
-const result = await triggerNextEmail(envioId, loja.id, true);
-```
+No preview do site, a mensagem exibida sera sempre a mensagem fixa padrao que ja existe na pagina `/p` real: "Sua encomenda foi retida pela fiscalizacao aduaneira e aguarda a quitacao da taxa de liberacao..."
 
-### Impacto
+## Detalhes Tecnicos
 
-- A pagina de Envios continua funcionando normalmente (sem o parametro, comportamento padrao)
-- A pagina de Taxacao sempre envia o email de "Pago" ao aprovar manualmente
-- O toggle `ativar_taxacao` continua controlando o disparo automatico dos eventos de Taxacao/Pago no fluxo normal
+### Arquivo: `src/components/postagens/TaxacaoConfig.tsx`
+
+**Formulario (secao esquerda):**
+- Reorganizar campos em duas subsecoes visuais:
+  1. "Configuracoes do Site de Pagamento": Mensagem do Botao, Valor, Prazo, Link de Checkout, Mostrar valor, Mostrar prazo, Cor do Header, Cor do Botao
+  2. "Mensagem do Email": Campo "Mensagem da Taxa" com nota explicativa de que so aparece no email
+
+**Preview do Site (componente `TaxacaoTrackingPreview`):**
+- Reescrever para mostrar um mini-espelho da pagina `/p` real em formato mobile
+- Incluir: header com logo redonda, steps, resumo com dados exemplo, valor, mensagem fixa, botao PIX com texto e cor personalizaveis, prazo, selos de seguranca
+- Nao usar `settings.mensagem_taxa` -- usar a mensagem fixa padrao
+
+**Preview do Email:**
+- Continua usando `settings.mensagem_taxa` normalmente (sem mudancas)
+
+### Arquivo: `src/pages/Pagamento.tsx`
+- Sem alteracoes necessarias (ja usa mensagem fixa)
+
