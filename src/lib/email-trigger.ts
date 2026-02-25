@@ -72,7 +72,8 @@ export async function triggerNextEmail(envioId: string, lojaId: string): Promise
             .from("envios")
             .update({ 
                 ultimo_evento_ordem: nextEvent.ordem, 
-                status: newStatus 
+                status: newStatus,
+                status_label: nextEvent.status_label 
             })
             .eq("id", envioId);
 
