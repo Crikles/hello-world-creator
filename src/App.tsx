@@ -63,9 +63,6 @@ function PanelRoutes() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/p/:envioId" element={<Pagamento />} />
-        <Route path="/r" element={<Rastreio />} />
-        <Route path="/r/:codigoParam" element={<Rastreio />} />
         <Route
           path="/lojas"
           element={
