@@ -106,16 +106,24 @@ function PanelRoutes() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        {isLogisticsDomain() ? <LogisticsRoutes /> : <PanelRoutes />}
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const logistics = isLogisticsDomain();
+
+  if (typeof document !== 'undefined') {
+    document.title = logistics ? 'Logística JL Transportes' : 'Magnus Frete';
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          {logistics ? <LogisticsRoutes /> : <PanelRoutes />}
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
