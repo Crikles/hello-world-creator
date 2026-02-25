@@ -136,7 +136,8 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // SMS dispatch on all events
         if (
             config.ativar_site_rastreio &&
-            shipment.cliente_telefone
+            shipment.cliente_telefone &&
+            !nextEvent.enviar_nfe_pdf
         ) {
             console.log("Dispatching SMS for envio:", envioId, "status:", nextEvent.status_label);
             const { error: smsErr } = await supabase.functions.invoke("send-sms", {
