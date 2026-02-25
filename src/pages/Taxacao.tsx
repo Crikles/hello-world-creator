@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,7 +158,8 @@ export default function Taxacao() {
     // ── No tax events configured ──
     if (!isLoading && !taxEventos?.taxacao_ordem) {
         return (
-            <AppLayout title="Taxação">
+            <>
+                <h1 className="text-lg font-semibold text-foreground mb-4">Taxação</h1>
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                     <AlertTriangle className="h-16 w-16 text-muted-foreground/30 mb-4" />
                     <h2 className="text-xl font-bold text-foreground/80 mb-2">
@@ -170,12 +170,13 @@ export default function Taxacao() {
                         Acesse <strong>Postagens → Template</strong> e adicione um evento com status_label "Taxação".
                     </p>
                 </div>
-            </AppLayout>
+            </>
         );
     }
 
     return (
-        <AppLayout title="Taxação">
+        <>
+            <h1 className="text-lg font-semibold text-foreground mb-4">Taxação</h1>
             <div className="space-y-6">
                 <p className="text-sm text-muted-foreground -mt-2">
                     Gerencie os pagamentos de taxas de importação dos seus clientes.
@@ -436,7 +437,7 @@ export default function Taxacao() {
                     </TabsContent>
                 </Tabs>
             </div>
-        </AppLayout>
+        </>
     );
 }
 

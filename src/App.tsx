@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { LojaProvider } from "@/contexts/LojaContext";
 import { isLogisticsDomain } from "@/lib/domain-config";
+import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Lojas from "./pages/Lojas";
@@ -29,18 +30,10 @@ import Taxacao from "./pages/Taxacao";
 
 const queryClient = new QueryClient();
 
-function LojaRoutes() {
+function LojaLayoutWrapper() {
   return (
     <LojaProvider>
-      <Routes>
-        <Route index element={<Dashboard />} />
-        <Route path="envios" element={<Envios />} />
-        <Route path="postagens" element={<Postagens />} />
-        <Route path="empresa" element={<Empresa />} />
-        <Route path="integracoes" element={<Integracoes />} />
-        <Route path="configuracoes" element={<Configuracoes />} />
-        <Route path="taxacao" element={<Taxacao />} />
-      </Routes>
+      <AppLayout />
     </LojaProvider>
   );
 }
@@ -72,13 +65,21 @@ function PanelRoutes() {
           }
         />
         <Route
-          path="/loja/:lojaId/*"
+          path="/loja/:lojaId"
           element={
             <ProtectedRoute>
-              <LojaRoutes />
+              <LojaLayoutWrapper />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="envios" element={<Envios />} />
+          <Route path="postagens" element={<Postagens />} />
+          <Route path="empresa" element={<Empresa />} />
+          <Route path="integracoes" element={<Integracoes />} />
+          <Route path="configuracoes" element={<Configuracoes />} />
+          <Route path="taxacao" element={<Taxacao />} />
+        </Route>
         <Route
           path="/admin"
           element={<AdminRoute><AdminDashboard /></AdminRoute>}

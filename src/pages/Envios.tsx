@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -179,7 +178,8 @@ export default function Envios() {
   };
 
   return (
-    <AppLayout title="Envios">
+    <>
+      <h1 className="text-lg font-semibold text-foreground mb-4">Envios</h1>
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground -mt-2">
           Gerencie todos os pedidos enviados e códigos de rastreio.
@@ -322,6 +322,6 @@ export default function Envios() {
 
         <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
       </div>
-    </AppLayout>
+    </>
   );
 }

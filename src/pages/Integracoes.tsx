@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -44,7 +43,8 @@ export default function Integracoes() {
   };
 
   return (
-    <AppLayout title="Integrações">
+    <>
+      <h1 className="text-lg font-semibold text-foreground mb-4">Integrações</h1>
       <div className="space-y-2 mb-6">
         <p className="text-sm text-muted-foreground">
           Conecte seus checkouts para receber pedidos automaticamente via webhook.
@@ -103,6 +103,6 @@ export default function Integracoes() {
           );
         })}
       </div>
-    </AppLayout>
+    </>
   );
 }

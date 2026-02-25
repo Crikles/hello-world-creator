@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -254,7 +253,8 @@ export default function Empresa() {
   }, [debouncedHtml, iframeReady]);
 
   return (
-    <AppLayout title="Dados da Empresa">
+    <>
+      <h1 className="text-lg font-semibold text-foreground mb-4">Dados da Empresa</h1>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* LEFT COLUMN - Form */}
         <div className="lg:col-span-7 space-y-3">
@@ -464,6 +464,6 @@ export default function Empresa() {
       </div>
 
       <DanfePreview open={danfeOpen} onOpenChange={setDanfeOpen} empresa={form} />
-    </AppLayout>
+    </>
   );
 }
