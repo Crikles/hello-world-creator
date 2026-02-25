@@ -17,7 +17,9 @@ import {
     BarChart3,
     Star,
     Zap,
-    Box
+    Box,
+    Menu,
+    X
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -74,6 +76,7 @@ export default function Rastreio() {
     const [eventos, setEventos] = useState<EventoData[]>([]);
     const [totalEventos, setTotalEventos] = useState(0);
     const [searched, setSearched] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const fetchData = useCallback(async (trackingCode: string) => {
         if (!trackingCode || trackingCode.trim().length < 3) return;
@@ -149,7 +152,17 @@ export default function Rastreio() {
                     <div className="nav-tag-wrapper">
                         <span className="brand-tag">Transportes & Logística</span>
                     </div>
+                    <button className="nav-mobile-toggle" onClick={() => setMobileMenuOpen(prev => !prev)} aria-label="Menu">
+                        {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
                 </div>
+                {mobileMenuOpen && (
+                    <div className="nav-mobile-menu">
+                        <a href="#" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Início</a>
+                        <a href="#rastrear" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Rastrear</a>
+                        <a href="#contato" className="nav-mobile-link" onClick={() => setMobileMenuOpen(false)}>Contato</a>
+                    </div>
+                )}
             </nav>
 
             {/* ═══════════ HERO SECTION ═══════════ */}
@@ -458,6 +471,34 @@ const styles = `
     transition: color 0.2s;
 }
 .nav-link:hover {
+    color: var(--primary);
+}
+.nav-mobile-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #0f172a;
+    padding: 8px;
+}
+.nav-mobile-menu {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.98);
+    padding: 16px 24px;
+    gap: 8px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+}
+.nav-mobile-link {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+    text-decoration: none;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    transition: color 0.2s;
+}
+.nav-mobile-link:hover {
     color: var(--primary);
 }
 .nav-tag-wrapper {
@@ -934,11 +975,12 @@ const styles = `
 
 /* ─── MOBILE RESPONSIVE ─── */
 @media (max-width: 768px) {
-  .main-nav { height: 70px; }
+  .main-nav { height: auto; min-height: 70px; }
   .nav-inner { padding: 0 16px; }
   .nav-logo { width: 120px; }
   .nav-links { display: none; }
   .nav-tag-wrapper { display: none; }
+  .nav-mobile-toggle { display: block; }
 
   .hero-section { padding: 120px 16px 60px; }
   .main-title { font-size: 28px; letter-spacing: -1px; }
