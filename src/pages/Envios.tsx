@@ -18,6 +18,18 @@ import { format } from "date-fns";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
 import { triggerNextEmail } from "@/lib/email-trigger";
 
+function formatProduto(raw: string): string {
+  try {
+    const items = JSON.parse(raw);
+    if (Array.isArray(items)) {
+      return items.map((i: any) => `${i.nome} (x${i.quantidade})`).join(", ");
+    }
+  } catch {
+    // not JSON, return as-is
+  }
+  return raw;
+}
+
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
   em_transito: "Em Trânsito",
@@ -231,7 +243,7 @@ export default function Envios() {
                           <div className="text-xs text-muted-foreground">{envio.cliente_email}</div>
                         </div>
                       </TableCell>
-                      <TableCell>{envio.produto}</TableCell>
+                      <TableCell>{formatProduto(envio.produto)}</TableCell>
                       <TableCell>R$ {Number(envio.valor).toFixed(2)}</TableCell>
                       <TableCell className="font-mono text-xs">{envio.codigo_rastreio || "—"}</TableCell>
                       <TableCell>
