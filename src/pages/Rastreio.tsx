@@ -415,7 +415,7 @@ const styles = `
   position: fixed;
   top: 0;
   width: 100%;
-  height: 80px;
+  height: 100px;
   backdrop-filter: blur(12px);
   background: rgba(255,255,255,0.8);
   border-bottom: 1px solid rgba(0,0,0,0.05);
@@ -435,8 +435,9 @@ const styles = `
     gap: 12px;
 }
 .nav-logo {
-    height: 48px;
+    height: 64px;
     width: auto;
+    margin-right: 8px;
 }
 .brand-text {
     display: flex;

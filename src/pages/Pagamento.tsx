@@ -287,7 +287,7 @@ const sharedStyles = `
 
 /* Header */
 .mag-pay-header {
-    height: 80px;
+    height: 100px;
     background: white;
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -310,7 +310,7 @@ const sharedStyles = `
     align-items: center;
     gap: 12px;
 }
-.mag-header-brand img { height: 44px; width: auto; }
+.mag-header-brand img { height: 60px; width: auto; }
 .mag-brand-info { display: flex; flex-direction: column; }
 .mag-brand-n { font-size: 16px; font-weight: 800; color: var(--navy); }
 .mag-secure-tag { 

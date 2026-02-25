@@ -67,7 +67,7 @@ export function AppSidebar() {
           <img
             src="/logojltransportes.png"
             alt="Logística JL Transportes"
-            className="h-9 w-9 rounded-lg object-contain"
+            className="h-14 w-14 rounded-lg object-contain"
           />
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-primary truncate">

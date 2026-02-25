@@ -86,7 +86,7 @@ export default function Signup() {
           <img
             src="/logojltransportes.png"
             alt="Logística JL Transportes"
-            className="h-20 w-auto object-contain"
+            className="h-32 w-auto object-contain mb-2"
           />
           <h1 className="text-2xl font-bold text-foreground">Criar Conta</h1>
           <p className="text-sm text-muted-foreground">Comece a gerenciar seus envios</p>
