@@ -6,8 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     AlertTriangle,
     Link as LinkIcon,
@@ -23,6 +21,13 @@ import {
     MousePointerClick,
     Package,
     Truck,
+    Lock,
+    ShieldCheck,
+    QrCode,
+    FileText,
+    ArrowRight,
+    Globe,
+    Mail,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
@@ -72,6 +77,10 @@ function saveSettings(lojaId: string, settings: TaxacaoSettings) {
     localStorage.setItem(STORAGE_KEY + lojaId, JSON.stringify(settings));
 }
 
+/* ─────────────────────── Fixed message (same as real /p page) ─────────────────────── */
+
+const MENSAGEM_FIXA_SITE = "Sua encomenda foi retida pela fiscalização aduaneira e aguarda a quitação da taxa de liberação. O pagamento é indispensável para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente.";
+
 /* ─────────────────────── Email Preview HTML ─────────────────────── */
 
 function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string, empresaLogoUrl: string): string {
@@ -82,8 +91,6 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
     const prazoHtml = settings.mostrar_prazo && settings.prazo_dias
         ? `<p style="margin:6px 0 0;font-size:11px;color:#78716c;">Prazo: ${settings.prazo_dias} dias para pagamento</p>`
         : "";
-
-
 
     const logoHtml = empresaLogoUrl
         ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
@@ -220,143 +227,159 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
 </html>`;
 }
 
-/* ─────────────────────── Tracking Site Preview ─────────────────────── */
+/* ─────────────────────── Tracking Site Preview (mirrors /p page) ─────────────────────── */
 
 function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: TaxacaoSettings; empresaNome: string; logoUrl: string }) {
     const valor = parseFloat(settings.valor_exemplo) || 0;
     const valorFormatted = valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // We use a simplified version of the Rastreio.tsx styles for mobile view
     return (
-        <div className="bg-[#f8fafc] rounded-2xl border-2 border-border/50 shadow-xl max-w-[360px] mx-auto overflow-hidden font-sans text-[#0f172a] text-left">
-            {/* Nav Mirror */}
-            <div className="h-14 bg-white/80 backdrop-blur-md border-b border-black/5 px-4 flex items-center justify-between">
-                <img src={logoUrl || "/logojltransportes.png"} alt="Logo" className="h-6 w-auto" />
-                <div className="flex flex-col gap-1">
-                    <div className="w-5 h-0.5 bg-slate-800 rounded-full" />
-                    <div className="w-5 h-0.5 bg-slate-800 rounded-full" />
+        <div className="bg-[#f8fafc] rounded-2xl border-2 border-border/50 shadow-xl max-w-[360px] mx-auto overflow-hidden text-left" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            {/* Header - mirrors .mag-pay-header */}
+            <div className="bg-white border-b border-black/5 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <img
+                        src={logoUrl || "/logojltransportes.png"}
+                        alt={empresaNome}
+                        className="h-9 w-9 rounded-full object-cover"
+                    />
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-extrabold text-[#020617]">{empresaNome}</span>
+                        <span className="text-[8px] font-extrabold text-[#10b981] flex items-center gap-1">
+                            <Lock size={8} /> PAGAMENTO SEGURO
+                        </span>
+                    </div>
+                </div>
+                <span className="text-[9px] text-slate-400 font-semibold">← Voltar</span>
+            </div>
+
+            {/* Steps - mirrors .mag-steps */}
+            <div className="flex justify-center gap-3 py-3 px-3 bg-white border-b border-black/5">
+                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#10b981]">
+                    <CheckCircle2 size={10} /> Pedido
+                </div>
+                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#6366f1]">
+                    <div className="w-1.5 h-1.5 bg-[#6366f1] rounded-full" /> Taxação
+                </div>
+                <div className="text-[8px] font-extrabold uppercase tracking-wider text-slate-300">
+                    Liberação
+                </div>
+                <div className="text-[8px] font-extrabold uppercase tracking-wider text-slate-300">
+                    Entrega
                 </div>
             </div>
 
-            {/* Results Area Mirror (Mobile View) */}
-            <div className="p-4 space-y-4">
-                {/* Package Label Card (Dark Blue style from Rastreio.tsx) */}
-                <div className="bg-[#0f172a] text-white rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-6">
-                        <div className="bg-white/5 py-1 px-2.5 rounded-md flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-[#10b981] rounded-full shadow-[0_0_8px_#10b981]" />
-                            <span className="text-[9px] font-extrabold tracking-wider uppercase">Taxação</span>
-                        </div>
-                        <Package className="w-4 h-4 text-white/40" />
+            <div className="p-3 space-y-3">
+                {/* Invoice Summary Card - mirrors .mag-invoice-card */}
+                <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-dashed border-slate-200">
+                        <FileText size={14} className="text-slate-600" />
+                        <h3 className="text-[10px] font-extrabold tracking-wide uppercase">Resumo da Cobrança</h3>
                     </div>
 
-                    <div className="mb-6">
-                        <span className="text-[8px] font-bold text-slate-500 tracking-widest block mb-1">IDENTIFIER</span>
-                        <div className="font-mono text-xl font-bold tracking-tight">BR847293651XY</div>
+                    <div className="space-y-2 text-[10px]">
+                        <div className="flex justify-between">
+                            <span className="font-bold text-slate-500 uppercase">Cliente</span>
+                            <span className="font-bold text-[#020617]">Maria Silva</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-bold text-slate-500 uppercase">CPF</span>
+                            <span className="font-mono text-[10px] font-semibold text-[#6366f1]">123.456.789-00</span>
+                        </div>
+                        <div className="flex justify-between items-start">
+                            <span className="font-bold text-slate-500 uppercase">Endereço</span>
+                            <span className="font-bold text-[#020617] text-right text-[9px] max-w-[55%]">
+                                Rua Exemplo, 123 - Centro<br />
+                                São Paulo/SP — CEP 01000-000
+                            </span>
+                        </div>
+
+                        <div className="h-px bg-slate-100 my-1" />
+
+                        <div className="flex justify-between">
+                            <span className="font-bold text-slate-500 uppercase">Produto</span>
+                            <span className="font-bold text-[#020617]">Camiseta Polo Premium</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-bold text-slate-500 uppercase">Referência</span>
+                            <span className="font-mono text-[10px] font-semibold text-[#6366f1]">BR547454312HF</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-bold text-slate-500 uppercase">Transportadora</span>
+                            <span className="font-bold text-[#020617]">{empresaNome}</span>
+                        </div>
+
+                        <div className="h-px bg-slate-100 my-1" />
+
+                        {settings.mostrar_valor && (
+                            <div className="flex justify-between items-baseline">
+                                <span className="text-[11px] font-extrabold uppercase">Total a pagar</span>
+                                <div className="flex items-baseline gap-0.5">
+                                    <span className="text-[9px] font-bold text-slate-500">R$</span>
+                                    <span className="text-lg font-extrabold text-[#020617]">{valorFormatted}</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 mb-4">
-                        <div>
-                            <span className="text-[8px] font-bold text-slate-500 tracking-widest block mb-0.5 uppercase">Produto</span>
-                            <span className="text-xs font-semibold block truncate">Camiseta Polo Premium (x1)</span>
-                        </div>
-                        <div>
-                            <span className="text-[8px] font-bold text-slate-500 tracking-widest block mb-0.5 uppercase">Transportadora</span>
-                            <span className="text-xs font-semibold block uppercase">{empresaNome}</span>
-                        </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-white/5">
-                        <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1.5">
-                            <span>Progresso da Entrega</span>
-                            <span>65%</span>
-                        </div>
-                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                            <div className="h-full bg-[#6366f1] w-[65%] rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                        </div>
+                    {/* Fixed message - same as real /p page */}
+                    <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200/50 rounded-xl">
+                        <p className="text-[9px] text-amber-900 leading-relaxed font-medium">
+                            {MENSAGEM_FIXA_SITE}
+                        </p>
                     </div>
                 </div>
 
-                {/* Timeline Area (White card from Rastreio.tsx) */}
-                <div className="bg-white rounded-2xl p-5 border border-black/5 shadow-sm">
-                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-dashed border-slate-200 text-left">
-                        <h3 className="text-[10px] font-extrabold tracking-widest text-[#0f172a] uppercase text-left w-full">Atividade Recente</h3>
-                        <div className="flex items-center gap-1 text-[9px] font-semibold text-slate-400 whitespace-nowrap">
+                {/* Payment Action Card - mirrors .mag-payment-card */}
+                <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
+                    <div className="text-center mb-3">
+                        <span className="text-[8px] font-extrabold tracking-widest uppercase text-[#6366f1] bg-[#6366f1]/10 px-2 py-0.5 rounded-full">
+                            AÇÃO REQUERIDA
+                        </span>
+                        <h2 className="text-sm font-extrabold text-[#020617] mt-2">Efetuar Pagamento</h2>
+                        <p className="text-[9px] text-slate-500 mt-1">Selecione o método de pagamento para liberar sua encomenda.</p>
+                    </div>
+
+                    {/* PIX method */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl border-2 border-[#6366f1] bg-[#6366f1]/5 mb-3">
+                        <QrCode size={14} className="text-[#6366f1]" />
+                        <span className="text-[10px] font-bold text-[#020617]">PIX</span>
+                        <CheckCircle2 size={12} className="text-[#6366f1] ml-auto" />
+                    </div>
+
+                    {/* Pay button with custom color and text */}
+                    <div
+                        className="w-full py-2.5 rounded-xl text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-md"
+                        style={{ backgroundColor: settings.cor_botao }}
+                    >
+                        <span>{settings.texto_botao}</span>
+                        <ArrowRight size={12} />
+                    </div>
+
+                    {settings.mostrar_prazo && settings.prazo_dias && (
+                        <div className="flex items-center justify-center gap-1 mt-2.5 text-[9px] text-slate-500 font-semibold">
                             <Clock size={10} />
-                            <span>Sincronizado</span>
+                            <span>Prazo limite: <strong className="text-[#020617]">{settings.prazo_dias} dias</strong></span>
                         </div>
+                    )}
+                </div>
+
+                {/* Security badges - mirrors .mag-security-stripe */}
+                <div className="flex justify-center gap-3 py-2">
+                    <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400">
+                        <Lock size={9} /> SSL SECURE
                     </div>
-
-                    <div className="relative pl-8 space-y-6">
-                        {/* Timeline Line */}
-                        <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100" />
-
-                        {/* Recent Event with Tax Card */}
-                        <div className="relative">
-                            <div
-                                className="absolute -left-[27px] top-0 w-5 h-5 rounded-md flex items-center justify-center z-10 shadow-sm border border-white"
-                                style={{ backgroundColor: settings.cor_header }}
-                            >
-                                <AlertTriangle size={12} className="text-white" />
-                            </div>
-                            <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm text-left">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-xs font-bold" style={{ color: settings.cor_header }}>Aguardando pagamento</span>
-                                    <span className="text-[8px] font-black text-[#6366f1] bg-[#6366f1]/10 px-1.5 py-0.5 rounded">ATUAL</span>
-                                </div>
-                                <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">Fiscalização aduaneira concluída</p>
-
-                                {/* Embedded Tax Card - The one being customized */}
-                                <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: settings.cor_botao }}>
-                                    <div className="text-center py-1.5 border-b" style={{ backgroundColor: `${settings.cor_botao}10`, borderColor: `${settings.cor_botao}25` }}>
-                                        <p className="text-[9px] font-extrabold" style={{ color: settings.cor_botao }}>⚠ ATENÇÃO - TAXA PENDENTE</p>
-                                    </div>
-                                    <div className="p-4 text-center bg-white">
-                                        <p className="text-[11px] text-[#475569] mb-3 leading-relaxed font-medium">{settings.mensagem_taxa}</p>
-                                        {settings.mostrar_valor && (
-                                            <div className="mb-3">
-                                                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Valor da Taxa</p>
-                                                <p className="text-2xl font-black text-[#0f172a]">R$ {valorFormatted}</p>
-                                            </div>
-                                        )}
-                                        <div
-                                            className="py-2.5 rounded-lg text-white font-bold text-xs shadow-md transition-transform active:scale-95"
-                                            style={{ backgroundColor: settings.cor_botao }}
-                                        >
-                                            {settings.texto_botao}
-                                        </div>
-                                        {settings.mostrar_prazo && settings.prazo_dias && (
-                                            <p className="text-[10px] text-[#f43f5e] font-bold mt-2.5 flex items-center justify-center gap-1">
-                                                <Clock size={10} />
-                                                Limite: {settings.prazo_dias} dias
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
-                                    <span className="text-[9px] font-extrabold text-slate-400">TAXAÇÃO</span>
-                                    <span className="text-[10px] font-semibold text-slate-500">Hoje, 14:20</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Old Event */}
-                        <div className="relative opacity-40">
-                            <div className="absolute -left-[27px] top-0.5 w-5 h-5 rounded-md bg-white border-2 border-slate-200 flex items-center justify-center z-10">
-                                <Truck size={12} className="text-slate-400" />
-                            </div>
-                            <div className="bg-slate-50 rounded-xl p-3 text-left">
-                                <span className="text-xs font-bold text-slate-700">Em Trânsito</span>
-                                <p className="text-[10px] text-slate-500">Curitiba - PR</p>
-                            </div>
-                        </div>
+                    <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400">
+                        <CreditCard size={9} /> ENCRYPTED
+                    </div>
+                    <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400">
+                        <ShieldCheck size={9} /> VERIFIED
                     </div>
                 </div>
             </div>
 
-            <div className="bg-slate-50 border-t border-black/5 px-5 py-3 text-center">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Visualização em tempo real do site de rastreio</p>
+            <div className="bg-slate-50 border-t border-black/5 px-5 py-2.5 text-center">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Preview da página de pagamento real</p>
             </div>
         </div>
     );
@@ -455,21 +478,17 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
         return JSON.stringify(settings) !== JSON.stringify(savedSettings);
     }, [settings, savedSettings]);
 
-    // Save mutation – updates the Taxação event corpo_email + saves to localStorage
+    // Save mutation
     const saveMutation = useMutation({
         mutationFn: async () => {
-            // Save to localStorage
             saveSettings(lojaId, settings);
 
-            // Update the Taxação event's corpo_email with the custom message
             if (taxacaoEvento) {
                 const corpoEmail = `${settings.mensagem_taxa}\n\n{{taxacao_valor:${settings.valor_exemplo}}}{{taxacao_url:${settings.url_pagamento}}}{{taxacao_botao:${settings.texto_botao}}}{{taxacao_cor:${settings.cor_botao}}}{{taxacao_cor_header:${settings.cor_header}}}{{taxacao_prazo:${settings.prazo_dias}}}{{taxacao_forma:${settings.forma_pagamento}}}{{taxacao_mostrar_valor:${settings.mostrar_valor}}}{{taxacao_mostrar_prazo:${settings.mostrar_prazo}}}`;
 
                 const { error } = await supabase
                     .from("postagem_eventos")
-                    .update({
-                        corpo_email: corpoEmail,
-                    })
+                    .update({ corpo_email: corpoEmail })
                     .eq("id", taxacaoEvento.id);
 
                 if (error) throw error;
@@ -500,7 +519,6 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                 const mostrarValorMatch = corpo.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
                 const mostrarPrazoMatch = corpo.match(/\{\{taxacao_mostrar_prazo:([^}]*)\}\}/);
 
-                // Extract plain message (before the first {{taxacao_ tag)
                 const msgEnd = corpo.indexOf("{{taxacao_");
                 const plainMessage = msgEnd > 0 ? corpo.substring(0, msgEnd).trim() : corpo;
 
@@ -565,38 +583,18 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
             <div className="grid lg:grid-cols-2 gap-6">
                 {/* LEFT COLUMN — Configuration */}
                 <div className="space-y-4">
-                    {/* Payment Type Toggle */}
+                    {/* Section 1: Site de Pagamento */}
                     <Card>
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm flex items-center gap-2">
-                                <Settings2 className="h-4 w-4" />
-                                Configuração da Taxa
+                                <Globe className="h-4 w-4" />
+                                Configurações do Site de Pagamento
                             </CardTitle>
                             <CardDescription className="text-xs">
-                                Informe o link da taxa, junto com a frase e o valor
+                                Estes campos personalizam a página de pagamento que o cliente acessa
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <p className="text-xs text-muted-foreground">
-                                O email leva o cliente para uma página de pagamento personalizada com o link do seu checkout.
-                            </p>
-
-                            {/* Tax Message */}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-medium flex items-center gap-1">
-                                    <MessageSquare className="h-3 w-3" />
-                                    Mensagem da Taxa
-                                </Label>
-                                <Textarea
-                                    value={settings.mensagem_taxa}
-                                    onChange={(e) => set("mensagem_taxa", e.target.value)}
-                                    maxLength={150}
-                                    className="text-sm resize-none"
-                                    rows={2}
-                                />
-                                <p className="text-[10px] text-muted-foreground text-right">{settings.mensagem_taxa.length}/150</p>
-                            </div>
-
                             {/* Button text */}
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-medium flex items-center gap-1">
@@ -666,8 +664,6 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                                 </p>
                             </div>
 
-
-
                             {/* Toggles */}
                             <div className="flex items-center justify-between">
                                 <Label className="text-xs">Mostrar valor da taxa</Label>
@@ -719,19 +715,53 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Save Button */}
-                            <Button
-                                onClick={() => saveMutation.mutate()}
-                                disabled={!hasChanges || saveMutation.isPending}
-                                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-                                size="lg"
-                            >
-                                <Save className="h-4 w-4 mr-2" />
-                                {saveMutation.isPending ? "Salvando..." : "Atualizar Configurações"}
-                            </Button>
                         </CardContent>
                     </Card>
+
+                    {/* Section 2: Mensagem do Email */}
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                                <Mail className="h-4 w-4" />
+                                Mensagem do Email
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                Esta mensagem aparece <strong>apenas no email</strong> enviado ao cliente, não no site de pagamento
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-medium flex items-center gap-1">
+                                    <MessageSquare className="h-3 w-3" />
+                                    Mensagem da Taxa
+                                </Label>
+                                <Textarea
+                                    value={settings.mensagem_taxa}
+                                    onChange={(e) => set("mensagem_taxa", e.target.value)}
+                                    maxLength={150}
+                                    className="text-sm resize-none"
+                                    rows={2}
+                                />
+                                <p className="text-[10px] text-muted-foreground text-right">{settings.mensagem_taxa.length}/150</p>
+                            </div>
+                            <div className="p-2.5 bg-blue-50 border border-blue-200/50 rounded-lg">
+                                <p className="text-[10px] text-blue-700 font-medium">
+                                    💡 O site de pagamento usa uma mensagem profissional fixa padrão. Esta mensagem personalizada aparece somente no corpo do email.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Save Button */}
+                    <Button
+                        onClick={() => saveMutation.mutate()}
+                        disabled={!hasChanges || saveMutation.isPending}
+                        className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                        size="lg"
+                    >
+                        <Save className="h-4 w-4 mr-2" />
+                        {saveMutation.isPending ? "Salvando..." : "Atualizar Configurações"}
+                    </Button>
                 </div>
 
                 {/* RIGHT COLUMN — Preview */}
@@ -753,7 +783,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                                         }`}
                                     onClick={() => setPreviewTab("site")}
                                 >
-                                    📱 Site Rastreio
+                                    📱 Site Pagamento
                                 </button>
                                 <button
                                     className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${previewTab === "email"
@@ -787,7 +817,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                                 💡 Dicas Importantes
                             </p>
                             <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
-                                <li>Use uma mensagem clara e profissional</li>
+                                <li>A mensagem da taxa só aparece no email, o site usa mensagem fixa</li>
                                 <li>O valor deve estar no formato 0.00</li>
                                 <li>Configure um prazo realista</li>
                                 <li>Teste o link de pagamento antes de ativar</li>
