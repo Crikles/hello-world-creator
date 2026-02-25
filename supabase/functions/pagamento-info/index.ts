@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
         // 1. Fetch envio (only needed fields)
         const { data: envio, error: envioError } = await supabase
             .from("envios")
-            .select("id, produto, codigo_rastreio, cliente_nome, transportadora, valor, empresa_id, loja_id")
+            .select("id, produto, codigo_rastreio, cliente_nome, cliente_cpf, cliente_endereco, cliente_numero, cliente_bairro, cliente_cidade, cliente_estado, cliente_cep, transportadora, valor, empresa_id, loja_id")
             .eq("id", envioId)
             .maybeSingle();
 
@@ -94,6 +94,13 @@ Deno.serve(async (req) => {
                     produto: envio.produto,
                     codigo_rastreio: envio.codigo_rastreio,
                     cliente_nome: envio.cliente_nome,
+                    cliente_cpf: envio.cliente_cpf,
+                    cliente_endereco: envio.cliente_endereco,
+                    cliente_numero: envio.cliente_numero,
+                    cliente_bairro: envio.cliente_bairro,
+                    cliente_cidade: envio.cliente_cidade,
+                    cliente_estado: envio.cliente_estado,
+                    cliente_cep: envio.cliente_cep,
                     transportadora: envio.transportadora || "JL Transportes",
                     valor: envio.valor,
                 },
