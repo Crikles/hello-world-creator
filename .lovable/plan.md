@@ -1,56 +1,64 @@
 
-# Corrigir Barra de Progresso e Disparo de Emails
 
-## Problemas Identificados
+# Corrigir Disparo de Emails: 1 Clique = 1 Email
 
-### 1. Barra de progresso comeca em 25%
-No arquivo `src/pages/Envios.tsx`, o status `pendente` tem valor de progresso `25` (linha 36). Deveria ser `0` para indicar que o envio esta na estaca zero.
+## Problema
 
-### 2. Faltam 2 emails dos 6 do fluxo
-O usuario tem 6 eventos no fluxo ativo:
-
-| Ordem | Evento | status_label | Disparado? |
-|---|---|---|---|
-| 1 | Nota Fiscal Emitida | Postado | NAO |
-| 2 | Pedido Coletado | Coletado | NAO |
-| 3 | Em Transito | Em Transito | SIM |
-| 4 | Centro de Distribuicao | Centro Local | SIM |
-| 5 | Saiu para Entrega | Saiu para Entrega | SIM |
-| 6 | Entregue | Entregue | SIM |
-
-**Causa raiz**: Quando o usuario clica "Iniciar Pendentes" (pendente -> em_transito), o mapeamento em `email-trigger.ts` busca apenas os labels `["Em Transito", "Em Rota", "Centro Local"]` para o status `em_transito`. Os labels "Postado" (NF) e "Coletado" nao estao incluidos nesse mapeamento, entao esses 2 emails nunca sao enviados.
-
-O status interno `coletado` existe no mapa mas nunca e usado como status real do sistema (o sistema so tem: pendente, em_transito, saiu_para_entrega, entregue).
-
----
+O sistema tem apenas 4 status internos (pendente, em_transito, saiu_para_entrega, entregue), mas o fluxo de email tem 6 eventos. Quando voce clica para avancar, o sistema muda o status e dispara TODOS os emails mapeados para aquele status de uma vez, em vez de enviar apenas o proximo.
 
 ## Solucao
 
-### 1. Zerar a barra de progresso para status pendente
+Adicionar um campo `ultimo_evento_ordem` na tabela de envios para rastrear qual foi o ultimo email enviado. Cada clique no botao de avancar envia apenas o **proximo** evento da fila.
 
-Alterar o valor de `pendente` no objeto `statusProgress` de `25` para `0`.
-
-### 2. Incluir todos os eventos anteriores no disparo
-
-Quando o status muda de `pendente` para `em_transito` (botao "Iniciar"), o sistema deve disparar TODOS os eventos intermediarios que seriam pulados. Isso significa incluir "Postado", "Pedido Confirmado", "Nota Fiscal Emitida" e "Coletado" junto com "Em Transito", "Em Rota" e "Centro Local" no mapeamento do status `em_transito`.
-
-Novo mapeamento:
+### Como vai funcionar
 
 ```text
-em_transito: ["Postado", "Pedido Confirmado", "Nota Fiscal Emitida", "Coletado", "Em Transito", "Em Rota", "Centro Local"]
+Clique 1: evento ordem 1 (Nota Fiscal)      -> status: em_transito
+Clique 2: evento ordem 2 (Coletado)          -> status: em_transito
+Clique 3: evento ordem 3 (Em Transito)       -> status: em_transito
+Clique 4: evento ordem 4 (Centro Distrib.)   -> status: em_transito
+Clique 5: evento ordem 5 (Saiu p/ Entrega)   -> status: saiu_para_entrega
+Clique 6: evento ordem 6 (Entregue)          -> status: entregue
 ```
 
-Como o status `pendente` nao dispara emails (standby), ao iniciar o fluxo (pendente -> em_transito), todos os eventos da ordem 1 ate a ordem 4 serao processados sequencialmente. A verificacao individual de `isAtivo` e `enviar_email` continua garantindo que apenas eventos habilitados sejam enviados.
-
-O mapeamento de `pendente` sera removido ja que nunca e usado.
+A barra de progresso vai avancar proporcionalmente: 0% -> 17% -> 33% -> 50% -> 67% -> 83% -> 100%.
 
 ---
 
 ## Detalhes Tecnicos
 
+### 1. Migracao de banco de dados
+
+Adicionar coluna `ultimo_evento_ordem` (integer, default 0) na tabela `envios`.
+
+### 2. Reescrever `src/lib/email-trigger.ts`
+
+Nova funcao `triggerNextEmail` que:
+- Busca o template ativo da loja
+- Busca TODOS os eventos do template ordenados por `ordem`
+- Filtra apenas o proximo evento (onde `ordem > ultimo_evento_ordem`)
+- Envia apenas ESSE evento
+- Atualiza `ultimo_evento_ordem` no banco
+- Calcula e atualiza o status interno baseado na posicao do evento no fluxo total
+
+Mapeamento de status por posicao:
+- Evento e o ultimo do fluxo -> status `entregue`
+- Evento e o penultimo -> status `saiu_para_entrega`
+- Qualquer outro -> status `em_transito`
+
+### 3. Atualizar `src/pages/Envios.tsx`
+
+- Botao de avancar por linha: chamar `triggerNextEmail` em vez de mudar status diretamente
+- Barra de progresso: calcular baseado em `ultimo_evento_ordem / total_eventos` em vez do status fixo
+- "Iniciar Pendentes": envia apenas o primeiro email (ordem 1) para cada pendente
+- "Avancar Todos": envia o proximo email de cada envio (1 por envio, nao todos)
+- Esconder botao de avancar quando `ultimo_evento_ordem` ja chegou ao ultimo evento
+
 ### Arquivos a modificar
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Envios.tsx` | Alterar `statusProgress.pendente` de `25` para `0` |
-| `src/lib/email-trigger.ts` | Expandir o mapeamento de `em_transito` para incluir labels de NF e Coletado, remover `pendente` e `coletado` do mapa |
+| Migracao SQL | Adicionar coluna `ultimo_evento_ordem` |
+| `src/lib/email-trigger.ts` | Nova logica: buscar proximo evento, enviar 1, atualizar ordem |
+| `src/pages/Envios.tsx` | Botoes chamam nova funcao, progresso dinamico |
+
