@@ -160,7 +160,7 @@ export default function Rastreio() {
             <nav className="main-nav">
                 <div className="nav-inner">
                     <div className="nav-brand">
-                        <img src={logoUrl} alt={empresaNome} className="nav-logo" />
+                        <img src="/logojltransportes.png" alt="Logística JL Transportes" className="nav-logo" />
                     </div>
                     <div className="nav-links">
                         <a href="#" className="nav-link">Início</a>
