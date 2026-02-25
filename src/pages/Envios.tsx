@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Eye, Trash2, Play, FastForward } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward } from "lucide-react";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +16,7 @@ import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
-import { triggerShipmentEmail } from "@/lib/email-trigger";
+import { triggerNextEmail } from "@/lib/email-trigger";
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
@@ -32,27 +32,12 @@ const statusColors: Record<string, string> = {
   entregue: "bg-primary/15 text-primary",
 };
 
-const statusProgress: Record<string, number> = {
-  pendente: 0,
-  em_transito: 50,
-  saiu_para_entrega: 75,
-  entregue: 100,
-};
-
 const statusOptions = [
   { value: "pendente", label: "Pendente" },
   { value: "em_transito", label: "Em Trânsito" },
   { value: "saiu_para_entrega", label: "Saiu para Entrega" },
   { value: "entregue", label: "Entregue" },
 ];
-
-type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entregue";
-
-const nextStatusMap: Record<string, ShipmentStatus> = {
-  pendente: "em_transito",
-  em_transito: "saiu_para_entrega",
-  saiu_para_entrega: "entregue",
-};
 
 export default function Envios() {
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -61,6 +46,26 @@ export default function Envios() {
   const [autoEnvio, setAutoEnvio] = useState(false);
   const queryClient = useQueryClient();
   const { loja } = useLoja();
+
+  // Fetch total events count for progress calculation
+  const { data: totalEventos = 0 } = useQuery({
+    queryKey: ["total-eventos", loja?.id],
+    queryFn: async () => {
+      if (!loja) return 0;
+      const { data: config } = await supabase
+        .from("postagem_config")
+        .select("template_ativo_id")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      if (!config?.template_ativo_id) return 0;
+      const { count } = await supabase
+        .from("postagem_eventos")
+        .select("*", { count: "exact", head: true })
+        .eq("template_id", config.template_ativo_id);
+      return count ?? 0;
+    },
+    enabled: !!loja,
+  });
 
   const { data: envios = [] } = useQuery({
     queryKey: ["envios", loja?.id],
@@ -77,18 +82,19 @@ export default function Envios() {
     enabled: !!loja,
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: ShipmentStatus }) => {
-      const { error } = await supabase.from("envios").update({ status }).eq("id", id);
-      if (error) throw error;
-
-      if (loja?.id) {
-        triggerShipmentEmail(id, status, loja.id);
-      }
+  const advanceMutation = useMutation({
+    mutationFn: async (envioId: string) => {
+      if (!loja?.id) throw new Error("No loja");
+      const result = await triggerNextEmail(envioId, loja.id);
+      if (!result) throw new Error("Nenhum evento para avançar");
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
-      toast.success("Status atualizado!");
+      toast.success("Avançado!");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao avançar");
     },
   });
 
@@ -103,20 +109,17 @@ export default function Envios() {
     },
   });
 
-  const batchUpdate = async (fromStatus: ShipmentStatus, toStatus: ShipmentStatus) => {
-    const ids = envios.filter((e) => e.status === fromStatus).map((e) => e.id);
-    if (ids.length === 0) return toast.info("Nenhum envio encontrado.");
-    const { error } = await supabase.from("envios").update({ status: toStatus }).in("id", ids);
-    if (error) return toast.error("Erro ao atualizar.");
-
-    if (loja?.id) {
-      for (const id of ids) {
-        triggerShipmentEmail(id, toStatus, loja.id);
-      }
+  const batchAdvance = async (filterFn: (e: any) => boolean) => {
+    const targets = envios.filter(filterFn);
+    if (targets.length === 0) return toast.info("Nenhum envio encontrado.");
+    let count = 0;
+    for (const envio of targets) {
+      if (!loja?.id) continue;
+      const result = await triggerNextEmail(envio.id, loja.id);
+      if (result) count++;
     }
-
     queryClient.invalidateQueries({ queryKey: ["envios"] });
-    toast.success(`${ids.length} envio(s) atualizados!`);
+    toast.success(`${count} envio(s) avançado(s)!`);
   };
 
   const filteredEnvios = envios.filter((e) => {
@@ -127,6 +130,17 @@ export default function Envios() {
     const matchStatus = filterStatus === "todos" || e.status === filterStatus;
     return matchSearch && matchStatus;
   });
+
+  const getProgress = (envio: any) => {
+    if (totalEventos === 0) return 0;
+    const ordem = (envio as any).ultimo_evento_ordem ?? 0;
+    return Math.round((ordem / totalEventos) * 100);
+  };
+
+  const canAdvance = (envio: any) => {
+    const ordem = (envio as any).ultimo_evento_ordem ?? 0;
+    return totalEventos > 0 && ordem < totalEventos;
+  };
 
   return (
     <AppLayout title="Envios">
@@ -145,17 +159,14 @@ export default function Envios() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => batchUpdate("pendente", "em_transito")}
+              onClick={() => batchAdvance((e) => e.status === "pendente")}
             >
               <Play className="h-3.5 w-3.5 mr-1" /> Iniciar Pendentes
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={async () => {
-                await batchUpdate("em_transito", "saiu_para_entrega");
-                await batchUpdate("saiu_para_entrega", "entregue");
-              }}
+              onClick={() => batchAdvance((e) => e.status !== "entregue")}
             >
               <FastForward className="h-3.5 w-3.5 mr-1" /> Avançar Todos
             </Button>
@@ -230,7 +241,7 @@ export default function Envios() {
                       </TableCell>
                       <TableCell>
                         <div className="w-24">
-                          <Progress value={statusProgress[envio.status]} className="h-2" />
+                          <Progress value={getProgress(envio)} className="h-2" />
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -238,18 +249,14 @@ export default function Envios() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {nextStatusMap[envio.status] && (
+                          {canAdvance(envio) && (
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              title="Avançar status"
-                              onClick={() =>
-                                updateStatusMutation.mutate({
-                                  id: envio.id,
-                                  status: nextStatusMap[envio.status],
-                                })
-                              }
+                              title="Avançar próximo evento"
+                              disabled={advanceMutation.isPending}
+                              onClick={() => advanceMutation.mutate(envio.id)}
                             >
                               <FastForward className="h-4 w-4" />
                             </Button>

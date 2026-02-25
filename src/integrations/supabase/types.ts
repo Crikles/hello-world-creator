@@ -164,6 +164,7 @@ export type Database = {
           quantidade: number
           status: Database["public"]["Enums"]["shipment_status"]
           transportadora: string | null
+          ultimo_evento_ordem: number
           unidade: string
           updated_at: string
           valor: number
@@ -195,6 +196,7 @@ export type Database = {
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
+          ultimo_evento_ordem?: number
           unidade?: string
           updated_at?: string
           valor?: number
@@ -226,6 +228,7 @@ export type Database = {
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
+          ultimo_evento_ordem?: number
           unidade?: string
           updated_at?: string
           valor?: number
