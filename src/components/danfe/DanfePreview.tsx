@@ -20,6 +20,17 @@ export interface EmpresaData {
   logo_url?: string;
 }
 
+export interface ProductItem {
+  codigo?: number;
+  nome: string;
+  quantidade: number;
+  valor: number;
+  cfop?: string | null;
+  ncm_sh?: string | null;
+  cst?: string | null;
+  unidade?: string | null;
+}
+
 export interface EnvioData {
   cliente_nome?: string;
   cliente_cpf?: string;
@@ -37,6 +48,28 @@ export interface EnvioData {
   ncm_sh?: string;
   cst?: string;
   unidade?: string;
+}
+
+/** Parse the produto field: if it's a JSON array, return structured items; otherwise single item */
+function parseProductItems(envio: EnvioData): ProductItem[] {
+  const raw = envio.produto || "";
+  if (raw.startsWith("[")) {
+    try {
+      const items = JSON.parse(raw) as ProductItem[];
+      if (Array.isArray(items) && items.length > 0) return items;
+    } catch { /* fallthrough */ }
+  }
+  // Single product (backward compatible)
+  return [{
+    codigo: 1,
+    nome: raw || "Produto",
+    quantidade: envio.quantidade || 1,
+    valor: envio.valor || 0,
+    cfop: envio.cfop,
+    ncm_sh: envio.ncm_sh,
+    cst: envio.cst,
+    unidade: envio.unidade,
+  }];
 }
 
 interface Props {
@@ -61,9 +94,10 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
   const endEmpresa3 = [e.cidade, e.estado].filter(Boolean).join(" - ");
   const nfNumero = String(Math.floor(Math.random() * 999999) + 1).padStart(9, "0").replace(/(\d{3})(\d{3})(\d{3})/, "$1.$2.$3");
   const nfSerie = String(Math.floor(Math.random() * 999) + 1).padStart(3, "0");
-  const valorUnit = c.valor || 0;
-  const qtd = c.quantidade || 1;
-  const valorTotal = valorUnit * qtd;
+
+  // Parse products (single or multi)
+  const productItems = parseProductItems(c);
+  const valorTotal = productItems.reduce((sum, item) => sum + (item.valor || 0) * (item.quantidade || 1), 0);
 
   const css = `
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -282,15 +316,20 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td>VALOR UNIT.</td>
       <td>VALOR TOTAL</td>
     </tr>
-    <tr style="text-align: center;">
-      <td>1</td>
-      <td style="text-align: left;">${c.produto || "Produto"}</td>
-      <td>${c.ncm_sh || "00000000"}</td>
-      <td>${c.cfop || "5102"}</td>
-      <td>${c.unidade || "UN"}</td>
-      <td>R$ ${formatCurrency(valorUnit)}</td>
-      <td><strong>R$ ${formatCurrency(valorTotal)}</strong></td>
-    </tr>
+    ${productItems.map((item, idx) => {
+    const itemQty = item.quantidade || 1;
+    const itemUnit = item.valor || 0;
+    const itemTotal = itemUnit * itemQty;
+    return `<tr style="text-align: center;">
+      <td>${item.codigo || idx + 1}</td>
+      <td style="text-align: left;">${item.nome || "Produto"}</td>
+      <td>${item.ncm_sh || "00000000"}</td>
+      <td>${item.cfop || "5102"}</td>
+      <td>${item.unidade || "UN"}</td>
+      <td>R$ ${formatCurrency(itemUnit)}</td>
+      <td><strong>R$ ${formatCurrency(itemTotal)}</strong></td>
+    </tr>`;
+  }).join("\n")}
 
     <!-- Dados Adicionais -->
     <tr>

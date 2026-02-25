@@ -10,14 +10,34 @@ import { toast } from "sonner";
 import { useLoja } from "@/contexts/LojaContext";
 import { triggerNextEmail } from "@/lib/email-trigger";
 import { fetchCep } from "@/lib/cep-utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 const UF_OPTIONS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
   "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
-const steps = ["Dados do Cliente", "Endereço de Entrega", "Produto & Fiscal"];
+const steps = ["Dados do Cliente", "Endereço de Entrega", "Produtos & Fiscal"];
+
+interface ProductItem {
+  nome: string;
+  quantidade: string;
+  valor: string;
+  cfop: string;
+  ncm_sh: string;
+  cst: string;
+  unidade: string;
+}
+
+const emptyProduct = (): ProductItem => ({
+  nome: "",
+  quantidade: "1",
+  valor: "",
+  cfop: "",
+  ncm_sh: "",
+  cst: "",
+  unidade: "UN",
+});
 
 interface Props {
   open: boolean;
@@ -40,19 +60,31 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
     cliente_cidade: "",
     cliente_estado: "",
     cliente_complemento: "",
-    produto: "",
-    quantidade: "1",
-    valor: "",
-    cfop: "",
-    ncm_sh: "",
-    cst: "",
-    unidade: "UN",
   });
+
+  const [products, setProducts] = useState<ProductItem[]>([emptyProduct()]);
 
   const { loja } = useLoja();
   const [buscandoCep, setBuscandoCep] = useState(false);
 
   const set = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
+
+  const updateProduct = (index: number, key: keyof ProductItem, val: string) => {
+    setProducts((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [key]: val };
+      return copy;
+    });
+  };
+
+  const addProduct = () => {
+    setProducts((prev) => [...prev, emptyProduct()]);
+  };
+
+  const removeProduct = (index: number) => {
+    if (products.length <= 1) return;
+    setProducts((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleCepBlur = useCallback(async () => {
     if (!form.cliente_cep || form.cliente_cep.replace(/\D/g, "").length !== 8) return;
@@ -71,6 +103,10 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
     }
   }, [form.cliente_cep]);
 
+  // Calculate totals
+  const totalQty = products.reduce((sum, p) => sum + (parseInt(p.quantidade) || 0), 0);
+  const totalValue = products.reduce((sum, p) => sum + (parseFloat(p.valor) || 0) * (parseInt(p.quantidade) || 1), 0);
+
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!loja?.id) throw new Error("Loja não selecionada");
@@ -81,6 +117,48 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         .select("*")
         .eq("loja_id", loja.id)
         .maybeSingle();
+
+      // Build product data
+      // If single product, store as plain string (backwards compatible)
+      // If multiple products, store as JSON array in the produto field
+      let produtoField: string;
+      let quantidade: number;
+      let valor: number;
+      let cfop: string | null = null;
+      let ncm_sh: string | null = null;
+      let cst: string | null = null;
+      let unidade: string = "UN";
+
+      if (products.length === 1) {
+        const p = products[0];
+        produtoField = p.nome;
+        quantidade = parseInt(p.quantidade) || 1;
+        valor = parseFloat(p.valor) || 0;
+        cfop = p.cfop || null;
+        ncm_sh = p.ncm_sh || null;
+        cst = p.cst || null;
+        unidade = p.unidade || "UN";
+      } else {
+        // Multiple products — serialize as JSON string in the produto field
+        const items = products.map((p, idx) => ({
+          codigo: idx + 1,
+          nome: p.nome,
+          quantidade: parseInt(p.quantidade) || 1,
+          valor: parseFloat(p.valor) || 0,
+          cfop: p.cfop || null,
+          ncm_sh: p.ncm_sh || null,
+          cst: p.cst || null,
+          unidade: p.unidade || "UN",
+        }));
+        produtoField = JSON.stringify(items);
+        quantidade = totalQty;
+        valor = totalValue;
+        // Use first product's fiscal data as defaults
+        cfop = products[0].cfop || null;
+        ncm_sh = products[0].ncm_sh || null;
+        cst = products[0].cst || null;
+        unidade = products[0].unidade || "UN";
+      }
 
       const { data: newEnvio, error } = await supabase.from("envios").insert({
         loja_id: loja.id,
@@ -96,13 +174,13 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         cliente_cidade: form.cliente_cidade || null,
         cliente_estado: form.cliente_estado || null,
         cliente_complemento: form.cliente_complemento || null,
-        produto: form.produto,
-        valor: parseFloat(form.valor) || 0,
-        quantidade: parseInt(form.quantidade) || 1,
-        cfop: form.cfop || null,
-        ncm_sh: form.ncm_sh || null,
-        cst: form.cst || null,
-        unidade: form.unidade || "UN",
+        produto: produtoField,
+        valor,
+        quantidade,
+        cfop,
+        ncm_sh,
+        cst,
+        unidade,
         status: "pendente"
       } as any).select().single();
 
@@ -127,20 +205,21 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
       cliente_nome: "", cliente_cpf: "", cliente_email: "", cliente_telefone: "",
       cliente_cep: "", cliente_endereco: "", cliente_numero: "", cliente_bairro: "",
       cliente_cidade: "", cliente_estado: "", cliente_complemento: "",
-      produto: "", quantidade: "1", valor: "", cfop: "", ncm_sh: "", cst: "", unidade: "UN",
     });
+    setProducts([emptyProduct()]);
     onOpenChange(false);
   };
 
   const canNext = () => {
     if (step === 0) return !!form.cliente_nome && !!form.cliente_email;
     if (step === 1) return !!form.cliente_cep && !!form.cliente_endereco && !!form.cliente_cidade && !!form.cliente_estado;
-    return !!form.produto && !!form.valor;
+    // Step 2: need at least one product with name and value
+    return products.every((p) => !!p.nome && !!p.valor);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo Envio</DialogTitle>
         </DialogHeader>
@@ -241,47 +320,119 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {/* Step 3 */}
+        {/* Step 3 - Products */}
         {step === 2 && (
           <div className="space-y-3 mt-2">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs">Produto *</Label>
-                <Input value={form.produto} onChange={(e) => set("produto", e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Qtd</Label>
-                <Input type="number" min="1" value={form.quantidade} onChange={(e) => set("quantidade", e.target.value)} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Preço (R$) *</Label>
-                <Input type="number" step="0.01" value={form.valor} onChange={(e) => set("valor", e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Unidade</Label>
-                <Input value={form.unidade} onChange={(e) => set("unidade", e.target.value)} />
-              </div>
-            </div>
+            {products.map((product, idx) => (
+              <div key={idx} className="border rounded-lg p-3 space-y-2 relative bg-muted/20">
+                {/* Product header */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Produto {idx + 1}
+                  </span>
+                  {products.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                      onClick={() => removeProduct(idx)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
 
-            <div className="border-t pt-3 mt-3">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Dados Fiscais (DANFE)</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">CFOP</Label>
-                  <Input value={form.cfop} onChange={(e) => set("cfop", e.target.value)} />
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">Nome do Produto *</Label>
+                    <Input
+                      value={product.nome}
+                      onChange={(e) => updateProduct(idx, "nome", e.target.value)}
+                      placeholder="Ex: Camiseta P"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Qtd</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={product.quantidade}
+                      onChange={(e) => updateProduct(idx, "quantidade", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Preço (R$) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={product.valor}
+                      onChange={(e) => updateProduct(idx, "valor", e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">NCM/SH</Label>
-                  <Input value={form.ncm_sh} onChange={(e) => set("ncm_sh", e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">CST</Label>
-                  <Input value={form.cst} onChange={(e) => set("cst", e.target.value)} />
+
+                {/* Fiscal data (collapsible) */}
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">CFOP</Label>
+                    <Input
+                      className="h-7 text-xs"
+                      value={product.cfop}
+                      onChange={(e) => updateProduct(idx, "cfop", e.target.value)}
+                      placeholder="5102"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">NCM/SH</Label>
+                    <Input
+                      className="h-7 text-xs"
+                      value={product.ncm_sh}
+                      onChange={(e) => updateProduct(idx, "ncm_sh", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">CST</Label>
+                    <Input
+                      className="h-7 text-xs"
+                      value={product.cst}
+                      onChange={(e) => updateProduct(idx, "cst", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Unidade</Label>
+                    <Input
+                      className="h-7 text-xs"
+                      value={product.unidade}
+                      onChange={(e) => updateProduct(idx, "unidade", e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
+
+            {/* Add product button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full border-dashed"
+              onClick={addProduct}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Adicionar mais um produto
+            </Button>
+
+            {/* Totals */}
+            {products.length > 0 && (
+              <div className="flex items-center justify-between text-sm bg-muted/40 rounded-lg px-3 py-2 mt-2">
+                <span className="text-muted-foreground">
+                  {products.length} produto(s) · {totalQty} unidade(s)
+                </span>
+                <span className="font-bold">
+                  Total: {totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
