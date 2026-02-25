@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const link = `https://rastreio.logisticajltransportes.com/r/${code}`;
 
     let message = removeAccents(
-      `Ola ${firstName}, seu codigo de rastreio e ${code}. Acesse: ${link}`
+      `Ola ${firstName}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`
     );
 
     if (message.length > 150) {
