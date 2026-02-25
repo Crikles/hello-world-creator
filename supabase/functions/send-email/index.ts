@@ -136,7 +136,7 @@ function buildEmailHtml(
   let mostrarBotaoCta = true;
   let textoBotaoCta = "Rastrear Pedido";
   const codigoRastreio = (envio.codigo_rastreio as string) || "";
-  let urlBotaoCta = codigoRastreio ? `https://logisticajltransportes.com/r/${codigoRastreio}` : "#";
+  let urlBotaoCta = codigoRastreio ? `https://magnusfrete.lovable.app/r/${codigoRastreio}` : "#";
 
   if (corpoEmail.includes("<p>") || corpoEmail.includes("<div>")) {
     mensagem = corpoEmail

@@ -99,6 +99,9 @@ function PanelRoutes() {
           path="/admin/templates"
           element={<AdminRoute><AdminTemplates /></AdminRoute>}
         />
+        <Route path="/r" element={<Rastreio />} />
+        <Route path="/r/:codigoParam" element={<Rastreio />} />
+        <Route path="/p/:envioId" element={<Pagamento />} />
         <Route path="/" element={<Navigate to="/lojas" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
