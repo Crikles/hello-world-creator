@@ -1,4 +1,3 @@
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp } from "lucide-react";
@@ -89,7 +88,8 @@ export default function Dashboard() {
   ];
 
   return (
-    <AppLayout title="Dashboard">
+    <>
+      <h1 className="text-lg font-semibold text-foreground mb-4">Dashboard</h1>
       <div className="space-y-6">
         {/* Welcome */}
         <div className="opacity-0 animate-fade-in-up" style={{ animationDelay: "0ms" }}>
@@ -233,6 +233,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 }
