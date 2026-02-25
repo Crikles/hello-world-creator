@@ -21,6 +21,13 @@ interface EnvioData {
     produto: string;
     codigo_rastreio: string;
     cliente_nome: string;
+    cliente_cpf?: string;
+    cliente_endereco?: string;
+    cliente_numero?: string;
+    cliente_bairro?: string;
+    cliente_cidade?: string;
+    cliente_estado?: string;
+    cliente_cep?: string;
     transportadora: string;
     valor: number;
 }
@@ -54,6 +61,14 @@ const DEFAULT_TAX: TaxSettings = {
     mostrar_valor: true,
     mostrar_prazo: true,
 };
+
+function formatCPF(cpf: string): string {
+    const digits = cpf.replace(/\D/g, '');
+    if (digits.length === 11) {
+        return `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9)}`;
+    }
+    return cpf;
+}
 
 export default function Pagamento() {
     const { envioId } = useParams<{ envioId: string }>();
@@ -144,7 +159,7 @@ export default function Pagamento() {
             <header className="mag-pay-header">
                 <div className="mag-nav-container">
                     <div className="mag-header-brand">
-                        <img src={logoUrl} alt={empresaNome} />
+                        <img src={logoUrl} alt={empresaNome} className="mag-logo-round" />
                         <div className="mag-brand-info">
                             <span className="mag-brand-n">{empresaNome}</span>
                             <span className="mag-secure-tag"><Lock size={10} /> PAGAMENTO SEGURO</span>
@@ -179,6 +194,29 @@ export default function Pagamento() {
 
                                 <div className="mag-invoice-body">
                                     <div className="mag-inv-row">
+                                        <span className="mag-inv-label">Cliente</span>
+                                        <span className="mag-inv-val">{envio.cliente_nome}</span>
+                                    </div>
+                                    {envio.cliente_cpf && (
+                                        <div className="mag-inv-row">
+                                            <span className="mag-inv-label">CPF</span>
+                                            <span className="mag-inv-mono">{formatCPF(envio.cliente_cpf)}</span>
+                                        </div>
+                                    )}
+                                    {(envio.cliente_endereco || envio.cliente_cidade) && (
+                                        <div className="mag-inv-row mag-inv-row-address">
+                                            <span className="mag-inv-label">Endereço</span>
+                                            <span className="mag-inv-val mag-inv-address">
+                                                {[envio.cliente_endereco, envio.cliente_numero].filter(Boolean).join(', ')}
+                                                {envio.cliente_bairro && ` - ${envio.cliente_bairro}`}
+                                                <br />
+                                                {[envio.cliente_cidade, envio.cliente_estado].filter(Boolean).join('/')}
+                                                {envio.cliente_cep && ` — CEP ${envio.cliente_cep}`}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="mag-inv-divider" />
+                                    <div className="mag-inv-row">
                                         <span className="mag-inv-label">Produto</span>
                                         <span className="mag-inv-val">{envio.produto || "Encomenda"}</span>
                                     </div>
@@ -201,7 +239,7 @@ export default function Pagamento() {
                                 </div>
 
                                 <div className="mag-msg-box">
-                                    <p>{tax.mensagem_taxa}</p>
+                                    <p>Sua encomenda foi retida pela fiscalização aduaneira e aguarda a quitação da taxa de liberação. O pagamento é indispensável para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente.</p>
                                 </div>
                             </div>
 
@@ -224,7 +262,7 @@ export default function Pagamento() {
                                 <div className="mag-payment-methods">
                                     <div className="mag-method-tile active">
                                         <QrCode size={20} />
-                                        <span>PIX ou Cartão</span>
+                                        <span>PIX</span>
                                         <div className="mag-method-check"><CheckCircle2 size={14} /></div>
                                     </div>
                                 </div>
@@ -310,7 +348,8 @@ const sharedStyles = `
     align-items: center;
     gap: 12px;
 }
-.mag-header-brand img { height: 60px; width: auto; }
+.mag-header-brand img { height: 48px; width: 48px; border-radius: 50%; object-fit: cover; }
+.mag-logo-round { height: 48px !important; width: 48px !important; border-radius: 50% !important; object-fit: cover !important; }
 .mag-brand-info { display: flex; flex-direction: column; }
 .mag-brand-n { font-size: 16px; font-weight: 800; color: var(--navy); }
 .mag-secure-tag { 
@@ -539,4 +578,21 @@ const sharedStyles = `
 .mag-error-card h2 { margin: 20px 0 10px; font-size: 20px; font-weight: 800; }
 .mag-error-card p { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
 .mag-back-btn { display: inline-block; padding: 12px 24px; background: var(--navy); color: white; border-radius: 12px; text-decoration: none; font-weight: 700; }
+
+.mag-inv-row-address { flex-direction: column; gap: 6px; }
+.mag-inv-address { font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 640px) {
+    .mag-nav-container { padding: 0 16px; flex-direction: column; gap: 8px; padding-top: 12px; padding-bottom: 12px; }
+    .mag-pay-header { height: auto; padding: 8px 0; }
+    .mag-pay-main { padding: 24px 16px; }
+    .mag-steps { gap: 16px; flex-wrap: wrap; }
+    .mag-invoice-card { padding: 20px; }
+    .mag-payment-card { padding: 24px; }
+    .mag-payment-card h1 { font-size: 24px; }
+    .mag-amt { font-size: 28px; }
+    .mag-large-pay-btn { height: 60px; font-size: 14px; }
+    .mag-security-stripe { gap: 12px; flex-wrap: wrap; }
+    .mag-pay-footer { padding: 24px 16px; }
+}
 `;
