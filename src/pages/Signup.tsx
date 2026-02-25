@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { isLogisticsDomain } from "@/lib/domain-config";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,8 +85,8 @@ export default function Signup() {
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-3">
           <img
-            src="/logojltransportes.png"
-            alt="Logística JL Transportes"
+            src={isLogisticsDomain() ? "/logojltransportes.png" : "/logo-magnus.png"}
+            alt={isLogisticsDomain() ? "Logística JL Transportes" : "Magnus Frete"}
             className="h-32 w-auto object-contain mb-2"
           />
           <h1 className="text-2xl font-bold text-foreground">Criar Conta</h1>
