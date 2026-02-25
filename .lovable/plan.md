@@ -1,28 +1,47 @@
 
 
-# Atualizar dominio para rastreio.logisticajltransportes.com
+# Corrigir Dominio de Logistica e URL de Taxacao
 
-Trocar todas as referencias do dominio antigo para o novo subdominio em 4 arquivos.
+## Problema 1: Dominio rastreio.logisticajltransportes.com nao carrega as rotas
 
-## Alteracoes
+O dominio propagou mas a aplicacao publicada precisa reconhecer o hostname para renderizar as rotas de logistica (`LogisticsRoutes`). O `domain-config.ts` ja esta correto com `rastreio.logisticajltransportes.com`. O problema pode ser que o app precisa ser republicado apos a configuracao do dominio customizado. Vou verificar se ha algum outro bloqueio.
 
-### 1. `src/lib/domain-config.ts`
-Atualizar a lista de dominios de logistica:
-- `logisticajltransportes.com` -> `rastreio.logisticajltransportes.com`
-- `www.logisticajltransportes.com` -> `www.rastreio.logisticajltransportes.com` (remover, subdominio nao precisa de www)
+**Acao**: Confirmar que o dominio esta adicionado nas configuracoes do projeto Lovable (Settings > Domains) e republicar.
 
-### 2. `src/pages/Rastreio.tsx`
-Atualizar o email de contato no rodape:
-- `contato@logisticajltransportes.com` -- manter ou atualizar conforme preferencia (email nao muda com subdominio)
+## Problema 2: URL errada no email de Taxacao
 
-### 3. `supabase/functions/send-email/index.ts`
-Atualizar a URL do botao CTA nos emails:
-- `https://magnusfrete.lovable.app/r/` -> `https://rastreio.logisticajltransportes.com/r/`
+O botao do email de taxacao esta apontando para `https://app.jltransportes.pro/p/{envioId}` porque o codigo usa uma variavel `appBaseUrl` com fallback para esse dominio antigo.
 
-### 4. `src/components/postagens/emailTemplates.ts`
-Atualizar todas as 8 URLs de `url_botao_cta` nos templates padrao:
-- `https://magnusfrete.lovable.app/r/{{codigo_rastreio}}` -> `https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}`
+**Arquivo**: `supabase/functions/send-email/index.ts`
 
-## Resultado
-Os emails enviados terao links apontando para `rastreio.logisticajltransportes.com/r/CODIGO` e o sistema reconhecera o subdominio como dominio de logistica, renderizando a pagina de rastreio corretamente.
+Existem 2 lugares que precisam ser corrigidos:
+
+1. **Linha 117** - Parametro default da funcao `buildEmailHtml`:
+```
+appBaseUrl = "https://app.jltransportes.pro"
+```
+Trocar para:
+```
+appBaseUrl = "https://rastreio.logisticajltransportes.com"
+```
+
+2. **Linha 633** - Onde o `appBaseUrl` e definido antes de chamar `buildEmailHtml`:
+```
+const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://app.jltransportes.pro";
+```
+Trocar para:
+```
+const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com";
+```
+
+Isso faz com que o link de pagamento no email de taxacao aponte para `https://rastreio.logisticajltransportes.com/p/{envioId}`, que ja tem a rota `/p/:envioId` configurada no `LogisticsRoutes`.
+
+## Resumo
+
+| Arquivo | Mudanca |
+|---|---|
+| `supabase/functions/send-email/index.ts` (linha 117) | Default de `appBaseUrl` para `rastreio.logisticajltransportes.com` |
+| `supabase/functions/send-email/index.ts` (linha 633) | Fallback de `appBaseUrl` para `rastreio.logisticajltransportes.com` |
+
+Apos as mudancas, a edge function sera redeployada automaticamente.
 
