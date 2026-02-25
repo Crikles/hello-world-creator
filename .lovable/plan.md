@@ -1,85 +1,77 @@
 
+# Isolamento Completo de Rotas entre Dominios
 
-# Auto-Gerar Codigo de Rastreio e Integrar com Emails
+## Problema
 
-## Resumo
+Ao acessar `logisticajltransportes.com/r/`, o usuario e redirecionado para `app.magnusfrete.site/r/`. Isso provavelmente acontece porque o DNS do dominio de logistica esta configurado como **redirecionamento** (redirect 301/302) em vez de **apontamento A record** para o IP do Lovable. Alem disso, as rotas `/r` e `/p` estao disponiveis em ambos os dominios no codigo atual.
 
-Toda vez que um envio for criado (manual ou via webhook), o sistema vai gerar automaticamente um codigo de rastreio unico. Os emails enviados ao cliente terao o botao "Rastrear Pedido" apontando para o site de logistica (`logisticajltransportes.com`) com o codigo de rastreio no URL.
+## O que precisa ser feito
 
-## O que muda
+### 1. DNS (acao do usuario na Hostinger)
 
-### 1. Trigger no banco de dados para gerar codigo de rastreio automaticamente
+O dominio `logisticajltransportes.com` precisa ter um **A record** apontando para `185.158.133.1` (IP do Lovable), e NAO um redirecionamento para outro dominio. Se houver um redirect configurado na Hostinger, ele precisa ser removido.
 
-Criar uma funcao e trigger no PostgreSQL que, ao inserir um envio sem `codigo_rastreio`, gera automaticamente um codigo no formato `BRXXXXXXXXXX` (prefixo BR + 10 caracteres alfanumericos aleatorios).
+### 2. Remover rotas `/r` e `/p` do PanelRoutes (codigo)
 
-Isso cobre TODOS os cenarios:
-- Envio manual (NovoEnvioWizard)
-- Webhooks (Corvex, Luna, Vega, Zedy)
-- Importacao via planilha
+Atualmente, `PanelRoutes` (dominio `app.magnusfrete.site`) inclui as rotas de rastreio e pagamento. Essas rotas devem ser removidas para que o painel nao sirva paginas de logistica.
 
-### 2. Atualizar o email (send-email edge function)
+### 3. Confirmar que LogisticsRoutes so tem rastreio/pagamento
 
-Mudar o botao "Rastrear Pedido" nos emails para apontar para:
-```
-https://logisticajltransportes.com/r/{codigo_rastreio}
-```
-
-Em vez do link atual para os Correios (`https://rastreamento.correios.com.br/app/index.php`).
-
-Isso vale para todos os status exceto "Entregue" (que ja nao mostra botao) e "Taxacao" (que aponta para pagamento).
-
-### 3. Atualizar templates de email do frontend (emailTemplates.ts)
-
-Substituir as URLs `https://rastreamento.correios.com.br/app/index.php` nos templates padrao pela URL do dominio de logistica com o codigo de rastreio.
+Ja esta correto no codigo atual - apenas `/`, `/r`, `/r/:codigoParam` e `/p/:envioId`.
 
 ---
 
 ## Detalhes Tecnicos
 
-### Migration SQL
+### Arquivo: `src/App.tsx`
 
-```sql
-CREATE OR REPLACE FUNCTION public.generate_tracking_code()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path TO 'public'
-AS $$
-DECLARE
-  new_code TEXT;
-  code_exists BOOLEAN;
-BEGIN
-  IF NEW.codigo_rastreio IS NULL OR NEW.codigo_rastreio = '' THEN
-    LOOP
-      new_code := 'BR' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 10));
-      SELECT EXISTS(SELECT 1 FROM envios WHERE codigo_rastreio = new_code) INTO code_exists;
-      EXIT WHEN NOT code_exists;
-    END LOOP;
-    NEW.codigo_rastreio := new_code;
-  END IF;
-  RETURN NEW;
-END;
-$$;
+Remover estas rotas de `PanelRoutes`:
 
-CREATE TRIGGER trigger_generate_tracking_code
-  BEFORE INSERT ON public.envios
-  FOR EACH ROW
-  EXECUTE FUNCTION public.generate_tracking_code();
+```tsx
+// REMOVER estas linhas:
+<Route path="/p/:envioId" element={<Pagamento />} />
+<Route path="/r" element={<Rastreio />} />
+<Route path="/r/:codigoParam" element={<Rastreio />} />
 ```
 
-### send-email/index.ts
+Resultado final do `PanelRoutes`:
 
-- Trocar `urlBotaoCta` de `https://rastreamento.correios.com.br/...` para `https://logisticajltransportes.com/r/${rastreio}`
-- O codigo de rastreio ja esta disponivel no objeto `envio`
+```tsx
+function PanelRoutes() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/lojas" element={<ProtectedRoute><Lojas /></ProtectedRoute>} />
+        <Route path="/loja/:lojaId/*" element={<ProtectedRoute><LojaRoutes /></ProtectedRoute>} />
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/usuarios" element={<AdminRoute><AdminUsuarios /></AdminRoute>} />
+        <Route path="/admin/email" element={<AdminRoute><AdminEmail /></AdminRoute>} />
+        <Route path="/admin/creditos" element={<AdminRoute><AdminCreditos /></AdminRoute>} />
+        <Route path="/admin/templates" element={<AdminRoute><AdminTemplates /></AdminRoute>} />
+        <Route path="/" element={<Navigate to="/lojas" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
+  );
+}
+```
 
-### emailTemplates.ts
+`LogisticsRoutes` permanece como esta (sem alteracao).
 
-- Trocar todas as `url_botao_cta` de correios para `https://logisticajltransportes.com/r/{{codigo_rastreio}}`
+### Arquivo: `src/lib/domain-config.ts`
 
-### Arquivos afetados
+Adicionar `www.logisticajltransportes.com` para cobrir acesso com www (ja esta la, confirmar).
 
-| Arquivo | Tipo de mudanca |
+---
+
+## Resumo das mudancas
+
+| Arquivo | Mudanca |
 |---|---|
-| Migration SQL | Novo trigger para auto-gerar codigo |
-| `supabase/functions/send-email/index.ts` | URL do botao CTA |
-| `src/components/postagens/emailTemplates.ts` | URLs dos templates padrao |
+| `src/App.tsx` | Remover rotas `/r`, `/r/:codigoParam` e `/p/:envioId` do PanelRoutes |
 
+## Acao necessaria do usuario
+
+Verificar na Hostinger se `logisticajltransportes.com` tem um **redirecionamento** configurado para `app.magnusfrete.site`. Se sim, remover esse redirecionamento e configurar apenas o **A record** apontando para `185.158.133.1`.
