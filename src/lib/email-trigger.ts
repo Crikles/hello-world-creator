@@ -7,7 +7,7 @@ type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entreg
  * Triggers only the NEXT email event for a shipment.
  * Returns the new status and ultimo_evento_ordem, or null if nothing to send.
  */
-export async function triggerNextEmail(envioId: string, lojaId: string): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
+export async function triggerNextEmail(envioId: string, lojaId: string, forceSendEmail: boolean = false): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
     try {
         // 1. Fetch shipment with empresa details
         const { data: shipment, error: sErr } = await supabase
@@ -92,7 +92,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string): Promise
             isAtivo = config.enviar_emails;
         }
 
-        if (!isAtivo || !nextEvent.enviar_email) {
+        if ((!isAtivo && !forceSendEmail) || !nextEvent.enviar_email) {
             console.log("Trigger skip: event disabled, but status advanced", nextEvent.nome);
             return { status: newStatus, ultimoOrdem: nextEvent.ordem };
         }
