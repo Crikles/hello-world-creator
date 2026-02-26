@@ -15,7 +15,7 @@ import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
-import { triggerNextEmail } from "@/lib/email-trigger";
+import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
 
 function formatProduto(raw: string): string {
   try {
@@ -121,7 +121,11 @@ export default function Envios() {
       toast.success("Avançado!");
     },
     onError: (err: any) => {
-      toast.error(err.message || "Erro ao avançar");
+      if (err instanceof InsufficientBalanceError) {
+        toast.error("Saldo insuficiente de moedas. Adicione créditos para continuar.");
+      } else {
+        toast.error(err.message || "Erro ao avançar");
+      }
     },
   });
 
