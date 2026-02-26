@@ -1,94 +1,107 @@
 
-# Painel Admin - Aba "Valores"
+# Engenharia de Debito Automatico de Moedas
 
 ## Resumo
 
-Criar uma nova pagina no painel administrativo para gerenciar os valores (custos em moedas) de cada servico do sistema. Atualmente esses valores estao hardcoded no codigo (1 moeda para NF-e, 1 moeda para emails, 0.25 para SMS/rastreio, 1 para taxacao, 0.15 custo por email enviado). A nova aba permitira ao admin alterar esses valores dinamicamente.
+Implementar a logica que debita moedas automaticamente da conta do usuario toda vez que um envio e processado. O debito acontece **uma unica vez por envio**, no momento em que o **primeiro evento** e disparado (quando o envio sai do status "pendente"). O valor debitado corresponde a soma dos servicos ativos na configuracao da loja.
 
-## Valores Gerenciados
+## Regras de Negocio
 
-| Chave | Descricao | Valor Atual (hardcoded) |
-|---|---|---|
-| custo_nfe_email | Nota Fiscal por email | 1 moeda |
-| custo_email_rastreio | Fluxo de rastreio por email | 1 moeda |
-| custo_sms_rastreio | Site de rastreio por SMS | 0.25 moedas |
-| custo_taxacao | Funil de taxacao | 1 moeda |
-| custo_envio_email | Custo unitario por email enviado | 0.15 moedas |
+- O debito ocorre apenas no **primeiro avanço** de cada envio (quando `ultimo_evento_ordem` era 0)
+- O valor debitado e calculado com base nos servicos ativos da loja (NF-e, rastreio, SMS, taxacao)
+- Os valores unitarios sao lidos da tabela `system_config`
+- Se o usuario nao tiver saldo suficiente, o envio **nao avanca** e retorna erro
+- Cada debito gera um registro em `creditos_transacoes` para historico
 
-## Mudancas
-
-### 1. Nova tabela `system_config` (migracao)
-
-Tabela chave-valor para armazenar configuracoes globais do sistema:
-- `key` (text, PK) - identificador do valor
-- `value` (numeric, NOT NULL) - valor numerico
-- `label` (text) - descricao amigavel
-- `created_at`, `updated_at` timestamps
-
-RLS: somente admins podem ler e escrever. Leitura publica via edge functions usando service_role.
-
-Inserir os 5 valores padrao na migracao.
-
-### 2. Nova pagina `src/pages/admin/AdminValores.tsx`
-
-- Layout usando `AdminLayout`
-- Cards ou tabela listando cada valor com campo editavel (input numerico)
-- Botao "Salvar Alteracoes" para persistir mudancas
-- Feedback com toast de sucesso/erro
-
-### 3. Rota e sidebar
-
-- Adicionar rota `/admin/valores` em `App.tsx`
-- Adicionar item "Valores" no `AdminSidebar.tsx` com icone `DollarSign`
-
-### 4. Atualizar consumidores dos valores
-
-- `src/pages/Postagens.tsx`: buscar valores da tabela `system_config` em vez de usar constantes hardcoded no calculo de `custoMoedas`
-- `supabase/functions/send-email/index.ts`: buscar `custo_envio_email` da tabela ao registrar o log (em vez de 0.15 fixo)
-
-## Detalhes Tecnicos
-
-### Migracao SQL
+## Fluxo
 
 ```text
-CREATE TABLE public.system_config (
-  key TEXT PRIMARY KEY,
-  value NUMERIC NOT NULL DEFAULT 0,
-  label TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.system_config ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Admins full access system_config"
-  ON public.system_config FOR ALL
-  USING (has_role(auth.uid(), 'admin'))
-  WITH CHECK (has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Authenticated users can read system_config"
-  ON public.system_config FOR SELECT
-  USING (auth.role() = 'authenticated');
-
-INSERT INTO public.system_config (key, value, label) VALUES
-  ('custo_nfe_email', 1, 'Nota Fiscal por email'),
-  ('custo_email_rastreio', 1, 'Fluxo de rastreio por email'),
-  ('custo_sms_rastreio', 0.25, 'Site de rastreio (SMS)'),
-  ('custo_taxacao', 1, 'Funil de taxacao'),
-  ('custo_envio_email', 0.15, 'Custo unitario por email enviado');
+triggerNextEmail() chamado
+       |
+       v
+  E o primeiro evento? (ultimo_evento_ordem == 0)
+       |
+  SIM  |  NAO --> continua sem debitar
+       v
+  Busca system_config (custos)
+       |
+       v
+  Calcula total com base nos servicos ativos da postagem_config
+       |
+       v
+  Verifica saldo >= total
+       |
+  SIM  |  NAO --> retorna null + log de saldo insuficiente
+       v
+  Debita saldo (UPDATE creditos)
+       |
+       v
+  Registra transacao (INSERT creditos_transacoes)
+       |
+       v
+  Continua fluxo normal
 ```
 
-### Postagens.tsx - Calculo dinamico
+## Mudancas Tecnicas
 
-Buscar os valores via `useQuery` da tabela `system_config` e usar no calculo de `custoMoedas` em vez das constantes hardcoded.
+### 1. Funcao de banco `debit_user_credits` (migracao)
 
-### Arquivos alterados/criados
+Funcao SQL `SECURITY DEFINER` que atomicamente:
+- Verifica se o saldo e suficiente
+- Debita o valor da tabela `creditos`
+- Insere registro em `creditos_transacoes` com tipo "consumo"
+- Retorna true/false
+
+```text
+CREATE OR REPLACE FUNCTION public.debit_user_credits(
+  _user_id UUID,
+  _quantidade NUMERIC,
+  _descricao TEXT
+) RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  current_saldo NUMERIC;
+BEGIN
+  SELECT saldo INTO current_saldo
+  FROM creditos WHERE user_id = _user_id FOR UPDATE;
+
+  IF current_saldo IS NULL OR current_saldo < _quantidade THEN
+    RETURN FALSE;
+  END IF;
+
+  UPDATE creditos
+  SET saldo = saldo - _quantidade, updated_at = now()
+  WHERE user_id = _user_id;
+
+  INSERT INTO creditos_transacoes (user_id, tipo, quantidade, descricao)
+  VALUES (_user_id, 'consumo', _quantidade, _descricao);
+
+  RETURN TRUE;
+END;
+$$;
+```
+
+### 2. Alterar `src/lib/email-trigger.ts`
+
+Na funcao `triggerNextEmail`, apos identificar o proximo evento e **antes de enviar o email**, se for o primeiro evento (currentOrdem == 0):
+
+1. Buscar o `user_id` da loja (via tabela `lojas`)
+2. Buscar os custos da `system_config`
+3. Calcular o total baseado nos servicos ativos da `postagem_config`
+4. Chamar `supabase.rpc('debit_user_credits', { _user_id, _quantidade, _descricao })` 
+5. Se retornar false, abortar o fluxo e retornar null
+
+### 3. Feedback visual (Envios.tsx)
+
+Quando o `triggerNextEmail` falhar por saldo insuficiente, exibir toast de erro informando que o saldo e insuficiente.
+
+## Arquivos alterados/criados
 
 | Arquivo | Acao |
 |---|---|
-| Migracao SQL | Criar tabela `system_config` com dados iniciais |
-| `src/pages/admin/AdminValores.tsx` | Criar pagina de gestao de valores |
-| `src/components/admin/AdminSidebar.tsx` | Adicionar item "Valores" |
-| `src/App.tsx` | Adicionar rota `/admin/valores` |
-| `src/pages/Postagens.tsx` | Usar valores dinamicos da tabela |
-| `supabase/functions/send-email/index.ts` | Buscar custo do email da tabela |
+| Migracao SQL | Criar funcao `debit_user_credits` |
+| `src/lib/email-trigger.ts` | Adicionar logica de debito no primeiro evento |
+| `src/pages/Envios.tsx` | Tratar erro de saldo insuficiente no toast |
