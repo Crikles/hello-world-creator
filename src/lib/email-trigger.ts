@@ -94,16 +94,16 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             let total = 0;
             const activeServices: string[] = [];
 
-            if (config.enviar_nfe_email && costMap["custo_nfe"]) {
-                total += costMap["custo_nfe"];
+            if (config.enviar_nfe_email && costMap["custo_nfe_email"]) {
+                total += costMap["custo_nfe_email"];
                 activeServices.push("NF-e");
             }
-            if (config.enviar_emails && costMap["custo_email"]) {
-                total += costMap["custo_email"];
+            if (config.enviar_emails && costMap["custo_email_rastreio"]) {
+                total += costMap["custo_email_rastreio"];
                 activeServices.push("E-mail");
             }
-            if (config.ativar_site_rastreio && costMap["custo_rastreio"]) {
-                total += costMap["custo_rastreio"];
+            if (config.ativar_site_rastreio && costMap["custo_sms_rastreio"]) {
+                total += costMap["custo_sms_rastreio"];
                 activeServices.push("Rastreio");
             }
             if (config.ativar_taxacao && costMap["custo_taxacao"]) {
