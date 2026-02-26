@@ -7,6 +7,13 @@ type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entreg
  * Triggers only the NEXT email event for a shipment.
  * Returns the new status and ultimo_evento_ordem, or null if nothing to send.
  */
+export class InsufficientBalanceError extends Error {
+    constructor() {
+        super("Saldo insuficiente de moedas para processar este envio.");
+        this.name = "InsufficientBalanceError";
+    }
+}
+
 export async function triggerNextEmail(envioId: string, lojaId: string, forceSendEmail: boolean = false): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
     try {
         // 1. Fetch shipment with empresa details
@@ -52,6 +59,78 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         if (!nextEvent) {
             console.log("Trigger skip: no more events to send");
             return null;
+        }
+
+        // 4.5. Debit credits on first event (currentOrdem == 0)
+        if (currentOrdem === 0) {
+            // Fetch user_id from loja
+            const { data: lojaData, error: lojaErr } = await supabase
+                .from("lojas")
+                .select("user_id")
+                .eq("id", lojaId)
+                .single();
+
+            if (lojaErr || !lojaData) {
+                console.error("Failed to fetch loja user_id:", lojaErr);
+                return null;
+            }
+
+            // Fetch costs from system_config
+            const { data: costs, error: costsErr } = await supabase
+                .from("system_config")
+                .select("key, value");
+
+            if (costsErr || !costs) {
+                console.error("Failed to fetch system_config costs:", costsErr);
+                return null;
+            }
+
+            const costMap: Record<string, number> = {};
+            for (const c of costs) {
+                costMap[c.key] = Number(c.value);
+            }
+
+            // Calculate total based on active services
+            let total = 0;
+            const activeServices: string[] = [];
+
+            if (config.enviar_nfe_email && costMap["custo_nfe"]) {
+                total += costMap["custo_nfe"];
+                activeServices.push("NF-e");
+            }
+            if (config.enviar_emails && costMap["custo_email"]) {
+                total += costMap["custo_email"];
+                activeServices.push("E-mail");
+            }
+            if (config.ativar_site_rastreio && costMap["custo_rastreio"]) {
+                total += costMap["custo_rastreio"];
+                activeServices.push("Rastreio");
+            }
+            if (config.ativar_taxacao && costMap["custo_taxacao"]) {
+                total += costMap["custo_taxacao"];
+                activeServices.push("Taxação");
+            }
+
+            if (total > 0) {
+                const descricao = `Envio processado (${activeServices.join(", ")})`;
+                const { data: debitOk, error: debitErr } = await supabase.rpc("debit_user_credits", {
+                    _user_id: lojaData.user_id,
+                    _quantidade: total,
+                    _descricao: descricao,
+                });
+
+                if (debitErr) {
+                    console.error("Debit RPC error:", debitErr);
+                    return null;
+                }
+
+                if (!debitOk) {
+                    console.warn("Insufficient balance for user:", lojaData.user_id);
+                    throw new InsufficientBalanceError();
+                }
+
+                console.log(`Debited ${total} credits for envio ${envioId}:`, descricao);
+            }
         }
 
         // 5. Determine new status based on position
