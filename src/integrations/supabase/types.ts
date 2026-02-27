@@ -447,6 +447,45 @@ export type Database = {
           },
         ]
       }
+      pix_payments: {
+        Row: {
+          amount_cents: number
+          copy_paste: string | null
+          created_at: string
+          id: string
+          moedas: number
+          paid_at: string | null
+          qr_code_base64: string | null
+          status: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          copy_paste?: string | null
+          created_at?: string
+          id?: string
+          moedas: number
+          paid_at?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          copy_paste?: string | null
+          created_at?: string
+          id?: string
+          moedas?: number
+          paid_at?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       postagem_config: {
         Row: {
           ativar_site_rastreio: boolean
