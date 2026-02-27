@@ -62,6 +62,13 @@ interface PostagemConfig {
   ativar_taxacao: boolean;
 }
 
+function formatMoedas(value: number): string {
+  const formatted = value % 1 === 0
+    ? String(value)
+    : value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${formatted} ${value === 1 ? "moeda" : "moedas"}`;
+}
+
 const iconMap: Record<string, React.ElementType> = {
   "Postado": FileText,
   "Coletado": Package,
@@ -378,7 +385,7 @@ export default function Postagens() {
                     <div>
                       <Label className="font-medium">Nota Fiscal enviada por email</Label>
                       <p className="text-xs text-muted-foreground">Envia automaticamente a Nota Fiscal por email ao cliente.</p>
-                      <Badge variant="outline" className="mt-1 text-xs">1 moeda</Badge>
+                      <Badge variant="outline" className="mt-1 text-xs">{formatMoedas(systemConfigValues?.custo_nfe_email ?? 1)}</Badge>
                     </div>
                     <Switch
                       checked={localConfig.enviar_nfe_email}
@@ -389,7 +396,7 @@ export default function Postagens() {
                     <div>
                       <Label className="font-medium">Fluxo do Rastreio por E-mail</Label>
                       <p className="text-xs text-muted-foreground">Envia emails automáticos de atualização de status do rastreio.</p>
-                      <Badge variant="outline" className="mt-1 text-xs">1 moeda</Badge>
+                      <Badge variant="outline" className="mt-1 text-xs">{formatMoedas(systemConfigValues?.custo_email_rastreio ?? 1)}</Badge>
                     </div>
                     <Switch
                       checked={localConfig.enviar_emails}
@@ -402,7 +409,7 @@ export default function Postagens() {
                         <Label className="font-medium">Site do rastreio por SMS</Label>
                         <p className="text-xs text-muted-foreground">Envia o link do site de rastreio personalizado ao cliente por SMS.</p>
                         <div className="flex items-center gap-1.5 mt-1">
-                          <Badge variant="outline" className="text-xs">+0,25 moeda</Badge>
+                          <Badge variant="outline" className="text-xs">+{formatMoedas(systemConfigValues?.custo_sms_rastreio ?? 0.25)}</Badge>
                         </div>
                       </div>
                     </div>
@@ -416,7 +423,7 @@ export default function Postagens() {
                       <Label className="font-medium">Funil de Taxação</Label>
                       <p className="text-xs text-muted-foreground">Ativa o fluxo de taxação com envio de Email e SMS ao cliente.</p>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <Badge variant="outline" className="text-xs">+1 moeda</Badge>
+                        <Badge variant="outline" className="text-xs">+{formatMoedas(systemConfigValues?.custo_taxacao ?? 1)}</Badge>
                       </div>
                     </div>
                     <Switch
@@ -573,23 +580,23 @@ export default function Postagens() {
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between">
                       <span className={localConfig.enviar_nfe_email ? "text-foreground" : "text-muted-foreground line-through"}>NF por email</span>
-                      <span className={localConfig.enviar_nfe_email ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
+                      <span className={localConfig.enviar_nfe_email ? "font-medium" : "text-muted-foreground"}>{formatMoedas(systemConfigValues?.custo_nfe_email ?? 1)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className={localConfig.enviar_emails ? "text-foreground" : "text-muted-foreground line-through"}>Rastreio por email</span>
-                      <span className={localConfig.enviar_emails ? "font-medium" : "text-muted-foreground"}>1 moeda</span>
+                      <span className={localConfig.enviar_emails ? "font-medium" : "text-muted-foreground"}>{formatMoedas(systemConfigValues?.custo_email_rastreio ?? 1)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className={localConfig.ativar_site_rastreio ? "text-foreground" : "text-muted-foreground line-through"}>Site rastreio por SMS</span>
-                      <span className={localConfig.ativar_site_rastreio ? "font-medium" : "text-muted-foreground"}>+0,25 moeda</span>
+                      <span className={localConfig.ativar_site_rastreio ? "font-medium" : "text-muted-foreground"}>+{formatMoedas(systemConfigValues?.custo_sms_rastreio ?? 0.25)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className={localConfig.ativar_taxacao ? "text-foreground" : "text-muted-foreground line-through"}>Funil de Taxação</span>
-                      <span className={localConfig.ativar_taxacao ? "font-medium" : "text-muted-foreground"}>+1 moeda</span>
+                      <span className={localConfig.ativar_taxacao ? "font-medium" : "text-muted-foreground"}>+{formatMoedas(systemConfigValues?.custo_taxacao ?? 1)}</span>
                     </div>
                     <div className="border-t pt-2 mt-2 flex justify-between">
                       <span className="font-semibold">Total por envio</span>
-                      <span className="text-lg font-bold text-primary">{custoMoedas} {custoMoedas === 1 ? "moeda" : "moedas"}</span>
+                      <span className="text-lg font-bold text-primary">{formatMoedas(custoMoedas)}</span>
                     </div>
                   </div>
                 </CardContent>
