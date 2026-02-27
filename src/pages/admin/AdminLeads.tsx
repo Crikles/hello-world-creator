@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Contact, Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const PAGE_SIZE = 25;
 
@@ -133,7 +135,7 @@ export default function AdminLeads() {
   };
 
   const downloadCSV = () => {
-    const header = ["Nome", "CPF", "Telefone", "Email", "Produto", "Valor", "Endereço", "Loja", "Usuário"];
+    const header = ["Nome", "CPF", "Telefone", "Email", "Produto", "Valor", "Endereço", "Loja", "Usuário", "Data"];
     const rows = filtered.map((l) => [
       l.nome,
       l.cpf || "",
@@ -144,6 +146,7 @@ export default function AdminLeads() {
       formatEndereco(l),
       l.lojas?.nome || "",
       l.user_name || l.user_email || "",
+      l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "",
     ]);
     const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -250,6 +253,7 @@ export default function AdminLeads() {
                         <TableHead>Endereço</TableHead>
                         <TableHead>Loja</TableHead>
                         <TableHead>Usuário</TableHead>
+                        <TableHead>Data</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -267,6 +271,9 @@ export default function AdminLeads() {
                           <TableCell className="whitespace-nowrap">{lead.lojas?.nome || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
                             {lead.user_name || lead.user_email || "—"}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
+                            {lead.created_at ? format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "—"}
                           </TableCell>
                         </TableRow>
                       ))}
