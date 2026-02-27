@@ -97,3 +97,127 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* === Futuristic Design System === */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes grid-move {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(40px); }
+}
+
+@keyframes stagger-in {
+  0% { opacity: 0; transform: translateY(24px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes rotate-border {
+  0% { --angle: 0deg; }
+  100% { --angle: 360deg; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(48px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(48px) rotate(-360deg); }
+}
+
+/* Utility Classes */
+.glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: hsla(0, 0%, 100%, 0.03);
+  border: 1px solid hsla(43, 74%, 49%, 0.1);
+}
+
+.glass-strong {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background: hsla(0, 0%, 100%, 0.05);
+  border: 1px solid hsla(43, 74%, 49%, 0.15);
+}
+
+.glow-border {
+  box-shadow: 0 0 0 1px hsla(43, 74%, 49%, 0.15),
+              0 0 20px -8px hsla(43, 74%, 49%, 0.2);
+}
+
+.glow-border-hover:hover {
+  box-shadow: 0 0 0 1px hsla(43, 74%, 49%, 0.35),
+              0 0 30px -6px hsla(43, 74%, 49%, 0.3);
+}
+
+.shimmer-btn {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsla(43, 74%, 80%, 0.15) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.animate-stagger-in {
+  animation: stagger-in 0.5s ease-out both;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+.animate-orbit {
+  animation: orbit 8s linear infinite;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(hsla(43, 74%, 49%, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, hsla(43, 74%, 49%, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: grid-move 4s linear infinite;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsla(43, 74%, 49%, 0.08) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
