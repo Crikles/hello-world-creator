@@ -372,7 +372,7 @@ export default function Postagens() {
     },
     {
       key: "ativar_site_rastreio",
-      label: "Site de Rastreio por SMS",
+      label: "Envio de Etapas por SMS",
       desc: "Cobrado individualmente por SMS enviado.",
       icon: Globe,
       checked: localConfig.ativar_site_rastreio,
