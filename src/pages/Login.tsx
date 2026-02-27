@@ -21,12 +21,26 @@ export default function Login() {
     }
   };
 
+  const handleReset = async (email: string) => {
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Link de redefinição enviado! Verifique seu email.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <AuthForm
         initialMode="login"
         loading={loading}
         onLogin={handleLogin}
+        onReset={handleReset}
         logo={isLogistics ? "/logojltransportes.png" : "/logo-magnus.png"}
         logoAlt={isLogistics ? "Logística JL Transportes" : "Magnus Frete"}
         title={isLogistics ? "Logística JL Transportes" : undefined}

@@ -28,6 +28,7 @@ import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
 import Rastreio from "./pages/Rastreio";
 import Taxacao from "./pages/Taxacao";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,7 @@ function PanelRoutes() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/lojas"
           element={
