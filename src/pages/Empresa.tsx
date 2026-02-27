@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Building2, MapPin, ImagePlus, Trash2, RotateCcw, Upload, Download, Maximize2, Loader2 } from "lucide-react";
+import { Save, Building2, MapPin, ImagePlus, Trash2, RotateCcw, Upload, Download, Maximize2, Loader2, Zap } from "lucide-react";
 import { fetchCep } from "@/lib/cep-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -181,9 +181,6 @@ export default function Empresa() {
     container.innerHTML = `<style>${css}</style>${body}`;
     document.body.appendChild(container);
 
-    // Style is already black, no override needed
-
-    // Wait for layout to fully compute before capturing
     await new Promise(resolve => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -230,7 +227,6 @@ export default function Empresa() {
     unidade: "UN",
   });
 
-  // Debounce: only update iframe 300ms after last keystroke
   const [debouncedHtml, setDebouncedHtml] = useState(danfeHtml);
 
   useEffect(() => {
@@ -238,7 +234,6 @@ export default function Empresa() {
     return () => clearTimeout(timer);
   }, [danfeHtml]);
 
-  // Write to iframe without refresh
   useEffect(() => {
     const iframe = previewIframeRef.current;
     if (!iframe?.contentWindow) return;
@@ -254,167 +249,161 @@ export default function Empresa() {
 
   return (
     <>
-      <h1 className="text-lg font-semibold text-foreground mb-4">Dados da Empresa</h1>
+      {/* Hero Header */}
+      <div className="glass glow-border rounded-xl p-5 mb-6 animate-stagger-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-foreground">Configuração Fiscal</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Dados que aparecerão na sua Nota Fiscal Eletrônica
+            </p>
+          </div>
+          <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20">
+            🇧🇷 Nacional
+          </Badge>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* LEFT COLUMN - Form */}
         <div className="lg:col-span-7 space-y-3">
-          {/* Header */}
-          <div className="rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 border border-primary/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-foreground">Configuração Fiscal</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Dados que aparecerão na sua Nota Fiscal Eletrônica
-                </p>
+
+          {/* Logo Card */}
+          <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.05s" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <ImagePlus className="h-4 w-4 text-primary" />
               </div>
-              <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20">
-                🇧🇷 Nacional
-              </Badge>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Logo da Empresa</h3>
+                <p className="text-xs text-muted-foreground">PNG, JPG ou WEBP — máximo 2MB</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              {logoPreview ? (
+                <div className="relative group">
+                  <img src={logoPreview} alt="Logo" className="w-24 h-24 object-contain rounded-lg border-2 border-primary/30 bg-card p-1" />
+                  <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-foreground hover:bg-muted/40" onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-foreground hover:bg-muted/40" onClick={handleRemoveLogo}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-24 h-24 rounded-lg border-2 border-dashed border-primary/30 bg-accent/50 hover:bg-accent hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-1 text-primary cursor-pointer glow-border-hover"
+                >
+                  <Upload className="h-5 w-5" />
+                  <span className="text-[10px] font-medium">Upload</span>
+                </button>
+              )}
+              <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoSelect} />
             </div>
           </div>
 
-          {/* Logo Card */}
-          <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-primary/10">
-                  <ImagePlus className="h-4 w-4 text-primary" />
-                </div>
-                Logo da Empresa
-              </CardTitle>
-              <CardDescription>PNG, JPG ou WEBP — máximo 2MB</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-6">
-                {logoPreview ? (
-                  <div className="relative group">
-                    <img src={logoPreview} alt="Logo" className="w-24 h-24 object-contain rounded-lg border-2 border-primary/30 bg-card p-1" />
-                    <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={() => fileInputRef.current?.click()}>
-                        <Upload className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={handleRemoveLogo}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-24 h-24 rounded-lg border-2 border-dashed border-primary/30 bg-accent/50 hover:bg-accent hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-1 text-primary cursor-pointer"
-                  >
-                    <Upload className="h-5 w-5" />
-                    <span className="text-[10px] font-medium">Upload</span>
-                  </button>
-                )}
-                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoSelect} />
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Company Data Card */}
-          <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-primary/10">
-                  <Building2 className="h-4 w-4 text-primary" />
-                </div>
-                Dados Fiscais
-              </CardTitle>
-              <CardDescription>Informações fiscais para emissão de NFE</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs text-muted-foreground">Razão Social *</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.razao_social} onChange={(e) => handleChange("razao_social", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Nome Fantasia</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.nome_fantasia} onChange={(e) => handleChange("nome_fantasia", e.target.value)} placeholder="Opcional" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">CNPJ *</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.cnpj} onChange={(e) => handleChange("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Inscrição Estadual</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.inscricao_estadual} onChange={(e) => handleChange("inscricao_estadual", e.target.value)} placeholder="Opcional" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Email de Contato</Label>
-                  <Input className="bg-muted/30 focus:bg-background" type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="Opcional" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Telefone</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.telefone} onChange={(e) => handleChange("telefone", e.target.value)} placeholder="(00) 00000-0000" />
-                </div>
+          <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.1s" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <Building2 className="h-4 w-4 text-primary" />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Dados Fiscais</h3>
+                <p className="text-xs text-muted-foreground">Informações fiscais para emissão de NFE</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Razão Social *</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.razao_social} onChange={(e) => handleChange("razao_social", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Nome Fantasia</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.nome_fantasia} onChange={(e) => handleChange("nome_fantasia", e.target.value)} placeholder="Opcional" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">CNPJ *</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.cnpj} onChange={(e) => handleChange("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Inscrição Estadual</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.inscricao_estadual} onChange={(e) => handleChange("inscricao_estadual", e.target.value)} placeholder="Opcional" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Email de Contato</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="Opcional" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Telefone</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.telefone} onChange={(e) => handleChange("telefone", e.target.value)} placeholder="(00) 00000-0000" />
+              </div>
+            </div>
+          </div>
 
           {/* Address Card */}
-          <Card className="border-l-4 border-l-primary/60 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-primary/10">
-                  <MapPin className="h-4 w-4 text-primary" />
-                </div>
-                Endereço da Empresa
-              </CardTitle>
-              <CardDescription>Endereço completo para a NFE</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs text-muted-foreground">Endereço (Rua) *</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.endereco} onChange={(e) => handleChange("endereco", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Número *</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.numero} onChange={(e) => handleChange("numero", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Bairro *</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.bairro} onChange={(e) => handleChange("bairro", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Cidade *</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.cidade} onChange={(e) => handleChange("cidade", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Estado *</Label>
-                  <Select value={form.estado} onValueChange={(v) => handleChange("estado", v)}>
-                    <SelectTrigger className="bg-muted/30 focus:bg-background"><SelectValue placeholder="UF" /></SelectTrigger>
-                    <SelectContent>
-                      {UF_OPTIONS.map((uf) => (
-                        <SelectItem key={uf} value={uf}>{uf}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">CEP *</Label>
-                  <div className="relative">
-                    <Input className="bg-muted/30 focus:bg-background" value={form.cep} onChange={(e) => handleChange("cep", e.target.value)} onBlur={handleCepBlur} placeholder="00000-000" />
-                    {buscandoCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
-                  </div>
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs text-muted-foreground">Complemento</Label>
-                  <Input className="bg-muted/30 focus:bg-background" value={form.complemento} onChange={(e) => handleChange("complemento", e.target.value)} placeholder="Opcional" />
+          <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.15s" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <MapPin className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Endereço da Empresa</h3>
+                <p className="text-xs text-muted-foreground">Endereço completo para a NFE</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Endereço (Rua) *</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.endereco} onChange={(e) => handleChange("endereco", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Número *</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.numero} onChange={(e) => handleChange("numero", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Bairro *</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.bairro} onChange={(e) => handleChange("bairro", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Cidade *</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.cidade} onChange={(e) => handleChange("cidade", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Estado *</Label>
+                <Select value={form.estado} onValueChange={(v) => handleChange("estado", v)}>
+                  <SelectTrigger className="glass border-primary/10 focus:border-primary/30"><SelectValue placeholder="UF" /></SelectTrigger>
+                  <SelectContent>
+                    {UF_OPTIONS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">CEP *</Label>
+                <div className="relative">
+                  <Input className="glass border-primary/10 focus:border-primary/30" value={form.cep} onChange={(e) => handleChange("cep", e.target.value)} onBlur={handleCepBlur} placeholder="00000-000" />
+                  {buscandoCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Complemento</Label>
+                <Input className="glass border-primary/10 focus:border-primary/30" value={form.complemento} onChange={(e) => handleChange("complemento", e.target.value)} placeholder="Opcional" />
+              </div>
+            </div>
+          </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center justify-end gap-3 pb-6">
-            <Button variant="outline" onClick={handleClear}>
+          <div className="flex flex-wrap items-center justify-end gap-3 pb-6 animate-stagger-in" style={{ animationDelay: "0.2s" }}>
+            <Button variant="outline" className="glass border-primary/20 hover:border-primary/40" onClick={handleClear}>
               <RotateCcw className="h-4 w-4 mr-2" />
               Limpar
             </Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={!form.razao_social || !form.cnpj || saveMutation.isPending}>
+            <Button className="shimmer-btn bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => saveMutation.mutate()} disabled={!form.razao_social || !form.cnpj || saveMutation.isPending}>
               <Save className="h-4 w-4 mr-2" />
               {saveMutation.isPending ? "Salvando..." : "Salvar Configuração"}
             </Button>
@@ -424,20 +413,21 @@ export default function Empresa() {
         {/* RIGHT COLUMN - DANFE Preview */}
         <div className="lg:col-span-5">
           <div className="lg:sticky lg:top-4 space-y-3">
-            <Card className="shadow-lg border-border/60">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Nota Fiscal (Preview)</CardTitle>
+            <div className="glass glow-border rounded-xl overflow-hidden animate-stagger-in" style={{ animationDelay: "0.1s" }}>
+              <div className="p-4 pb-2">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-foreground">Nota Fiscal (Preview)</h3>
                   <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px] px-2 py-0.5">
-                    ● Tempo Real
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary mr-1 animate-pulse-dot" />
+                    Tempo Real
                   </Badge>
                 </div>
-                <CardDescription className="text-xs">
-                  Atualiza conforme você preenche o formulário. O preview abaixo mostra exatamente como será gerado o PDF.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-2">
-                <div className="rounded-lg border border-border/60 bg-card overflow-hidden" style={{ height: 720 }}>
+                <p className="text-xs text-muted-foreground">
+                  Atualiza conforme você preenche o formulário.
+                </p>
+              </div>
+              <div className="p-2 pt-0">
+                <div className="rounded-lg border border-border/40 bg-card overflow-hidden" style={{ height: 720 }}>
                   <div style={{ transform: "scale(0.62)", transformOrigin: "top left", width: "161.3%", height: "161.3%" }}>
                     <iframe
                       ref={previewIframeRef}
@@ -447,14 +437,14 @@ export default function Empresa() {
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setDanfeOpen(true)}>
+              </div>
+            </div>
+            <div className="flex gap-2 animate-stagger-in" style={{ animationDelay: "0.15s" }}>
+              <Button variant="outline" className="flex-1 glass border-primary/20 hover:border-primary/40" onClick={() => setDanfeOpen(true)}>
                 <Maximize2 className="h-4 w-4 mr-2" />
                 Tela Cheia
               </Button>
-              <Button className="flex-1" onClick={handleDownloadPdf}>
+              <Button className="flex-1 shimmer-btn bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleDownloadPdf}>
                 <Download className="h-4 w-4 mr-2" />
                 Baixar PDF
               </Button>
