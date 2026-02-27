@@ -61,36 +61,36 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             return null;
         }
 
-        // 4.5. Debit credits on first event (currentOrdem == 0)
+        // ── Fetch user_id and costs (needed for initial debit AND per-SMS debit) ──
+        const { data: lojaData, error: lojaErr } = await supabase
+            .from("lojas")
+            .select("user_id")
+            .eq("id", lojaId)
+            .single();
+
+        if (lojaErr || !lojaData) {
+            console.error("Failed to fetch loja user_id:", lojaErr);
+            return null;
+        }
+
+        const lojaUserId = lojaData.user_id;
+
+        const { data: costs, error: costsErr } = await supabase
+            .from("system_config")
+            .select("key, value");
+
+        if (costsErr || !costs) {
+            console.error("Failed to fetch system_config costs:", costsErr);
+            return null;
+        }
+
+        const costMap: Record<string, number> = {};
+        for (const c of costs) {
+            costMap[c.key] = Number(c.value);
+        }
+
+        // 4.5. Debit credits on first event (currentOrdem == 0) — SMS excluded, charged per-send
         if (currentOrdem === 0) {
-            // Fetch user_id from loja
-            const { data: lojaData, error: lojaErr } = await supabase
-                .from("lojas")
-                .select("user_id")
-                .eq("id", lojaId)
-                .single();
-
-            if (lojaErr || !lojaData) {
-                console.error("Failed to fetch loja user_id:", lojaErr);
-                return null;
-            }
-
-            // Fetch costs from system_config
-            const { data: costs, error: costsErr } = await supabase
-                .from("system_config")
-                .select("key, value");
-
-            if (costsErr || !costs) {
-                console.error("Failed to fetch system_config costs:", costsErr);
-                return null;
-            }
-
-            const costMap: Record<string, number> = {};
-            for (const c of costs) {
-                costMap[c.key] = Number(c.value);
-            }
-
-            // Calculate total based on active services
             let total = 0;
             const activeServices: string[] = [];
 
@@ -102,10 +102,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 total += costMap["custo_email_rastreio"];
                 activeServices.push("E-mail");
             }
-            if (config.ativar_site_rastreio && costMap["custo_sms_rastreio"]) {
-                total += costMap["custo_sms_rastreio"];
-                activeServices.push("Rastreio");
-            }
+            // SMS removido da cobrança inicial — cobrado individualmente a cada envio
             if (config.ativar_taxacao && costMap["custo_taxacao"]) {
                 total += costMap["custo_taxacao"];
                 activeServices.push("Taxação");
@@ -114,7 +111,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             if (total > 0) {
                 const descricao = `Envio processado (${activeServices.join(", ")})`;
                 const { data: debitOk, error: debitErr } = await supabase.rpc("debit_user_credits", {
-                    _user_id: lojaData.user_id,
+                    _user_id: lojaUserId,
                     _quantidade: total,
                     _descricao: descricao,
                 });
@@ -125,7 +122,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 }
 
                 if (!debitOk) {
-                    console.warn("Insufficient balance for user:", lojaData.user_id);
+                    console.warn("Insufficient balance for user:", lojaUserId);
                     throw new InsufficientBalanceError();
                 }
 
@@ -185,7 +182,6 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 const base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
                 nfe_filename = generateNfeFilename();
 
-                // Convert base64 to Blob and upload to Storage
                 const byteChars = atob(base64);
                 const byteNumbers = new Array(byteChars.length);
                 for (let i = 0; i < byteChars.length; i++) {
@@ -233,26 +229,50 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             console.log("Email sent for event:", nextEvent.nome);
         }
 
-        // SMS dispatch on all events
+        // SMS dispatch — charged individually per message
         if (
             config.ativar_site_rastreio &&
             shipment.cliente_telefone &&
             !nextEvent.enviar_nfe_pdf
         ) {
-            console.log("Dispatching SMS for envio:", envioId, "status:", nextEvent.status_label);
-            const { error: smsErr } = await supabase.functions.invoke("send-sms", {
-                body: { envio_id: envioId, loja_id: lojaId, status_label: nextEvent.status_label },
-            });
-            if (smsErr) {
-                console.error("SMS dispatch failed:", smsErr);
-            } else {
-                console.log("SMS sent successfully for envio:", envioId);
+            const smsCost = costMap["custo_sms_rastreio"] || 0;
+            let canSendSms = true;
+
+            if (smsCost > 0) {
+                const { data: smsDebitOk, error: smsDebitErr } = await supabase.rpc("debit_user_credits", {
+                    _user_id: lojaUserId,
+                    _quantidade: smsCost,
+                    _descricao: `SMS enviado - ${nextEvent.status_label}`,
+                });
+
+                if (smsDebitErr) {
+                    console.error("SMS debit RPC error:", smsDebitErr);
+                    canSendSms = false;
+                } else if (!smsDebitOk) {
+                    console.warn("Saldo insuficiente para SMS, pulando envio:", envioId);
+                    canSendSms = false;
+                } else {
+                    console.log(`SMS debit: ${smsCost} credits for envio ${envioId} - ${nextEvent.status_label}`);
+                }
+            }
+
+            if (canSendSms) {
+                console.log("Dispatching SMS for envio:", envioId, "status:", nextEvent.status_label);
+                const { error: smsErr } = await supabase.functions.invoke("send-sms", {
+                    body: { envio_id: envioId, loja_id: lojaId, status_label: nextEvent.status_label },
+                });
+                if (smsErr) {
+                    console.error("SMS dispatch failed:", smsErr);
+                } else {
+                    console.log("SMS sent successfully for envio:", envioId);
+                }
             }
         }
 
         return { status: newStatus, ultimoOrdem: nextEvent.ordem };
 
     } catch (err) {
+        if (err instanceof InsufficientBalanceError) throw err;
         console.error("Global trigger error:", err);
         return null;
     }
