@@ -1,10 +1,23 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useLoja } from "@/contexts/LojaContext";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
@@ -22,6 +35,8 @@ const statusTimelineColors: Record<string, string> = {
 
 export default function Dashboard() {
   const { loja } = useLoja();
+  const queryClient = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const { data: envios = [] } = useQuery({
     queryKey: ["envios-dashboard", loja?.id],
@@ -51,6 +66,25 @@ export default function Dashboard() {
       return data;
     },
     enabled: !!loja,
+  });
+
+  const clearLogsMutation = useMutation({
+    mutationFn: async () => {
+      if (!loja) throw new Error("Sem loja");
+      const { error } = await supabase
+        .from("envios")
+        .update({ deleted_at: new Date().toISOString() } as any)
+        .eq("loja_id", loja.id)
+        .is("deleted_at" as any, null);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["envios-dashboard", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios", loja?.id] });
+      toast.success("Todos os registros de envios foram limpos.");
+      setConfirmOpen(false);
+    },
+    onError: () => toast.error("Erro ao limpar registros."),
   });
 
   const smsAtivo = postagemConfig?.ativar_site_rastreio ?? false;
@@ -87,12 +121,46 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="animate-stagger-in">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Bem-vindo de volta! Aqui está o resumo dos seus envios.
-        </p>
+      <div className="animate-stagger-in flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Bem-vindo de volta! Aqui está o resumo dos seus envios.
+          </p>
+        </div>
+        {total > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-1.5" />
+            Limpar Logs
+          </Button>
+        )}
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar todos os registros de envios?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá remover todos os envios da sua loja. Os dados não serão excluídos permanentemente, mas não aparecerão mais nas listagens.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => clearLogsMutation.mutate()}
+              disabled={clearLogsMutation.isPending}
+            >
+              {clearLogsMutation.isPending ? "Limpando..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
