@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -24,10 +23,15 @@ import {
   Box,
   Save,
   Settings2,
+  Zap,
+  MessageSquare,
+  Globe,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { TaxacaoConfig } from "@/components/postagens/TaxacaoConfig";
 
+// ── Types ──
 interface PostagemEvento {
   id: string;
   template_id: string;
@@ -62,6 +66,7 @@ interface PostagemConfig {
   ativar_taxacao: boolean;
 }
 
+// ── Helpers ──
 function formatMoedas(value: number): string {
   const formatted = value % 1 === 0
     ? String(value)
@@ -82,15 +87,15 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 const badgeColor: Record<string, string> = {
-  "Postado": "bg-blue-100 text-blue-800",
-  "Coletado": "bg-indigo-100 text-indigo-800",
-  "Em Trânsito": "bg-yellow-100 text-yellow-800",
-  "Centro Local": "bg-purple-100 text-purple-800",
-  "Saiu para Entrega": "bg-orange-100 text-orange-800",
-  "Entregue": "bg-green-100 text-green-800",
-  "Taxação": "bg-red-100 text-red-800",
-  "Pago": "bg-emerald-100 text-emerald-800",
-  "Em Rota": "bg-amber-100 text-amber-800",
+  "Postado": "bg-primary/20 text-primary",
+  "Coletado": "bg-accent text-accent-foreground",
+  "Em Trânsito": "bg-primary/25 text-primary",
+  "Centro Local": "bg-accent text-accent-foreground",
+  "Saiu para Entrega": "bg-primary/30 text-primary",
+  "Entregue": "bg-primary/15 text-primary",
+  "Taxação": "bg-destructive/20 text-destructive",
+  "Pago": "bg-primary/20 text-primary",
+  "Em Rota": "bg-primary/25 text-primary",
 };
 
 function isEventoAtivo(evento: PostagemEvento, localConfig: PostagemConfig): boolean {
@@ -107,7 +112,7 @@ function DelayInput({ value, onChange }: { value: number; onChange: (v: number) 
     <Input
       type="number"
       min={0}
-      className="w-16 h-8 text-xs text-center"
+      className="w-14 h-7 text-xs text-center bg-transparent border-border/50"
       value={local}
       onChange={(e) => setLocal(e.target.value)}
       onBlur={() => {
@@ -118,15 +123,16 @@ function DelayInput({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
+// ── Main Component ──
 export default function Postagens() {
   const { loja } = useLoja();
   const queryClient = useQueryClient();
 
-  // Local state for manual save
   const [localConfig, setLocalConfig] = useState<PostagemConfig | null>(null);
   const [localDelays, setLocalDelays] = useState<Record<string, number>>({});
+  const [activeTab, setActiveTab] = useState("configuracao");
 
-  // Fetch system templates
+  // ── Queries ──
   const { data: systemTemplates } = useQuery({
     queryKey: ["postagem-templates-system"],
     queryFn: async () => {
@@ -140,7 +146,6 @@ export default function Postagens() {
     },
   });
 
-  // Fetch system template eventos for preview
   const { data: systemEventos } = useQuery({
     queryKey: ["postagem-eventos-system"],
     queryFn: async () => {
@@ -158,7 +163,6 @@ export default function Postagens() {
     },
   });
 
-  // Fetch config for current loja
   const { data: config } = useQuery({
     queryKey: ["postagem-config", loja?.id],
     queryFn: async () => {
@@ -173,7 +177,6 @@ export default function Postagens() {
     enabled: !!loja,
   });
 
-  // Fetch active template eventos
   const { data: activeEventos } = useQuery({
     queryKey: ["postagem-eventos-active", config?.template_ativo_id],
     queryFn: async () => {
@@ -188,7 +191,20 @@ export default function Postagens() {
     enabled: !!config?.template_ativo_id,
   });
 
-  // Sync local state from server data
+  const { data: systemConfigValues } = useQuery({
+    queryKey: ["system-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("system_config")
+        .select("key, value");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      (data || []).forEach((r: { key: string; value: number }) => { map[r.key] = Number(r.value); });
+      return map;
+    },
+  });
+
+  // ── Sync local state ──
   useEffect(() => {
     if (config) setLocalConfig({ ...config });
   }, [config]);
@@ -201,7 +217,7 @@ export default function Postagens() {
     }
   }, [activeEventos]);
 
-  // Detect pending changes
+  // ── Derived state ──
   const hasChanges = useMemo(() => {
     if (!config || !localConfig) return false;
     const configChanged =
@@ -215,14 +231,24 @@ export default function Postagens() {
     return configChanged || !!delaysChanged;
   }, [config, localConfig, activeEventos, localDelays]);
 
-  // Apply template mutation
+  const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
+
+  const custoMoedas = (() => {
+    if (!localConfig || !systemConfigValues) return 0;
+    let total = 0;
+    if (localConfig.enviar_nfe_email) total += systemConfigValues.custo_nfe_email ?? 1;
+    if (localConfig.enviar_emails) total += systemConfigValues.custo_email_rastreio ?? 1;
+    if (localConfig.ativar_site_rastreio) total += systemConfigValues.custo_sms_rastreio ?? 0.25;
+    if (localConfig.ativar_taxacao) total += systemConfigValues.custo_taxacao ?? 1;
+    return total;
+  })();
+
+  // ── Mutations ──
   const applyTemplate = useMutation({
     mutationFn: async (templateId: string) => {
       if (!loja) return;
-
       const systemTemplate = systemTemplates?.find((t) => t.id === templateId);
       if (!systemTemplate) return;
-
       const evts = systemEventos?.filter((e) => e.template_id === templateId) || [];
 
       const { data: newTemplate, error: tErr } = await supabase
@@ -278,7 +304,6 @@ export default function Postagens() {
     },
   });
 
-  // Save all changes mutation
   const saveAll = useMutation({
     mutationFn: async () => {
       if (!loja || !localConfig) throw new Error("Dados não disponíveis");
@@ -316,305 +341,284 @@ export default function Postagens() {
     },
   });
 
-  const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
-
-  // Fetch system config values
-  const { data: systemConfigValues } = useQuery({
-    queryKey: ["system-config"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("system_config")
-        .select("key, value");
-      if (error) throw error;
-      const map: Record<string, number> = {};
-      (data || []).forEach((r: { key: string; value: number }) => { map[r.key] = Number(r.value); });
-      return map;
+  // ── Feature toggles data ──
+  const featureToggles = localConfig ? [
+    {
+      key: "enviar_nfe_email",
+      label: "Nota Fiscal por E-mail",
+      desc: "Envia automaticamente a NF-e por email ao cliente.",
+      icon: FileText,
+      checked: localConfig.enviar_nfe_email,
+      cost: systemConfigValues?.custo_nfe_email ?? 1,
+      toggle: () => setLocalConfig(prev => prev ? { ...prev, enviar_nfe_email: !prev.enviar_nfe_email } : prev),
     },
-  });
-
-  const custoMoedas = (() => {
-    if (!localConfig || !systemConfigValues) return 0;
-    let total = 0;
-    if (localConfig.enviar_nfe_email) total += systemConfigValues.custo_nfe_email ?? 1;
-    if (localConfig.enviar_emails) total += systemConfigValues.custo_email_rastreio ?? 1;
-    if (localConfig.ativar_site_rastreio) total += systemConfigValues.custo_sms_rastreio ?? 0.25;
-    if (localConfig.ativar_taxacao) total += systemConfigValues.custo_taxacao ?? 1;
-    return total;
-  })();
-
-  const [activeTab, setActiveTab] = useState("configuracao");
+    {
+      key: "enviar_emails",
+      label: "Rastreio por E-mail",
+      desc: "Emails automáticos de atualização de status.",
+      icon: Mail,
+      checked: localConfig.enviar_emails,
+      cost: systemConfigValues?.custo_email_rastreio ?? 1,
+      toggle: () => setLocalConfig(prev => prev ? { ...prev, enviar_emails: !prev.enviar_emails } : prev),
+    },
+    {
+      key: "ativar_site_rastreio",
+      label: "Site de Rastreio por SMS",
+      desc: "Link do site de rastreio personalizado via SMS.",
+      icon: Globe,
+      checked: localConfig.ativar_site_rastreio,
+      cost: systemConfigValues?.custo_sms_rastreio ?? 0.25,
+      toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_site_rastreio: !prev.ativar_site_rastreio } : prev),
+    },
+    {
+      key: "ativar_taxacao",
+      label: "Funil de Taxação",
+      desc: "Fluxo de taxação com Email e SMS ao cliente.",
+      icon: AlertTriangle,
+      checked: localConfig.ativar_taxacao,
+      cost: systemConfigValues?.custo_taxacao ?? 1,
+      toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_taxacao: !prev.ativar_taxacao } : prev),
+    },
+  ] : [];
 
   return (
-    <>
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Postagens</h1>
-            <p className="text-muted-foreground">
-              Gerencie os fluxos de email automáticos para cada evento de rastreamento
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Hero */}
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Postagens</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Configure os fluxos de email automáticos para cada evento de rastreamento.
+        </p>
+      </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
-            <TabsTrigger value="configuracao" className="flex items-center gap-1.5">
-              <Settings2 className="h-3.5 w-3.5" />
-              Configuração
-            </TabsTrigger>
-            <TabsTrigger value="taxacao" className="flex items-center gap-1.5">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Taxação
-              {localConfig?.ativar_taxacao && (
-                <span className="ml-1 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          {/* ─── Configuração Tab ─── */}
-          <TabsContent value="configuracao" className="space-y-6 mt-4">
-            {/* Configurações gerais */}
-            {localConfig && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Configurações Gerais</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="font-medium">Nota Fiscal enviada por email</Label>
-                      <p className="text-xs text-muted-foreground">Envia automaticamente a Nota Fiscal por email ao cliente.</p>
-                      <Badge variant="outline" className="mt-1 text-xs">{formatMoedas(systemConfigValues?.custo_nfe_email ?? 1)}</Badge>
-                    </div>
-                    <Switch
-                      checked={localConfig.enviar_nfe_email}
-                      onCheckedChange={() => setLocalConfig(prev => prev ? { ...prev, enviar_nfe_email: !prev.enviar_nfe_email } : prev)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="font-medium">Fluxo do Rastreio por E-mail</Label>
-                      <p className="text-xs text-muted-foreground">Envia emails automáticos de atualização de status do rastreio.</p>
-                      <Badge variant="outline" className="mt-1 text-xs">{formatMoedas(systemConfigValues?.custo_email_rastreio ?? 1)}</Badge>
-                    </div>
-                    <Switch
-                      checked={localConfig.enviar_emails}
-                      onCheckedChange={() => setLocalConfig(prev => prev ? { ...prev, enviar_emails: !prev.enviar_emails } : prev)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <Label className="font-medium">Site do rastreio por SMS</Label>
-                        <p className="text-xs text-muted-foreground">Envia o link do site de rastreio personalizado ao cliente por SMS.</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Badge variant="outline" className="text-xs">+{formatMoedas(systemConfigValues?.custo_sms_rastreio ?? 0.25)}</Badge>
-                        </div>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={localConfig.ativar_site_rastreio}
-                      onCheckedChange={() => setLocalConfig(prev => prev ? { ...prev, ativar_site_rastreio: !prev.ativar_site_rastreio } : prev)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="font-medium">Funil de Taxação</Label>
-                      <p className="text-xs text-muted-foreground">Ativa o fluxo de taxação com envio de Email e SMS ao cliente.</p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Badge variant="outline" className="text-xs">+{formatMoedas(systemConfigValues?.custo_taxacao ?? 1)}</Badge>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={localConfig.ativar_taxacao}
-                      onCheckedChange={() => setLocalConfig(prev => prev ? { ...prev, ativar_taxacao: !prev.ativar_taxacao } : prev)}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="glass glow-border p-1 h-auto">
+          <TabsTrigger value="configuracao" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Settings2 className="h-3.5 w-3.5" />
+            Configuração
+          </TabsTrigger>
+          <TabsTrigger value="taxacao" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Taxação
+            {localConfig?.ativar_taxacao && (
+              <span className="ml-1 w-2 h-2 rounded-full bg-primary animate-pulse-dot" />
             )}
+          </TabsTrigger>
+        </TabsList>
 
-            {/* Templates pré-configurados */}
-            <div>
-              <h2 className="text-lg font-semibold text-foreground mb-3">Templates Pré-configurados</h2>
-              <div className="grid gap-4 md:grid-cols-3">
-                {systemTemplates?.map((template) => {
-                  const evts = systemEventos?.filter((e) => e.template_id === template.id) || [];
+        {/* ─── Configuração Tab ─── */}
+        <TabsContent value="configuracao" className="space-y-6 mt-5">
 
-                  return (
-                    <Card
-                      key={template.id}
-                      className="cursor-pointer transition-colors hover:border-primary/50"
-                      onClick={() => applyTemplate.mutate(template.id)}
-                    >
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm">{template.nome}</CardTitle>
-                          <Badge variant="outline" className="text-xs">
-                            {evts.length} eventos
-                          </Badge>
-                        </div>
-                        <CardDescription className="text-xs">{template.descricao}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-1.5">
-                          {evts.map((e) => {
-                            const color = badgeColor[e.status_label || ""] || "bg-muted text-muted-foreground";
-                            return (
-                              <span key={e.id} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
-                                {e.status_label}
-                              </span>
-                            );
-                          })}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Aplicar substituirá eventos atuais
-                        </p>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Eventos do fluxo ativo */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold text-foreground">Eventos do Fluxo Ativo</h2>
-              </div>
-
-              {!config?.template_ativo_id ? (
-                <Card>
-                  <CardContent className="py-8 text-center text-muted-foreground">
-                    <Box className="h-10 w-10 mx-auto mb-2 opacity-40" />
-                    <p>Selecione um template acima para começar</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-2">
-                  {sortedActiveEventos?.map((evento, index) => {
-                    const Icon = iconMap[evento.status_label || ""] || Mail;
-                    const color = badgeColor[evento.status_label || ""] || "bg-muted text-muted-foreground";
-                    const isFirst = index === 0;
-                    const ativo = localConfig ? isEventoAtivo(evento, localConfig) : false;
-
-                    return (
-                      <Card
-                        key={evento.id}
-                        className={ativo
-                          ? "border-green-500/50 bg-green-50/30 dark:bg-green-950/20"
-                          : "border-red-500/50 bg-red-50/30 dark:bg-red-950/20"
-                        }
-                      >
-                        <CardContent className="flex items-center gap-4 py-3 px-4">
-                          <GripVertical className="h-4 w-4 text-muted-foreground/40" />
-                          <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{evento.nome}</span>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
-                                {evento.status_label}
-                              </span>
-                              {evento.is_final && (
-                                <Badge variant="outline" className="text-xs">Final</Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate">{evento.descricao}</p>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                              {evento.enviar_email && (
-                                <span className="flex items-center gap-1 text-primary">
-                                  <Mail className="h-3 w-3" />
-                                  Email ativo
-                                </span>
-                              )}
-                              {evento.enviar_nfe_pdf && (
-                                <span className="flex items-center gap-1 text-primary">
-                                  <FileText className="h-3 w-3" />
-                                  NFe anexa
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {!isFirst && (
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <DelayInput
-                                value={localDelays[evento.id] ?? evento.delay_horas}
-                                onChange={(delay_horas) => setLocalDelays(prev => ({ ...prev, [evento.id]: delay_horas }))}
-                              />
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">dias após anterior</span>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-
-                  {/* Botão Salvar */}
-                  <div className="pt-4">
-                    <Button
-                      onClick={() => saveAll.mutate()}
-                      disabled={!hasChanges || saveAll.isPending}
-                      className="w-full"
-                      size="lg"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {saveAll.isPending ? "Salvando..." : "Salvar Alterações"}
-                    </Button>
+          {/* Feature Toggles Grid */}
+          {localConfig && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {featureToggles.map((ft, idx) => (
+                <div
+                  key={ft.key}
+                  className={`glass rounded-xl p-4 transition-all duration-300 animate-stagger-in ${ft.checked ? "glow-border" : "border border-border/30"}`}
+                  style={{ animationDelay: `${idx * 0.06}s` }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${ft.checked ? "bg-primary/15" : "bg-muted/50"}`}>
+                        <ft.icon className={`h-4 w-4 ${ft.checked ? "text-primary" : "text-muted-foreground"}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{ft.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{ft.desc}</p>
+                        <Badge variant="outline" className="mt-1.5 text-[10px] border-border/50">
+                          <Coins className="h-2.5 w-2.5 mr-1" />
+                          {formatMoedas(ft.cost)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <Switch checked={ft.checked} onCheckedChange={ft.toggle} />
                   </div>
                 </div>
-              )}
+              ))}
             </div>
+          )}
 
-            {/* Custo estimado */}
-            {localConfig && (
-              <Card className="border-primary/20 bg-primary/5">
-                <CardContent className="py-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Coins className="h-5 w-5 text-primary" />
-                    <p className="text-sm font-medium">Custo por Envio</p>
+          {/* Templates */}
+          <div>
+            <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              Templates Pré-configurados
+            </h2>
+            <div className="grid gap-3 md:grid-cols-3">
+              {systemTemplates?.map((template, idx) => {
+                const evts = systemEventos?.filter((e) => e.template_id === template.id) || [];
+                return (
+                  <div
+                    key={template.id}
+                    className="glass glow-border-hover rounded-xl p-4 cursor-pointer transition-all duration-300 hover:scale-[1.02] animate-stagger-in"
+                    style={{ animationDelay: `${(idx + 4) * 0.06}s` }}
+                    onClick={() => applyTemplate.mutate(template.id)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-foreground">{template.nome}</p>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {evts.length} eventos
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">{template.descricao}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {evts.map((e) => {
+                        const color = badgeColor[e.status_label || ""] || "bg-muted text-muted-foreground";
+                        return (
+                          <span key={e.id} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${color}`}>
+                            {e.status_label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
+                      <AlertTriangle className="h-2.5 w-2.5" />
+                      Aplicar substituirá eventos atuais
+                    </p>
                   </div>
-                  <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <span className={localConfig.enviar_nfe_email ? "text-foreground" : "text-muted-foreground line-through"}>NF por email</span>
-                      <span className={localConfig.enviar_nfe_email ? "font-medium" : "text-muted-foreground"}>{formatMoedas(systemConfigValues?.custo_nfe_email ?? 1)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={localConfig.enviar_emails ? "text-foreground" : "text-muted-foreground line-through"}>Rastreio por email</span>
-                      <span className={localConfig.enviar_emails ? "font-medium" : "text-muted-foreground"}>{formatMoedas(systemConfigValues?.custo_email_rastreio ?? 1)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={localConfig.ativar_site_rastreio ? "text-foreground" : "text-muted-foreground line-through"}>Site rastreio por SMS</span>
-                      <span className={localConfig.ativar_site_rastreio ? "font-medium" : "text-muted-foreground"}>+{formatMoedas(systemConfigValues?.custo_sms_rastreio ?? 0.25)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={localConfig.ativar_taxacao ? "text-foreground" : "text-muted-foreground line-through"}>Funil de Taxação</span>
-                      <span className={localConfig.ativar_taxacao ? "font-medium" : "text-muted-foreground"}>+{formatMoedas(systemConfigValues?.custo_taxacao ?? 1)}</span>
-                    </div>
-                    <div className="border-t pt-2 mt-2 flex justify-between">
-                      <span className="font-semibold">Total por envio</span>
-                      <span className="text-lg font-bold text-primary">{formatMoedas(custoMoedas)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+                );
+              })}
+            </div>
+          </div>
 
-          {/* ─── Taxação Tab ─── */}
-          <TabsContent value="taxacao" className="mt-4">
-            {loja?.id && (
-              <TaxacaoConfig
-                lojaId={loja.id}
-                taxacaoAtivo={localConfig?.ativar_taxacao ?? false}
-              />
+          {/* Active Flow Events */}
+          <div>
+            <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Eventos do Fluxo Ativo
+            </h2>
+
+            {!config?.template_ativo_id ? (
+              <div className="glass glow-border rounded-xl flex flex-col items-center justify-center py-16 text-center">
+                <div className="relative mb-4">
+                  <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center">
+                    <Box className="h-8 w-8 text-primary/30" />
+                  </div>
+                  <div className="absolute inset-0 animate-orbit">
+                    <div className="h-2 w-2 rounded-full bg-primary/30 animate-pulse-dot" />
+                  </div>
+                </div>
+                <p className="text-foreground font-medium">Selecione um template acima</p>
+                <p className="text-xs text-muted-foreground mt-1">Escolha um fluxo pré-configurado para começar.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {sortedActiveEventos?.map((evento, index) => {
+                  const Icon = iconMap[evento.status_label || ""] || Mail;
+                  const color = badgeColor[evento.status_label || ""] || "bg-muted text-muted-foreground";
+                  const isFirst = index === 0;
+                  const ativo = localConfig ? isEventoAtivo(evento, localConfig) : false;
+
+                  return (
+                    <div
+                      key={evento.id}
+                      className={`glass rounded-xl transition-all duration-300 animate-stagger-in ${ativo ? "glow-border" : "border border-destructive/20 opacity-60"}`}
+                      style={{ animationDelay: `${index * 0.04}s` }}
+                    >
+                      <div className="flex items-center gap-3 py-3 px-4">
+                        <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${ativo ? "bg-primary/10" : "bg-muted/30"}`}>
+                          <Icon className={`h-3.5 w-3.5 ${ativo ? "text-primary" : "text-muted-foreground/50"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-foreground">{evento.nome}</span>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${color}`}>
+                              {evento.status_label}
+                            </span>
+                            {evento.is_final && (
+                              <Badge variant="outline" className="text-[10px] border-border/50">Final</Badge>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">{evento.descricao}</p>
+                          <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
+                            {evento.enviar_email && (
+                              <span className="flex items-center gap-0.5 text-primary">
+                                <Mail className="h-2.5 w-2.5" /> Email
+                              </span>
+                            )}
+                            {evento.enviar_nfe_pdf && (
+                              <span className="flex items-center gap-0.5 text-primary">
+                                <FileText className="h-2.5 w-2.5" /> NFe
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {!isFirst && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Clock className="h-3 w-3 text-muted-foreground/50" />
+                            <DelayInput
+                              value={localDelays[evento.id] ?? evento.delay_horas}
+                              onChange={(delay_horas) => setLocalDelays(prev => ({ ...prev, [evento.id]: delay_horas }))}
+                            />
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">dias</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Save Button */}
+                <div className="pt-3">
+                  <Button
+                    onClick={() => saveAll.mutate()}
+                    disabled={!hasChanges || saveAll.isPending}
+                    className="w-full shimmer-btn"
+                    size="lg"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {saveAll.isPending ? "Salvando..." : "Salvar Alterações"}
+                  </Button>
+                </div>
+              </div>
             )}
-          </TabsContent>
-        </Tabs>
-      </div>
-    </>
+          </div>
+
+          {/* Cost Summary */}
+          {localConfig && (
+            <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.3s" }}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Coins className="h-4 w-4 text-primary" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">Custo por Envio</p>
+              </div>
+              <div className="space-y-2 text-sm">
+                {[
+                  { label: "NF por email", active: localConfig.enviar_nfe_email, cost: systemConfigValues?.custo_nfe_email ?? 1 },
+                  { label: "Rastreio por email", active: localConfig.enviar_emails, cost: systemConfigValues?.custo_email_rastreio ?? 1 },
+                  { label: "Site rastreio por SMS", active: localConfig.ativar_site_rastreio, cost: systemConfigValues?.custo_sms_rastreio ?? 0.25, prefix: "+" },
+                  { label: "Funil de Taxação", active: localConfig.ativar_taxacao, cost: systemConfigValues?.custo_taxacao ?? 1, prefix: "+" },
+                ].map((item) => (
+                  <div key={item.label} className="flex justify-between">
+                    <span className={item.active ? "text-foreground" : "text-muted-foreground line-through"}>{item.label}</span>
+                    <span className={item.active ? "font-medium text-foreground" : "text-muted-foreground"}>
+                      {item.prefix || ""}{formatMoedas(item.cost)}
+                    </span>
+                  </div>
+                ))}
+                <div className="border-t border-border/30 pt-2 mt-2 flex justify-between">
+                  <span className="font-semibold">Total por envio</span>
+                  <span className="text-lg font-bold text-primary">{formatMoedas(custoMoedas)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── Taxação Tab ─── */}
+        <TabsContent value="taxacao" className="mt-5">
+          {loja?.id && (
+            <TaxacaoConfig
+              lojaId={loja.id}
+              taxacaoAtivo={localConfig?.ativar_taxacao ?? false}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
