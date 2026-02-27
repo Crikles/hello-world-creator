@@ -1,56 +1,91 @@
 
 
-# Redesign Futurista - Empresa e Integracoes
+# Cobranca de SMS por Envio Individual
 
-## 1. Pagina Empresa (`src/pages/Empresa.tsx`)
+## Problema Atual
 
-### Mudancas Visuais
-- **Hero Header**: Substituir o banner gradient atual por um bloco `glass glow-border` com titulo "Configuracao Fiscal", subtitulo e badge "Nacional" com estilo premium
-- **Cards de Formulario**: Trocar os `Card` padrao com `border-l-4` por cards com classes `glass glow-border` e `animate-stagger-in` com delays escalonados
-- **Icones**: Manter Building2, MapPin, ImagePlus mas envolve-los em containers `bg-primary/10 rounded-xl` com glow sutil
-- **Inputs**: Adicionar estilo `glass` nos campos (bg transparente com borda sutil)
-- **Logo Upload**: Area de upload com borda `border-primary/30` e hover com `glow-border`
-- **Preview DANFE (coluna direita)**: Card com `glass glow-border`, badge "Tempo Real" com `animate-pulse-dot`, botoes de acao com `shimmer-btn`
-- **Botoes de Acao**: "Salvar" como `shimmer-btn`, "Limpar" como outline glass
-- **Animacoes**: Entrada escalonada nos cards do formulario
+O custo do SMS (`custo_sms_rastreio`) e cobrado **uma unica vez** no primeiro avanco de status (quando `currentOrdem === 0`), junto com os outros servicos. Porem, o SMS e disparado em **cada evento** do fluxo (exceto NF-e). Num template de 8 eventos, sao 7 SMS enviados mas apenas 1 cobrado.
 
-### Logica Preservada
-- 100% da logica: queries, mutations, upload de logo, busca CEP, geração DANFE, download PDF
-- Nenhuma mudanca em componentes filhos (DanfePreview)
+## Solucao
 
----
+### 1. Remover SMS da cobranca inicial (`src/lib/email-trigger.ts`)
 
-## 2. Pagina Integracoes (`src/pages/Integracoes.tsx`)
+No bloco de debito que ocorre quando `currentOrdem === 0` (linhas 93-133), **remover** o trecho que soma `custo_sms_rastreio` ao total inicial. O SMS nao sera mais cobrado antecipadamente.
 
-### Mudancas Visuais
-- **Hero Section**: Titulo "Central de Integracoes" com subtitulo descritivo em bloco glass
-- **Metricas**: Mini-cards glass mostrando total de integracoes ativas vs inativas
-- **Cards de Checkout**: Glassmorphism com `glow-border-hover` e `animate-stagger-in`
-  - Logo do checkout com fundo `glass` e borda dourada sutil
-  - Badge de status (Ativo/Inativo) com `animate-pulse-dot` quando ativo
-  - Webhook URL em bloco `glass` com botao de copiar estilizado
-  - Switch com label redesenhado
-- **Carregamento Instantaneo de Imagens**: Adicionar `loading="eager"` e `decoding="sync"` nas tags `<img>` dos logos para garantir carregamento imediato sem delay. Tambem adicionar `fetchPriority="high"` para priorizar o download
+### 2. Cobrar SMS individualmente a cada envio (`src/lib/email-trigger.ts`)
 
-### Logica Preservada
-- Toggle de ativacao, copia de webhook, geracao de URL com slug da loja
+No trecho onde o SMS e de fato disparado (apos linha ~230), adicionar logica de debito individual:
+- Buscar `user_id` da loja (ja disponivel ou buscar)
+- Buscar `custo_sms_rastreio` do `system_config`
+- Chamar `debit_user_credits` com o valor unitario do SMS
+- Descricao: "SMS enviado - {status_label}"
+- Se saldo insuficiente, pular o SMS (log warning) mas nao bloquear o fluxo de email
+
+### 3. Atualizar UI em Postagens (`src/pages/Postagens.tsx`)
+
+**Card de SMS no Feature Toggles**: Alterar a descricao e o custo exibido para refletir que e cobrado por mensagem:
+- Descricao: "Cobrado por SMS enviado (ex: 7x num fluxo de 8 eventos)"
+- Custo exibido: mostrar o valor unitario com indicador "/SMS" em vez de "/envio"
+
+**Resumo de Custo**: No bloco "Custo por Envio" (linhas 580-608):
+- Calcular dinamicamente quantos SMS serao enviados no template ativo (total de eventos menos os que tem `enviar_nfe_pdf = true`)
+- Mostrar: "SMS (Nx {custo_unitario})" com o subtotal
+- Atualizar o total geral para refletir o custo real
+
+### 4. Indicador de SMS nos Eventos do Fluxo
+
+Adicionar um badge de SMS nos cards de evento (junto com Email e NFe) para os eventos que enviam SMS (todos exceto NF-e, quando SMS esta ativo). Isso ajuda o usuario a visualizar quais eventos geram cobranca de SMS.
 
 ---
 
 ## Detalhes Tecnicos
 
-### Arquivos Modificados
-1. `src/pages/Empresa.tsx` - Redesign completo do JSX, manter toda logica
-2. `src/pages/Integracoes.tsx` - Redesign completo do JSX, manter toda logica, fix de loading das imagens
+### Arquivo: `src/lib/email-trigger.ts`
 
-### Classes CSS Utilizadas (ja existentes)
-- `glass`, `glass-strong`, `glow-border`, `glow-border-hover`
-- `shimmer-btn`, `animate-stagger-in`, `animate-pulse-dot`, `animate-orbit`
-
-### Fix de Imagens (Integracoes)
-As imagens dos checkouts vao usar atributos nativos do HTML para carregamento prioritario:
+**Remover do bloco de debito inicial (linhas ~104-107):**
 ```text
-<img loading="eager" decoding="sync" fetchPriority="high" ... />
+// REMOVER:
+if (config.ativar_site_rastreio && costMap["custo_sms_rastreio"]) {
+    total += costMap["custo_sms_rastreio"];
+    activeServices.push("Rastreio");
+}
 ```
-Isso elimina o delay visual que ocorre quando o browser aplica lazy loading padrao.
+
+**Adicionar debito individual no bloco de SMS (apos linha ~237):**
+```text
+// Antes de enviar o SMS, debitar o custo
+const smsCost = costMap["custo_sms_rastreio"] || 0;
+if (smsCost > 0) {
+    const { data: smsDebitOk } = await supabase.rpc("debit_user_credits", {
+        _user_id: lojaUserId,
+        _quantidade: smsCost,
+        _descricao: `SMS enviado - ${nextEvent.status_label}`,
+    });
+    if (!smsDebitOk) {
+        console.warn("Saldo insuficiente para SMS, pulando...");
+        // Nao bloqueia o fluxo, apenas pula o SMS
+    } else {
+        // Envia o SMS normalmente
+    }
+}
+```
+
+Para ter acesso ao `user_id` e `costMap` no momento do SMS, mover a busca de `lojaData.user_id` e `costMap` para fora do bloco `if (currentOrdem === 0)`, tornando-os disponveis em todo o escopo da funcao.
+
+### Arquivo: `src/pages/Postagens.tsx`
+
+**Feature toggle do SMS** - Alterar descricao e formato do custo:
+- `desc`: "Cobrado individualmente por SMS enviado."
+- Custo com sufixo "/SMS"
+
+**Custo por Envio** - Calcular SMS dinamicamente:
+- Contar eventos sem `enviar_nfe_pdf` no template ativo = quantidade de SMS
+- Multiplicar pela `custo_sms_rastreio`
+- Exibir como "SMS (7x 0.25 moedas) = 1.75 moedas"
+
+**Badges nos eventos** - Adicionar indicador de SMS nos cards de evento quando SMS ativo e evento nao e NF-e.
+
+### Arquivos Modificados
+1. `src/lib/email-trigger.ts` - Logica de cobranca
+2. `src/pages/Postagens.tsx` - UI de custos e indicadores
 
