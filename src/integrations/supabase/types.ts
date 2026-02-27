@@ -457,6 +457,8 @@ export type Database = {
           enviar_nfe_email: boolean
           id: string
           loja_id: string
+          origem_cidade: string | null
+          origem_estado: string | null
           template_ativo_id: string | null
           updated_at: string
         }
@@ -469,6 +471,8 @@ export type Database = {
           enviar_nfe_email?: boolean
           id?: string
           loja_id: string
+          origem_cidade?: string | null
+          origem_estado?: string | null
           template_ativo_id?: string | null
           updated_at?: string
         }
@@ -481,6 +485,8 @@ export type Database = {
           enviar_nfe_email?: boolean
           id?: string
           loja_id?: string
+          origem_cidade?: string | null
+          origem_estado?: string | null
           template_ativo_id?: string | null
           updated_at?: string
         }

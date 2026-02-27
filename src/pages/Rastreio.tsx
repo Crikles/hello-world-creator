@@ -35,6 +35,13 @@ interface EnvioData {
     ultimo_evento_ordem: number;
     created_at: string;
     updated_at: string;
+    cliente_cidade: string | null;
+    cliente_estado: string | null;
+}
+
+interface OrigemData {
+    cidade: string | null;
+    estado: string | null;
 }
 
 interface EmpresaData {
@@ -97,6 +104,7 @@ export default function Rastreio() {
     const [totalEventos, setTotalEventos] = useState(0);
     const [searched, setSearched] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [origem, setOrigem] = useState<OrigemData>({ cidade: null, estado: null });
 
     const fetchData = useCallback(async (trackingCode: string) => {
         if (!trackingCode || trackingCode.trim().length < 3) return;
@@ -123,6 +131,7 @@ export default function Rastreio() {
                 setEmpresa(result.empresa || null);
                 setEventos(result.eventos || []);
                 setTotalEventos(result.totalEventos || 0);
+                setOrigem(result.origem || { cidade: null, estado: null });
                 if (!result.envio) setError("Certifique-se de que o código está correto");
             }
         } catch {
@@ -375,11 +384,46 @@ export default function Rastreio() {
                                                         <div className="point-content-correios">
                                                             <div className="point-col-status">
                                                                 <h4 className="point-title-correios">{ev.nome}</h4>
-                                                                {ev.descricao ? (
-                                                                    <p className="point-desc-correios">{ev.descricao}</p>
-                                                                ) : (
-                                                                    <p className="point-desc-correios">{ev.status_label}</p>
-                                                                )}
+                                                                {(() => {
+                                                                    const origemLabel = origem.cidade && origem.estado
+                                                                        ? `${origem.cidade} - ${origem.estado}`
+                                                                        : null;
+                                                                    const destLabel = envio.cliente_cidade && envio.cliente_estado
+                                                                        ? `${envio.cliente_cidade} - ${envio.cliente_estado}`
+                                                                        : null;
+                                                                    let locationText: string | null = null;
+                                                                    switch (ev.status_label) {
+                                                                        case "Postado":
+                                                                            locationText = origemLabel ? `Unidade de Postagem, ${origemLabel}` : null;
+                                                                            break;
+                                                                        case "Coletado":
+                                                                            locationText = origemLabel ? `Unidade de Tratamento, ${origemLabel}` : null;
+                                                                            break;
+                                                                        case "Em Trânsito":
+                                                                        case "Em Rota":
+                                                                            if (origemLabel && destLabel)
+                                                                                locationText = `de Unidade de Tratamento, ${origemLabel} para Unidade de Distribuição, ${destLabel}`;
+                                                                            break;
+                                                                        case "Centro Local":
+                                                                            locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null;
+                                                                            break;
+                                                                        case "Saiu para Entrega":
+                                                                            locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null;
+                                                                            break;
+                                                                        case "Entregue":
+                                                                            locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null;
+                                                                            break;
+                                                                        default:
+                                                                            locationText = ev.descricao || ev.status_label || null;
+                                                                    }
+                                                                    return locationText ? (
+                                                                        <p className="point-desc-correios">{locationText}</p>
+                                                                    ) : ev.descricao ? (
+                                                                        <p className="point-desc-correios">{ev.descricao}</p>
+                                                                    ) : ev.status_label ? (
+                                                                        <p className="point-desc-correios">{ev.status_label}</p>
+                                                                    ) : null;
+                                                                })()}
                                                                 <span className="point-date-correios">
                                                                     {eventDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                                 </span>

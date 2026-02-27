@@ -6,6 +6,11 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper to get ArrayBuffer from Uint8Array for crypto APIs
+function toBuffer(arr: Uint8Array): ArrayBuffer {
+    return arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength);
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -57,7 +62,7 @@ async function createVapidJwt(
     const privateKeyBytes = urlBase64ToUint8Array(privateKeyBase64);
     const cryptoKey = await crypto.subtle.importKey(
         "pkcs8",
-        privateKeyBytes,
+        toBuffer(privateKeyBytes),
         { name: "ECDSA", namedCurve: "P-256" },
         false,
         ["sign"]
@@ -75,68 +80,26 @@ async function createVapidJwt(
 
 // ── RFC 8291 Payload Encryption ──────────────────────────────────────
 
-async function hkdfDerive(
-    salt: Uint8Array,
-    ikm: Uint8Array,
-    info: Uint8Array,
-    length: number
-): Promise<Uint8Array> {
-    const key = await crypto.subtle.importKey("raw", ikm, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    const prk = new Uint8Array(await crypto.subtle.sign("HMAC", key, salt.length ? salt : new Uint8Array(32)));
-
-    const prkKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    // T(1) = HMAC(PRK, info || 0x01)
-    const t1Input = concat(info, new Uint8Array([1]));
-    const t1 = new Uint8Array(await crypto.subtle.sign("HMAC", prkKey, t1Input));
-    return t1.slice(0, length);
-}
-
-// Proper HKDF extract then expand
 async function hkdfExtractAndExpand(
     salt: Uint8Array,
     ikm: Uint8Array,
     info: Uint8Array,
     length: number
 ): Promise<Uint8Array> {
-    // Extract
+    const saltBuf = salt.length ? toBuffer(salt) : new ArrayBuffer(32);
     const saltKey = await crypto.subtle.importKey(
         "raw",
-        salt.length ? salt : new Uint8Array(32),
+        saltBuf,
         { name: "HMAC", hash: "SHA-256" },
         false,
         ["sign"]
     );
-    const prk = new Uint8Array(await crypto.subtle.sign("HMAC", saltKey, ikm));
+    const prk = new Uint8Array(await crypto.subtle.sign("HMAC", saltKey, toBuffer(ikm)));
 
-    // Expand
-    const prkKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const prkKey = await crypto.subtle.importKey("raw", toBuffer(prk), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
     const t1Input = concat(info, new Uint8Array([1]));
-    const t1 = new Uint8Array(await crypto.subtle.sign("HMAC", prkKey, t1Input));
+    const t1 = new Uint8Array(await crypto.subtle.sign("HMAC", prkKey, toBuffer(t1Input)));
     return t1.slice(0, length);
-}
-
-function createInfo(type: string, clientPublicKey: Uint8Array, serverPublicKey: Uint8Array): Uint8Array {
-    const encoder = new TextEncoder();
-    const typeBytes = encoder.encode(type);
-
-    // "Content-Encoding: <type>\0" + "P-256\0" +
-    // uint16(clientPublicKey.length) + clientPublicKey +
-    // uint16(serverPublicKey.length) + serverPublicKey
-    const header = encoder.encode("Content-Encoding: ");
-    const nul = new Uint8Array([0]);
-    const p256 = encoder.encode("P-256");
-
-    const clientLen = new Uint8Array(2);
-    new DataView(clientLen.buffer).setUint16(0, clientPublicKey.length);
-    const serverLen = new Uint8Array(2);
-    new DataView(serverLen.buffer).setUint16(0, serverPublicKey.length);
-
-    return concat(
-        header, typeBytes, nul,
-        p256, nul,
-        clientLen, clientPublicKey,
-        serverLen, serverPublicKey
-    );
 }
 
 async function encryptPayload(
@@ -147,28 +110,24 @@ async function encryptPayload(
     const subscriberPublicKeyBytes = urlBase64ToUint8Array(subscriberPublicKeyBase64);
     const subscriberAuth = urlBase64ToUint8Array(subscriberAuthBase64);
 
-    // Import subscriber public key
     const subscriberPubKey = await crypto.subtle.importKey(
         "raw",
-        subscriberPublicKeyBytes,
+        toBuffer(subscriberPublicKeyBytes),
         { name: "ECDH", namedCurve: "P-256" },
         true,
         []
     );
 
-    // Generate ephemeral key pair
     const localKeyPair = await crypto.subtle.generateKey(
         { name: "ECDH", namedCurve: "P-256" },
         true,
         ["deriveBits"]
     );
 
-    // Export local public key (uncompressed, 65 bytes)
     const localPublicKeyRaw = new Uint8Array(
         await crypto.subtle.exportKey("raw", localKeyPair.publicKey)
     );
 
-    // ECDH shared secret
     const sharedSecretBits = await crypto.subtle.deriveBits(
         { name: "ECDH", public: subscriberPubKey },
         localKeyPair.privateKey,
@@ -176,14 +135,9 @@ async function encryptPayload(
     );
     const sharedSecret = new Uint8Array(sharedSecretBits);
 
-    // Generate 16-byte salt
     const salt = crypto.getRandomValues(new Uint8Array(16));
-
     const encoder = new TextEncoder();
 
-    // IKM derivation (RFC 8291 Section 3.3)
-    // PRK_combine = HKDF-Extract(subscriberAuth, sharedSecret)
-    // IKM = HKDF-Expand(PRK_combine, "WebPush: info\0" || subscriberPubKey || localPubKey, 32)
     const ikmInfo = concat(
         encoder.encode("WebPush: info\0"),
         subscriberPublicKeyBytes,
@@ -191,34 +145,26 @@ async function encryptPayload(
     );
     const ikm = await hkdfExtractAndExpand(subscriberAuth, sharedSecret, ikmInfo, 32);
 
-    // CEK derivation (RFC 8188)
     const cekInfo = concat(encoder.encode("Content-Encoding: aes128gcm\0"));
     const cek = await hkdfExtractAndExpand(salt, ikm, cekInfo, 16);
 
-    // Nonce derivation
     const nonceInfo = concat(encoder.encode("Content-Encoding: nonce\0"));
     const nonce = await hkdfExtractAndExpand(salt, ikm, nonceInfo, 12);
 
-    // Add padding delimiter (RFC 8188 Section 2)
-    // plaintext || 0x02 (final record delimiter)
     const padded = concat(plaintext, new Uint8Array([2]));
 
-    // Encrypt with AES-128-GCM
-    const cekKey = await crypto.subtle.importKey("raw", cek, { name: "AES-GCM" }, false, ["encrypt"]);
+    const cekKey = await crypto.subtle.importKey("raw", toBuffer(cek), { name: "AES-GCM" }, false, ["encrypt"]);
     const ciphertext = new Uint8Array(
         await crypto.subtle.encrypt(
-            { name: "AES-GCM", iv: nonce },
+            { name: "AES-GCM", iv: toBuffer(nonce) },
             cekKey,
-            padded
+            toBuffer(padded)
         )
     );
 
-    // Build aes128gcm record:
-    // salt (16) || rs (4, uint32 big-endian) || idlen (1) || keyid (65) || ciphertext
     const rs = new Uint8Array(4);
     new DataView(rs.buffer).setUint32(0, 4096);
-
-    const idlen = new Uint8Array([65]); // length of uncompressed P-256 key
+    const idlen = new Uint8Array([65]);
 
     return concat(salt, rs, idlen, localPublicKeyRaw, ciphertext);
 }
@@ -238,7 +184,6 @@ async function sendWebPush(
 
         const jwt = await createVapidJwt(audience, vapidSubject, vapidPrivateKey);
 
-        // Encrypt the payload per RFC 8291
         const encoder = new TextEncoder();
         const encryptedPayload = await encryptPayload(
             encoder.encode(payload),
@@ -255,7 +200,7 @@ async function sendWebPush(
                 TTL: "86400",
                 Authorization: `vapid t=${jwt}, k=${vapidPublicKey}`,
             },
-            body: encryptedPayload,
+            body: toBuffer(encryptedPayload),
         });
 
         console.log(`Push to ${subscription.endpoint.slice(0, 60)}... => ${response.status} ${response.statusText}`);
@@ -265,9 +210,10 @@ async function sendWebPush(
             statusCode: response.status,
             statusText: response.statusText,
         };
-    } catch (err) {
+    } catch (err: unknown) {
         console.error("sendWebPush error:", err);
-        return { success: false, statusCode: 0, statusText: err.message };
+        const msg = err instanceof Error ? err.message : String(err);
+        return { success: false, statusCode: 0, statusText: msg };
     }
 }
 
@@ -358,10 +304,11 @@ serve(async (req) => {
             JSON.stringify({ success: true, totalSent, totalFailed }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
-    } catch (err) {
+    } catch (err: unknown) {
         console.error("send-push-notification error:", err);
+        const msg = err instanceof Error ? err.message : String(err);
         return new Response(
-            JSON.stringify({ error: err.message }),
+            JSON.stringify({ error: msg }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
