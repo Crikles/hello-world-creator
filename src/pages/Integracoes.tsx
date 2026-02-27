@@ -38,7 +38,7 @@ function ShopifyCard({ loja }: { loja: any }) {
     queryKey: ["shopify-integration", loja?.id],
     queryFn: async () => {
       if (!loja?.id) return null;
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("shopify_integrations")
         .select("*")
         .eq("loja_id", loja.id)
@@ -68,13 +68,13 @@ function ShopifyCard({ loja }: { loja: any }) {
       };
 
       if (config) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from("shopify_integrations")
           .update({ ...payload, updated_at: new Date().toISOString() })
-          .eq("id", config.id);
+          .eq("id", (config as any).id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from("shopify_integrations")
           .insert(payload);
         if (error) throw error;
@@ -98,9 +98,9 @@ function ShopifyCard({ loja }: { loja: any }) {
 
   const handleOpen = () => {
     if (config) {
-      setShopUrl(config.shop_url);
-      setClientId(config.client_id);
-      setClientSecret(config.client_secret);
+      setShopUrl((config as any).shop_url);
+      setClientId((config as any).client_id);
+      setClientSecret((config as any).client_secret);
     }
     setOpen(true);
   };
@@ -253,7 +253,7 @@ function ShopifyCard({ loja }: { loja: any }) {
           </div>
 
           <div className="flex justify-end gap-3 mt-4">
-            {isActive && config?.access_token && (
+            {isActive && (config as any)?.access_token && (
               <div className="flex-1 flex items-center">
                 <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 font-normal">
                   <Check className="h-3 w-3 mr-1" />
