@@ -20,22 +20,57 @@ Deno.serve(async (req) => {
 
     try {
         const payload = await req.json();
-        const event = payload.event || req.headers.get("X-Webhook-Event") || "";
 
-        console.log("BlackCat webhook received:", JSON.stringify({ event, transactionId: payload.transactionId, status: payload.status }));
+        // Flatten payload to handle cases where it is wrapped in .data
+        const data = payload.data || payload;
+
+        const event = payload.event || req.headers.get("X-Webhook-Event") || "";
+        const status = data.status || payload.status || "";
+        const transactionId = data.transactionId || payload.transactionId || data.id || payload.id;
+        const externalRef = data.externalRef || payload.externalRef || data.referenceId;
 
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const blackcatApiKey = Deno.env.get("BLACKCAT_API_KEY")!;
         const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-        // Handle transaction.paid event
-        if (event === "transaction.paid" && payload.status === "PAID") {
-            const transactionId = payload.transactionId;
+        let apiStatus = status;
 
-            if (!transactionId) {
-                console.error("Missing transactionId in webhook payload");
+        // VERIFY AUTHORITATIVELY WITH BLACKCAT API if we have a transactionId
+        if (transactionId) {
+            try {
+                console.log(`Verifying authoritative status for transaction ${transactionId} with BlackCat API...`);
+                const verifyResponse = await fetch(`https://api.blackcatpagamentos.online/api/sales/${transactionId}/status`, {
+                    method: "GET",
+                    headers: {
+                        "X-API-Key": blackcatApiKey,
+                    }
+                });
+
+                if (verifyResponse.ok) {
+                    const verifyData = await verifyResponse.json();
+                    if (verifyData.success && verifyData.data && verifyData.data.status) {
+                        apiStatus = verifyData.data.status;
+                        console.log(`Authoritative status fetched: ${apiStatus}`);
+                    } else {
+                        console.error("Non-success response from BlackCat status check:", verifyData);
+                    }
+                } else {
+                    console.error(`Failed to fetch status from BlackCat API. HTTP ${verifyResponse.status}`);
+                }
+            } catch (err) {
+                console.error("Error during authoritative status fetch:", err);
+            }
+        }
+
+        const isPaid = apiStatus === "PAID" || apiStatus === "APPROVED" || apiStatus === "approved" || apiStatus === "paid" || (event && event.toLowerCase().includes("paid"));
+
+        // Handle transaction.paid event
+        if (isPaid) {
+            if (!transactionId && !externalRef) {
+                console.error("Missing transactionId and externalRef in webhook payload");
                 return new Response(
-                    JSON.stringify({ error: "Missing transactionId" }),
+                    JSON.stringify({ error: "Missing transaction identifier" }),
                     {
                         status: 400,
                         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -44,11 +79,16 @@ Deno.serve(async (req) => {
             }
 
             // Find the pix_payment record
-            const { data: pixPayment, error: findError } = await supabase
-                .from("pix_payments")
-                .select("*")
-                .eq("transaction_id", transactionId)
-                .maybeSingle();
+            let query = supabase.from("pix_payments").select("*");
+
+            // Prefer externalRef (which is our UUID) if valid, else fallback to transactionId
+            if (externalRef && externalRef.length > 20) {
+                query = query.eq("id", externalRef);
+            } else {
+                query = query.eq("transaction_id", transactionId);
+            }
+
+            const { data: pixPayment, error: findError } = await query.maybeSingle();
 
             if (findError || !pixPayment) {
                 console.error("PIX payment not found for transaction:", transactionId, findError);
