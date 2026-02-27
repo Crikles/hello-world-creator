@@ -1,51 +1,57 @@
 
 
-# Corrigir calculo de moedas com valores decimais e sincronizar com painel admin
+# Plano de Implementacao
 
-## Problema Principal
+## 1. Creditos em tempo real na sidebar
 
-As colunas `creditos.saldo` e `creditos_transacoes.quantidade` sao do tipo `integer`. Quando o sistema tenta debitar 3.25 moedas, o valor e truncado para 3. Por isso, com tudo ativo (1 + 1 + 0.25 + 1 = 3.25), so debita 3.
+Atualmente o saldo de creditos na sidebar usa apenas `useQuery` sem listener de tempo real. Quando moedas sao gastas (ao avancar envios), o saldo so atualiza ao recarregar a pagina.
 
-Alem disso, os valores exibidos na pagina de Postagens estao hardcoded ("1 moeda", "+0,25 moeda") em vez de ler da tabela `system_config`.
+**Solucao:** Adicionar um listener Supabase Realtime na tabela `creditos` no componente `AppSidebar.tsx`. Quando o saldo mudar, invalidar a query `meu-saldo` para atualizar instantaneamente.
 
-## Mudancas
+**Arquivo:** `src/components/layout/AppSidebar.tsx`
+- Adicionar `useEffect` com `supabase.channel()` escutando `postgres_changes` na tabela `creditos` filtrado por `user_id`
+- No callback, chamar `queryClient.invalidateQueries({ queryKey: ["meu-saldo"] })`
 
-### 1. Migracao SQL - Alterar colunas para NUMERIC
+**Pre-requisito:** Habilitar realtime na tabela `creditos` via migracao SQL:
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.creditos;
+```
 
-Alterar o tipo das colunas para suportar decimais:
+---
 
-- `creditos.saldo`: de `integer` para `numeric` (default 0)
-- `creditos_transacoes.quantidade`: de `integer` para `numeric`
+## 2. Dashboard preservar historico apos exclusao de envios
 
-A funcao `debit_user_credits` ja aceita `NUMERIC` como parametro e faz aritmetica correta, so precisa que as colunas de destino tambem sejam `numeric`.
+Atualmente a Dashboard busca dados diretamente da tabela `envios`. Se um envio for excluido na aba Envios, ele desaparece da Dashboard tambem (cards de totais, grafico de faturamento, timeline).
 
-### 2. Postagens.tsx - Exibir valores dinamicos do system_config
+**Solucao:** Usar a tabela `creditos_transacoes` (que ja registra cada debito com descricao e timestamp) como fonte de dados para o historico na Dashboard, complementando com os envios existentes. Porem, a abordagem mais simples e eficaz e usar **soft delete** nos envios: em vez de deletar fisicamente, marcar com um campo `deleted_at`.
 
-Substituir os valores hardcoded nos badges e no card de custo por valores lidos de `systemConfigValues`:
+**Abordagem escolhida: Soft Delete**
+- Adicionar coluna `deleted_at timestamptz` (nullable, default null) na tabela `envios`
+- Na pagina Envios, o botao de excluir faz `UPDATE SET deleted_at = now()` em vez de `DELETE`
+- Na pagina Envios, filtrar apenas `deleted_at IS NULL` para nao mostrar excluidos
+- Na Dashboard, buscar TODOS os envios (incluindo "excluidos") para manter totais, faturamento e timeline intactos
 
-- Badge "1 moeda" da NF-e -> `systemConfigValues.custo_nfe_email`
-- Badge "1 moeda" do Rastreio -> `systemConfigValues.custo_email_rastreio`
-- Badge "+0,25 moeda" do SMS -> `systemConfigValues.custo_sms_rastreio`
-- Badge "+1 moeda" da Taxacao -> `systemConfigValues.custo_taxacao`
-- Card "Custo por Envio" -> mesmos valores dinamicos
+**Arquivos:**
+- Migracao SQL: adicionar coluna `deleted_at`
+- `src/pages/Envios.tsx`: mudar delete para soft delete, filtrar `deleted_at.is.null`
+- `src/pages/Dashboard.tsx`: remover filtro (buscar todos, incluindo soft-deleted)
 
-Funcao auxiliar para formatar: exibir "1 moeda" ou "0,25 moeda" conforme o valor.
+---
 
-### 3. AppSidebar.tsx - Exibir saldo com decimais
+## 3. Verificar email de confirmacao de conta
 
-O saldo na sidebar mostra `{saldo ?? 0} moedas`. Como o saldo agora pode ser decimal (ex: 4.75), formatar com `toFixed(2)` ou usar `toLocaleString('pt-BR')` para exibir "4,75 moedas".
+Atualmente **nao existe** nenhum template customizado de email para autenticacao. Nao ha pasta `supabase/functions/auth-email-hook/` nem templates em `_shared/email-templates/`. Isso significa que o sistema esta usando o **email padrao do Lovable Cloud** para confirmacao de conta — um template generico, nao personalizado com a marca do projeto.
 
-## Arquivos alterados
+**Informacao para o usuario:** Os emails de verificacao de conta estao sendo enviados pelo sistema padrao do Lovable Cloud, sem personalizacao visual. Para customizar com logo, cores e textos da marca, seria necessario configurar um dominio de email personalizado e criar templates customizados.
 
-| Arquivo | Acao |
+---
+
+## Resumo de mudancas tecnicas
+
+| Arquivo | Mudanca |
 |---|---|
-| Migracao SQL | ALTER colunas saldo e quantidade para NUMERIC |
-| `src/pages/Postagens.tsx` | Badges e card de custo lendo de system_config |
-| `src/components/layout/AppSidebar.tsx` | Formatar saldo decimal |
-
-## Resultado esperado
-
-- Debito correto de 3.25 moedas com todos os servicos ativos
-- Alteracoes no painel admin (system_config) refletem automaticamente nos valores mostrados ao usuario
-- Saldo exibido com precisao decimal
+| Migracao SQL | `ALTER PUBLICATION supabase_realtime ADD TABLE creditos` + coluna `deleted_at` em `envios` |
+| `src/components/layout/AppSidebar.tsx` | Listener realtime para atualizar saldo |
+| `src/pages/Envios.tsx` | Soft delete + filtro `deleted_at.is.null` |
+| `src/pages/Dashboard.tsx` | Buscar todos envios (sem filtro de deleted_at) |
 
