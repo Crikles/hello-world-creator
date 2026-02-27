@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Plug, Zap, ZapOff, Store } from "lucide-react";
+import { Copy, Check, Plug, Zap, ZapOff } from "lucide-react";
+import logoShopify from "@/assets/logo-shopify.png";
 import { toast } from "@/hooks/use-toast";
 import { useLoja } from "@/contexts/LojaContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -124,7 +125,7 @@ function ShopifyCard({ loja }: { loja: any }) {
 
         <div className="flex items-center gap-3 mb-4 relative z-10">
           <div className="glass rounded-lg p-2 border border-[#95BF47]/40 shrink-0 bg-[#95BF47]/10 shadow-sm">
-            <Store className="h-8 w-8 text-[#95BF47]" />
+            <img src={logoShopify} alt="Shopify" className="h-8 w-8 object-contain" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
@@ -153,7 +154,7 @@ function ShopifyCard({ loja }: { loja: any }) {
         <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Store className="h-5 w-5 text-[#95BF47]" />
+              <img src={logoShopify} alt="Shopify" className="h-5 w-5 object-contain" />
               Configurar Shopify
             </DialogTitle>
             <DialogDescription>
