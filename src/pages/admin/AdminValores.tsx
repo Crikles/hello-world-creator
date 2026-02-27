@@ -19,7 +19,7 @@ export default function AdminValores() {
   const queryClient = useQueryClient();
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
 
-  const { data: configs, isLoading } = useQuery({
+  const { data: configs = [], isLoading } = useQuery({
     queryKey: ["system-config"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -27,7 +27,7 @@ export default function AdminValores() {
         .select("*")
         .order("key");
       if (error) throw error;
-      return data as SystemConfig[];
+      return (data ?? []) as SystemConfig[];
     },
   });
 
