@@ -1,59 +1,51 @@
 
 
-# Corrigir envio de email com PDF da Nota Fiscal
+# Corrigir calculo de moedas com valores decimais e sincronizar com painel admin
 
-## Problema
+## Problema Principal
 
-O email da Nota Fiscal falha porque o PDF em base64 (~500KB+) e enviado no corpo da requisicao para a Edge Function, causando timeout de conexao: "end of file before message length reached". Emails sem anexo (como "Coletado") funcionam normalmente.
+As colunas `creditos.saldo` e `creditos_transacoes.quantidade` sao do tipo `integer`. Quando o sistema tenta debitar 3.25 moedas, o valor e truncado para 3. Por isso, com tudo ativo (1 + 1 + 0.25 + 1 = 3.25), so debita 3.
 
-## Solucao
+Alem disso, os valores exibidos na pagina de Postagens estao hardcoded ("1 moeda", "+0,25 moeda") em vez de ler da tabela `system_config`.
 
-Fazer upload do PDF para o Supabase Storage antes de chamar a Edge Function. A Edge Function recebe apenas a URL do arquivo, faz download dele e anexa ao email via Resend.
+## Mudancas
 
-## Fluxo corrigido
+### 1. Migracao SQL - Alterar colunas para NUMERIC
 
-```text
-Frontend gera PDF base64
-       |
-       v
-Upload para Storage (bucket "nfe-pdfs")
-       |
-       v
-Chama send-email com nfe_storage_path (string leve)
-       |
-       v
-Edge Function faz download do PDF do Storage
-       |
-       v
-Converte para base64 e anexa ao email via Resend
-```
+Alterar o tipo das colunas para suportar decimais:
 
-## Mudancas Tecnicas
+- `creditos.saldo`: de `integer` para `numeric` (default 0)
+- `creditos_transacoes.quantidade`: de `integer` para `numeric`
 
-### 1. Criar bucket "nfe-pdfs" (migracao SQL)
+A funcao `debit_user_credits` ja aceita `NUMERIC` como parametro e faz aritmetica correta, so precisa que as colunas de destino tambem sejam `numeric`.
 
-Bucket privado para armazenar os PDFs temporarios das notas fiscais. Politica RLS permite upload por usuarios autenticados.
+### 2. Postagens.tsx - Exibir valores dinamicos do system_config
 
-### 2. Alterar `src/lib/email-trigger.ts`
+Substituir os valores hardcoded nos badges e no card de custo por valores lidos de `systemConfigValues`:
 
-Em vez de enviar `nfe_pdf_base64` no body da requisicao:
-- Converter o base64 em Blob
-- Fazer upload para `nfe-pdfs/{envioId}/{filename}`
-- Enviar apenas `nfe_storage_path` e `nfe_filename` para a Edge Function
+- Badge "1 moeda" da NF-e -> `systemConfigValues.custo_nfe_email`
+- Badge "1 moeda" do Rastreio -> `systemConfigValues.custo_email_rastreio`
+- Badge "+0,25 moeda" do SMS -> `systemConfigValues.custo_sms_rastreio`
+- Badge "+1 moeda" da Taxacao -> `systemConfigValues.custo_taxacao`
+- Card "Custo por Envio" -> mesmos valores dinamicos
 
-### 3. Alterar `supabase/functions/send-email/index.ts`
+Funcao auxiliar para formatar: exibir "1 moeda" ou "0,25 moeda" conforme o valor.
 
-- Aceitar novo campo `nfe_storage_path` no request (alem do antigo `nfe_pdf_base64` para compatibilidade)
-- Se `nfe_storage_path` existir: fazer download do arquivo via Storage API usando service role
-- Converter o buffer para base64 de forma segura (em chunks para evitar stack overflow)
-- Anexar ao email normalmente via Resend
-- Remover o arquivo do Storage apos envio bem-sucedido (limpeza)
+### 3. AppSidebar.tsx - Exibir saldo com decimais
 
-## Arquivos alterados/criados
+O saldo na sidebar mostra `{saldo ?? 0} moedas`. Como o saldo agora pode ser decimal (ex: 4.75), formatar com `toFixed(2)` ou usar `toLocaleString('pt-BR')` para exibir "4,75 moedas".
+
+## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| Migracao SQL | Criar bucket `nfe-pdfs` + politicas RLS |
-| `src/lib/email-trigger.ts` | Upload do PDF para Storage em vez de enviar base64 no body |
-| `supabase/functions/send-email/index.ts` | Receber path do Storage, baixar PDF, anexar e limpar |
+| Migracao SQL | ALTER colunas saldo e quantidade para NUMERIC |
+| `src/pages/Postagens.tsx` | Badges e card de custo lendo de system_config |
+| `src/components/layout/AppSidebar.tsx` | Formatar saldo decimal |
+
+## Resultado esperado
+
+- Debito correto de 3.25 moedas com todos os servicos ativos
+- Alteracoes no painel admin (system_config) refletem automaticamente nos valores mostrados ao usuario
+- Saldo exibido com precisao decimal
 
