@@ -11,6 +11,7 @@ interface SendEmailRequest {
   evento_id: string;
   loja_id: string;
   nfe_pdf_base64?: string;
+  nfe_storage_path?: string;
   nfe_filename?: string;
 }
 
@@ -559,7 +560,7 @@ Deno.serve(async (req) => {
     }
     console.log("Authenticated user:", userData.user.id);
 
-    const { envio_id, evento_id, loja_id, nfe_pdf_base64, nfe_filename } =
+    const { envio_id, evento_id, loja_id, nfe_pdf_base64, nfe_storage_path, nfe_filename } =
       (await req.json()) as SendEmailRequest;
 
     if (!envio_id || !evento_id || !loja_id) {
@@ -633,9 +634,45 @@ Deno.serve(async (req) => {
     const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com";
     const htmlBody = buildEmailHtml(evento, envio, extras, "#6366f1", appBaseUrl);
 
+    // Resolve PDF attachment: prefer storage path, fallback to inline base64
+    let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;
+
+    if (nfe_storage_path) {
+      console.log("Downloading PDF from storage:", nfe_storage_path);
+      const { data: fileData, error: dlErr } = await supabase.storage
+        .from("nfe-pdfs")
+        .download(nfe_storage_path);
+
+      if (dlErr || !fileData) {
+        console.error("Failed to download PDF from storage:", dlErr);
+      } else {
+        // Convert ArrayBuffer to base64 safely (in chunks to avoid stack overflow)
+        const arrayBuffer = await fileData.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        const chunkSize = 8192;
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          const chunk = bytes.subarray(i, i + chunkSize);
+          binary += String.fromCharCode(...chunk);
+        }
+        pdfBase64ForAttachment = btoa(binary);
+        console.log("PDF downloaded from storage, size:", bytes.length);
+
+        // Cleanup: delete the temporary file from storage
+        const { error: delErr } = await supabase.storage
+          .from("nfe-pdfs")
+          .remove([nfe_storage_path]);
+        if (delErr) {
+          console.error("Failed to cleanup PDF from storage:", delErr);
+        } else {
+          console.log("PDF cleaned up from storage:", nfe_storage_path);
+        }
+      }
+    }
+
     // Build attachments array
-    const attachments = nfe_pdf_base64
-      ? [{ filename: nfe_filename || "NF-e.pdf", content: nfe_pdf_base64 }]
+    const attachments = pdfBase64ForAttachment
+      ? [{ filename: nfe_filename || "NF-e.pdf", content: pdfBase64ForAttachment }]
       : undefined;
 
     // Send email via Resend
