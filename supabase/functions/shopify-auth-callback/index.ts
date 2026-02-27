@@ -22,7 +22,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const redirectUrl = `${Deno.env.get("FRONTEND_URL") || "https://sua-url.vercel.app"}/integracoes`;
+    const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://magnusfrete.lovable.app";
+    const redirectUrl = `${frontendUrl}/loja/${state}/integracoes`;
 
     if (errorMsg || !code || !shop || !state) {
       console.error("Missing/Error Params:", { code, shop, state, errorMsg });
