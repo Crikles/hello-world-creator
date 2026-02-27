@@ -1,0 +1,207 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+/**
+ * Constructs a VAPID-signed Web Push request.
+ * Uses the Web Crypto API available in Deno to sign JWT.
+ */
+
+// Convert URL-safe base64 to Uint8Array
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+function uint8ArrayToUrlBase64(uint8Array: Uint8Array): string {
+    let str = "";
+    for (const byte of uint8Array) {
+        str += String.fromCharCode(byte);
+    }
+    return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+async function createVapidJwt(
+    audience: string,
+    subject: string,
+    privateKeyBase64: string
+): Promise<string> {
+    const header = { typ: "JWT", alg: "ES256" };
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+        aud: audience,
+        exp: now + 12 * 60 * 60,
+        sub: subject,
+    };
+
+    const encoder = new TextEncoder();
+    const headerB64 = uint8ArrayToUrlBase64(encoder.encode(JSON.stringify(header)));
+    const payloadB64 = uint8ArrayToUrlBase64(encoder.encode(JSON.stringify(payload)));
+    const unsignedToken = `${headerB64}.${payloadB64}`;
+
+    // Import private key
+    const privateKeyBytes = urlBase64ToUint8Array(privateKeyBase64);
+    const cryptoKey = await crypto.subtle.importKey(
+        "pkcs8",
+        privateKeyBytes,
+        { name: "ECDSA", namedCurve: "P-256" },
+        false,
+        ["sign"]
+    );
+
+    const signature = await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" },
+        cryptoKey,
+        encoder.encode(unsignedToken)
+    );
+
+    // Convert DER signature to raw r||s format if needed
+    const sigArray = new Uint8Array(signature);
+    const sigB64 = uint8ArrayToUrlBase64(sigArray);
+
+    return `${unsignedToken}.${sigB64}`;
+}
+
+async function sendWebPush(
+    subscription: { endpoint: string; keys_p256dh: string; keys_auth: string },
+    payload: string,
+    vapidPublicKey: string,
+    vapidPrivateKey: string,
+    vapidSubject: string
+): Promise<{ success: boolean; statusCode: number; statusText: string }> {
+    try {
+        const endpoint = new URL(subscription.endpoint);
+        const audience = `${endpoint.protocol}//${endpoint.host}`;
+
+        const jwt = await createVapidJwt(audience, vapidSubject, vapidPrivateKey);
+
+        const response = await fetch(subscription.endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "Content-Encoding": "aes128gcm",
+                TTL: "86400",
+                Authorization: `vapid t=${jwt}, k=${vapidPublicKey}`,
+            },
+            body: payload,
+        });
+
+        return {
+            success: response.status >= 200 && response.status < 300,
+            statusCode: response.status,
+            statusText: response.statusText,
+        };
+    } catch (err) {
+        return { success: false, statusCode: 0, statusText: err.message };
+    }
+}
+
+serve(async (req) => {
+    if (req.method === "OPTIONS") {
+        return new Response(null, { headers: corsHeaders });
+    }
+
+    try {
+        const { title, body, url, icon, codigoRastreio } = await req.json();
+
+        if (!title || !body) {
+            return new Response(
+                JSON.stringify({ error: "title and body are required" }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
+        const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
+
+        if (!vapidPublicKey || !vapidPrivateKey) {
+            return new Response(
+                JSON.stringify({ error: "VAPID keys not configured" }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+        // Get push notification settings from the database
+        const { data: settings } = await supabase
+            .from("push_notification_settings")
+            .select("*")
+            .limit(1)
+            .maybeSingle();
+
+        // Build the push payload
+        const pushPayload = JSON.stringify({
+            title,
+            body,
+            icon: icon || settings?.icon_url || "/favicon.ico",
+            badge: settings?.badge_url || "/favicon.ico",
+            url: url || settings?.default_url || "/",
+        });
+
+        // Get subscriptions
+        let query = supabase.from("push_subscriptions").select("*");
+        if (codigoRastreio) {
+            query = query.eq("codigo_rastreio", codigoRastreio);
+        }
+        const { data: subscriptions, error: subError } = await query;
+
+        if (subError) throw subError;
+
+        let totalSent = 0;
+        let totalFailed = 0;
+
+        // Send push to each subscription
+        for (const sub of subscriptions || []) {
+            const result = await sendWebPush(
+                sub,
+                pushPayload,
+                vapidPublicKey,
+                vapidPrivateKey,
+                "mailto:contato@logisticajltransportes.com"
+            );
+
+            if (result.success) {
+                totalSent++;
+            } else {
+                totalFailed++;
+                // Remove invalid subscriptions (gone = 410)
+                if (result.statusCode === 410 || result.statusCode === 404) {
+                    await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+                }
+            }
+        }
+
+        // Log the notification
+        await supabase.from("push_notification_log").insert({
+            title,
+            body,
+            url: url || settings?.default_url || "/",
+            icon_url: icon || settings?.icon_url || "/favicon.ico",
+            total_sent: totalSent,
+            total_failed: totalFailed,
+        });
+
+        return new Response(
+            JSON.stringify({ success: true, totalSent, totalFailed }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+    } catch (err) {
+        return new Response(
+            JSON.stringify({ error: err.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+    }
+});

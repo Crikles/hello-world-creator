@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
+import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
+import { InstallAppPrompt } from "@/components/InstallAppPrompt";
 import {
     Package,
     Search,
@@ -63,21 +65,21 @@ const statusConfig: Record<string, { icon: any; color: string; label: string }> 
 };
 
 function formatProduto(raw: string): string {
-  try {
-    const items = JSON.parse(raw);
-    if (Array.isArray(items)) {
-      return items
-        .map((item: any) => {
-          const name = item.name || item.nome || item.title || "Produto";
-          const qty = item.quantity || item.quantidade || 1;
-          return qty > 1 ? `${name} (x${qty})` : name;
-        })
-        .join(", ");
+    try {
+        const items = JSON.parse(raw);
+        if (Array.isArray(items)) {
+            return items
+                .map((item: any) => {
+                    const name = item.name || item.nome || item.title || "Produto";
+                    const qty = item.quantity || item.quantidade || 1;
+                    return qty > 1 ? `${name} (x${qty})` : name;
+                })
+                .join(", ");
+        }
+    } catch {
+        // not JSON, return as-is
     }
-  } catch {
-    // not JSON, return as-is
-  }
-  return raw;
+    return raw;
 }
 
 /* ─── Page Component ─── */
@@ -424,6 +426,9 @@ export default function Rastreio() {
                     </div>
                 </div>
             </footer>
+
+            <PushNotificationPrompt codigoRastreio={envio?.codigo_rastreio} />
+            <InstallAppPrompt />
 
             <style>{styles}</style>
         </div>
