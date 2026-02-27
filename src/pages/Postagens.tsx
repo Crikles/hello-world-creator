@@ -64,7 +64,14 @@ interface PostagemConfig {
   enviar_nfe_email: boolean;
   ativar_site_rastreio: boolean;
   ativar_taxacao: boolean;
+  origem_cidade: string | null;
+  origem_estado: string | null;
 }
+
+const ESTADOS_BR = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA",
+  "PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"
+];
 
 // ── Helpers ──
 function formatMoedas(value: number): string {
@@ -224,7 +231,9 @@ export default function Postagens() {
       config.enviar_emails !== localConfig.enviar_emails ||
       config.enviar_nfe_email !== localConfig.enviar_nfe_email ||
       config.ativar_site_rastreio !== localConfig.ativar_site_rastreio ||
-      config.ativar_taxacao !== localConfig.ativar_taxacao;
+      config.ativar_taxacao !== localConfig.ativar_taxacao ||
+      (config as any).origem_cidade !== localConfig.origem_cidade ||
+      (config as any).origem_estado !== localConfig.origem_estado;
     const delaysChanged = activeEventos?.some(
       e => localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas
     );
@@ -324,6 +333,8 @@ export default function Postagens() {
           enviar_nfe_email: localConfig.enviar_nfe_email,
           ativar_site_rastreio: localConfig.ativar_site_rastreio,
           ativar_taxacao: localConfig.ativar_taxacao,
+          origem_cidade: localConfig.origem_cidade,
+          origem_estado: localConfig.origem_estado,
         })
         .eq("loja_id", loja.id);
       if (configErr) throw configErr;
@@ -447,6 +458,44 @@ export default function Postagens() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Origem de Envio */}
+          {localConfig && (
+            <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.25s" }}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <MapPin className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Origem de Envio</p>
+                  <p className="text-xs text-muted-foreground">Cidade de onde os pedidos saem para entrega</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Estado</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={localConfig.origem_estado || ""}
+                    onChange={(e) => setLocalConfig(prev => prev ? { ...prev, origem_estado: e.target.value || null } : prev)}
+                  >
+                    <option value="">Selecione o estado</option>
+                    {ESTADOS_BR.map(uf => (
+                      <option key={uf} value={uf}>{uf}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Cidade</Label>
+                  <Input
+                    placeholder="Ex: Rio de Janeiro"
+                    value={localConfig.origem_cidade || ""}
+                    onChange={(e) => setLocalConfig(prev => prev ? { ...prev, origem_cidade: e.target.value || null } : prev)}
+                  />
+                </div>
+              </div>
             </div>
           )}
 

@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
         // 1. Find the envio by tracking code
         const { data: envio, error: envioError } = await supabase
             .from("envios")
-            .select("id, produto, codigo_rastreio, cliente_nome, transportadora, status, ultimo_evento_ordem, created_at, updated_at, empresa_id, loja_id, valor")
+            .select("id, produto, codigo_rastreio, cliente_nome, transportadora, status, ultimo_evento_ordem, created_at, updated_at, empresa_id, loja_id, valor, cliente_cidade, cliente_estado")
             .eq("codigo_rastreio", codigo.trim().toUpperCase())
             .maybeSingle();
 
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         if (envio.loja_id) {
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao")
+                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao, origem_cidade, origem_estado")
                 .eq("loja_id", envio.loja_id)
                 .maybeSingle();
 
@@ -112,6 +112,8 @@ Deno.serve(async (req) => {
                             ultimo_evento_ordem: envio.ultimo_evento_ordem,
                             created_at: envio.created_at,
                             updated_at: envio.updated_at,
+                            cliente_cidade: envio.cliente_cidade,
+                            cliente_estado: envio.cliente_estado,
                         },
                         empresa: empresa ? {
                             nome_fantasia: empresa.nome_fantasia,
@@ -120,6 +122,10 @@ Deno.serve(async (req) => {
                         } : null,
                         eventos,
                         totalEventos: totalCount ?? 0,
+                        origem: {
+                            cidade: config?.origem_cidade || null,
+                            estado: config?.origem_estado || null,
+                        },
                     }),
                     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                 );
@@ -139,6 +145,8 @@ Deno.serve(async (req) => {
                     ultimo_evento_ordem: envio.ultimo_evento_ordem,
                     created_at: envio.created_at,
                     updated_at: envio.updated_at,
+                    cliente_cidade: envio.cliente_cidade,
+                    cliente_estado: envio.cliente_estado,
                 },
                 empresa: empresa ? {
                     nome_fantasia: empresa.nome_fantasia,
@@ -147,6 +155,7 @@ Deno.serve(async (req) => {
                 } : null,
                 eventos: [],
                 totalEventos: 0,
+                origem: { cidade: null, estado: null },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
