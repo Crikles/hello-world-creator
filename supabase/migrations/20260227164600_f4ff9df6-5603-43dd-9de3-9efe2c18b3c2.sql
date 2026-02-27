@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD CONSTRAINT leads_loja_id_fkey FOREIGN KEY (loja_id) REFERENCES public.lojas(id);
