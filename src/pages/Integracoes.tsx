@@ -80,22 +80,24 @@ function ShopifyCard({ loja }: { loja: any }) {
           .insert(payload);
         if (error) throw error;
       }
-
-      // Redirect to authorization
-      const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-auth-callback`;
-      const scopes = "read_orders,write_orders,read_assigned_fulfillment_orders,write_assigned_fulfillment_orders,read_third_party_fulfillment_orders,write_third_party_fulfillment_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders";
-
-      const authUrl = `https://${payload.shop_url}/admin/oauth/authorize?client_id=${payload.client_id}&scope=${scopes}&redirect_uri=${redirectUri}&state=${loja.id}`;
-
-      window.location.href = authUrl;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shopify-integration", loja?.id] });
+      toast({ title: "Salvo!", description: "Credenciais salvas com sucesso." });
     },
     onError: (err: any) => {
       toast({ title: "Erro na integração", description: err.message, variant: "destructive" });
     }
   });
+
+  const handleConnect = () => {
+    if (!loja?.id) return;
+    const cleanUrl = shopUrl.replace(/^https?:\/\//, '').replace(/\/$/, '').trim();
+    const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-auth-callback`;
+    const scopes = "read_orders,write_orders,read_assigned_fulfillment_orders,write_assigned_fulfillment_orders,read_third_party_fulfillment_orders,write_third_party_fulfillment_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders";
+    const authUrl = `https://${cleanUrl}/admin/oauth/authorize?client_id=${clientId.trim()}&scope=${scopes}&redirect_uri=${redirectUri}&state=${loja.id}`;
+    window.location.href = authUrl;
+  };
 
   const handleOpen = () => {
     if (config) {
@@ -264,12 +266,21 @@ function ShopifyCard({ loja }: { loja: any }) {
             )}
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white min-w-[150px]"
+              variant="outline"
               onClick={() => saveMutation.mutate()}
               disabled={!shopUrl || !clientId || !clientSecret || saveMutation.isPending}
             >
-              {saveMutation.isPending ? "Redirecionando..." : "Salvar e Conectar"}
+              {saveMutation.isPending ? "Salvando..." : "Salvar"}
             </Button>
+            {isActive && !(config as any)?.access_token && (
+              <Button
+                className="bg-[#95BF47] hover:bg-[#7ea03a] text-white"
+                onClick={handleConnect}
+                disabled={!shopUrl || !clientId || !clientSecret}
+              >
+                Conectar OAuth
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
