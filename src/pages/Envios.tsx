@@ -65,8 +65,24 @@ export default function Envios() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [autoEnvio, setAutoEnvio] = useState(false);
+  const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
+  const [batchCooldown, setBatchCooldown] = useState(0);
+  const [, setTick] = useState(0);
   const queryClient = useQueryClient();
   const { loja } = useLoja();
+
+  // Force re-render every second for countdown display
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatCooldown = (expiresAt: number) => {
+    const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    return `${m}m ${s.toString().padStart(2, "0")}s`;
+  };
 
   // Fetch total events count for progress calculation
   const { data: totalEventos = 0 } = useQuery({
@@ -127,8 +143,9 @@ export default function Envios() {
       if (!result) throw new Error("Nenhum evento para avançar");
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (_data, envioId) => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
+      setCooldowns((prev) => ({ ...prev, [envioId]: Date.now() + 120000 }));
       toast.success("Avançado!");
     },
     onError: (err: any) => {
@@ -161,6 +178,7 @@ export default function Envios() {
       if (result) count++;
     }
     queryClient.invalidateQueries({ queryKey: ["envios"] });
+    setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) avançado(s)!`);
   };
 
@@ -252,17 +270,21 @@ export default function Envios() {
                 variant="ghost"
                 size="sm"
                 className="text-xs hover:bg-primary/10 hover:text-primary"
+                disabled={batchCooldown > Date.now()}
                 onClick={() => batchAdvance((e) => e.status === "pendente")}
               >
-                <Play className="h-3.5 w-3.5 mr-1 text-primary" /> Iniciar Pendentes
+                <Play className="h-3.5 w-3.5 mr-1 text-primary" />
+                {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Iniciar Pendentes"}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-xs hover:bg-primary/10 hover:text-primary"
+                disabled={batchCooldown > Date.now()}
                 onClick={() => batchAdvance((e) => e.status !== "entregue")}
               >
-                <FastForward className="h-3.5 w-3.5 mr-1 text-primary" /> Avançar Todos
+                <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
+                {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Avançar Todos"}
               </Button>
             </div>
 
@@ -381,11 +403,15 @@ export default function Envios() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                        title="Avançar próximo evento"
-                        disabled={advanceMutation.isPending}
+                        title={cooldowns[envio.id] > Date.now() ? `Aguarde ${formatCooldown(cooldowns[envio.id])}` : "Avançar próximo evento"}
+                        disabled={advanceMutation.isPending || cooldowns[envio.id] > Date.now()}
                         onClick={() => advanceMutation.mutate(envio.id)}
                       >
-                        <FastForward className="h-3.5 w-3.5" />
+                        {cooldowns[envio.id] > Date.now() ? (
+                          <span className="text-[9px] font-mono">{formatCooldown(cooldowns[envio.id])}</span>
+                        ) : (
+                          <FastForward className="h-3.5 w-3.5" />
+                        )}
                       </Button>
                     )}
                     <Button
