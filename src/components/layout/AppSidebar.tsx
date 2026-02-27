@@ -1,10 +1,11 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isLogisticsDomain } from "@/lib/domain-config";
 import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins, Mail, AlertTriangle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +31,7 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { loja } = useLoja();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: saldo } = useQuery({
     queryKey: ["meu-saldo", user?.id],
@@ -43,6 +45,22 @@ export function AppSidebar() {
     },
     enabled: !!user,
   });
+
+  // Realtime listener for credits updates
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`creditos-realtime-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "creditos", filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["meu-saldo", user.id] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, queryClient]);
 
   const base = loja ? `/loja/${loja.id}` : "";
 

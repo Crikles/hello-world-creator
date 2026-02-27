@@ -25,7 +25,7 @@ export default function Dashboard() {
   const { loja } = useLoja();
 
   const { data: envios = [] } = useQuery({
-    queryKey: ["envios", loja?.id],
+    queryKey: ["envios-dashboard", loja?.id],
     queryFn: async () => {
       if (!loja) return [];
       const { data, error } = await supabase

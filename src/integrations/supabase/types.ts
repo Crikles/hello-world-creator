@@ -153,6 +153,7 @@ export type Database = {
           codigo_rastreio: string | null
           created_at: string
           cst: string | null
+          deleted_at: string | null
           empresa_id: string | null
           id: string
           loja_id: string | null
@@ -186,6 +187,7 @@ export type Database = {
           codigo_rastreio?: string | null
           created_at?: string
           cst?: string | null
+          deleted_at?: string | null
           empresa_id?: string | null
           id?: string
           loja_id?: string | null
@@ -219,6 +221,7 @@ export type Database = {
           codigo_rastreio?: string | null
           created_at?: string
           cst?: string | null
+          deleted_at?: string | null
           empresa_id?: string | null
           id?: string
           loja_id?: string | null
