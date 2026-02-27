@@ -41,7 +41,7 @@ export default function AdminValores() {
     }
   }, [configs]);
 
-  const hasChanges = configs?.some(
+  const hasChanges = Array.isArray(configs) && configs.some(
     (c) => localValues[c.key] !== undefined && localValues[c.key] !== String(c.value)
   );
 
