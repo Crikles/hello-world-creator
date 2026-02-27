@@ -1,79 +1,80 @@
 
 
-# Redesign da Pagina "Minhas Lojas" - Visual Futurista e Sofisticado
+# Redesign da Pagina "Envios" - Command Center Futurista
 
-## Visao Geral
+## Conceito
 
-Transformar a pagina atual (que e basicamente um header simples + grid de cards planos) em uma experiencia visual imersiva, futurista e sofisticada, mantendo 100% da logica funcional intacta (queries, mutations, dialogs, navegacao).
+Transformar a pagina de listagem plana em um "Centro de Comando de Envios" — um painel imersivo com cards individuais para cada envio (em vez de tabela), metricas resumidas no topo, barra de acoes com glassmorphism, e estado vazio cinematografico. Layout totalmente reorganizado.
 
-## Conceito de Design
+## Nova Estrutura de Layout
 
-Estetica "Dark Luxury Futurism": fundo com gradientes sutis e particulas/grid animado, cards com efeito glassmorphism e bordas brilhantes em dourado, animacoes suaves de entrada, tipografia com hierarquia forte, e detalhes de luz/glow que dao profundidade.
+```text
++----------------------------------------------------------+
+|  HERO: Titulo + Metricas resumidas (4 mini-cards glass)   |
+|  [Total] [Pendentes] [Em Transito] [Entregues]           |
++----------------------------------------------------------+
+|  BARRA DE ACOES (glass, sticky)                           |
+|  [Switch Auto] [Busca] [Filtro] | [Modelo][CSV][+Novo]   |
++----------------------------------------------------------+
+|  GRID DE CARDS (2 ou 3 colunas)                           |
+|  +---------------+  +---------------+  +---------------+ |
+|  | Card Envio 1  |  | Card Envio 2  |  | Card Envio 3  | |
+|  | Glass + Glow  |  | Glass + Glow  |  | Glass + Glow  | |
+|  +---------------+  +---------------+  +---------------+ |
++----------------------------------------------------------+
+```
 
-## Elementos Visuais Novos
+## Elementos Visuais
 
-### 1. Background Imersivo
-- Gradiente radial sutil do centro (dourado escuro quase imperceptivel) para as bordas (preto puro)
-- Grid de linhas finas animadas (CSS puro) criando efeito de "matrix/blueprint" no fundo
-- Efeito de glow dourado sutil atras do titulo principal
+### 1. Hero com Metricas
+- Titulo "Centro de Envios" com glow dourado sutil
+- Subtitulo descritivo
+- 4 mini-cards glass lado a lado mostrando contadores: Total, Pendentes, Em Transito, Entregues
+- Cada mini-card com icone, numero grande e label
+- Animacao de entrada escalonada
 
-### 2. Header Redesenhado
-- Sem borda inferior rigida - usar backdrop-blur com fundo semi-transparente
-- Logo Magnus a esquerda com efeito de brilho pulsante
-- Saldo de creditos em "pill" com borda dourada e icone animado
-- Botoes com estilo ghost mais refinado, com hover glow
+### 2. Barra de Acoes Redesenhada
+- Fundo glass-strong com borda dourada sutil
+- Layout reorganizado: controles a esquerda (auto-envio, batch actions), ferramentas a direita (busca, filtro, import, novo)
+- Busca com icone e fundo glass
+- Botao "Novo Envio" como CTA principal com efeito shimmer
+- Botoes de batch (Iniciar Pendentes, Avancar Todos) com icones dourados
 
-### 3. Hero Section (novo)
-- Area central com saudacao personalizada ("Bem-vindo de volta")
-- Contador de lojas ativas em destaque com tipografia grande
-- Subtitulo elegante com descricao
-- Botao "Nova Loja" reposicionado como CTA principal com efeito de shine/shimmer na borda
+### 3. Cards de Envio (substituindo tabela)
+- Grid responsivo: 1 coluna mobile, 2 tablet, 3 desktop
+- Cada card em glassmorphism com hover glow
+- Layout interno do card:
+  - Topo: Nome do cliente (bold) + badge de status com glow colorido
+  - Meio: Produto, valor em destaque dourado, codigo rastreio mono
+  - Barra de progresso com gradiente dourado e indicador numerico
+  - Rodape: data + botoes de acao (avancar, deletar)
+- Animacao stagger-in nos cards
+- Indicador visual pulsante no badge de status
 
-### 4. Cards de Lojas - Glassmorphism
-- Fundo com backdrop-blur e transparencia (glass effect)
-- Borda com gradiente dourado sutil (border-image ou pseudo-element)
-- Hover: borda brilha mais forte + leve scale up (1.02) + sombra dourada
-- Icone da loja em circulo com anel dourado animado (rotating gradient border)
-- Data de criacao com icone de calendario
-- Indicador visual de "ativa" (bolinha verde pulsante)
-- Animacao de entrada escalonada (staggered fade-in-up) para cada card
+### 4. Estado Vazio Cinematografico
+- Icone grande de caminhao com efeito de orbita (particulas girando ao redor)
+- Texto motivacional: "Nenhum envio por aqui... ainda"
+- CTA shimmer para criar primeiro envio
 
-### 5. Estado Vazio Redesenhado
-- Ilustracao com icone grande e efeito de particulas/orbitas ao redor
-- Texto motivacional mais impactante
-- CTA com efeito shimmer
-
-### 6. Loading State
-- Skeleton com efeito shimmer dourado em vez de spinner simples
+### 5. Loading State
+- Skeleton cards com efeito shimmer dourado (3 cards placeholder)
 
 ## Mudancas Tecnicas
 
-### Arquivo: `src/index.css`
-- Adicionar keyframes CSS para:
-  - `shimmer` (efeito de brilho percorrendo bordas)
-  - `glow-pulse` (pulsacao suave de brilho)
-  - `float` (leve flutuacao)
-  - `grid-move` (animacao do grid de fundo)
-  - `stagger-in` (entrada escalonada dos cards)
-- Adicionar classes utilitarias:
-  - `.glass` (backdrop-blur + bg transparente)
-  - `.glow-border` (borda com brilho dourado)
-  - `.shimmer-btn` (botao com efeito shimmer)
-
-### Arquivo: `src/pages/Lojas.tsx`
-- Reescrever apenas o JSX de retorno (template visual)
-- Manter intactos: todos os hooks, queries, mutations, handlers, estados
-- Adicionar as novas classes CSS e estrutura visual
-- Adicionar animacao de entrada com `style={{ animationDelay }}` nos cards
+### Arquivo: `src/pages/Envios.tsx`
+- Reescrever o JSX de retorno mantendo 100% da logica (hooks, queries, mutations, handlers, estados)
+- Substituir Table por grid de cards
+- Adicionar secao de metricas computadas a partir dos dados existentes (contadores por status)
+- Usar classes CSS ja existentes: glass, glass-strong, glow-border, glow-border-hover, shimmer-btn, animate-stagger-in, animate-orbit, animate-pulse-dot, skeleton-shimmer
+- Animacao de entrada com animationDelay escalonado nos cards
 
 ### Nenhuma mudanca em:
-- Logica de negocio (create, rename, delete mutations)
-- Queries de dados (lojas, saldo)
-- Navegacao e rotas
-- Dialogs de renomear/excluir (apenas melhorar visualmente com glass effect)
-- Componentes UI base (button, input, card, dialog)
+- Logica de negocio (mutations, queries, batch actions, filtros)
+- Componentes filhos (ImportarPlanilha, NovoEnvioWizard)
+- Componentes UI base
+- CSS global (todas as classes necessarias ja existem)
 
 ## Resultado Esperado
 
-Uma pagina que parece um painel de controle futurista premium - como se fosse a interface de um sistema de alta tecnologia. Preto profundo com acentos dourados brilhantes, cards que parecem flutuar com bordas de luz, animacoes suaves que dao vida sem distrair, e uma hierarquia visual clara que guia o olhar do usuario.
+Uma interface que parece um painel de monitoramento de operacoes logisticas premium — cards flutuantes com bordas de luz dourada, metricas em tempo real no topo, acoes de batch com visual sofisticado, e um estado vazio que impressiona em vez de parecer abandonado.
 
