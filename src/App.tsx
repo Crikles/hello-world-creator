@@ -31,6 +31,7 @@ import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
 import Rastreio from "./pages/Rastreio";
 import Taxacao from "./pages/Taxacao";
+import Moedas from "./pages/Moedas";
 import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,7 @@ function PanelRoutes() {
           <Route path="integracoes" element={<Integracoes />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="taxacao" element={<Taxacao />} />
+          <Route path="moedas" element={<Moedas />} />
         </Route>
         <Route
           path="/admin"

@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.send-push-notification]
 verify_jwt = false
+
+[functions.webhook-blackcat]
+verify_jwt = false
+
+[functions.create-pix-payment]
+verify_jwt = false

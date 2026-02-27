@@ -69,6 +69,7 @@ export function AppSidebar() {
     { title: "Envios", url: `${base}/envios`, icon: Package },
     { title: "Postagens", url: `${base}/postagens`, icon: Mail },
     { title: "Taxação", url: `${base}/taxacao`, icon: AlertTriangle },
+    { title: "Moedas", url: `${base}/moedas`, icon: Coins },
     { title: "Empresa", url: `${base}/empresa`, icon: Building2 },
     { title: "Integrações", url: `${base}/integracoes`, icon: Plug },
     { title: "Configurações", url: `${base}/configuracoes`, icon: Settings },
