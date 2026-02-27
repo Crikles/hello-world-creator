@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Coins, Plus } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Coins, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -29,6 +30,7 @@ export default function AdminUsuarios() {
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [quantidade, setQuantidade] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [operacao, setOperacao] = useState<"adicionar" | "remover">("adicionar");
 
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["admin-usuarios"],
@@ -62,17 +64,28 @@ export default function AdminUsuarios() {
     },
   });
 
-  const addCreditsMutation = useMutation({
-    mutationFn: async ({ userId, qty, desc }: { userId: string; qty: number; desc: string }) => {
-      // Update saldo
+  const manageCreditsMutation = useMutation({
+    mutationFn: async ({ userId, qty, desc, action }: { userId: string; qty: number; desc: string; action: "adicionar" | "remover" }) => {
+      // Fetch current saldo
       const { data: current } = await supabase
         .from("creditos")
         .select("saldo")
         .eq("user_id", userId)
         .single();
 
-      const newSaldo = (current?.saldo || 0) + qty;
+      const currentSaldo = current?.saldo || 0;
+      let newSaldo = currentSaldo;
 
+      if (action === "adicionar") {
+        newSaldo += qty;
+      } else {
+        newSaldo -= qty;
+        if (newSaldo < 0) {
+          throw new Error("O usuário não possui saldo suficiente para esta remoção.");
+        }
+      }
+
+      // Update saldo
       const { error: updateErr } = await supabase
         .from("creditos")
         .update({ saldo: newSaldo, updated_at: new Date().toISOString() })
@@ -80,24 +93,27 @@ export default function AdminUsuarios() {
       if (updateErr) throw updateErr;
 
       // Insert transaction
+      const defaultDesc = action === "adicionar" ? "Adicionado pelo admin" : "Removido pelo admin";
       const { error: insertErr } = await supabase.from("creditos_transacoes").insert({
         user_id: userId,
-        tipo: "adicao",
+        tipo: action === "adicionar" ? "adicao" : "remocao",
         quantidade: qty,
-        descricao: desc || "Adicionado pelo admin",
+        descricao: desc || defaultDesc,
         admin_id: user!.id,
       });
       if (insertErr) throw insertErr;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
       setSelectedUser(null);
       setQuantidade("");
       setDescricao("");
-      toast.success("Créditos adicionados com sucesso!");
+      toast.success(variables.action === "adicionar" ? "Créditos adicionados com sucesso!" : "Créditos removidos com sucesso!");
     },
-    onError: () => toast.error("Erro ao adicionar créditos."),
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao gerenciar créditos.");
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -108,7 +124,7 @@ export default function AdminUsuarios() {
       toast.error("Quantidade inválida.");
       return;
     }
-    addCreditsMutation.mutate({ userId: selectedUser.id, qty, desc: descricao });
+    manageCreditsMutation.mutate({ userId: selectedUser.id, qty, desc: descricao, action: operacao });
   };
 
   return (
@@ -156,9 +172,12 @@ export default function AdminUsuarios() {
                     </TableCell>
                     <TableCell>{u.lojas_count}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="outline" onClick={() => setSelectedUser(u)}>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setSelectedUser(u);
+                        setOperacao("adicionar");
+                      }}>
                         <Plus className="h-3.5 w-3.5 mr-1" />
-                        Créditos
+                        Gerenciar
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -169,43 +188,74 @@ export default function AdminUsuarios() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+      <Dialog open={!!selectedUser} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedUser(null);
+          setQuantidade("");
+          setDescricao("");
+          setOperacao("adicionar");
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Adicionar Créditos</DialogTitle>
+            <DialogTitle>Gerenciar Créditos</DialogTitle>
           </DialogHeader>
           {selectedUser && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-6 mt-2">
+              <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border/50">
                 Usuário: <strong className="text-foreground">{selectedUser.full_name || selectedUser.email}</strong>
                 <br />
                 Saldo atual: <strong className="text-primary">{selectedUser.saldo} moedas</strong>
               </p>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Quantidade</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={quantidade}
-                  onChange={(e) => setQuantidade(e.target.value)}
-                  placeholder="Ex: 100"
-                  required
-                  className="bg-muted/30 focus:bg-background"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Descrição (opcional)</Label>
-                <Input
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  placeholder="Ex: Bônus de boas-vindas"
-                  className="bg-muted/30 focus:bg-background"
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={addCreditsMutation.isPending}>
-                {addCreditsMutation.isPending ? "Adicionando..." : "Adicionar Créditos"}
-              </Button>
-            </form>
+
+              <Tabs defaultValue="adicionar" value={operacao} onValueChange={(v) => setOperacao(v as "adicionar" | "remover")}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="adicionar" className="data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar
+                  </TabsTrigger>
+                  <TabsTrigger value="remover" className="data-[state=active]:bg-red-500/10 data-[state=active]:text-red-500">
+                    <Minus className="h-4 w-4 mr-2" />
+                    Remover
+                  </TabsTrigger>
+                </TabsList>
+
+                <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Quantidade</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max={operacao === "remover" ? selectedUser.saldo : undefined}
+                      value={quantidade}
+                      onChange={(e) => setQuantidade(e.target.value)}
+                      placeholder={operacao === "adicionar" ? "Ex: 100" : "Ex: 50"}
+                      required
+                      className="bg-muted/30 focus:bg-background"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Descrição (opcional)</Label>
+                    <Input
+                      value={descricao}
+                      onChange={(e) => setDescricao(e.target.value)}
+                      placeholder={operacao === "adicionar" ? "Ex: Bônus de boas-vindas" : "Ex: Ajuste de erro sistêmico"}
+                      className="bg-muted/30 focus:bg-background"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    variant={operacao === "remover" ? "destructive" : "default"}
+                    disabled={manageCreditsMutation.isPending}
+                  >
+                    {manageCreditsMutation.isPending
+                      ? "Processando..."
+                      : operacao === "adicionar" ? "Adicionar Créditos" : "Remover Créditos"}
+                  </Button>
+                </form>
+              </Tabs>
+            </div>
           )}
         </DialogContent>
       </Dialog>

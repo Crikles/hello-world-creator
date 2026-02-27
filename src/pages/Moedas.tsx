@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+import QRCode from "qrcode";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, QrCode, Copy, Check, Loader2, Sparkles, Clock, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Coins, QrCode, Copy, Check, Loader2, Sparkles, Clock, CheckCircle2, XCircle, ArrowRight, PencilLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,10 +21,10 @@ interface CoinPackage {
 }
 
 const COIN_PACKAGES: CoinPackage[] = [
-    { moedas: 50, price_cents: 500 },
-    { moedas: 100, price_cents: 1000, popular: true },
-    { moedas: 500, price_cents: 4500, bonus: "10% off" },
-    { moedas: 1000, price_cents: 8000, bonus: "20% off" },
+    { moedas: 50, price_cents: 5000 },
+    { moedas: 100, price_cents: 10000, popular: true },
+    { moedas: 500, price_cents: 50000 },
+    { moedas: 1000, price_cents: 100000 },
 ];
 
 interface PixPaymentData {
@@ -43,7 +45,9 @@ export default function Moedas() {
     const [pixData, setPixData] = useState<PixPaymentData | null>(null);
     const [copied, setCopied] = useState(false);
     const [paymentStatus, setPaymentStatus] = useState<"idle" | "pending" | "paid" | "error">("idle");
+    const [customAmount, setCustomAmount] = useState<string>("");
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
     // Fetch user's credit balance
     const { data: saldo } = useQuery({
@@ -80,6 +84,29 @@ export default function Moedas() {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
     }, []);
+
+    // Generate QR code on canvas whenever pixData changes
+    useEffect(() => {
+        if (pixData?.copyPaste && qrCanvasRef.current && paymentStatus === "pending") {
+            QRCode.toCanvas(qrCanvasRef.current, pixData.copyPaste, {
+                width: 224,
+                margin: 2,
+                color: { dark: "#000000", light: "#ffffff" },
+            }).catch((err: any) => {
+                console.error("QR Code generation error:", err);
+            });
+        }
+    }, [pixData, paymentStatus]);
+
+    const handleCustomPurchase = () => {
+        const amount = parseInt(customAmount, 10);
+        if (isNaN(amount) || amount < 1) {
+            toast.error("Insira um valor válido (mínimo 1 moeda).");
+            return;
+        }
+        const pkg: CoinPackage = { moedas: amount, price_cents: amount * 100 };
+        handlePurchase(pkg);
+    };
 
     const handlePurchase = async (pkg: CoinPackage) => {
         if (!user || !session) {
@@ -253,12 +280,11 @@ export default function Moedas() {
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-6">
-                                    {/* QR Code Image */}
+                                    {/* QR Code Canvas */}
                                     <div className="relative p-4 bg-white rounded-2xl shadow-lg">
-                                        <img
-                                            src={pixData.qrCodeBase64}
-                                            alt="QR Code PIX"
-                                            className="w-56 h-56 object-contain"
+                                        <canvas
+                                            ref={qrCanvasRef}
+                                            className="w-56 h-56"
                                         />
                                     </div>
 
@@ -334,11 +360,6 @@ export default function Moedas() {
                                             Popular
                                         </Badge>
                                     )}
-                                    {pkg.bonus && (
-                                        <Badge className="absolute top-3 right-3 bg-green-500/15 text-green-400 border-green-500/25 text-[10px]">
-                                            {pkg.bonus}
-                                        </Badge>
-                                    )}
 
                                     <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-primary/5 group-hover:bg-primary/10 transition-colors" />
 
@@ -360,6 +381,52 @@ export default function Moedas() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+
+                    {/* Custom Amount */}
+                    <div
+                        className="mt-6 animate-stagger-in"
+                        style={{ animationDelay: "500ms" }}
+                    >
+                        <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+                            <PencilLine className="h-4 w-4 text-primary" />
+                            Valor Personalizado
+                        </h2>
+                        <div className="rounded-2xl glass glow-border p-5">
+                            <p className="text-sm text-muted-foreground mb-3">
+                                Insira a quantidade de moedas que deseja comprar (1 moeda = R$ 1,00)
+                            </p>
+                            <div className="flex items-center gap-3">
+                                <div className="relative flex-1 max-w-xs">
+                                    <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        placeholder="Ex: 25"
+                                        value={customAmount}
+                                        onChange={(e) => setCustomAmount(e.target.value)}
+                                        className="pl-9"
+                                    />
+                                </div>
+                                {customAmount && parseInt(customAmount) >= 1 && (
+                                    <span className="text-sm font-semibold text-primary whitespace-nowrap">
+                                        R$ {(parseInt(customAmount) * 1).toFixed(2)}
+                                    </span>
+                                )}
+                                <Button
+                                    onClick={handleCustomPurchase}
+                                    disabled={loading || !customAmount || parseInt(customAmount) < 1}
+                                    className="shrink-0 gap-1.5"
+                                >
+                                    {loading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <ArrowRight className="h-4 w-4" />
+                                    )}
+                                    Comprar
+                                </Button>
+                            </div>
+                        </div>
                     </div>
 
                     {loading && (
