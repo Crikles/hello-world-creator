@@ -1,56 +1,77 @@
 
 
-# Configurar Push Notifications (Tabelas, Secrets e Edge Functions)
+# Corrigir Criptografia do Web Push (send-push-notification)
 
-## 1. Criar 3 tabelas via migracao SQL
+## Problema identificado
 
-Uma unica migracao com:
+A edge function `send-push-notification` envia o payload como texto puro (JSON string) mas declara o header `Content-Encoding: aes128gcm`. O Web Push Protocol (RFC 8291) exige que o payload seja criptografado usando:
 
-**`push_subscriptions`** -- armazena as subscricoes dos navegadores
-- `id` UUID PK, `endpoint` TEXT UNIQUE NOT NULL, `keys_p256dh`, `keys_auth`, `codigo_rastreio` nullable, `created_at`
-- RLS: INSERT e SELECT publicos (anon + authenticated)
+1. ECDH key agreement com a chave p256dh do assinante
+2. HKDF para derivacao de chaves
+3. Criptografia AES-128-GCM
 
-**`push_notification_settings`** -- configuracoes globais de push
-- `id` UUID PK, `icon_url`, `badge_url`, `default_url`, `created_at`, `updated_at`
-- RLS: SELECT, INSERT e UPDATE publicos
-- Inserir 1 registro padrao com valores default
+Sem essa criptografia, o servidor push (FCM/Mozilla) rejeita a mensagem, resultando em falha.
 
-**`push_notification_log`** -- historico de notificacoes enviadas
-- `id` UUID PK, `title`, `body`, `url`, `icon_url`, `total_sent`, `total_failed`, `created_at`
-- RLS: SELECT e INSERT publicos
+## Solucao
 
-## 2. Gerar e configurar VAPID keys
+Reescrever a funcao `sendWebPush` em `supabase/functions/send-push-notification/index.ts` para implementar a criptografia RFC 8291 usando a Web Crypto API nativa do Deno.
 
-As VAPID keys sao necessarias para autenticar o servidor ao enviar push notifications via Web Push Protocol.
+### Alteracoes no arquivo `supabase/functions/send-push-notification/index.ts`
 
-- Nao e possivel executar `npx web-push generate-vapid-keys` dentro do Lovable. Em vez disso, vou gerar as chaves usando uma edge function temporaria ou orientar voce a gerar externamente.
-- **Acao necessaria do usuario**: Voce precisara fornecer as chaves VAPID (publica e privada) para que eu as configure como secrets (`VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY`).
-- A chave publica tambem sera exposta no frontend via variavel `VITE_VAPID_PUBLIC_KEY` -- porem como o `.env` e gerenciado automaticamente, ela sera hardcoded no codigo ou em uma constante.
+1. **Adicionar funcao de criptografia `encryptPayload`** que implementa:
+   - Gerar par de chaves ECDH efemeras (P-256)
+   - Computar shared secret via ECDH com a chave p256dh do assinante
+   - Derivar chaves usando HKDF (salt, IKM, PRK, CEK, nonce) conforme RFC 8291
+   - Criptografar com AES-128-GCM
+   - Montar o record conforme o formato aes128gcm (salt + rs + keyid_len + keyid + ciphertext)
 
-## 3. Criar e fazer deploy das edge functions
+2. **Atualizar funcao `sendWebPush`** para:
+   - Receber as chaves do assinante (p256dh, auth)
+   - Chamar `encryptPayload` antes de enviar
+   - Usar o payload criptografado no body da requisicao
+   - Manter o header `Content-Encoding: aes128gcm`
 
-Criar os arquivos (que ja estao definidos no contexto do projeto):
+3. **Atualizar a chamada da funcao** no loop principal para passar as chaves do assinante
 
-- **`supabase/functions/save-push-subscription/index.ts`** -- recebe subscription do browser e salva no banco
-- **`supabase/functions/send-push-notification/index.ts`** -- envia push para todas as subscricoes usando VAPID
+### Detalhes tecnicos da criptografia (RFC 8291 + RFC 8188)
 
-Adicionar as configuracoes no `supabase/config.toml`:
-```toml
-[functions.save-push-subscription]
-verify_jwt = false
-
-[functions.send-push-notification]
-verify_jwt = false
+```text
++------------------+
+| Subscriber keys  |  p256dh (ECDH public key)
+| (from browser)   |  auth (16-byte secret)
++------------------+
+         |
+         v
++------------------+
+| ECDH Agreement   |  local ephemeral key + subscriber p256dh
++------------------+  => shared_secret (32 bytes)
+         |
+         v
++------------------+
+| HKDF Derivation  |  auth_secret + shared_secret + info
++------------------+  => IKM => PRK => CEK (16b) + Nonce (12b)
+         |
+         v
++------------------+
+| AES-128-GCM      |  encrypt(plaintext + padding, CEK, Nonce)
++------------------+  => ciphertext + tag
+         |
+         v
++------------------+
+| aes128gcm record |  salt(16) + rs(4) + keyid_len(1) + keyid(65) + ciphertext
++------------------+
 ```
 
-## Sequencia de execucao
+### Nenhuma outra alteracao necessaria
 
-1. Criar migracao SQL com as 3 tabelas + RLS + registro padrao
-2. Solicitar ao usuario as VAPID keys (publica e privada) via ferramenta de secrets
-3. Criar os 2 arquivos de edge functions
-4. Fazer deploy das edge functions
+- O service worker (`public/sw.js`) ja esta correto
+- O componente `PushNotificationPrompt` ja esta correto
+- A funcao `save-push-subscription` ja esta correta
+- As tabelas e RLS ja estao configuradas
 
-## Observacao importante
+## Sequencia
 
-A chave publica VAPID precisa estar acessivel no frontend para registrar o service worker. Como o `.env` nao pode ser editado manualmente, a chave sera armazenada como constante no codigo (ex: em um arquivo de configuracao ou diretamente no componente `PushNotificationPrompt`).
+1. Reescrever `supabase/functions/send-push-notification/index.ts` com a criptografia
+2. Deploy da edge function
+3. Testar enviando uma notificacao pelo painel admin
 
