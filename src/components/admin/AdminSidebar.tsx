@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Coins, Store, LogOut, Mail, FileText, DollarSign } from "lucide-react";
+import { LayoutDashboard, Users, Coins, Store, LogOut, Mail, FileText, DollarSign, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ const menuItems = [
   { title: "Templates", url: "/admin/templates", icon: FileText },
   { title: "Emails", url: "/admin/email", icon: Mail },
   { title: "Valores", url: "/admin/valores", icon: DollarSign },
+  { title: "SMS", url: "/admin/sms", icon: MessageSquare },
 ];
 
 export function AdminSidebar() {
