@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar } from "lucide-react";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -182,148 +180,217 @@ export default function Envios() {
     return (envio as any).status_label || statusLabels[envio.status] || envio.status;
   };
 
+  // Metrics
+  const totalCount = envios.length;
+  const pendentesCount = envios.filter((e) => e.status === "pendente").length;
+  const transitoCount = envios.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega" || e.status === "coletado" || e.status === "centro_local").length;
+  const entreguesCount = envios.filter((e) => e.status === "entregue").length;
+
+  const metrics = [
+    { label: "Total", value: totalCount, icon: Package, delay: 0 },
+    { label: "Pendentes", value: pendentesCount, icon: Clock, delay: 0.08 },
+    { label: "Em Trânsito", value: transitoCount, icon: Navigation, delay: 0.16 },
+    { label: "Entregues", value: entreguesCount, icon: CheckCircle2, delay: 0.24 },
+  ];
+
   return (
     <>
-      <h1 className="text-lg font-semibold text-foreground mb-4">Envios</h1>
-      <div className="space-y-4">
-        <p className="text-sm text-muted-foreground -mt-2">
-          Gerencie todos os pedidos enviados e códigos de rastreio.
-        </p>
-
-        {/* Action bar */}
-        <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Switch checked={autoEnvio} onCheckedChange={setAutoEnvio} />
-              <span className="text-sm text-muted-foreground">Envio Automático</span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => batchAdvance((e) => e.status === "pendente")}
-            >
-              <Play className="h-3.5 w-3.5 mr-1" /> Iniciar Pendentes
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => batchAdvance((e) => e.status !== "entregue")}
-            >
-              <FastForward className="h-3.5 w-3.5 mr-1" /> Avançar Todos
-            </Button>
+      <div className="space-y-6">
+        {/* Hero + Metrics */}
+        <div className="space-y-5">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+              Centro de Envios
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Monitore e gerencie todos os seus envios em tempo real.
+            </p>
           </div>
 
-          <div className="flex gap-3 items-center w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {statusOptions.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {loja && <ImportarPlanilha lojaId={loja.id} />}
-            <Button onClick={() => setWizardOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Novo Envio
-            </Button>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {metrics.map((m) => (
+              <div
+                key={m.label}
+                className="glass glow-border rounded-xl p-4 animate-stagger-in"
+                style={{ animationDelay: `${m.delay}s` }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <m.icon className="h-4.5 w-4.5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground leading-none">{m.value}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{m.label}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Table */}
-        <Card>
-          <CardContent className="p-0">
-            {filteredEnvios.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Truck className="h-12 w-12 mb-3 opacity-30" />
-                <p>Nenhum envio encontrado.</p>
+        {/* Action Bar */}
+        <div className="glass-strong glow-border rounded-xl p-3">
+          <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
+                <Switch checked={autoEnvio} onCheckedChange={setAutoEnvio} />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Auto</span>
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Rastreio</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Progresso</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEnvios.map((envio) => (
-                    <TableRow key={envio.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{envio.cliente_nome}</div>
-                          <div className="text-xs text-muted-foreground">{envio.cliente_email}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatProduto(envio.produto)}</TableCell>
-                      <TableCell>R$ {Number(envio.valor).toFixed(2)}</TableCell>
-                      <TableCell className="font-mono text-xs">{envio.codigo_rastreio || "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={statusColors[envio.status] || "bg-muted text-muted-foreground"}>
-                          {getDisplayStatus(envio)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="w-28 space-y-1">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{getCurrentStep(envio)}/{totalEventos}</span>
-                            <span>{getProgress(envio)}%</span>
-                          </div>
-                          <Progress value={getProgress(envio)} className="h-2" />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(envio.created_at), "dd/MM/yyyy")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {canAdvance(envio) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              title="Avançar próximo evento"
-                              disabled={advanceMutation.isPending}
-                              onClick={() => advanceMutation.mutate(envio.id)}
-                            >
-                              <FastForward className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            title="Remover"
-                            onClick={() => deleteMutation.mutate(envio.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs hover:bg-primary/10 hover:text-primary"
+                onClick={() => batchAdvance((e) => e.status === "pendente")}
+              >
+                <Play className="h-3.5 w-3.5 mr-1 text-primary" /> Iniciar Pendentes
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs hover:bg-primary/10 hover:text-primary"
+                onClick={() => batchAdvance((e) => e.status !== "entregue")}
+              >
+                <FastForward className="h-3.5 w-3.5 mr-1 text-primary" /> Avançar Todos
+              </Button>
+            </div>
+
+            <div className="flex gap-2 items-center w-full lg:w-auto">
+              <div className="relative flex-1 lg:w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 h-8 text-xs bg-transparent border-border/50"
+                />
+              </div>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-[120px] h-8 text-xs bg-transparent border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {statusOptions.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                </SelectContent>
+              </Select>
+              {loja && <ImportarPlanilha lojaId={loja.id} />}
+              <Button
+                size="sm"
+                className="shimmer-btn h-8 text-xs"
+                onClick={() => setWizardOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" /> Novo Envio
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        {filteredEnvios.length === 0 ? (
+          /* Empty State */
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="relative mb-6">
+              <div className="h-20 w-20 rounded-full bg-primary/5 flex items-center justify-center">
+                <Truck className="h-10 w-10 text-primary/30" />
+              </div>
+              <div className="absolute inset-0 animate-orbit">
+                <div className="h-2.5 w-2.5 rounded-full bg-primary/40 animate-pulse-dot" />
+              </div>
+              <div className="absolute inset-0 animate-orbit" style={{ animationDelay: "-2.5s" }}>
+                <div className="h-1.5 w-1.5 rounded-full bg-primary/25 animate-pulse-dot" style={{ animationDelay: "1s" }} />
+              </div>
+            </div>
+            <p className="text-foreground font-medium text-lg">Nenhum envio por aqui... ainda</p>
+            <p className="text-muted-foreground text-sm mt-1 max-w-xs">
+              Crie seu primeiro envio e acompanhe todo o fluxo de entrega em tempo real.
+            </p>
+            <Button className="shimmer-btn mt-5" onClick={() => setWizardOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Criar Primeiro Envio
+            </Button>
+          </div>
+        ) : (
+          /* Envio Cards Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredEnvios.map((envio, idx) => (
+              <div
+                key={envio.id}
+                className="glass glow-border-hover rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] animate-stagger-in group"
+                style={{ animationDelay: `${idx * 0.05}s` }}
+              >
+                {/* Card Header */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-foreground truncate">{envio.cliente_nome}</p>
+                    <p className="text-xs text-muted-foreground truncate">{envio.cliente_email}</p>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={`${statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[10px] ml-2 whitespace-nowrap`}
+                  >
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1 animate-pulse-dot" />
+                    {getDisplayStatus(envio)}
+                  </Badge>
+                </div>
+
+                {/* Card Body */}
+                <div className="space-y-2.5">
+                  <p className="text-xs text-muted-foreground line-clamp-1">{formatProduto(envio.produto)}</p>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-primary">R$ {Number(envio.valor).toFixed(2)}</span>
+                    {envio.codigo_rastreio && (
+                      <span className="font-mono text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
+                        {envio.codigo_rastreio}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>Etapa {getCurrentStep(envio)}/{totalEventos}</span>
+                      <span>{getProgress(envio)}%</span>
+                    </div>
+                    <Progress value={getProgress(envio)} className="h-1.5" />
+                  </div>
+                </div>
+
+                {/* Card Footer */}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(envio.created_at), "dd/MM/yyyy")}
+                  </div>
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {canAdvance(envio) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                        title="Avançar próximo evento"
+                        disabled={advanceMutation.isPending}
+                        onClick={() => advanceMutation.mutate(envio.id)}
+                      >
+                        <FastForward className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Remover"
+                      onClick={() => deleteMutation.mutate(envio.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
       </div>
