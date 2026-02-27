@@ -1,29 +1,62 @@
 
-# Cooldown de 2 Minutos no Botao "Avançar Acao"
 
-## Objetivo
-Adicionar um limite de 2 minutos entre cada clique nos botoes de avançar (individual e em lote), evitando sobrecarga nos envios de e-mail e SMS.
+# Deploy da Integração Shopify
 
-## O que sera feito
+## Contexto
+Os arquivos da integração Shopify ja existem no projeto (edge functions, pagina Integracoes.tsx, migration SQL). Os erros de build ocorrem porque a tabela `shopify_integrations` ainda nao existe no banco, entao o TypeScript nao reconhece esse nome nas queries do Supabase.
 
-### Arquivo: `src/pages/Envios.tsx`
+## Etapas
 
-1. **Estado de cooldown por envio**: Criar um state `cooldowns` (Record de envioId para timestamp de quando o cooldown expira) para controlar o botao individual de avançar de cada envio.
+### 1. Criar a tabela `shopify_integrations` no banco
+Executar a migration que ja esta no arquivo `20260227224634_create_shopify_integrations.sql` usando a ferramenta de migration. Isso cria a tabela com RLS, trigger de `updated_at` e indice. Apos a migration, o arquivo `types.ts` sera regenerado automaticamente e os erros de TypeScript serao resolvidos.
 
-2. **Estado de cooldown global para batch**: Criar um state `batchCooldown` (timestamp) para controlar os botoes "Iniciar Pendentes" e "Avançar Todos".
+### 2. Corrigir temporariamente os erros de TypeScript em `Integracoes.tsx`
+Enquanto os tipos nao forem regenerados, adicionar casts `as any` nas chamadas `.from("shopify_integrations")` para eliminar os erros de build. Isso garante que o app compila imediatamente. Quando os tipos forem atualizados, os casts poderao ser removidos.
 
-3. **Timer de atualizacao**: Usar um `useEffect` com `setInterval` de 1 segundo para forcar re-render e atualizar o estado visual dos botoes (countdown visivel).
+### 3. Atualizar `supabase/config.toml` para desabilitar JWT nas edge functions
+As duas edge functions Shopify precisam de `verify_jwt = false` porque recebem chamadas externas (redirect OAuth e webhooks). O config.toml atual tem `verify_jwt = true` -- sera alterado para `false`.
 
-4. **Apos avançar com sucesso (individual)**: Registrar `Date.now() + 120000` (2 min) no `cooldowns` para aquele envio. O botao ficara desabilitado e mostrara o tempo restante.
+### 4. Deploy das Edge Functions
+Fazer deploy de `shopify-auth-callback` e `shopify-webhook`. Ambas ja existem no projeto e estao prontas.
 
-5. **Apos avançar em lote**: Registrar cooldown global de 2 min. Os botoes "Iniciar Pendentes" e "Avançar Todos" ficarao desabilitados com countdown.
+### 5. Adicionar secret `FRONTEND_URL`
+A edge function `shopify-auth-callback` usa `Deno.env.get("FRONTEND_URL")` para redirecionar apos o OAuth. Sera necessario configurar esse secret com a URL publicada do projeto (`https://magnusfrete.lovable.app`).
 
-6. **Feedback visual**: Botoes desabilitados mostrarao o tempo restante em formato `Xm Xs` enquanto estiverem em cooldown.
+---
 
 ### Detalhes tecnicos
 
-- O cooldown e puramente client-side (estado React), sem necessidade de alteracoes no banco de dados
-- O `advanceMutation.onSuccess` setara o cooldown para o envio especifico
-- O `batchAdvance` setara o cooldown global apos completar
-- Os botoes verificam `cooldowns[envio.id] > Date.now()` ou `batchCooldown > Date.now()` para decidir se ficam desabilitados
-- Um `setInterval` a cada segundo garante que o countdown visual atualize em tempo real
+**Migration SQL** (ja existente no projeto):
+```sql
+CREATE TABLE public.shopify_integrations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    loja_id UUID NOT NULL REFERENCES public.lojas(id) ON DELETE CASCADE UNIQUE,
+    shop_url TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    client_secret TEXT NOT NULL,
+    access_token TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- RLS, trigger e indice incluidos
+```
+
+**Integracoes.tsx** -- correcoes de tipo:
+- Usar `(supabase as any).from("shopify_integrations")` ou cast nos resultados para contornar a falta de tipos ate a regeneracao.
+
+**config.toml** -- alteracoes:
+```toml
+[functions.shopify-auth-callback]
+verify_jwt = false
+
+[functions.shopify-webhook]
+verify_jwt = false
+```
+
+**Ordem de execucao:**
+1. Migration do banco
+2. Fix de tipos no Integracoes.tsx
+3. Atualizar config.toml
+4. Deploy das edge functions
+5. Configurar secret FRONTEND_URL
+
