@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -79,178 +78,165 @@ export default function Dashboard() {
   const recentUpdates = envios.slice(0, 6);
 
   const cards = [
-    {
-      title: "Total de Pedidos",
-      value: total,
-      icon: Package,
-      gradient: "from-primary/90 to-primary/60",
-    },
-    {
-      title: "Pendentes",
-      value: pendentes,
-      icon: Clock,
-      gradient: "from-primary/70 to-accent",
-    },
-    {
-      title: "Em Trânsito",
-      value: emTransito,
-      icon: Truck,
-      gradient: "from-accent to-primary/50",
-    },
-    {
-      title: "Entregues",
-      value: entregues,
-      icon: CheckCircle,
-      gradient: "from-primary/80 to-primary/40",
-    },
+    { title: "Total de Pedidos", value: total, icon: Package },
+    { title: "Pendentes", value: pendentes, icon: Clock },
+    { title: "Em Trânsito", value: emTransito, icon: Truck },
+    { title: "Entregues", value: entregues, icon: CheckCircle },
   ];
 
   return (
-    <>
-      <h1 className="text-lg font-semibold text-foreground mb-4">Dashboard</h1>
-      <div className="space-y-6">
-        {/* Welcome */}
-        <div className="opacity-0 animate-fade-in-up" style={{ animationDelay: "0ms" }}>
-          <p className="text-muted-foreground text-sm">
-            Bem-vindo de volta! Aqui está o resumo dos seus envios.
-          </p>
-        </div>
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {cards.map((card, i) => (
-            <div
-              key={card.title}
-              className="opacity-0 animate-fade-in-up"
-              style={{ animationDelay: `${(i + 1) * 100}ms` }}
-            >
-              <div
-                className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${card.gradient} p-5 text-primary-foreground shadow-lg transition-transform hover:scale-[1.03] cursor-default border border-primary/20`}
-              >
-                <card.icon className="absolute -top-2 -right-2 h-20 w-20 opacity-15" />
-                <p className="text-sm font-medium opacity-90">{card.title}</p>
-                <p className="text-3xl font-bold mt-1">{card.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Chart + Notifications */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="lg:col-span-2 opacity-0 animate-fade-in-up" style={{ animationDelay: "500ms" }}>
-            <CardHeader className="flex flex-row items-center gap-2 pb-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base">Faturamento</CardTitle>
-              <span className="ml-auto text-2xl font-bold text-foreground">
-                R$ {faturamento.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </span>
-            </CardHeader>
-            <CardContent>
-              {chartData.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-12">
-                  Nenhum dado para exibir ainda.
-                </p>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(43, 74%, 49%)" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="hsl(43, 74%, 49%)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 18%)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "1px solid hsl(0, 0%, 18%)",
-                        backgroundColor: "hsl(0, 0%, 10%)",
-                        color: "hsl(45, 30%, 92%)",
-                        fontSize: "12px",
-                      }}
-                      formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Receita"]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="receita"
-                      stroke="hsl(43, 74%, 49%)"
-                      strokeWidth={2}
-                      fill="url(#colorReceita)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="opacity-0 animate-fade-in-up" style={{ animationDelay: "600ms" }}>
-            <CardHeader>
-              <CardTitle className="text-base">Canais de Notificação</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className={`flex items-center gap-3 p-3 rounded-lg ${emailAtivo ? "bg-accent border-primary/20" : "bg-muted/50 border-border"} border`}>
-                <Mail className={`h-5 w-5 ${emailAtivo ? "text-primary" : "text-muted-foreground"}`} />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">Email</p>
-                  <p className="text-xs text-muted-foreground">{emailAtivo ? "Notificações ativas" : "Não configurado"}</p>
-                </div>
-                <Badge className={emailAtivo ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/25" : ""} variant={emailAtivo ? "default" : "secondary"}>{emailAtivo ? "Ativo" : "Inativo"}</Badge>
-              </div>
-              <div className={`flex items-center gap-3 p-3 rounded-lg ${smsAtivo ? "bg-accent border-primary/20" : "bg-muted/50 border-border"} border`}>
-                <MessageSquare className={`h-5 w-5 ${smsAtivo ? "text-primary" : "text-muted-foreground"}`} />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">SMS</p>
-                  <p className="text-xs text-muted-foreground">{smsAtivo ? "Notificações ativas" : "Não configurado"}</p>
-                </div>
-                <Badge className={smsAtivo ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/25" : ""} variant={smsAtivo ? "default" : "secondary"}>{smsAtivo ? "Ativo" : "Inativo"}</Badge>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
-                <Package className="h-5 w-5 text-muted-foreground" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">Webhook</p>
-                  <p className="text-xs text-muted-foreground">Não configurado</p>
-                </div>
-                <Badge variant="secondary">Inativo</Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent updates timeline */}
-        <Card className="opacity-0 animate-fade-in-up" style={{ animationDelay: "700ms" }}>
-          <CardHeader>
-            <CardTitle className="text-base">Últimas Atualizações</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentUpdates.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhum envio cadastrado ainda.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {recentUpdates.map((envio) => (
-                  <div key={envio.id} className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className={`h-3 w-3 rounded-full ${statusTimelineColors[envio.status]} ring-4 ring-background`} />
-                      <div className="w-px h-full bg-border min-h-[24px]" />
-                    </div>
-                    <div className="flex-1 -mt-0.5">
-                      <p className="text-sm font-medium text-foreground">
-                        {envio.cliente_nome} — <span className="font-normal text-muted-foreground">{envio.produto}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {statusLabels[envio.status]} • {format(new Date(envio.created_at), "dd/MM/yyyy HH:mm")}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="animate-stagger-in">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Bem-vindo de volta! Aqui está o resumo dos seus envios.
+        </p>
       </div>
-    </>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((card, i) => (
+          <div
+            key={card.title}
+            className="animate-stagger-in"
+            style={{ animationDelay: `${(i + 1) * 80}ms` }}
+          >
+            <div className="relative overflow-hidden rounded-2xl glass glow-border glow-border-hover p-5 transition-all duration-300 hover:scale-[1.02] cursor-default group">
+              <div className="absolute -top-3 -right-3 h-20 w-20 rounded-full bg-primary/5 group-hover:bg-primary/10 transition-colors" />
+              <card.icon className="absolute top-4 right-4 h-8 w-8 text-primary/20 group-hover:text-primary/30 transition-colors" />
+              <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
+              <p className="text-3xl font-bold text-foreground mt-1">{card.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart + Notifications */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div
+          className="lg:col-span-2 rounded-2xl glass glow-border p-6 animate-stagger-in"
+          style={{ animationDelay: "400ms" }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-primary" />
+            </div>
+            <h2 className="text-base font-semibold text-foreground">Faturamento</h2>
+            <span className="ml-auto text-2xl font-bold text-foreground">
+              R$ {faturamento.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          {chartData.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-12">
+              Nenhum dado para exibir ainda.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(43, 74%, 49%)" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="hsl(43, 74%, 49%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 18%)" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                <YAxis tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: "12px",
+                    border: "1px solid hsla(43, 74%, 49%, 0.15)",
+                    backgroundColor: "hsla(0, 0%, 7%, 0.9)",
+                    backdropFilter: "blur(12px)",
+                    color: "hsl(45, 30%, 92%)",
+                    fontSize: "12px",
+                  }}
+                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Receita"]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="receita"
+                  stroke="hsl(43, 74%, 49%)"
+                  strokeWidth={2}
+                  fill="url(#colorReceita)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div
+          className="rounded-2xl glass glow-border p-6 animate-stagger-in"
+          style={{ animationDelay: "500ms" }}
+        >
+          <h2 className="text-base font-semibold text-foreground mb-4">Canais de Notificação</h2>
+          <div className="space-y-3">
+            {[
+              { icon: Mail, label: "Email", sub: emailAtivo ? "Notificações ativas" : "Não configurado", active: emailAtivo },
+              { icon: MessageSquare, label: "SMS", sub: smsAtivo ? "Notificações ativas" : "Não configurado", active: smsAtivo },
+              { icon: Package, label: "Webhook", sub: "Não configurado", active: false },
+            ].map((ch) => (
+              <div
+                key={ch.label}
+                className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                  ch.active
+                    ? "glass glow-border"
+                    : "bg-muted/20 border border-border/50"
+                }`}
+              >
+                <ch.icon className={`h-5 w-5 ${ch.active ? "text-primary" : "text-muted-foreground"}`} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">{ch.label}</p>
+                  <p className="text-xs text-muted-foreground">{ch.sub}</p>
+                </div>
+                <Badge
+                  className={
+                    ch.active
+                      ? "bg-primary/15 text-primary border-primary/25 hover:bg-primary/20"
+                      : "bg-muted/30 text-muted-foreground border-border/50"
+                  }
+                  variant={ch.active ? "default" : "secondary"}
+                >
+                  {ch.active ? "Ativo" : "Inativo"}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent updates */}
+      <div
+        className="rounded-2xl glass glow-border p-6 animate-stagger-in"
+        style={{ animationDelay: "600ms" }}
+      >
+        <h2 className="text-base font-semibold text-foreground mb-4">Últimas Atualizações</h2>
+        {recentUpdates.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            Nenhum envio cadastrado ainda.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {recentUpdates.map((envio) => (
+              <div key={envio.id} className="flex items-start gap-3">
+                <div className="flex flex-col items-center">
+                  <div className={`h-3 w-3 rounded-full ${statusTimelineColors[envio.status]} ring-4 ring-background`} />
+                  <div className="w-px h-full bg-border/30 min-h-[24px]" />
+                </div>
+                <div className="flex-1 -mt-0.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {envio.cliente_nome} — <span className="font-normal text-muted-foreground">{envio.produto}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {statusLabels[envio.status]} • {format(new Date(envio.created_at), "dd/MM/yyyy HH:mm")}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

@@ -80,28 +80,33 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar>
-      <SidebarHeader className="p-4 border-b border-sidebar-border">
+    <Sidebar className="border-r-0">
+      <SidebarHeader className="p-5 border-b border-primary/5">
         <div className="flex items-center gap-3">
-          <img
-            src={isLogisticsDomain() ? "/logojltransportes.png" : "/logo-magnus.png"}
-            alt={isLogisticsDomain() ? "Logística JL Transportes" : "Magnus Frete"}
-            className="h-14 w-14 rounded-lg object-contain"
-          />
+          <div className="relative">
+            <img
+              src={isLogisticsDomain() ? "/logojltransportes.png" : "/logo-magnus.png"}
+              alt={isLogisticsDomain() ? "Logística JL Transportes" : "Magnus Frete"}
+              className="h-12 w-12 rounded-xl object-contain"
+            />
+            <div className="absolute inset-0 rounded-xl border border-primary/15 animate-glow-pulse" />
+          </div>
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-primary truncate">
               {loja?.nome || "Logística JL Transportes"}
             </h2>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Coins className="h-3 w-3 text-primary" />
-              <span className="text-xs text-primary font-medium">{(saldo ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} moedas</span>
+            <div className="flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-full glass glow-border w-fit">
+              <Coins className="h-3 w-3 text-primary animate-glow-pulse" />
+              <span className="text-xs text-primary font-semibold">
+                {(saldo ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} moedas
+              </span>
             </div>
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-2 pt-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
+          <SidebarGroupLabel className="text-muted-foreground/40 text-[10px] uppercase tracking-[0.15em] font-semibold px-3 mb-1">
             Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -112,8 +117,8 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === base}
-                      className="flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/60 hover:text-primary hover:bg-primary/5 transition-all duration-200"
+                      activeClassName="glass glow-border text-primary font-semibold"
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
@@ -125,11 +130,11 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t border-sidebar-border space-y-1">
+      <SidebarFooter className="p-3 border-t border-primary/5 space-y-1">
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground"
+          className="w-full justify-start text-sidebar-foreground/50 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
           onClick={() => navigate("/lojas")}
         >
           <Store className="h-4 w-4 mr-2" />
@@ -138,7 +143,7 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-sidebar-foreground/70 hover:text-destructive"
+          className="w-full justify-start text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4 mr-2" />
