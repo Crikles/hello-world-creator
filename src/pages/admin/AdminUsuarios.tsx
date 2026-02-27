@@ -76,10 +76,11 @@ export default function AdminUsuarios() {
       const currentSaldo = current?.saldo || 0;
       let newSaldo = currentSaldo;
 
+      // Handle floating point precision
       if (action === "adicionar") {
-        newSaldo += qty;
+        newSaldo = Number((currentSaldo + qty).toFixed(2));
       } else {
-        newSaldo -= qty;
+        newSaldo = Number((currentSaldo - qty).toFixed(2));
         if (newSaldo < 0) {
           throw new Error("O usuário não possui saldo suficiente para esta remoção.");
         }
@@ -119,7 +120,11 @@ export default function AdminUsuarios() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser || !quantidade) return;
-    const qty = parseInt(quantidade);
+
+    // Support both comma and dot for decimals
+    const sanitizedVal = quantidade.replace(",", ".");
+    const qty = parseFloat(sanitizedVal);
+
     if (isNaN(qty) || qty <= 0) {
       toast.error("Quantidade inválida.");
       return;
@@ -167,7 +172,7 @@ export default function AdminUsuarios() {
                     <TableCell>
                       <span className="flex items-center gap-1">
                         <Coins className="h-3.5 w-3.5 text-primary" />
-                        {u.saldo}
+                        {Number(u.saldo).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </TableCell>
                     <TableCell>{u.lojas_count}</TableCell>
@@ -205,7 +210,7 @@ export default function AdminUsuarios() {
               <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border/50">
                 Usuário: <strong className="text-foreground">{selectedUser.full_name || selectedUser.email}</strong>
                 <br />
-                Saldo atual: <strong className="text-primary">{selectedUser.saldo} moedas</strong>
+                Saldo atual: <strong className="text-primary">{Number(selectedUser.saldo).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} moedas</strong>
               </p>
 
               <Tabs defaultValue="adicionar" value={operacao} onValueChange={(v) => setOperacao(v as "adicionar" | "remover")}>
@@ -225,11 +230,12 @@ export default function AdminUsuarios() {
                     <Label className="text-xs text-muted-foreground">Quantidade</Label>
                     <Input
                       type="number"
-                      min="1"
+                      min="0.01"
+                      step="0.01"
                       max={operacao === "remover" ? selectedUser.saldo : undefined}
                       value={quantidade}
                       onChange={(e) => setQuantidade(e.target.value)}
-                      placeholder={operacao === "adicionar" ? "Ex: 100" : "Ex: 50"}
+                      placeholder={operacao === "adicionar" ? "Ex: 100.50" : "Ex: 50.25"}
                       required
                       className="bg-muted/30 focus:bg-background"
                     />
