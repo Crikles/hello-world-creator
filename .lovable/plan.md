@@ -1,44 +1,29 @@
 
-# Historico de Pagamentos PIX no Painel Admin
+# Cooldown de 2 Minutos no Botao "Avançar Acao"
 
 ## Objetivo
-Adicionar uma nova pagina no painel admin dedicada ao historico de pagamentos PIX, permitindo visualizar todas as transacoes de recarga via PIX, com resumo financeiro e filtros por status.
+Adicionar um limite de 2 minutos entre cada clique nos botoes de avançar (individual e em lote), evitando sobrecarga nos envios de e-mail e SMS.
 
 ## O que sera feito
 
-### 1. Nova pagina `AdminPagamentos.tsx`
-Criar a pagina `/admin/pagamentos` com:
+### Arquivo: `src/pages/Envios.tsx`
 
-**Cards de resumo no topo:**
-- Total de pagamentos PIX realizados (PAID)
-- Valor total em reais movimentado (soma de amount_cents dos PAID, convertido para R$)
-- Total de moedas adicionadas via PIX (soma de moedas dos PAID)
-- Pagamentos pendentes (PENDING)
+1. **Estado de cooldown por envio**: Criar um state `cooldowns` (Record de envioId para timestamp de quando o cooldown expira) para controlar o botao individual de avançar de cada envio.
 
-**Tabela de transacoes PIX:**
-- Data de criacao
-- Usuario (nome/email, cruzando com profiles)
-- Valor em reais (amount_cents / 100, formatado como R$)
-- Moedas creditadas
-- Status (PAID, PENDING, CANCELLED) com badges coloridos
-- Data do pagamento (paid_at)
+2. **Estado de cooldown global para batch**: Criar um state `batchCooldown` (timestamp) para controlar os botoes "Iniciar Pendentes" e "Avançar Todos".
 
-**Filtro por status:** Tabs ou select para filtrar entre Todos, Pagos, Pendentes e Cancelados.
+3. **Timer de atualizacao**: Usar um `useEffect` com `setInterval` de 1 segundo para forcar re-render e atualizar o estado visual dos botoes (countdown visivel).
 
-### 2. Rota no App.tsx
-Adicionar a rota `/admin/pagamentos` apontando para o novo componente.
+4. **Apos avançar com sucesso (individual)**: Registrar `Date.now() + 120000` (2 min) no `cooldowns` para aquele envio. O botao ficara desabilitado e mostrara o tempo restante.
 
-### 3. Menu no AdminSidebar
-Adicionar item "Pagamentos" no menu lateral do admin com icone `CreditCard`.
+5. **Apos avançar em lote**: Registrar cooldown global de 2 min. Os botoes "Iniciar Pendentes" e "Avançar Todos" ficarao desabilitados com countdown.
+
+6. **Feedback visual**: Botoes desabilitados mostrarao o tempo restante em formato `Xm Xs` enquanto estiverem em cooldown.
 
 ### Detalhes tecnicos
 
-- A query busca dados da tabela `pix_payments` (acessivel via RLS com role admin -- **necessario adicionar policy de SELECT para admins**) e cruza com `profiles` para exibir nomes
-- Reutiliza o padrao existente de `AdminLayout`, `Card`, `Table`, `Badge` e `Tabs`
-- Necessaria uma migracao SQL para adicionar policy de leitura admin na tabela `pix_payments`:
-  ```sql
-  CREATE POLICY "Admins can view all pix_payments"
-  ON pix_payments FOR SELECT
-  USING (has_role(auth.uid(), 'admin'::app_role));
-  ```
-  Atualmente a tabela so permite leitura pelo proprio usuario e pelo service_role, o admin nao conseguiria consultar.
+- O cooldown e puramente client-side (estado React), sem necessidade de alteracoes no banco de dados
+- O `advanceMutation.onSuccess` setara o cooldown para o envio especifico
+- O `batchAdvance` setara o cooldown global apos completar
+- Os botoes verificam `cooldowns[envio.id] > Date.now()` ou `batchCooldown > Date.now()` para decidir se ficam desabilitados
+- Um `setInterval` a cada segundo garante que o countdown visual atualize em tempo real
