@@ -177,15 +177,36 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         }
 
         // 8. Build payload and send
-        let nfe_pdf_base64 = "";
+        let nfe_storage_path = "";
         let nfe_filename = "";
 
         if (nextEvent.enviar_nfe_pdf && shipment.empresas) {
             try {
-                nfe_pdf_base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
+                const base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
                 nfe_filename = generateNfeFilename();
+
+                // Convert base64 to Blob and upload to Storage
+                const byteChars = atob(base64);
+                const byteNumbers = new Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) {
+                    byteNumbers[i] = byteChars.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: "application/pdf" });
+
+                const storagePath = `${envioId}/${nfe_filename}`;
+                const { error: uploadErr } = await supabase.storage
+                    .from("nfe-pdfs")
+                    .upload(storagePath, blob, { contentType: "application/pdf", upsert: true });
+
+                if (uploadErr) {
+                    console.error("PDF upload to storage failed:", uploadErr);
+                } else {
+                    nfe_storage_path = storagePath;
+                    console.log("PDF uploaded to storage:", storagePath);
+                }
             } catch (pdfErr) {
-                console.error("PDF generation failed:", pdfErr);
+                console.error("PDF generation/upload failed:", pdfErr);
             }
         }
 
@@ -201,7 +222,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 envio_id: shipment.id,
                 evento_id: nextEvent.id,
                 loja_id: lojaId,
-                nfe_pdf_base64,
+                nfe_storage_path,
                 nfe_filename,
             },
         });
