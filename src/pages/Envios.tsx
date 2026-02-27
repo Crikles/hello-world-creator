@@ -29,23 +29,35 @@ function formatProduto(raw: string): string {
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
+  coletado: "Coletado",
   em_transito: "Em Trânsito",
+  centro_local: "Centro Local",
   saiu_para_entrega: "Saiu p/ Entrega",
   entregue: "Entregue",
+  taxacao: "Taxação",
+  pagamento_confirmado: "Pgto. Confirmado",
 };
 
 const statusColors: Record<string, string> = {
   pendente: "bg-primary/20 text-primary",
+  coletado: "bg-accent text-accent-foreground",
   em_transito: "bg-accent text-accent-foreground",
+  centro_local: "bg-primary/25 text-primary",
   saiu_para_entrega: "bg-primary/30 text-primary",
   entregue: "bg-primary/15 text-primary",
+  taxacao: "bg-destructive/20 text-destructive",
+  pagamento_confirmado: "bg-primary/20 text-primary",
 };
 
 const statusOptions = [
   { value: "pendente", label: "Pendente" },
+  { value: "coletado", label: "Coletado" },
   { value: "em_transito", label: "Em Trânsito" },
+  { value: "centro_local", label: "Centro Local" },
   { value: "saiu_para_entrega", label: "Saiu para Entrega" },
   { value: "entregue", label: "Entregue" },
+  { value: "taxacao", label: "Taxação" },
+  { value: "pagamento_confirmado", label: "Pgto. Confirmado" },
 ];
 
 export default function Envios() {
