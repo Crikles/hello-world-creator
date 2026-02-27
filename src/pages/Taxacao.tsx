@@ -1,9 +1,7 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     AlertTriangle,
@@ -11,12 +9,11 @@ import {
     Clock,
     Search,
     ShieldCheck,
-    XCircle,
-    ExternalLink,
     CreditCard,
     Package,
-    User,
     Loader2,
+    Calendar,
+    DollarSign,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,8 +34,17 @@ interface TaxacaoEnvio {
     ultimo_evento_ordem: number;
     created_at: string;
     updated_at: string;
-    // Computed status
     taxacao_status: "pendente" | "aprovado";
+}
+
+function formatProduto(raw: string): string {
+    try {
+        const items = JSON.parse(raw);
+        if (Array.isArray(items)) {
+            return items.map((i: any) => `${i.nome} (x${i.quantidade})`).join(", ");
+        }
+    } catch { /* not JSON */ }
+    return raw;
 }
 
 /* ─── Component ─── */
@@ -48,32 +54,25 @@ export default function Taxacao() {
     const queryClient = useQueryClient();
     const { loja } = useLoja();
 
-    // ── Fetch the ordem of the "Taxação" and "Pago" events ──
     const { data: taxEventos } = useQuery({
         queryKey: ["tax-eventos", loja?.id],
         queryFn: async () => {
             if (!loja) return null;
-
             const { data: config } = await supabase
                 .from("postagem_config")
                 .select("template_ativo_id")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
-
             if (!config?.template_ativo_id) return null;
-
             const { data: eventos } = await supabase
                 .from("postagem_eventos")
                 .select("id, nome, ordem, status_label")
                 .eq("template_id", config.template_ativo_id)
                 .in("status_label", ["Taxação", "Pago"])
                 .order("ordem", { ascending: true });
-
             if (!eventos || eventos.length === 0) return null;
-
             const taxEvento = eventos.find((e) => e.status_label === "Taxação");
             const pagoEvento = eventos.find((e) => e.status_label === "Pago");
-
             return {
                 taxacao_ordem: taxEvento?.ordem ?? null,
                 pago_ordem: pagoEvento?.ordem ?? null,
@@ -83,39 +82,28 @@ export default function Taxacao() {
         enabled: !!loja,
     });
 
-    // ── Fetch all envios that reached Taxação or beyond ──
     const { data: envios = [], isLoading } = useQuery({
         queryKey: ["taxacao-envios", loja?.id, taxEventos],
         queryFn: async () => {
             if (!loja || !taxEventos?.taxacao_ordem) return [];
-
             const { data, error } = await supabase
                 .from("envios")
                 .select("*")
                 .eq("loja_id", loja.id)
                 .gte("ultimo_evento_ordem", taxEventos.taxacao_ordem)
                 .order("updated_at", { ascending: false });
-
             if (error) throw error;
-
             return (data || []).map((envio) => {
                 let taxacao_status: "pendente" | "aprovado" = "pendente";
-
-                // If the envio has moved past Taxação (to Pago or beyond), it's approved
-                if (
-                    taxEventos.pago_ordem &&
-                    envio.ultimo_evento_ordem >= taxEventos.pago_ordem
-                ) {
+                if (taxEventos.pago_ordem && envio.ultimo_evento_ordem >= taxEventos.pago_ordem) {
                     taxacao_status = "aprovado";
                 }
-
                 return { ...envio, taxacao_status } as TaxacaoEnvio;
             });
         },
         enabled: !!loja && !!taxEventos?.taxacao_ordem,
     });
 
-    // ── Approve mutation ──
     const approveMutation = useMutation({
         mutationFn: async (envioId: string) => {
             if (!loja?.id) throw new Error("Loja não encontrada");
@@ -133,12 +121,9 @@ export default function Taxacao() {
         },
     });
 
-    // ── Filter ──
     const pendentes = envios.filter((e) => e.taxacao_status === "pendente");
     const aprovados = envios.filter((e) => e.taxacao_status === "aprovado");
-
     const currentList = tab === "pendentes" ? pendentes : aprovados;
-
     const filteredList = currentList.filter((e) => {
         if (!search) return true;
         const s = search.toLowerCase();
@@ -150,312 +135,204 @@ export default function Taxacao() {
         );
     });
 
-    // ── Stats ──
     const totalPendentes = pendentes.length;
     const totalAprovados = aprovados.length;
     const totalValorPendente = pendentes.reduce((sum, e) => sum + Number(e.valor), 0);
 
-    // ── No tax events configured ──
+    const metrics = [
+        { label: "Pendentes", value: String(totalPendentes), icon: Clock, delay: 0 },
+        { label: "Aprovados", value: String(totalAprovados), icon: CheckCircle2, delay: 0.08 },
+        { label: "Valor Pendente", value: `R$ ${totalValorPendente.toFixed(2)}`, icon: DollarSign, delay: 0.16 },
+    ];
+
+    // No tax events configured
     if (!isLoading && !taxEventos?.taxacao_ordem) {
         return (
-            <>
-                <h1 className="text-lg font-semibold text-foreground mb-4">Taxação</h1>
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <AlertTriangle className="h-16 w-16 text-muted-foreground/30 mb-4" />
-                    <h2 className="text-xl font-bold text-foreground/80 mb-2">
-                        Taxação não configurada
-                    </h2>
-                    <p className="text-sm text-muted-foreground max-w-md">
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground tracking-tight">Taxação</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Gerencie os pagamentos de taxas de importação.</p>
+                </div>
+                <div className="glass glow-border rounded-xl flex flex-col items-center justify-center py-20 text-center">
+                    <div className="relative mb-5">
+                        <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center">
+                            <AlertTriangle className="h-8 w-8 text-primary/30" />
+                        </div>
+                        <div className="absolute inset-0 animate-orbit">
+                            <div className="h-2 w-2 rounded-full bg-primary/30 animate-pulse-dot" />
+                        </div>
+                    </div>
+                    <p className="text-foreground font-medium text-lg">Taxação não configurada</p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md">
                         Configure o evento de "Taxação" no seu template de postagens para habilitar a gestão de pagamentos.
-                        Acesse <strong>Postagens → Template</strong> e adicione um evento com status_label "Taxação".
                     </p>
                 </div>
-            </>
+            </div>
         );
     }
 
     return (
-        <>
-            <h1 className="text-lg font-semibold text-foreground mb-4">Taxação</h1>
-            <div className="space-y-6">
-                <p className="text-sm text-muted-foreground -mt-2">
-                    Gerencie os pagamentos de taxas de importação dos seus clientes.
-                </p>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="border-amber-500/20 bg-amber-500/5">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-amber-600 uppercase tracking-wider">
-                                        Pendentes
-                                    </p>
-                                    <p className="text-3xl font-bold text-amber-500 mt-1">
-                                        {totalPendentes}
-                                    </p>
-                                </div>
-                                <div className="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                                    <Clock className="h-6 w-6 text-amber-500" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-green-500/20 bg-green-500/5">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-green-600 uppercase tracking-wider">
-                                        Aprovados
-                                    </p>
-                                    <p className="text-3xl font-bold text-green-500 mt-1">
-                                        {totalAprovados}
-                                    </p>
-                                </div>
-                                <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                                    <CheckCircle2 className="h-6 w-6 text-green-500" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-blue-500/20 bg-blue-500/5">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-blue-600 uppercase tracking-wider">
-                                        Valor Pendente
-                                    </p>
-                                    <p className="text-3xl font-bold text-blue-500 mt-1">
-                                        R$ {totalValorPendente.toFixed(2)}
-                                    </p>
-                                </div>
-                                <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                                    <CreditCard className="h-6 w-6 text-blue-500" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+        <div className="space-y-6">
+            {/* Hero + Metrics */}
+            <div className="space-y-5">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground tracking-tight">Taxação</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Gerencie os pagamentos de taxas de importação dos seus clientes.
+                    </p>
                 </div>
 
-                {/* Tabs + Table */}
-                <Tabs value={tab} onValueChange={setTab}>
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                        <TabsList>
-                            <TabsTrigger value="pendentes" className="gap-2">
-                                <Clock className="h-3.5 w-3.5" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {metrics.map((m) => (
+                        <div
+                            key={m.label}
+                            className="glass glow-border rounded-xl p-4 animate-stagger-in"
+                            style={{ animationDelay: `${m.delay}s` }}
+                        >
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{m.label}</p>
+                                    <p className="text-2xl font-bold text-foreground mt-1">{m.value}</p>
+                                </div>
+                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <m.icon className="h-5 w-5 text-primary" />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Action Bar */}
+            <div className="glass-strong glow-border rounded-xl p-3">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                    <Tabs value={tab} onValueChange={setTab} className="w-auto">
+                        <TabsList className="glass h-8">
+                            <TabsTrigger value="pendentes" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
+                                <Clock className="h-3 w-3" />
                                 Pendentes
                                 {totalPendentes > 0 && (
-                                    <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-[10px]">
+                                    <span className="ml-0.5 bg-destructive/80 text-destructive-foreground text-[9px] px-1.5 py-0.5 rounded-full font-bold">
                                         {totalPendentes}
-                                    </Badge>
+                                    </span>
                                 )}
                             </TabsTrigger>
-                            <TabsTrigger value="aprovados" className="gap-2">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
+                            <TabsTrigger value="aprovados" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
+                                <CheckCircle2 className="h-3 w-3" />
                                 Aprovados
                             </TabsTrigger>
                         </TabsList>
+                    </Tabs>
 
-                        <div className="relative w-full md:w-72">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Buscar cliente, produto..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-9"
-                            />
+                    <div className="relative w-full md:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar cliente, produto..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-8 h-8 text-xs bg-transparent border-border/50"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            {isLoading ? (
+                <div className="flex items-center justify-center py-20">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+                </div>
+            ) : filteredList.length === 0 ? (
+                <div className="glass glow-border rounded-xl flex flex-col items-center justify-center py-20 text-center">
+                    <div className="relative mb-4">
+                        <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center">
+                            <ShieldCheck className="h-8 w-8 text-primary/30" />
+                        </div>
+                        <div className="absolute inset-0 animate-orbit">
+                            <div className="h-2 w-2 rounded-full bg-primary/30 animate-pulse-dot" />
                         </div>
                     </div>
+                    <p className="text-foreground font-medium">
+                        {tab === "pendentes" ? "Nenhum pagamento pendente" : "Nenhum pagamento aprovado"}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        {tab === "pendentes" ? "Todos os pagamentos foram aprovados." : "Os pagamentos aprovados aparecerão aqui."}
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filteredList.map((envio, idx) => (
+                        <div
+                            key={envio.id}
+                            className="glass glow-border-hover rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] animate-stagger-in group"
+                            style={{ animationDelay: `${idx * 0.05}s` }}
+                        >
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-3">
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-semibold text-foreground truncate">{envio.cliente_nome}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{envio.cliente_email}</p>
+                                </div>
+                                <Badge
+                                    variant="secondary"
+                                    className={`text-[10px] ml-2 whitespace-nowrap ${
+                                        envio.taxacao_status === "pendente"
+                                            ? "bg-primary/20 text-primary"
+                                            : "bg-primary/15 text-primary"
+                                    }`}
+                                >
+                                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1 animate-pulse-dot" />
+                                    {envio.taxacao_status === "pendente" ? "Pendente" : "Aprovado"}
+                                </Badge>
+                            </div>
 
-                    <TabsContent value="pendentes" className="mt-4">
-                        <Card>
-                            <CardContent className="p-0">
-                                {isLoading ? (
-                                    <div className="flex items-center justify-center py-16">
-                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                    </div>
-                                ) : filteredList.length === 0 ? (
-                                    <EmptyState
-                                        icon={<ShieldCheck className="h-12 w-12" />}
-                                        title="Nenhum pagamento pendente"
-                                        description="Todos os pagamentos de taxas foram aprovados."
-                                    />
+                            {/* Body */}
+                            <div className="space-y-2.5">
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Package className="h-3 w-3" />
+                                    <span className="line-clamp-1">{formatProduto(envio.produto)}</span>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-lg font-bold text-primary">R$ {Number(envio.valor).toFixed(2)}</span>
+                                    {envio.codigo_rastreio && (
+                                        <span className="font-mono text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
+                                            {envio.codigo_rastreio}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <Calendar className="h-3 w-3" />
+                                    {format(new Date(envio.updated_at), "dd/MM/yyyy HH:mm")}
+                                </div>
+                                {envio.taxacao_status === "pendente" ? (
+                                    <Button
+                                        size="sm"
+                                        className="h-7 text-xs shimmer-btn gap-1"
+                                        disabled={approveMutation.isPending}
+                                        onClick={() => approveMutation.mutate(envio.id)}
+                                    >
+                                        {approveMutation.isPending ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                            <ShieldCheck className="h-3 w-3" />
+                                        )}
+                                        Aprovar
+                                    </Button>
                                 ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Cliente</TableHead>
-                                                <TableHead>Produto</TableHead>
-                                                <TableHead>Valor</TableHead>
-                                                <TableHead>Rastreio</TableHead>
-                                                <TableHead>Data Taxação</TableHead>
-                                                <TableHead className="text-right">Ação</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {filteredList.map((envio) => (
-                                                <TableRow key={envio.id} className="group">
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                                                                <User className="h-4 w-4 text-amber-500" />
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-medium text-sm">{envio.cliente_nome}</div>
-                                                                <div className="text-xs text-muted-foreground">{envio.cliente_email}</div>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                                                            <span className="text-sm">{envio.produto}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="font-semibold text-sm">
-                                                            R$ {Number(envio.valor).toFixed(2)}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {envio.codigo_rastreio ? (
-                                                            <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-                                                                {envio.codigo_rastreio}
-                                                            </code>
-                                                        ) : (
-                                                            <span className="text-muted-foreground text-xs">—</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {format(new Date(envio.updated_at), "dd/MM/yyyy HH:mm")}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button
-                                                            size="sm"
-                                                            className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
-                                                            disabled={approveMutation.isPending}
-                                                            onClick={() => approveMutation.mutate(envio.id)}
-                                                        >
-                                                            {approveMutation.isPending ? (
-                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                            ) : (
-                                                                <ShieldCheck className="h-3.5 w-3.5" />
-                                                            )}
-                                                            Aprovar
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                    <Badge variant="outline" className="text-[10px] border-primary/20 text-primary gap-1">
+                                        <CheckCircle2 className="h-2.5 w-2.5" />
+                                        Aprovado
+                                    </Badge>
                                 )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="aprovados" className="mt-4">
-                        <Card>
-                            <CardContent className="p-0">
-                                {isLoading ? (
-                                    <div className="flex items-center justify-center py-16">
-                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                    </div>
-                                ) : filteredList.length === 0 ? (
-                                    <EmptyState
-                                        icon={<Clock className="h-12 w-12" />}
-                                        title="Nenhum pagamento aprovado"
-                                        description="Os pagamentos aprovados aparecerão aqui."
-                                    />
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Cliente</TableHead>
-                                                <TableHead>Produto</TableHead>
-                                                <TableHead>Valor</TableHead>
-                                                <TableHead>Rastreio</TableHead>
-                                                <TableHead>Data Aprovação</TableHead>
-                                                <TableHead>Status</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {filteredList.map((envio) => (
-                                                <TableRow key={envio.id}>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
-                                                                <User className="h-4 w-4 text-green-500" />
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-medium text-sm">{envio.cliente_nome}</div>
-                                                                <div className="text-xs text-muted-foreground">{envio.cliente_email}</div>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                                                            <span className="text-sm">{envio.produto}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="font-semibold text-sm">
-                                                            R$ {Number(envio.valor).toFixed(2)}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {envio.codigo_rastreio ? (
-                                                            <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-                                                                {envio.codigo_rastreio}
-                                                            </code>
-                                                        ) : (
-                                                            <span className="text-muted-foreground text-xs">—</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {format(new Date(envio.updated_at), "dd/MM/yyyy HH:mm")}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge className="bg-green-500/10 text-green-600 border-green-500/20 gap-1">
-                                                            <CheckCircle2 className="h-3 w-3" />
-                                                            Aprovado
-                                                        </Badge>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
-            </div>
-        </>
-    );
-}
-
-/* ─── Empty State ─── */
-function EmptyState({
-    icon,
-    title,
-    description,
-}: {
-    icon: React.ReactNode;
-    title: string;
-    description: string;
-}) {
-    return (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <div className="opacity-30 mb-3">{icon}</div>
-            <p className="font-medium">{title}</p>
-            <p className="text-sm mt-1">{description}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
