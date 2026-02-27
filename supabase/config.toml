@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.pagamento-info]
 verify_jwt = false
+
+[functions.save-push-subscription]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
