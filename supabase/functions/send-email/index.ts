@@ -137,7 +137,13 @@ function buildEmailHtml(
   let mostrarBotaoCta = true;
   let textoBotaoCta = "Rastrear Pedido";
   const codigoRastreio = (envio.codigo_rastreio as string) || "";
-  let urlBotaoCta = codigoRastreio ? `https://rastreio.logisticajltransportes.com/r/${codigoRastreio}` : "#";
+  let urlBotaoCta = codigoRastreio ? `${appBaseUrl}/r/${codigoRastreio}` : "#";
+
+  // For Taxação status, always point the CTA to the payment page
+  if (statusLabel === "Taxação" && envioId) {
+    urlBotaoCta = `${appBaseUrl}/p/${envioId}`;
+    textoBotaoCta = "PAGAR TAXA";
+  }
 
   if (corpoEmail.includes("<p>") || corpoEmail.includes("<div>")) {
     mensagem = corpoEmail
