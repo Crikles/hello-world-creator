@@ -146,9 +146,9 @@ export function InstallAppPrompt() {
                     <Download size={22} className="install-banner-dl" />
                 </div>
                 <div className="install-banner-content">
-                    <h4 className="install-banner-title">📲 Instalar Atalho</h4>
+                    <h4 className="install-banner-title">🔔 Fique por dentro!</h4>
                     <p className="install-banner-text">
-                        Adicione à sua tela inicial para acessar rapidamente.
+                        Deseja receber notificações sobre o status dos seus pedidos em tempo real?
                     </p>
                 </div>
                 <div className="install-banner-actions">
@@ -157,13 +157,13 @@ export function InstallAppPrompt() {
                         onClick={handleInstall}
                         disabled={installing}
                     >
-                        {installing ? "Instalando..." : "Instalar"}
+                        {installing ? "Ativando..." : "Aceitar"}
                     </button>
                     <button
                         className="install-banner-btn install-banner-btn-dismiss"
                         onClick={handleDismiss}
                     >
-                        Depois
+                        Agora não
                     </button>
                 </div>
                 <button className="install-close install-close-banner" onClick={handleDismiss} aria-label="Fechar">
