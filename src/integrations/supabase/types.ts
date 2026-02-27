@@ -256,6 +256,66 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          cpf: string | null
+          created_at: string | null
+          email: string
+          endereco: string | null
+          envio_id: string | null
+          estado: string | null
+          id: string
+          loja_id: string | null
+          nome: string
+          numero: string | null
+          produto: string | null
+          telefone: string | null
+          valor: number | null
+        }
+        Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          email: string
+          endereco?: string | null
+          envio_id?: string | null
+          estado?: string | null
+          id?: string
+          loja_id?: string | null
+          nome: string
+          numero?: string | null
+          produto?: string | null
+          telefone?: string | null
+          valor?: number | null
+        }
+        Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          email?: string
+          endereco?: string | null
+          envio_id?: string | null
+          estado?: string | null
+          id?: string
+          loja_id?: string | null
+          nome?: string
+          numero?: string | null
+          produto?: string | null
+          telefone?: string | null
+          valor?: number | null
+        }
+        Relationships: []
+      }
       lojas: {
         Row: {
           created_at: string

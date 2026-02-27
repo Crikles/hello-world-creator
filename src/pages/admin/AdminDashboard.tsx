@@ -2,17 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Store, Package, Coins } from "lucide-react";
+import { Users, Store, Package, Coins, Contact } from "lucide-react";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const [profiles, lojas, envios, creditos] = await Promise.all([
+      const [profiles, lojas, envios, creditos, leads] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("lojas").select("id", { count: "exact", head: true }),
         supabase.from("envios").select("id", { count: "exact", head: true }),
         supabase.from("creditos").select("saldo"),
+        supabase.from("leads").select("id", { count: "exact", head: true }),
       ]);
       const totalCreditos = (creditos.data || []).reduce((sum, c) => sum + (c.saldo || 0), 0);
       return {
@@ -20,6 +21,7 @@ export default function AdminDashboard() {
         lojas: lojas.count || 0,
         envios: envios.count || 0,
         creditos: totalCreditos,
+        leads: leads.count || 0,
       };
     },
   });
@@ -29,6 +31,7 @@ export default function AdminDashboard() {
     { title: "Lojas", value: stats?.lojas ?? 0, icon: Store },
     { title: "Envios", value: stats?.envios ?? 0, icon: Package },
     { title: "Créditos em Circulação", value: stats?.creditos ?? 0, icon: Coins },
+    { title: "Leads", value: stats?.leads ?? 0, icon: Contact },
   ];
 
   return (
