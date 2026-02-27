@@ -1,36 +1,59 @@
 
 
-# Corrigir mapeamento de chaves no debito de moedas
+# Corrigir envio de email com PDF da Nota Fiscal
 
 ## Problema
 
-As chaves usadas no codigo `email-trigger.ts` nao correspondem as chaves reais na tabela `system_config`. O debito esta falhando silenciosamente para 3 dos 4 servicos.
+O email da Nota Fiscal falha porque o PDF em base64 (~500KB+) e enviado no corpo da requisicao para a Edge Function, causando timeout de conexao: "end of file before message length reached". Emails sem anexo (como "Coletado") funcionam normalmente.
 
-| Chave no codigo (errada) | Chave real no banco |
+## Solucao
+
+Fazer upload do PDF para o Supabase Storage antes de chamar a Edge Function. A Edge Function recebe apenas a URL do arquivo, faz download dele e anexa ao email via Resend.
+
+## Fluxo corrigido
+
+```text
+Frontend gera PDF base64
+       |
+       v
+Upload para Storage (bucket "nfe-pdfs")
+       |
+       v
+Chama send-email com nfe_storage_path (string leve)
+       |
+       v
+Edge Function faz download do PDF do Storage
+       |
+       v
+Converte para base64 e anexa ao email via Resend
+```
+
+## Mudancas Tecnicas
+
+### 1. Criar bucket "nfe-pdfs" (migracao SQL)
+
+Bucket privado para armazenar os PDFs temporarios das notas fiscais. Politica RLS permite upload por usuarios autenticados.
+
+### 2. Alterar `src/lib/email-trigger.ts`
+
+Em vez de enviar `nfe_pdf_base64` no body da requisicao:
+- Converter o base64 em Blob
+- Fazer upload para `nfe-pdfs/{envioId}/{filename}`
+- Enviar apenas `nfe_storage_path` e `nfe_filename` para a Edge Function
+
+### 3. Alterar `supabase/functions/send-email/index.ts`
+
+- Aceitar novo campo `nfe_storage_path` no request (alem do antigo `nfe_pdf_base64` para compatibilidade)
+- Se `nfe_storage_path` existir: fazer download do arquivo via Storage API usando service role
+- Converter o buffer para base64 de forma segura (em chunks para evitar stack overflow)
+- Anexar ao email normalmente via Resend
+- Remover o arquivo do Storage apos envio bem-sucedido (limpeza)
+
+## Arquivos alterados/criados
+
+| Arquivo | Acao |
 |---|---|
-| `custo_nfe` | `custo_nfe_email` |
-| `custo_email` | `custo_email_rastreio` |
-| `custo_rastreio` | `custo_sms_rastreio` |
-| `custo_taxacao` | `custo_taxacao` (ok) |
-
-## Valores confirmados
-
-| Servico | Moedas | Chave |
-|---|---|---|
-| Nota Fiscal | 1 | custo_nfe_email |
-| Emails | 1 | custo_email_rastreio |
-| SMS | 0.25 | custo_sms_rastreio |
-| Taxacao | 1 | custo_taxacao |
-
-## Mudanca
-
-### Arquivo: `src/lib/email-trigger.ts`
-
-Corrigir as 3 referencias de chaves incorretas nas linhas 97-108:
-
-- `costMap["custo_nfe"]` -> `costMap["custo_nfe_email"]`
-- `costMap["custo_email"]` -> `costMap["custo_email_rastreio"]`
-- `costMap["custo_rastreio"]` -> `costMap["custo_sms_rastreio"]`
-
-Nenhuma outra alteracao necessaria. Os valores no banco ja estao corretos.
+| Migracao SQL | Criar bucket `nfe-pdfs` + politicas RLS |
+| `src/lib/email-trigger.ts` | Upload do PDF para Storage em vez de enviar base64 no body |
+| `supabase/functions/send-email/index.ts` | Receber path do Storage, baixar PDF, anexar e limpar |
 
