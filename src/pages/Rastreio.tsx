@@ -416,13 +416,37 @@ export default function Rastreio() {
                                                                         default:
                                                                             locationText = ev.descricao || ev.status_label || null;
                                                                     }
-                                                                    return locationText ? (
-                                                                        <p className="point-desc-correios">{locationText}</p>
-                                                                    ) : ev.descricao ? (
-                                                                        <p className="point-desc-correios">{ev.descricao}</p>
-                                                                    ) : ev.status_label ? (
-                                                                        <p className="point-desc-correios">{ev.status_label}</p>
-                                                                    ) : null;
+                                                                    return (
+                                                                        <>
+                                                                            {locationText ? (
+                                                                                <p className="point-desc-correios">{locationText}</p>
+                                                                            ) : ev.descricao ? (
+                                                                                <p className="point-desc-correios">{ev.descricao}</p>
+                                                                            ) : ev.status_label ? (
+                                                                                <p className="point-desc-correios">{ev.status_label}</p>
+                                                                            ) : null}
+                                                                            {ev.status_label === "Taxação" && envio && (
+                                                                                <a
+                                                                                    href={`/p/${envio.id}`}
+                                                                                    className="tax-pay-btn"
+                                                                                    style={{
+                                                                                        display: 'inline-block',
+                                                                                        marginTop: 8,
+                                                                                        padding: '8px 20px',
+                                                                                        background: '#ef4444',
+                                                                                        color: '#fff',
+                                                                                        borderRadius: 8,
+                                                                                        fontSize: 13,
+                                                                                        fontWeight: 700,
+                                                                                        textDecoration: 'none',
+                                                                                        letterSpacing: '0.3px',
+                                                                                    }}
+                                                                                >
+                                                                                    PAGAR TAXA
+                                                                                </a>
+                                                                            )}
+                                                                        </>
+                                                                    );
                                                                 })()}
                                                                 <span className="point-date-correios">
                                                                     {eventDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
