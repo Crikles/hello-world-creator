@@ -86,6 +86,7 @@ export default function Envios() {
         .from("envios")
         .select("*")
         .eq("loja_id", loja.id)
+        .is("deleted_at" as any, null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -131,7 +132,7 @@ export default function Envios() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("envios").delete().eq("id", id);
+      const { error } = await supabase.from("envios").update({ deleted_at: new Date().toISOString() } as any).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
