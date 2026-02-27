@@ -16,8 +16,9 @@ function formatPhone(phone: string): string {
   return "55" + cleaned;
 }
 
+// deno-lint-ignore no-explicit-any
 async function getMessageFromDB(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   statusLabel: string | undefined,
   firstName: string,
   link: string
