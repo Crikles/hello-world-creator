@@ -806,6 +806,47 @@ export type Database = {
         }
         Relationships: []
       }
+      shopify_integrations: {
+        Row: {
+          access_token: string | null
+          client_id: string
+          client_secret: string
+          created_at: string
+          id: string
+          loja_id: string
+          shop_url: string
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          client_id: string
+          client_secret: string
+          created_at?: string
+          id?: string
+          loja_id: string
+          shop_url: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          client_id?: string
+          client_secret?: string
+          created_at?: string
+          id?: string
+          loja_id?: string
+          shop_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopify_integrations_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_templates: {
         Row: {
           created_at: string
