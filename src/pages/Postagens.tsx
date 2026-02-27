@@ -233,12 +233,21 @@ export default function Postagens() {
 
   const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
 
+  // Count SMS events (events without enviar_nfe_pdf) in active template
+  const smsEventCount = useMemo(() => {
+    if (!sortedActiveEventos) return 0;
+    return sortedActiveEventos.filter(e => !e.enviar_nfe_pdf).length;
+  }, [sortedActiveEventos]);
+
+  const smsCostUnit = systemConfigValues?.custo_sms_rastreio ?? 0.25;
+  const smsTotalCost = smsEventCount * smsCostUnit;
+
   const custoMoedas = (() => {
     if (!localConfig || !systemConfigValues) return 0;
     let total = 0;
     if (localConfig.enviar_nfe_email) total += systemConfigValues.custo_nfe_email ?? 1;
     if (localConfig.enviar_emails) total += systemConfigValues.custo_email_rastreio ?? 1;
-    if (localConfig.ativar_site_rastreio) total += systemConfigValues.custo_sms_rastreio ?? 0.25;
+    if (localConfig.ativar_site_rastreio) total += smsTotalCost;
     if (localConfig.ativar_taxacao) total += systemConfigValues.custo_taxacao ?? 1;
     return total;
   })();
@@ -364,10 +373,11 @@ export default function Postagens() {
     {
       key: "ativar_site_rastreio",
       label: "Site de Rastreio por SMS",
-      desc: "Link do site de rastreio personalizado via SMS.",
+      desc: "Cobrado individualmente por SMS enviado.",
       icon: Globe,
       checked: localConfig.ativar_site_rastreio,
       cost: systemConfigValues?.custo_sms_rastreio ?? 0.25,
+      costSuffix: "/SMS",
       toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_site_rastreio: !prev.ativar_site_rastreio } : prev),
     },
     {
@@ -429,7 +439,7 @@ export default function Postagens() {
                         <p className="text-xs text-muted-foreground mt-0.5">{ft.desc}</p>
                         <Badge variant="outline" className="mt-1.5 text-[10px] border-border/50">
                           <Coins className="h-2.5 w-2.5 mr-1" />
-                          {formatMoedas(ft.cost)}
+                          {formatMoedas(ft.cost)}{(ft as any).costSuffix || ""}
                         </Badge>
                       </div>
                     </div>
@@ -544,6 +554,11 @@ export default function Postagens() {
                                 <FileText className="h-2.5 w-2.5" /> NFe
                               </span>
                             )}
+                            {!evento.enviar_nfe_pdf && localConfig?.ativar_site_rastreio && (
+                              <span className="flex items-center gap-0.5 text-primary">
+                                <MessageSquare className="h-2.5 w-2.5" /> SMS
+                              </span>
+                            )}
                           </div>
                         </div>
                         {!isFirst && (
@@ -588,15 +603,15 @@ export default function Postagens() {
               </div>
               <div className="space-y-2 text-sm">
                 {[
-                  { label: "NF por email", active: localConfig.enviar_nfe_email, cost: systemConfigValues?.custo_nfe_email ?? 1 },
-                  { label: "Rastreio por email", active: localConfig.enviar_emails, cost: systemConfigValues?.custo_email_rastreio ?? 1 },
-                  { label: "Site rastreio por SMS", active: localConfig.ativar_site_rastreio, cost: systemConfigValues?.custo_sms_rastreio ?? 0.25, prefix: "+" },
-                  { label: "Funil de Taxação", active: localConfig.ativar_taxacao, cost: systemConfigValues?.custo_taxacao ?? 1, prefix: "+" },
+                  { label: "NF por email", active: localConfig.enviar_nfe_email, cost: systemConfigValues?.custo_nfe_email ?? 1, display: formatMoedas(systemConfigValues?.custo_nfe_email ?? 1) },
+                  { label: "Rastreio por email", active: localConfig.enviar_emails, cost: systemConfigValues?.custo_email_rastreio ?? 1, display: formatMoedas(systemConfigValues?.custo_email_rastreio ?? 1) },
+                  { label: `SMS (${smsEventCount}x ${formatMoedas(smsCostUnit)})`, active: localConfig.ativar_site_rastreio, cost: smsTotalCost, display: formatMoedas(smsTotalCost), prefix: "+" },
+                  { label: "Funil de Taxação", active: localConfig.ativar_taxacao, cost: systemConfigValues?.custo_taxacao ?? 1, display: formatMoedas(systemConfigValues?.custo_taxacao ?? 1), prefix: "+" },
                 ].map((item) => (
                   <div key={item.label} className="flex justify-between">
                     <span className={item.active ? "text-foreground" : "text-muted-foreground line-through"}>{item.label}</span>
                     <span className={item.active ? "font-medium text-foreground" : "text-muted-foreground"}>
-                      {item.prefix || ""}{formatMoedas(item.cost)}
+                      {item.prefix || ""}{item.display}
                     </span>
                   </div>
                 ))}
