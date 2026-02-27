@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Contact, Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 const PAGE_SIZE = 25;
@@ -43,27 +44,74 @@ type LeadRow = {
   loja_id: string | null;
   envio_id: string | null;
   created_at: string | null;
-  lojas: { nome: string } | null;
+  lojas: { nome: string; user_id: string } | null;
+  user_name?: string;
+  user_email?: string;
 };
 
 export default function AdminLeads() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
+  // Fetch profiles for the filter
+  const { data: profiles } = useQuery({
+    queryKey: ["admin-profiles-for-leads"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .order("full_name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-leads"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("leads")
-        .select("*, lojas(nome)")
+        .select("*, lojas(nome, user_id)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as LeadRow[];
     },
   });
 
-  const leads = data ?? [];
+  // Build a map of user_id -> profile info
+  const profileMap = new Map<string, { name: string; email: string }>();
+  profiles?.forEach((p) => {
+    profileMap.set(p.id, { name: p.full_name || "", email: p.email || "" });
+  });
+
+  // Enrich leads with user info
+  const leads = (data ?? []).map((l) => {
+    const userId = l.lojas?.user_id;
+    const profile = userId ? profileMap.get(userId) : null;
+    return {
+      ...l,
+      user_name: profile?.name || "",
+      user_email: profile?.email || "",
+      _user_id: userId || null,
+    };
+  });
+
+  // Get unique users that have leads
+  const usersWithLeads = new Map<string, string>();
+  leads.forEach((l) => {
+    if (l._user_id && !usersWithLeads.has(l._user_id)) {
+      const label = l.user_name || l.user_email || l._user_id;
+      usersWithLeads.set(l._user_id, label);
+    }
+  });
+
   const filtered = leads.filter((l) => {
+    // User filter
+    if (selectedUsers.length > 0 && (!l._user_id || !selectedUsers.includes(l._user_id))) {
+      return false;
+    }
+    // Text search
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -85,7 +133,7 @@ export default function AdminLeads() {
   };
 
   const downloadCSV = () => {
-    const header = ["Nome", "CPF", "Telefone", "Email", "Produto", "Valor", "Endereço", "Loja"];
+    const header = ["Nome", "CPF", "Telefone", "Email", "Produto", "Valor", "Endereço", "Loja", "Usuário"];
     const rows = filtered.map((l) => [
       l.nome,
       l.cpf || "",
@@ -95,6 +143,7 @@ export default function AdminLeads() {
       Number(l.valor || 0).toFixed(2).replace(".", ","),
       formatEndereco(l),
       l.lojas?.nome || "",
+      l.user_name || l.user_email || "",
     ]);
     const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -104,6 +153,17 @@ export default function AdminLeads() {
     a.download = `leads_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleUserFilter = (value: string) => {
+    if (value === "all") {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers((prev) =>
+        prev.includes(value) ? prev.filter((u) => u !== value) : [...prev, value]
+      );
+    }
+    setPage(0);
   };
 
   return (
@@ -126,17 +186,46 @@ export default function AdminLeads() {
 
         <Card>
           <CardHeader className="pb-3">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, email ou CPF..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(0);
-                }}
-              />
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative max-w-sm flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, email ou CPF..."
+                  className="pl-9"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(0);
+                  }}
+                />
+              </div>
+              <Select
+                value={selectedUsers.length === 1 ? selectedUsers[0] : selectedUsers.length > 1 ? "multi" : "all"}
+                onValueChange={handleUserFilter}
+              >
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue>
+                    {selectedUsers.length === 0
+                      ? "Todos os usuários"
+                      : selectedUsers.length === 1
+                        ? usersWithLeads.get(selectedUsers[0]) || "Usuário"
+                        : `${selectedUsers.length} usuários`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os usuários</SelectItem>
+                  {Array.from(usersWithLeads.entries()).map(([id, label]) => (
+                    <SelectItem key={id} value={id}>
+                      {selectedUsers.includes(id) ? "✓ " : ""}{label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedUsers.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => { setSelectedUsers([]); setPage(0); }}>
+                  Limpar filtro
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -160,6 +249,7 @@ export default function AdminLeads() {
                         <TableHead className="text-right">Valor</TableHead>
                         <TableHead>Endereço</TableHead>
                         <TableHead>Loja</TableHead>
+                        <TableHead>Usuário</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -175,6 +265,9 @@ export default function AdminLeads() {
                           </TableCell>
                           <TableCell className="max-w-xs truncate">{formatEndereco(lead)}</TableCell>
                           <TableCell className="whitespace-nowrap">{lead.lojas?.nome || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
+                            {lead.user_name || lead.user_email || "—"}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
