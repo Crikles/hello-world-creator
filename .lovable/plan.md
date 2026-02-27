@@ -1,20 +1,57 @@
 
 
-# Alterar mensagem do prompt de instalacao no iPhone
+# Corrigir icone do atalho PWA (JL Transportes)
 
-## O que sera feito
+## Problema
 
-Atualizar o texto do banner de instalacao (`InstallAppPrompt.tsx`) para usar a mesma linguagem do prompt de push notifications.
+O arquivo `manifest.json` usa `/favicon.ico` como icone do atalho nos dispositivos. Esse favicon contem a logo da Magnus Frete, por isso aparece errado quando o usuario instala o app.
 
-## Alteracoes
+## Solucao
 
-**Arquivo: `src/components/InstallAppPrompt.tsx`**
+### 1. Atualizar `public/manifest.json`
 
-- Titulo: de `"📲 Instalar Atalho"` para `"🔔 Fique por dentro!"`
-- Texto descritivo: de `"Adicione à sua tela inicial para acessar rapidamente."` para `"Deseja receber notificações sobre o status dos seus pedidos em tempo real?"`
-- Botao de aceitar: de `"Instalar"` para `"Aceitar"`
-- Botao de recusar: de `"Depois"` para `"Agora não"`
-- Texto de carregamento: de `"Instalando..."` para `"Ativando..."`
+Trocar o icone de `/favicon.ico` para `/logojltransportes.png` (que ja existe no projeto) e adicionar tamanhos para melhor compatibilidade:
 
-Sao apenas alteracoes de texto, sem mudanca de logica ou estilo.
+```json
+{
+    "name": "Logistica JL Transportes - Rastreio",
+    "short_name": "JL Rastreio",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#020617",
+    "theme_color": "#6366f1",
+    "icons": [
+        {
+            "src": "/logojltransportes.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/logojltransportes.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "/logojltransportes.png",
+            "sizes": "any",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
+```
+
+### 2. Atualizar `index.html`
+
+Adicionar o meta tag `apple-touch-icon` para que o iOS tambem use a logo correta na tela inicial:
+
+```html
+<link rel="apple-touch-icon" href="/logojltransportes.png" />
+```
+
+### Resultado
+
+- Android/Chrome: icone do atalho sera a logo JL Transportes
+- iOS/Safari: icone da tela inicial sera a logo JL Transportes
+- Nenhuma nova imagem precisa ser criada (ja existe no projeto)
 
