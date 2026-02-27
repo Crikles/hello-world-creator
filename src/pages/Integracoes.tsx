@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Plug, Zap, ZapOff } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useLoja } from "@/contexts/LojaContext";
 import logoVega from "@/assets/logo-vega.png";
@@ -42,64 +41,117 @@ export default function Integracoes() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const activeCount = Object.values(activeMap).filter(Boolean).length;
+  const inactiveCount = checkouts.length - activeCount;
+
   return (
     <>
-      <h1 className="text-lg font-semibold text-foreground mb-4">Integrações</h1>
-      <div className="space-y-2 mb-6">
-        <p className="text-sm text-muted-foreground">
-          Conecte seus checkouts para receber pedidos automaticamente via webhook.
-        </p>
+      {/* Hero Header */}
+      <div className="glass glow-border rounded-xl p-5 mb-6 animate-stagger-in">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Plug className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-foreground">Central de Integrações</h1>
+              <p className="text-sm text-muted-foreground">
+                Conecte seus checkouts para receber pedidos automaticamente via webhook.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Metrics */}
+      <div className="grid grid-cols-2 gap-3 mb-6 animate-stagger-in" style={{ animationDelay: "0.05s" }}>
+        <div className="glass glow-border rounded-xl p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Zap className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Ativas</p>
+            <p className="text-xl font-bold text-foreground">{activeCount}</p>
+          </div>
+        </div>
+        <div className="glass rounded-xl p-4 flex items-center gap-3 border border-border/40">
+          <div className="p-2 rounded-lg bg-muted">
+            <ZapOff className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Inativas</p>
+            <p className="text-xl font-bold text-foreground">{inactiveCount}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Checkout Cards */}
       <div className="grid gap-4 md:grid-cols-2">
-        {checkouts.map((checkout) => {
+        {checkouts.map((checkout, idx) => {
           const isActive = !!activeMap[checkout.id];
           return (
-            <Card key={checkout.id} className="relative overflow-hidden">
-              <CardHeader className="flex flex-row items-center gap-4 pb-2">
-                <img
-                  src={checkout.logo}
-                  alt={checkout.name}
-                  className="h-12 w-12 rounded-lg object-contain shrink-0 bg-card"
-                />
+            <div
+              key={checkout.id}
+              className="glass glow-border-hover rounded-xl p-5 animate-stagger-in group"
+              style={{ animationDelay: `${0.1 + idx * 0.05}s` }}
+            >
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="glass rounded-lg p-1.5 border border-primary/20 shrink-0">
+                  <img
+                    src={checkout.logo}
+                    alt={checkout.name}
+                    className="h-10 w-10 rounded-md object-contain"
+                    loading="eager"
+                    decoding="sync"
+                    fetchPriority="high"
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-semibold text-base text-foreground">{checkout.name}</h3>
-                    <Badge variant={isActive ? "default" : "secondary"}>
+                    <h3 className="font-semibold text-sm text-foreground">{checkout.name}</h3>
+                    <Badge
+                      variant={isActive ? "default" : "secondary"}
+                      className={isActive ? "bg-primary/20 text-primary border-primary/30" : ""}
+                    >
+                      {isActive && (
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1 animate-pulse-dot" />
+                      )}
                       {isActive ? "Ativo" : "Inativo"}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{checkout.description}</p>
+                  <p className="text-xs text-muted-foreground">{checkout.description}</p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Webhook URL</label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md truncate text-foreground">
-                      {getWebhookUrl(checkout.id)}
-                    </code>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0"
-                      onClick={() => copyWebhook(checkout.id)}
-                    >
-                      {copiedId === checkout.id ? (
-                        <Check className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
+              </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm text-muted-foreground">Ativar integração</span>
-                  <Switch checked={isActive} onCheckedChange={() => toggleCheckout(checkout.id)} />
+              {/* Webhook URL */}
+              <div className="mb-3">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Webhook URL</label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs glass border-primary/10 px-3 py-2.5 rounded-lg truncate text-foreground">
+                    {getWebhookUrl(checkout.id)}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0 glass border-primary/20 hover:border-primary/40 h-9 w-9"
+                    onClick={() => copyWebhook(checkout.id)}
+                  >
+                    {copiedId === checkout.id ? (
+                      <Check className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              {/* Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                <span className="text-xs text-muted-foreground">Ativar integração</span>
+                <Switch checked={isActive} onCheckedChange={() => toggleCheckout(checkout.id)} />
+              </div>
+            </div>
           );
         })}
       </div>
