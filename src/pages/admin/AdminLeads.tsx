@@ -135,7 +135,7 @@ export default function AdminLeads() {
   };
 
   const downloadCSV = () => {
-    const header = ["Nome", "CPF", "Telefone", "Email", "Produto", "Valor", "Endereço", "Loja", "Usuário", "Data"];
+    const header = ["Nome", "CPF", "Telefone", "Email", "Produto", "Valor", "Endereço", "Data"];
     const rows = filtered.map((l) => [
       l.nome,
       l.cpf || "",
@@ -144,8 +144,6 @@ export default function AdminLeads() {
       formatProduto(l.produto),
       Number(l.valor || 0).toFixed(2).replace(".", ","),
       formatEndereco(l),
-      l.lojas?.nome || "",
-      l.user_name || l.user_email || "",
       l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "",
     ]);
     const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
