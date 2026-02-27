@@ -19,7 +19,7 @@ export default function AdminValores() {
   const queryClient = useQueryClient();
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
 
-  const { data: configs = [], isLoading } = useQuery({
+  const { data: rawConfigs, isLoading } = useQuery({
     queryKey: ["system-config"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -31,6 +31,8 @@ export default function AdminValores() {
     },
   });
 
+  const configs = Array.isArray(rawConfigs) ? rawConfigs : [];
+
   useEffect(() => {
     if (configs) {
       const values: Record<string, string> = {};
@@ -41,7 +43,7 @@ export default function AdminValores() {
     }
   }, [configs]);
 
-  const hasChanges = Array.isArray(configs) && configs.some(
+  const hasChanges = configs.some(
     (c) => localValues[c.key] !== undefined && localValues[c.key] !== String(c.value)
   );
 
