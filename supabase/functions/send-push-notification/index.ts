@@ -8,7 +8,8 @@ const corsHeaders = {
 
 // Helper to get ArrayBuffer from Uint8Array for crypto APIs
 function toBuffer(arr: Uint8Array): ArrayBuffer {
-    return arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength);
+    const buf = arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength);
+    return buf as ArrayBuffer;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
