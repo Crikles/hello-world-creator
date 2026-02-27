@@ -606,6 +606,33 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_templates: {
+        Row: {
+          created_at: string
+          id: string
+          mensagem: string
+          status_key: string
+          status_label: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mensagem: string
+          status_key: string
+          status_label: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mensagem?: string
+          status_key?: string
+          status_label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_config: {
         Row: {
           created_at: string

@@ -16,28 +16,40 @@ function formatPhone(phone: string): string {
   return "55" + cleaned;
 }
 
-const smsMessages: Record<string, (name: string, link: string) => string> = {
-  "Coletado": (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
-  "Postado": (name, link) => `Ola ${name}. Seu CODIGO DE RASTREIO esta disponivel, acesse: [${link}] FIQUE ATENTO A SEU EMAIL.`,
-  "Em Transito": (name, link) => `Ola ${name}, seu produto esta em transito. Acesse: [${link}] para acompanhar.`,
-  "Centro Local": (name, link) => `Ola ${name}, seu produto esta no centro de distribuicao. Acesse: [${link}] para acompanhar.`,
-  "Taxacao": (name, link) => `Ola ${name}, seu produto esta em observacao. Confira seu e-mail e acesse: [${link}]`,
-  "Pago": (name, link) => `Ola ${name}, pagamento confirmado. Acesse: [${link}] para acompanhar a entrega.`,
-  "Saiu para Entrega": (name, link) => `Ola ${name}, seu produto saiu para entrega. Acesse: [${link}] para acompanhar.`,
-  "Em Rota": (name, link) => `Ola ${name}, seu produto saiu para entrega. Acesse: [${link}] para acompanhar.`,
-  "Entregue": (name, link) => `Ola ${name}, seu produto foi entregue! Acesse: [${link}] para mais detalhes.`,
-};
+async function getMessageFromDB(
+  supabase: ReturnType<typeof createClient>,
+  statusLabel: string | undefined,
+  firstName: string,
+  link: string
+): Promise<string> {
+  const key = statusLabel ? removeAccents(statusLabel) : "Coletado";
 
-function getMessageForStatus(statusLabel: string | undefined, firstName: string, link: string): string {
-  if (!statusLabel) {
-    return smsMessages["Coletado"](firstName, link);
+  // Try to find by status_key
+  const { data } = await supabase
+    .from("sms_templates")
+    .select("mensagem")
+    .eq("status_key", key)
+    .maybeSingle();
+
+  let template: string;
+
+  if (data?.mensagem) {
+    template = data.mensagem;
+  } else {
+    // Fallback to default template
+    const { data: defaultData } = await supabase
+      .from("sms_templates")
+      .select("mensagem")
+      .eq("status_key", "default")
+      .maybeSingle();
+
+    template = defaultData?.mensagem ||
+      "Ola {nome}, atualizacao do seu pedido. Acesse: [{link}] para acompanhar.";
   }
-  const normalizedKey = removeAccents(statusLabel);
-  const msgFn = smsMessages[normalizedKey];
-  if (msgFn) {
-    return msgFn(firstName, link);
-  }
-  return `Ola ${firstName}, atualizacao do seu pedido. Acesse: [${link}] para acompanhar.`;
+
+  return template
+    .replace(/\{nome\}/g, firstName)
+    .replace(/\{link\}/g, link);
 }
 
 Deno.serve(async (req) => {
@@ -84,7 +96,9 @@ Deno.serve(async (req) => {
     const code = envio.codigo_rastreio || "";
     const link = `https://rastreio.logisticajltransportes.com/r/${code}`;
 
-    const message = removeAccents(getMessageForStatus(status_label, firstName, link));
+    const message = removeAccents(
+      await getMessageFromDB(supabase, status_label, firstName, link)
+    );
 
     const phone = formatPhone(envio.cliente_telefone);
     const token = Deno.env.get("INTEGRAX_API_KEY")!;
