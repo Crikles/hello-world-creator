@@ -46,6 +46,7 @@ export default function Dashboard() {
         .from("envios")
         .select("*")
         .eq("loja_id", loja.id)
+        .is("deleted_at" as any, null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
