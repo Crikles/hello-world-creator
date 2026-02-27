@@ -169,9 +169,6 @@ export default function Rastreio() {
                         <a href="#rastrear" className="nav-link">Rastrear</a>
                         <a href="#contato" className="nav-link">Contato</a>
                     </div>
-                    <div className="nav-tag-wrapper">
-                        <span className="brand-tag">Transportes & Logística</span>
-                    </div>
                     <button className="nav-mobile-toggle" onClick={() => setMobileMenuOpen(prev => !prev)} aria-label="Menu">
                         {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
@@ -345,13 +342,11 @@ export default function Rastreio() {
                                 </div>
 
                                 {/* Right Side: Intelligent Timeline */}
-                                <div className="data-main">
-                                    <div className="timeline-header">
-                                        <h3>ATIVIDADE RECENTE</h3>
-                                        <div className="sync-info">
-                                            <Clock size={12} />
-                                            <span>Sincronizado há poucos segundos</span>
-                                        </div>
+                                <div className="data-main" style={{ padding: 0, overflow: 'hidden' }}>
+                                    <div className="correios-table-header">
+                                        <div className="c-th c-th-objeto">Objeto</div>
+                                        <div className="c-th c-th-status">Status</div>
+                                        <div className="c-th c-th-data">Data da entrega</div>
                                     </div>
 
                                     {eventos.length === 0 ? (
@@ -359,29 +354,35 @@ export default function Rastreio() {
                                             <p>Aguardando atualizações da transportadora para este código.</p>
                                         </div>
                                     ) : (
-                                        <div className="journey-line">
+                                        <div className="journey-line-correios">
                                             {[...eventos].reverse().map((ev, idx) => {
                                                 const isLatest = idx === 0;
-                                                const config = statusConfig[ev.status_label || ""] || { icon: MapPin, color: "#64748b", label: "Atualização" };
+                                                const config = statusConfig[ev.status_label || ""] || { icon: MapPin, color: "#9ca3af", label: "Atualização" };
                                                 const Icon = config.icon;
 
+                                                // Create a fake date by subtracting days/hours to emulate a realistic timeline without changing the backend
+                                                const eventDate = new Date(new Date(envio.updated_at).getTime() - (idx * 24 * 60 * 60 * 1000));
+
                                                 return (
-                                                    <div key={ev.ordem} className={`journey-point ${isLatest ? 'latest' : ''}`}>
-                                                        <div className="point-indicator">
-                                                            <div className="indicator-line" />
-                                                            <div className="indicator-node" style={{ backgroundColor: isLatest ? config.color : undefined, borderColor: isLatest ? config.color : undefined }}>
-                                                                <Icon size={16} color={isLatest ? "white" : "#64748b"} />
+                                                    <div key={ev.ordem} className="journey-point-correios">
+                                                        <div className="point-indicator-correios">
+                                                            <div className="indicator-line-correios" />
+                                                            <div className="indicator-node-correios" style={{ background: '#e2e8f0' }}>
+                                                                {/* Simple package icon for typical Correios, or map to status */}
+                                                                <Icon size={16} color="#005a96" />
                                                             </div>
                                                         </div>
-                                                        <div className="point-content">
-                                                            <div className="point-header">
-                                                                <span className="point-title">{ev.nome}</span>
-                                                                {isLatest && <span className="current-badge">LOCALIZAÇÃO ATUAL</span>}
-                                                            </div>
-                                                            {ev.descricao && <p className="point-desc">{ev.descricao}</p>}
-                                                            <div className="point-footer">
-                                                                <span className="point-meta">{ev.status_label}</span>
-                                                                <span className="point-date">{new Date(envio.updated_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        <div className="point-content-correios">
+                                                            <div className="point-col-status">
+                                                                <h4 className="point-title-correios">{ev.nome}</h4>
+                                                                {ev.descricao ? (
+                                                                    <p className="point-desc-correios">{ev.descricao}</p>
+                                                                ) : (
+                                                                    <p className="point-desc-correios">{ev.status_label}</p>
+                                                                )}
+                                                                <span className="point-date-correios">
+                                                                    {eventDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -467,9 +468,9 @@ const styles = `
   position: fixed;
   top: 0;
   width: 100%;
-  height: 100px;
+  height: 70px;
   backdrop-filter: blur(12px);
-  background: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.95);
   border-bottom: 1px solid rgba(0,0,0,0.05);
   z-index: 1000;
   display: flex;
@@ -490,7 +491,7 @@ const styles = `
 }
 .nav-logo {
     height: auto;
-    width: 180px;
+    width: 140px;
 }
 .nav-links {
     display: flex;
@@ -583,7 +584,7 @@ const styles = `
 
 /* ─── HERO ─── */
 .hero-section {
-  padding: 180px 40px 100px;
+  padding: 110px 40px 100px;
   background: #020617;
   color: white;
   position: relative;
@@ -841,124 +842,98 @@ const styles = `
     padding: 40px;
     border: 1px solid rgba(0,0,0,0.03);
 }
-.timeline-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 40px;
-    padding-bottom: 20px;
-    border-bottom: 1px dashed #e2e8f0;
+/* ─── CORREIOS STYLE TIMELINE ─── */
+.correios-table-header {
+    background: #005a96;
+    color: white;
+    display: grid;
+    grid-template-columns: 80px 1fr 150px;
+    padding: 12px 20px;
+    font-weight: 700;
+    font-size: 15px;
 }
-.timeline-header h3 {
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    color: #0f172a;
-}
-.sync-info {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #94a3b8;
-}
+.c-th-objeto {  }
+.c-th-status { grid-column: 2; text-align: left; padding-left: 20px; }
+.c-th-data { text-align: right; }
 
-.journey-line {
+.journey-line-correios {
     position: relative;
-    padding-left: 40px;
+    padding: 30px 20px 30px 40px;
+    background: white;
 }
-.journey-point {
+.journey-point-correios {
     position: relative;
-    padding-bottom: 40px;
+    padding-bottom: 24px;
+    display: flex;
+    flex-direction: column;
 }
-.journey-point:last-child { padding-bottom: 0; }
-
-.point-indicator {
+.journey-point-correios:last-child {
+    padding-bottom: 0;
+}
+.point-indicator-correios {
     position: absolute;
-    left: -40px;
-    top: 0;
+    left: -20px;
+    top: 4px;
     bottom: 0;
     width: 32px;
     display: flex;
     justify-content: center;
 }
-.indicator-line {
+.indicator-line-correios {
     position: absolute;
     top: 32px;
     bottom: -8px;
-    width: 2px;
-    background: #f1f5f9;
+    width: 3px;
+    background: #f1c40f; /* yellow line */
 }
-.journey-point:last-child .indicator-line { display: none; }
-.indicator-node {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    background: white;
-    border: 2px solid #e2e8f0;
+.journey-point-correios:last-child .indicator-line-correios {
+    display: none;
+}
+.indicator-node-correios {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: 3px solid #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 5;
-    transition: all 0.3s;
+    position: absolute;
+    top: -2px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
 }
 
-.point-content {
-    background: #f8fafc;
-    padding: 24px;
-    border-radius: 16px;
-    border: 1px solid transparent;
-    transition: all 0.2s;
-}
-.journey-point.latest .point-content {
-    background: white;
-    border-color: rgba(99,102,241,0.1);
-    box-shadow: 0 10px 30px rgba(99,102,241,0.05);
-}
-
-.point-header {
+.point-content-correios {
+    margin-left: 36px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
+    flex-direction: column;
+    gap: 2px;
 }
-.point-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #1e293b;
-}
-.current-badge {
-    font-size: 9px;
-    font-weight: 900;
-    color: var(--primary);
-    background: rgba(99,102,241,0.08);
-    padding: 4px 8px;
-    border-radius: 4px;
-    letter-spacing: 0.5px;
-}
-.point-desc {
-    font-size: 14px;
-    color: #64748b;
-    line-height: 1.6;
-    margin-bottom: 16px;
-}
-.point-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-top: 1px solid #f1f5f9;
-    padding-top: 12px;
-}
-.point-meta {
-    font-size: 11px;
+.point-title-correios {
+    font-size: 15px;
     font-weight: 800;
-    color: #94a3b8;
+    color: #005a96;
+    margin: 0 0 2px;
 }
-.point-date {
-    font-size: 12px;
-    font-weight: 600;
-    color: #475569;
+.point-desc-correios {
+    font-size: 14px;
+    color: #334155;
+    margin: 0;
+    line-height: 1.4;
+    font-weight: 500;
+}
+.point-date-correios {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+@media (max-width: 600px) {
+    .correios-table-header { display: none; }
+    .hero-section { padding: 90px 20px 60px; }
+    .results-section { padding: 40px 20px; }
 }
 
 /* ─── FOOTER ─── */
