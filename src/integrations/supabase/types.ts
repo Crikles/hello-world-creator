@@ -674,6 +674,93 @@ export type Database = {
         }
         Relationships: []
       }
+      push_notification_log: {
+        Row: {
+          body: string
+          created_at: string
+          icon_url: string | null
+          id: string
+          title: string
+          total_failed: number | null
+          total_sent: number | null
+          url: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          title: string
+          total_failed?: number | null
+          total_sent?: number | null
+          url?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          title?: string
+          total_failed?: number | null
+          total_sent?: number | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      push_notification_settings: {
+        Row: {
+          badge_url: string | null
+          created_at: string
+          default_url: string | null
+          icon_url: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          badge_url?: string | null
+          created_at?: string
+          default_url?: string | null
+          icon_url?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          badge_url?: string | null
+          created_at?: string
+          default_url?: string | null
+          icon_url?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          codigo_rastreio: string | null
+          created_at: string
+          endpoint: string
+          id: string
+          keys_auth: string
+          keys_p256dh: string
+        }
+        Insert: {
+          codigo_rastreio?: string | null
+          created_at?: string
+          endpoint: string
+          id?: string
+          keys_auth: string
+          keys_p256dh: string
+        }
+        Update: {
+          codigo_rastreio?: string | null
+          created_at?: string
+          endpoint?: string
+          id?: string
+          keys_auth?: string
+          keys_p256dh?: string
+        }
+        Relationships: []
+      }
       sms_templates: {
         Row: {
           created_at: string
