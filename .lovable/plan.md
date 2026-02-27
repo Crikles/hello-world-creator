@@ -1,91 +1,65 @@
 
 
-# Cobranca de SMS por Envio Individual
+# Admin SMS - Edicao de Mensagens por Etapa
 
-## Problema Atual
-
-O custo do SMS (`custo_sms_rastreio`) e cobrado **uma unica vez** no primeiro avanco de status (quando `currentOrdem === 0`), junto com os outros servicos. Porem, o SMS e disparado em **cada evento** do fluxo (exceto NF-e). Num template de 8 eventos, sao 7 SMS enviados mas apenas 1 cobrado.
+## Problema
+As mensagens de SMS estao hardcoded na Edge Function `send-sms`. Para editar qualquer mensagem, e necessario alterar o codigo. O admin precisa de uma interface para gerenciar essas mensagens.
 
 ## Solucao
 
-### 1. Remover SMS da cobranca inicial (`src/lib/email-trigger.ts`)
+### 1. Nova tabela `sms_templates` (migracao SQL)
 
-No bloco de debito que ocorre quando `currentOrdem === 0` (linhas 93-133), **remover** o trecho que soma `custo_sms_rastreio` ao total inicial. O SMS nao sera mais cobrado antecipadamente.
+Criar tabela para armazenar os templates de SMS editaveis:
 
-### 2. Cobrar SMS individualmente a cada envio (`src/lib/email-trigger.ts`)
+```text
+sms_templates
+- id (uuid, PK)
+- status_key (text, unique) -- chave normalizada sem acento: "Coletado", "Postado", etc.
+- status_label (text) -- label de exibicao: "Coletado", "Em Transito", etc.
+- mensagem (text) -- template com placeholders {nome} e {link}
+- created_at, updated_at (timestamptz)
+```
 
-No trecho onde o SMS e de fato disparado (apos linha ~230), adicionar logica de debito individual:
-- Buscar `user_id` da loja (ja disponivel ou buscar)
-- Buscar `custo_sms_rastreio` do `system_config`
-- Chamar `debit_user_credits` com o valor unitario do SMS
-- Descricao: "SMS enviado - {status_label}"
-- Se saldo insuficiente, pular o SMS (log warning) mas nao bloquear o fluxo de email
+RLS: admins full access, authenticated users SELECT.
 
-### 3. Atualizar UI em Postagens (`src/pages/Postagens.tsx`)
+Seed com os 9 templates atuais (Coletado, Postado, Em Transito, Centro Local, Taxacao, Pago, Saiu para Entrega, Em Rota, Entregue) + um template default para status desconhecidos.
 
-**Card de SMS no Feature Toggles**: Alterar a descricao e o custo exibido para refletir que e cobrado por mensagem:
-- Descricao: "Cobrado por SMS enviado (ex: 7x num fluxo de 8 eventos)"
-- Custo exibido: mostrar o valor unitario com indicador "/SMS" em vez de "/envio"
+### 2. Nova pagina `AdminSMS` (`src/pages/admin/AdminSMS.tsx`)
 
-**Resumo de Custo**: No bloco "Custo por Envio" (linhas 580-608):
-- Calcular dinamicamente quantos SMS serao enviados no template ativo (total de eventos menos os que tem `enviar_nfe_pdf = true`)
-- Mostrar: "SMS (Nx {custo_unitario})" com o subtotal
-- Atualizar o total geral para refletir o custo real
+- Lista todos os templates de SMS em cards editaveis
+- Cada card mostra: status_label, mensagem atual, e um textarea para editar
+- Placeholders disponiveis: `{nome}` (primeiro nome do cliente) e `{link}` (link de rastreio)
+- Botao salvar por card ou salvar todas alteracoes de uma vez
+- Preview da mensagem com dados de exemplo
 
-### 4. Indicador de SMS nos Eventos do Fluxo
+### 3. Atualizar Edge Function `send-sms`
 
-Adicionar um badge de SMS nos cards de evento (junto com Email e NFe) para os eventos que enviam SMS (todos exceto NF-e, quando SMS esta ativo). Isso ajuda o usuario a visualizar quais eventos geram cobranca de SMS.
+- Buscar mensagem do banco (`sms_templates`) pelo `status_key` ao inves de usar o objeto hardcoded
+- Substituir `{nome}` e `{link}` na mensagem do banco
+- Fallback para mensagem generica se nao encontrar no banco
 
----
+### 4. Registrar rota e menu
+
+- Adicionar rota `/admin/sms` no `App.tsx`
+- Adicionar item "SMS" no `AdminSidebar.tsx` com icone `MessageSquare`
 
 ## Detalhes Tecnicos
 
-### Arquivo: `src/lib/email-trigger.ts`
+### Arquivos criados
+1. `src/pages/admin/AdminSMS.tsx` -- pagina de gestao de SMS
 
-**Remover do bloco de debito inicial (linhas ~104-107):**
+### Arquivos modificados
+1. `supabase/functions/send-sms/index.ts` -- buscar templates do banco
+2. `src/App.tsx` -- nova rota /admin/sms
+3. `src/components/admin/AdminSidebar.tsx` -- item de menu SMS
+
+### Migracao SQL
+- Criar tabela `sms_templates` com RLS
+- Inserir seed data com as 9 mensagens atuais
+
+### Placeholders na mensagem
+O admin edita mensagens usando `{nome}` e `{link}` como variaveis:
 ```text
-// REMOVER:
-if (config.ativar_site_rastreio && costMap["custo_sms_rastreio"]) {
-    total += costMap["custo_sms_rastreio"];
-    activeServices.push("Rastreio");
-}
+Ola {nome}, seu produto esta em transito. Acesse: [{link}] para acompanhar.
 ```
-
-**Adicionar debito individual no bloco de SMS (apos linha ~237):**
-```text
-// Antes de enviar o SMS, debitar o custo
-const smsCost = costMap["custo_sms_rastreio"] || 0;
-if (smsCost > 0) {
-    const { data: smsDebitOk } = await supabase.rpc("debit_user_credits", {
-        _user_id: lojaUserId,
-        _quantidade: smsCost,
-        _descricao: `SMS enviado - ${nextEvent.status_label}`,
-    });
-    if (!smsDebitOk) {
-        console.warn("Saldo insuficiente para SMS, pulando...");
-        // Nao bloqueia o fluxo, apenas pula o SMS
-    } else {
-        // Envia o SMS normalmente
-    }
-}
-```
-
-Para ter acesso ao `user_id` e `costMap` no momento do SMS, mover a busca de `lojaData.user_id` e `costMap` para fora do bloco `if (currentOrdem === 0)`, tornando-os disponveis em todo o escopo da funcao.
-
-### Arquivo: `src/pages/Postagens.tsx`
-
-**Feature toggle do SMS** - Alterar descricao e formato do custo:
-- `desc`: "Cobrado individualmente por SMS enviado."
-- Custo com sufixo "/SMS"
-
-**Custo por Envio** - Calcular SMS dinamicamente:
-- Contar eventos sem `enviar_nfe_pdf` no template ativo = quantidade de SMS
-- Multiplicar pela `custo_sms_rastreio`
-- Exibir como "SMS (7x 0.25 moedas) = 1.75 moedas"
-
-**Badges nos eventos** - Adicionar indicador de SMS nos cards de evento quando SMS ativo e evento nao e NF-e.
-
-### Arquivos Modificados
-1. `src/lib/email-trigger.ts` - Logica de cobranca
-2. `src/pages/Postagens.tsx` - UI de custos e indicadores
-
+A edge function substitui esses placeholders pelos valores reais antes de enviar.
