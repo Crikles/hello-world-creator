@@ -600,7 +600,7 @@ export default function Envios() {
                         <ExternalLink className="h-3 w-3" />
                       </Button>
                     )}
-                    {(envio.status === 'taxacao' || envio.status === 'pagamento_confirmado') && (
+                    {(envio.status === 'taxacao' || envio.status === 'pagamento_confirmado' || envio.status_label === 'Taxação' || envio.status_label === 'Pgto. Confirmado') && (
                       <Button
                         variant="ghost"
                         size="icon"
