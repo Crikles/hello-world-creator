@@ -22,13 +22,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Check if logged-in user is blocked
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("blocked")
+          .eq("id", session.user.id)
+          .single();
+        if ((profile as any)?.blocked) {
+          await supabase.auth.signOut();
+        }
+      }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("blocked")
+          .eq("id", session.user.id)
+          .single();
+        if ((profile as any)?.blocked) {
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
