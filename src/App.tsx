@@ -28,6 +28,7 @@ import AdminSMS from "./pages/admin/AdminSMS";
 import AdminLeads from "./pages/admin/AdminLeads";
 import AdminPush from "./pages/admin/AdminPush";
 import AdminPagamentos from "./pages/admin/AdminPagamentos";
+import AdminSuporte from "./pages/admin/AdminSuporte";
 import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
 import Rastreio from "./pages/Rastreio";
@@ -130,6 +131,10 @@ function PanelRoutes() {
         <Route
           path="/admin/pagamentos"
           element={<AdminRoute><AdminPagamentos /></AdminRoute>}
+        />
+        <Route
+          path="/admin/suporte"
+          element={<AdminRoute><AdminSuporte /></AdminRoute>}
         />
         <Route path="/r" element={<Rastreio />} />
         <Route path="/r/:codigoParam" element={<Rastreio />} />
