@@ -736,6 +736,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          blocked: boolean
           created_at: string
           custom_prices: Json | null
           email: string | null
@@ -743,6 +744,7 @@ export type Database = {
           id: string
         }
         Insert: {
+          blocked?: boolean
           created_at?: string
           custom_prices?: Json | null
           email?: string | null
@@ -750,6 +752,7 @@ export type Database = {
           id: string
         }
         Update: {
+          blocked?: boolean
           created_at?: string
           custom_prices?: Json | null
           email?: string | null
