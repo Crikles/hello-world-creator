@@ -1,76 +1,91 @@
 
 
-# Simplificar integracao Shopify para webhook-only
+# Corrigir mapeamento do webhook Shopify para formato nativo
 
-## Contexto
+## Problema
 
-O payload recebido pela "Shopify" segue o mesmo formato dos outros checkouts (Zedy, Corvex, etc.), nao e o formato nativo da Shopify. Portanto, a integracao complexa com OAuth (`shopify-auth-callback`) e HMAC verification nao e necessaria.
+O webhook esta recebendo os dados corretamente (status 200), mas o payload da Shopify real tem uma estrutura completamente diferente do formato generico que implementamos. Resultado: campos vazios, status nao detectado, envio nao criado.
 
-## Alteracoes
-
-### 1. Reescrever `supabase/functions/shopify-webhook/index.ts`
-
-Substituir completamente pelo mesmo padrao dos outros webhooks (Zedy/Corvex), mapeando os campos do payload:
-
-- `customer.name/email/phone/document` -> dados do cliente
-- `address.street/number/city/state/zip_code/district/complement` -> endereco
-- `products[].title/amount/quantity/code` -> produtos (amount em centavos)
-- `total_price` -> valor total (em centavos, dividir por 100 no envio)
-- `transaction_token` ou `sale_code` -> identificador da transacao
-- `status` -> "pending", "paid", etc.
-- `method` -> metodo de pagamento
-
-Fluxo:
-1. Receber POST com `?loja=slug`
-2. Resolver loja pelo slug
-3. Logar webhook em `webhook_logs` com `checkout_provider: "shopify"`
-4. Normalizar payload e upsert em `pedidos`
-5. Se status "paid" e sem envio vinculado, buscar `empresa_id` e criar envio
-6. Marcar webhook como processado
-
-### 2. Remover `supabase/functions/shopify-auth-callback/index.ts`
-
-Essa edge function nao sera mais necessaria, pois nao ha fluxo OAuth.
-
-### 3. Remover entrada do `shopify-auth-callback` no `supabase/config.toml`
-
-Remover a secao `[functions.shopify-auth-callback]`.
-
-### 4. Interface de integracoes (opcional/futuro)
-
-A configuracao de Shopify na UI pode ser simplificada para mostrar apenas a URL do webhook (`/functions/v1/shopify-webhook?loja=SEU_SLUG`), sem campos de Client ID/Secret/OAuth.
-
----
-
-## Mapeamento do payload
+## Formato real da Shopify vs formato esperado
 
 ```text
-Payload field              -> DB field (pedidos)
---------------------------------------------------
-transaction_token          -> transaction_token
-sale_code                  -> (alternativo se token vazio)
-status                     -> status
-method                     -> method
-total_price                -> total_price (ja em centavos)
-customer.name              -> customer_name
-customer.email             -> customer_email
-customer.phone             -> customer_phone
-customer.document          -> customer_document
-address.street             -> address_street
-address.number             -> address_number
-address.district           -> address_district
-address.zip_code           -> address_zip_code
-address.city               -> address_city
-address.state              -> address_state
-address.country            -> address_country
-address.complement         -> address_complement
-products[]                 -> products (normalizado)
+Campo                  | Esperado (generico)     | Real (Shopify nativo)
+-----------------------|-------------------------|---------------------------
+Nome do cliente        | customer.name           | customer.first_name + customer.last_name
+Email                  | customer.email          | email (raiz do payload)
+Telefone               | customer.phone          | shipping_address.phone
+CPF                    | customer.document       | shipping_address.company
+Status pagamento       | status                  | financial_status ("paid")
+Rua                    | address.street          | shipping_address.address1
+Complemento            | address.complement      | shipping_address.address2
+Bairro                 | address.district        | shipping_address.address2 (fallback)
+CEP                    | address.zip_code        | shipping_address.zip
+Cidade                 | address.city            | shipping_address.city
+Estado                 | address.state           | shipping_address.province_code
+Pais                   | address.country         | shipping_address.country
+Produtos               | products[]              | line_items[]
+Titulo produto         | products[].title        | line_items[].title
+Quantidade             | products[].quantity      | line_items[].quantity
+Valor produto          | products[].amount        | line_items[].price (decimal)
+Valor total            | total_price (centavos)  | current_total_price (decimal "1.00")
+Token transacao        | transaction_token       | id ou name (#1003)
+```
+
+## Alteracao
+
+### `supabase/functions/shopify-webhook/index.ts`
+
+Reescrever o mapeamento para suportar o formato nativo da Shopify:
+
+1. **Status**: usar `payload.financial_status` em vez de `payload.status`
+2. **Cliente**: concatenar `customer.first_name` + `customer.last_name`
+3. **Email**: usar `payload.email` (campo raiz)
+4. **Telefone**: usar `shipping_address.phone` ou `customer.default_address.phone`
+5. **CPF**: usar `shipping_address.company` (onde a Shopify BR armazena o documento)
+6. **Endereco**: usar `shipping_address.address1`, `address2`, `zip`, `city`, `province_code`
+7. **Produtos**: iterar sobre `line_items[]` com `title`, `quantity`, `price`
+8. **Valor total**: converter `current_total_price` de decimal para centavos (`parseFloat * 100`)
+9. **Token**: usar `String(payload.id)` como identificador unico
+
+## Detalhe tecnico do mapeamento
+
+```text
+// Status
+status = payload.financial_status || ""   // "paid", "pending", etc.
+
+// Cliente
+customerName = (customer.first_name + " " + customer.last_name).trim()
+customerEmail = payload.email || customer.email
+customerPhone = shipping_address.phone || customer.default_address?.phone
+customerDocument = shipping_address.company  // CPF no campo company (BR)
+
+// Endereco (shipping_address)
+street = shipping_address.address1
+complement = shipping_address.address2
+city = shipping_address.city
+state = shipping_address.province_code
+zip = shipping_address.zip
+country = shipping_address.country
+
+// Produtos (line_items)
+products = line_items.map(item => ({
+  code: String(item.product_id || item.sku || ""),
+  title: item.title,
+  quantity: item.quantity,
+  amount: Math.round(parseFloat(item.price) * 100)
+}))
+
+// Valor total
+totalPrice = Math.round(parseFloat(payload.current_total_price || "0") * 100)
+
+// Token
+transactionToken = String(payload.id)
+eventType = financial_status === "paid" ? "sale" : financial_status
 ```
 
 ## Resultado
 
-- Webhook Shopify funcionara igual aos demais (Zedy, Corvex, Luna, Vega)
-- URL do webhook: `.../functions/v1/shopify-webhook?loja=SEU_SLUG`
-- Sem necessidade de configurar App, OAuth ou credenciais Shopify
-- Pedidos e envios criados automaticamente ao receber status "paid"
-
+- Pedidos da Shopify serao mapeados corretamente com nome, email, telefone, CPF e endereco
+- Status "paid" sera detectado e o envio criado automaticamente
+- Valores convertidos de decimal para centavos
+- Compativel com o formato real que a Shopify envia via webhook de `orders/paid`
