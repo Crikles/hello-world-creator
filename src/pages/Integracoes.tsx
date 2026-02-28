@@ -50,7 +50,24 @@ function ShopifyCard({ loja }: { loja: any }) {
     enabled: !!loja?.id,
   });
 
-  const isActive = !!config;
+  const isActive = !!config && (config as any).ativo !== false;
+
+  const toggleMutation = useMutation({
+    mutationFn: async () => {
+      if (!config) return;
+      const { error } = await (supabase as any)
+        .from("shopify_integrations")
+        .update({ ativo: !isActive, updated_at: new Date().toISOString() })
+        .eq("id", (config as any).id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shopify-integration", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["shopify-integration-dashboard", loja?.id] });
+      toast({ title: isActive ? "Integração desativada" : "Integração ativada" });
+    },
+    onError: () => toast({ title: "Erro ao alterar status", variant: "destructive" }),
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -144,7 +161,7 @@ function ShopifyCard({ loja }: { loja: any }) {
         <div className="mt-auto pt-4 border-t border-border/30 relative z-10 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Ativar integração</span>
-            <Switch checked={isActive} disabled />
+            <Switch checked={isActive} onCheckedChange={() => config && toggleMutation.mutate()} disabled={!config || toggleMutation.isPending} />
           </div>
           <Button
             variant="outline"
@@ -282,8 +299,13 @@ function ShopifyCard({ loja }: { loja: any }) {
                 onClick={handleConnect}
                 disabled={!shopUrl || !clientId || !clientSecret}
               >
-                Conectar OAuth
+                Autorizar Shopify
               </Button>
+            )}
+            {isActive && !(config as any)?.access_token && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Clique para autorizar o acesso à sua loja Shopify. Você será redirecionado para o Shopify para confirmar.
+              </p>
             )}
           </div>
         </DialogContent>

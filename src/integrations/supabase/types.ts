@@ -809,6 +809,7 @@ export type Database = {
       shopify_integrations: {
         Row: {
           access_token: string | null
+          ativo: boolean | null
           client_id: string
           client_secret: string
           created_at: string
@@ -819,6 +820,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          ativo?: boolean | null
           client_id: string
           client_secret: string
           created_at?: string
@@ -829,6 +831,7 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          ativo?: boolean | null
           client_id?: string
           client_secret?: string
           created_at?: string

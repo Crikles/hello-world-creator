@@ -75,7 +75,7 @@ export default function Dashboard() {
       if (!loja) return null;
       const { data, error } = await (supabase as any)
         .from("shopify_integrations")
-        .select("id, access_token")
+        .select("id, access_token, ativo")
         .eq("loja_id", loja.id)
         .maybeSingle();
       if (error && error.code !== 'PGRST116') throw error;
@@ -105,7 +105,7 @@ export default function Dashboard() {
 
   const smsAtivo = postagemConfig?.ativar_site_rastreio ?? false;
   const emailAtivo = postagemConfig?.enviar_emails ?? false;
-  const webhookAtivo = !!shopifyConfig;
+  const webhookAtivo = !!shopifyConfig && (shopifyConfig as any).ativo !== false;
 
   const total = envios.length;
   const pendentes = envios.filter((e) => e.status === "pendente").length;

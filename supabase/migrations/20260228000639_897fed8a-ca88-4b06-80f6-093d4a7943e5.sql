@@ -1,0 +1,1 @@
+ALTER TABLE public.shopify_integrations ADD COLUMN ativo boolean DEFAULT true;
