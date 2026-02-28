@@ -1,32 +1,38 @@
 
 
-# Fix: Login nao funciona devido a race condition no AuthContext
+# Botao "Forcar Avanco" individual por envio
 
-## Problema
+## Resumo
+Adicionar um botao de "Forcar Avanco" em cada envio que ignora o delay do evento atual (`proximo_avanco_em`), mas ainda calcula e define o delay correto para o proximo evento futuro.
 
-Quando o usuario faz login:
-1. `signInWithPassword` dispara o evento `SIGNED_IN`
-2. O handler do `onAuthStateChange` inicia uma consulta async ao banco para verificar `blocked`
-3. Enquanto isso, `handleLogin` em Login.tsx chama `navigate("/lojas")`
-4. O `ProtectedRoute` verifica: `user=null` e `loading=false` --> redireciona de volta para `/login`
-5. O usuario nunca consegue passar da tela de login
+## Alteracoes
 
-## Solucao
+### 1. `src/lib/email-trigger.ts`
+- Adicionar um novo parametro `forceAdvance: boolean = false` na funcao `triggerNextEmail`
+- Na verificacao de delay (linhas 32-36), se `forceAdvance` for `true`, pular o bloqueio por `proximo_avanco_em`
+- O calculo de `proximoAvancoEm` para o evento seguinte (linhas 166-169) permanece inalterado, garantindo que o proximo evento respeite seu delay normalmente
 
-No handler do `onAuthStateChange`, setar `loading=true` imediatamente ao receber o evento `SIGNED_IN` antes de fazer a consulta async. Isso faz o `ProtectedRoute` mostrar o spinner enquanto a verificacao de bloqueio ocorre, em vez de redirecionar para `/login`.
+### 2. `src/pages/Envios.tsx`
+- Criar uma nova mutation `forceAdvanceMutation` que chama `triggerNextEmail(envioId, loja.id, false, true)` (com `forceAdvance = true`)
+- No botao de avanco individual de cada envio, quando `canAdvanceNow(e)` retornar `false` (delay ainda ativo), exibir um botao alternativo com icone diferente (ex: `Zap`) e titulo "Forcar Avanco" que usa a mutation de forca
+- O botao normal de avanco (FastForward) continua funcionando quando o delay ja expirou
 
-## Alteracao
+## Detalhes Tecnicos
 
-**Arquivo**: `src/contexts/AuthContext.tsx`
-
-Na linha 30, logo apos detectar `event === "SIGNED_IN"`, adicionar `setLoading(true)` antes de setar `isCheckingBlocked`:
-
+**Assinatura atualizada:**
 ```text
-if (event === "SIGNED_IN" && session?.user) {
-  setLoading(true);  // <-- adicionar esta linha
-  isCheckingBlocked = true;
-  ...
+triggerNextEmail(envioId, lojaId, forceSendEmail = false, forceAdvance = false)
 ```
 
-Isso garante que o `ProtectedRoute` mostra o spinner enquanto a verificacao de bloqueio esta em andamento, evitando o redirecionamento prematuro para `/login`.
+**Logica de skip do delay:**
+```text
+// Linha 32-36 atualizada:
+if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
+  return null;  // bloqueado pelo delay
+}
+```
 
+**UI - botao condicional por envio:**
+- Se `canAdvanceNow(e)` = true: mostra botao normal (FastForward)
+- Se `canAdvanceNow(e)` = false E envio nao esta entregue: mostra botao "Forcar" (Zap) com cor de destaque (amarelo/warning)
+- Os botoes "Avancar Todos" e "Iniciar Pendentes" continuam respeitando o delay normalmente
