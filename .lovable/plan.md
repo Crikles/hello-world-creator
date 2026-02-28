@@ -1,83 +1,76 @@
 
-# Corrigir nome "Loja" e logo ausente nos e-mails
 
-## Problema
+# Simplificar integracao Shopify para webhook-only
 
-Quando um pedido chega via webhook (Zedy, Corvex, Luna, Vega), o envio e criado **sem o campo `empresa_id`**. Na hora de enviar o e-mail, a edge function `send-email` so busca os dados da empresa se `envio.empresa_id` existir (linha 614). Como esta null, usa o fallback "Loja" sem logo.
+## Contexto
 
-## Solucao
-
-Alterar a edge function `send-email/index.ts` para, quando `empresa_id` estiver vazio, buscar a empresa pela `loja_id` do envio. Isso garante que o nome e logo da empresa configurada no painel sejam sempre usados.
-
-Tambem atualizar todos os 4 webhooks (Zedy, Corvex, Luna, Vega) para ja gravar o `empresa_id` no envio no momento da criacao, evitando o problema na origem.
+O payload recebido pela "Shopify" segue o mesmo formato dos outros checkouts (Zedy, Corvex, etc.), nao e o formato nativo da Shopify. Portanto, a integracao complexa com OAuth (`shopify-auth-callback`) e HMAC verification nao e necessaria.
 
 ## Alteracoes
 
-### 1. `supabase/functions/send-email/index.ts`
+### 1. Reescrever `supabase/functions/shopify-webhook/index.ts`
 
-Na secao de "Fetch empresa data" (linhas 610-626), adicionar fallback por `loja_id`:
+Substituir completamente pelo mesmo padrao dos outros webhooks (Zedy/Corvex), mapeando os campos do payload:
+
+- `customer.name/email/phone/document` -> dados do cliente
+- `address.street/number/city/state/zip_code/district/complement` -> endereco
+- `products[].title/amount/quantity/code` -> produtos (amount em centavos)
+- `total_price` -> valor total (em centavos, dividir por 100 no envio)
+- `transaction_token` ou `sale_code` -> identificador da transacao
+- `status` -> "pending", "paid", etc.
+- `method` -> metodo de pagamento
+
+Fluxo:
+1. Receber POST com `?loja=slug`
+2. Resolver loja pelo slug
+3. Logar webhook em `webhook_logs` com `checkout_provider: "shopify"`
+4. Normalizar payload e upsert em `pedidos`
+5. Se status "paid" e sem envio vinculado, buscar `empresa_id` e criar envio
+6. Marcar webhook como processado
+
+### 2. Remover `supabase/functions/shopify-auth-callback/index.ts`
+
+Essa edge function nao sera mais necessaria, pois nao ha fluxo OAuth.
+
+### 3. Remover entrada do `shopify-auth-callback` no `supabase/config.toml`
+
+Remover a secao `[functions.shopify-auth-callback]`.
+
+### 4. Interface de integracoes (opcional/futuro)
+
+A configuracao de Shopify na UI pode ser simplificada para mostrar apenas a URL do webhook (`/functions/v1/shopify-webhook?loja=SEU_SLUG`), sem campos de Client ID/Secret/OAuth.
+
+---
+
+## Mapeamento do payload
 
 ```text
-// Fetch empresa data
-let fromName = "Loja";
-let empresaLogoUrl = "";
-let empresaNome = "Loja";
-
-// Tentar por empresa_id primeiro
-if (envio.empresa_id) {
-  const { data: empresa } = await supabase
-    .from("empresas")
-    .select("nome_fantasia, razao_social, logo_url")
-    .eq("id", envio.empresa_id)
-    .single();
-  if (empresa) {
-    fromName = empresa.nome_fantasia || empresa.razao_social || "Loja";
-    empresaNome = fromName;
-    empresaLogoUrl = empresa.logo_url || "";
-  }
-}
-
-// Fallback: buscar por loja_id se empresa_id nao existir ou nao retornou dados
-if (empresaNome === "Loja" && envio.loja_id) {
-  const { data: empresa } = await supabase
-    .from("empresas")
-    .select("nome_fantasia, razao_social, logo_url")
-    .eq("loja_id", envio.loja_id)
-    .maybeSingle();
-  if (empresa) {
-    fromName = empresa.nome_fantasia || empresa.razao_social || "Loja";
-    empresaNome = fromName;
-    empresaLogoUrl = empresa.logo_url || "";
-  }
-}
-```
-
-### 2. Webhooks (Zedy, Corvex, Luna, Vega)
-
-Em cada webhook, antes de criar o envio, buscar a empresa da loja e incluir `empresa_id` no insert:
-
-- `supabase/functions/webhook-zedy/index.ts`
-- `supabase/functions/webhook-corvex/index.ts`
-- `supabase/functions/webhook-luna/index.ts`
-- `supabase/functions/webhook-vega/index.ts`
-
-Adicionar antes do insert do envio:
-```typescript
-// Buscar empresa da loja
-const { data: empresaData } = await supabase
-  .from("empresas")
-  .select("id")
-  .eq("loja_id", lojaId)
-  .maybeSingle();
-```
-
-E incluir no objeto `envioData`:
-```typescript
-empresa_id: empresaData?.id || null,
+Payload field              -> DB field (pedidos)
+--------------------------------------------------
+transaction_token          -> transaction_token
+sale_code                  -> (alternativo se token vazio)
+status                     -> status
+method                     -> method
+total_price                -> total_price (ja em centavos)
+customer.name              -> customer_name
+customer.email             -> customer_email
+customer.phone             -> customer_phone
+customer.document          -> customer_document
+address.street             -> address_street
+address.number             -> address_number
+address.district           -> address_district
+address.zip_code           -> address_zip_code
+address.city               -> address_city
+address.state              -> address_state
+address.country            -> address_country
+address.complement         -> address_complement
+products[]                 -> products (normalizado)
 ```
 
 ## Resultado
 
-- E-mails enviados via webhook mostrarao o nome da empresa (ex: "MOMENTUS LTDA") e a logo configurada no painel
-- A correcao no `send-email` funciona retroativamente para envios ja existentes sem `empresa_id`
-- Os webhooks passam a gravar o `empresa_id` para evitar o fallback no futuro
+- Webhook Shopify funcionara igual aos demais (Zedy, Corvex, Luna, Vega)
+- URL do webhook: `.../functions/v1/shopify-webhook?loja=SEU_SLUG`
+- Sem necessidade de configurar App, OAuth ou credenciais Shopify
+- Pedidos e envios criados automaticamente ao receber status "paid"
+
