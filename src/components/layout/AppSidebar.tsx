@@ -148,7 +148,7 @@ export function AppSidebar() {
                 className="w-full rounded-lg mb-2 group-hover:scale-[1.02] transition-transform"
               />
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Parceira oficial de envios de SMS para todos os eventos de vendas
+                Disparos e Automação de vendas com SMS Global, RCS e WhatsApp
               </p>
             </a>
           </SidebarGroupContent>
