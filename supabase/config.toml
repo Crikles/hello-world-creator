@@ -33,8 +33,5 @@ verify_jwt = false
 [functions.create-pix-payment]
 verify_jwt = false
 
-[functions.shopify-auth-callback]
-verify_jwt = false
-
 [functions.shopify-webhook]
 verify_jwt = false
