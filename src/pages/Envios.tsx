@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard } from "lucide-react";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -391,38 +391,70 @@ export default function Envios() {
                   </div>
                 </div>
 
-                {/* Card Footer */}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    {format(new Date(envio.created_at), "dd/MM/yyyy")}
-                  </div>
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {canAdvance(envio) && (
+                {/* Quick Links */}
+                <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border/30 flex-wrap">
+                  {envio.codigo_rastreio && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
+                      onClick={() => window.open(`${window.location.origin}/r/${envio.codigo_rastreio}`, '_blank')}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" /> Rastreio
+                    </Button>
+                  )}
+                  {(envio.status === 'taxacao' || envio.status === 'pagamento_confirmado') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
+                      onClick={() => window.open(`${window.location.origin}/p/${envio.id}`, '_blank')}
+                    >
+                      <CreditCard className="h-3 w-3 mr-1" /> Taxação
+                    </Button>
+                  )}
+                  {(envio as any).nfe_chave_acesso && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
+                      onClick={() => window.open(`${window.location.origin}/danfe/${envio.id}`, '_blank')}
+                    >
+                      <FileText className="h-3 w-3 mr-1" /> NF-e
+                    </Button>
+                  )}
+                  <div className="ml-auto flex items-center gap-0.5">
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1 mr-1">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(envio.created_at), "dd/MM/yyyy")}
+                    </span>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {canAdvance(envio) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                          title={cooldowns[envio.id] > Date.now() ? `Aguarde ${formatCooldown(cooldowns[envio.id])}` : "Avançar próximo evento"}
+                          disabled={advanceMutation.isPending || cooldowns[envio.id] > Date.now()}
+                          onClick={() => advanceMutation.mutate(envio.id)}
+                        >
+                          {cooldowns[envio.id] > Date.now() ? (
+                            <span className="text-[9px] font-mono">{formatCooldown(cooldowns[envio.id])}</span>
+                          ) : (
+                            <FastForward className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                        title={cooldowns[envio.id] > Date.now() ? `Aguarde ${formatCooldown(cooldowns[envio.id])}` : "Avançar próximo evento"}
-                        disabled={advanceMutation.isPending || cooldowns[envio.id] > Date.now()}
-                        onClick={() => advanceMutation.mutate(envio.id)}
+                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Remover"
+                        onClick={() => deleteMutation.mutate(envio.id)}
                       >
-                        {cooldowns[envio.id] > Date.now() ? (
-                          <span className="text-[9px] font-mono">{formatCooldown(cooldowns[envio.id])}</span>
-                        ) : (
-                          <FastForward className="h-3.5 w-3.5" />
-                        )}
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      title="Remover"
-                      onClick={() => deleteMutation.mutate(envio.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    </div>
                   </div>
                 </div>
               </div>
