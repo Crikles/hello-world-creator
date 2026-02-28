@@ -1,8 +1,28 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { Outlet } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Megaphone } from "lucide-react";
 
 export function AppLayout() {
+  const { data: whatsappConfig } = useQuery({
+    queryKey: ["whatsapp-suporte-global"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_config")
+        .select("value")
+        .eq("key", "whatsapp_suporte")
+        .maybeSingle();
+      return data?.value ? String(data.value) : null;
+    }
+  });
+
+  const handleSupportClick = () => {
+    if (whatsappConfig) {
+      window.open(`https://wa.me/${whatsappConfig}`, "_blank");
+    }
+  };
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -13,6 +33,19 @@ export function AppLayout() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_hsla(43,74%,49%,0.03)_0%,_transparent_60%)]" />
             <div className="absolute inset-0 bg-grid-pattern opacity-20" />
           </div>
+
+          {whatsappConfig && (
+            <div
+              onClick={handleSupportClick}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground py-2 px-4 shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors z-50 animate-in slide-in-from-top-2"
+            >
+              <Megaphone className="h-4 w-4" />
+              <span className="text-sm font-medium tracking-wide">
+                Está escalando? Entre em contato com o suporte para um plano personalizado de custos!
+              </span>
+            </div>
+          )}
+
           <header className="sticky top-0 z-40 h-12 glass-strong flex items-center px-4 gap-4">
             <SidebarTrigger className="text-muted-foreground hover:text-primary transition-colors" />
           </header>

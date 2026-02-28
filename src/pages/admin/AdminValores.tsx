@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Save, Coins } from "lucide-react";
+import { Save, Coins, Phone } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface SystemConfig {
@@ -97,7 +97,11 @@ export default function AdminValores() {
               <Card key={config.key}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Coins className="h-4 w-4 text-amber-500" />
+                    {config.key === "whatsapp_suporte" ? (
+                      <Phone className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Coins className="h-4 w-4 text-amber-500" />
+                    )}
                     {config.label || config.key}
                   </CardTitle>
                   <CardDescription className="text-xs font-mono">
@@ -108,7 +112,7 @@ export default function AdminValores() {
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
-                      step="0.01"
+                      step={config.key === "whatsapp_suporte" ? "1" : "0.01"}
                       min="0"
                       value={localValues[config.key] ?? ""}
                       onChange={(e) =>
@@ -118,10 +122,13 @@ export default function AdminValores() {
                         }))
                       }
                       className="w-full"
+                      placeholder={config.key === "whatsapp_suporte" ? "Ex: 5511999999999" : ""}
                     />
-                    <Label className="text-xs text-muted-foreground whitespace-nowrap">
-                      moedas
-                    </Label>
+                    {config.key !== "whatsapp_suporte" && (
+                      <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                        moedas
+                      </Label>
+                    )}
                   </div>
                 </CardContent>
               </Card>

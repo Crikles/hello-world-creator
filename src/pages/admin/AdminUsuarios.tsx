@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Coins, Plus, Minus } from "lucide-react";
+import { Coins, Plus, Minus, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -22,6 +22,7 @@ interface UserRow {
   role: string;
   saldo: number;
   lojas_count: number;
+  custom_prices: Record<string, number> | null;
 }
 
 export default function AdminUsuarios() {
@@ -31,6 +32,18 @@ export default function AdminUsuarios() {
   const [quantidade, setQuantidade] = useState("");
   const [descricao, setDescricao] = useState("");
   const [operacao, setOperacao] = useState<"adicionar" | "remover">("adicionar");
+
+  const [selectedUserForPrices, setSelectedUserForPrices] = useState<UserRow | null>(null);
+  const [customPricesForm, setCustomPricesForm] = useState<Record<string, string>>({});
+
+  const { data: systemConfigs } = useQuery({
+    queryKey: ["system-config-admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("system_config").select("*").order("key");
+      if (error) throw error;
+      return data || [];
+    }
+  });
 
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["admin-usuarios"],
@@ -59,10 +72,47 @@ export default function AdminUsuarios() {
           role: userRole?.role || "user",
           saldo: userCredito?.saldo || 0,
           lojas_count: userLojas.length,
+          custom_prices: (p.custom_prices as Record<string, number>) || null,
         };
       });
     },
   });
+
+  const savePricesMutation = useMutation({
+    mutationFn: async ({ userId, prices }: { userId: string; prices: Record<string, number> }) => {
+      const cleanPrices = Object.fromEntries(
+        Object.entries(prices).filter(([, v]) => !isNaN(v) && v !== null)
+      );
+      const { error } = await supabase
+        .from("profiles")
+        .update({ custom_prices: Object.keys(cleanPrices).length > 0 ? cleanPrices : null } as any)
+        .eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      setSelectedUserForPrices(null);
+      toast.success("Preços customizados salvos!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao salvar preços.");
+    },
+  });
+
+  const handleSavePrices = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserForPrices) return;
+
+    const parsedPrices: Record<string, number> = {};
+    Object.entries(customPricesForm).forEach(([k, v]) => {
+      if (v.trim() !== "") {
+        const val = parseFloat(v.replace(",", "."));
+        if (!isNaN(val)) parsedPrices[k] = val;
+      }
+    });
+
+    savePricesMutation.mutate({ userId: selectedUserForPrices.id, prices: parsedPrices });
+  };
 
   const manageCreditsMutation = useMutation({
     mutationFn: async ({ userId, qty, desc, action }: { userId: string; qty: number; desc: string; action: "adicionar" | "remover" }) => {
@@ -177,13 +227,28 @@ export default function AdminUsuarios() {
                     </TableCell>
                     <TableCell>{u.lojas_count}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="outline" onClick={() => {
-                        setSelectedUser(u);
-                        setOperacao("adicionar");
-                      }}>
-                        <Plus className="h-3.5 w-3.5 mr-1" />
-                        Gerenciar
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="outline" onClick={() => {
+                          setSelectedUserForPrices(u);
+                          const initial: Record<string, string> = {};
+                          if (u.custom_prices) {
+                            Object.entries(u.custom_prices).forEach(([k, v]) => {
+                              initial[k] = String(v);
+                            });
+                          }
+                          setCustomPricesForm(initial);
+                        }}>
+                          <Settings className="h-3.5 w-3.5 mr-1" />
+                          Preços
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => {
+                          setSelectedUser(u);
+                          setOperacao("adicionar");
+                        }}>
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Créditos
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -261,6 +326,55 @@ export default function AdminUsuarios() {
                   </Button>
                 </form>
               </Tabs>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedUserForPrices} onOpenChange={(open) => {
+        if (!open) setSelectedUserForPrices(null);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Preços Customizados</DialogTitle>
+          </DialogHeader>
+          {selectedUserForPrices && (
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Defina valores específicos (moedas) para o usuário <strong className="text-foreground">{selectedUserForPrices.full_name || selectedUserForPrices.email}</strong>. Deixe em branco para usar o valor global do sistema.
+              </p>
+
+              <form onSubmit={handleSavePrices} className="space-y-4">
+                <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2">
+                  {systemConfigs?.map((config) => (
+                    <div key={config.key} className="space-y-1.5 p-3 rounded-lg border border-border/50 bg-card">
+                      <div className="flex justify-between items-center mb-1">
+                        <Label className="text-sm font-medium">{config.label || config.key}</Label>
+                        <span className="text-xs text-muted-foreground ml-2">Padrão: {config.value}</span>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Usar padrão..."
+                        value={customPricesForm[config.key] || ""}
+                        onChange={(e) => setCustomPricesForm(prev => ({ ...prev, [config.key]: e.target.value }))}
+                        className="bg-muted/30 focus:bg-background"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={savePricesMutation.isPending}
+                  >
+                    {savePricesMutation.isPending ? "Salvando..." : "Salvar Preços"}
+                  </Button>
+                </div>
+              </form>
             </div>
           )}
         </DialogContent>

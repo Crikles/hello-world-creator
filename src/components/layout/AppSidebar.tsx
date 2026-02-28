@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isLogisticsDomain } from "@/lib/domain-config";
-import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins, Mail, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins, Mail, AlertTriangle, HelpCircle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
@@ -74,6 +74,7 @@ export function AppSidebar() {
     { title: "Empresa", url: `${base}/empresa`, icon: Building2 },
     { title: "Integrações", url: `${base}/integracoes`, icon: Plug },
     { title: "Configurações", url: `${base}/configuracoes`, icon: Settings },
+    { title: "Suporte", url: `${base}/suporte`, icon: HelpCircle },
   ];
 
   const handleLogout = async () => {

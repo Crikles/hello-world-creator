@@ -69,8 +69,8 @@ interface PostagemConfig {
 }
 
 const ESTADOS_BR = [
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA",
-  "PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+  "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
 // ── Helpers ──
@@ -199,14 +199,29 @@ export default function Postagens() {
   });
 
   const { data: systemConfigValues } = useQuery({
-    queryKey: ["system-config"],
+    queryKey: ["system-config", loja?.user_id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: sysData, error: sysError } = await supabase
         .from("system_config")
         .select("key, value");
-      if (error) throw error;
+      if (sysError) throw sysError;
+
+      let customPrices: Record<string, number> = {};
+      if (loja?.user_id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("custom_prices")
+          .eq("id", loja.user_id)
+          .single();
+        if (profile?.custom_prices) {
+          customPrices = profile.custom_prices as Record<string, number>;
+        }
+      }
+
       const map: Record<string, number> = {};
-      (data || []).forEach((r: { key: string; value: number }) => { map[r.key] = Number(r.value); });
+      (sysData || []).forEach((r: { key: string; value: number }) => {
+        map[r.key] = customPrices[r.key] !== undefined ? Number(customPrices[r.key]) : Number(r.value);
+      });
       return map;
     },
   });

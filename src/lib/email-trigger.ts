@@ -82,6 +82,18 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
 
         const lojaUserId = lojaData.user_id;
 
+        const { data: profileData, error: profileErr } = await supabase
+            .from("profiles")
+            .select("custom_prices")
+            .eq("id", lojaUserId)
+            .single();
+
+        if (profileErr) {
+            console.warn("Could not fetch user profile for custom prices:", profileErr);
+        }
+
+        const customPrices = (profileData?.custom_prices as Record<string, number> | null) || {};
+
         const { data: costs, error: costsErr } = await supabase
             .from("system_config")
             .select("key, value");
@@ -93,7 +105,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
 
         const costMap: Record<string, number> = {};
         for (const c of costs) {
-            costMap[c.key] = Number(c.value);
+            costMap[c.key] = customPrices[c.key] !== undefined ? Number(customPrices[c.key]) : Number(c.value);
         }
 
         // 4.5. Debit credits on first event (currentOrdem == 0) — SMS excluded, charged per-send
@@ -159,8 +171,8 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // 6b. Update envio with new ordem, status, and next allowed advance time
         const { error: uErr } = await supabase
             .from("envios")
-            .update({ 
-                ultimo_evento_ordem: nextEvent.ordem, 
+            .update({
+                ultimo_evento_ordem: nextEvent.ordem,
                 status: newStatus,
                 status_label: nextEvent.status_label,
                 proximo_avanco_em: proximoAvancoEm,
