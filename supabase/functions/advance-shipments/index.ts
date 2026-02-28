@@ -345,13 +345,28 @@ Deno.serve(async (req) => {
 
       if (!allEvents || allEvents.length === 0) continue;
 
-      // Fetch costs
+      // Fetch global costs
       const { data: costs } = await supabase
         .from("system_config")
         .select("key, value");
 
       const costMap: Record<string, number> = {};
       if (costs) for (const c of costs) costMap[c.key] = Number(c.value);
+
+      // Apply custom per-user prices if configured
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("custom_prices")
+        .eq("id", lojaUserId)
+        .single();
+
+      // deno-lint-ignore no-explicit-any
+      const customPrices = (profileData?.custom_prices as Record<string, any>) || {};
+      for (const [key, val] of Object.entries(customPrices)) {
+        if (val !== undefined && val !== null) {
+          costMap[key] = Number(val);
+        }
+      }
 
       // --- 1. AUTO-START: new shipments if auto_envio is enabled ---
       // deno-lint-ignore no-explicit-any
