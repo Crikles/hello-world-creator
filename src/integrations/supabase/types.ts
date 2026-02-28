@@ -848,6 +848,36 @@ export type Database = {
         }
         Relationships: []
       }
+      push_templates: {
+        Row: {
+          created_at: string
+          icon_url: string | null
+          id: string
+          mensagem: string
+          nome: string
+          titulo: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          mensagem: string
+          nome: string
+          titulo: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          mensagem?: string
+          nome?: string
+          titulo?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       shopify_integrations: {
         Row: {
           access_token: string | null

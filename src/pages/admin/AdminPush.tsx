@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Table,
     TableBody,
@@ -27,6 +28,7 @@ import {
     Settings2,
     History,
     Megaphone,
+    Trash2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -50,6 +52,16 @@ interface PushLog {
     created_at: string;
 }
 
+interface PushTemplate {
+    id: string;
+    nome: string;
+    titulo: string;
+    mensagem: string;
+    url: string | null;
+    icon_url: string | null;
+    created_at: string;
+}
+
 export default function AdminPush() {
     const queryClient = useQueryClient();
 
@@ -63,6 +75,11 @@ export default function AdminPush() {
     const [pushBody, setPushBody] = useState("");
     const [pushUrl, setPushUrl] = useState("");
     const [pushIcon, setPushIcon] = useState("");
+
+    // ─── Templates ───
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+    const [templateName, setTemplateName] = useState("");
+    const [showSaveInput, setShowSaveInput] = useState(false);
 
     // ─── Queries ───
     const { data: settings, isLoading: loadingSettings } = useQuery({
@@ -99,6 +116,18 @@ export default function AdminPush() {
                 .limit(50);
             if (error) throw error;
             return data as PushLog[];
+        },
+    });
+
+    const { data: templates } = useQuery({
+        queryKey: ["push-templates"],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("push_templates")
+                .select("*")
+                .order("created_at", { ascending: true });
+            if (error) throw error;
+            return data as PushTemplate[];
         },
     });
 
@@ -183,11 +212,88 @@ export default function AdminPush() {
             setPushBody("");
             setPushUrl("");
             setPushIcon("");
+            setSelectedTemplateId("");
         },
         onError: (err: Error) => {
             toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
         },
     });
+
+    // ─── Save Template Mutation ───
+    const saveTemplateMutation = useMutation({
+        mutationFn: async (nome: string) => {
+            const { error } = await supabase
+                .from("push_templates")
+                .insert({
+                    nome,
+                    titulo: pushTitle,
+                    mensagem: pushBody,
+                    url: pushUrl || null,
+                    icon_url: pushIcon || null,
+                });
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["push-templates"] });
+            toast({ title: "Template salvo com sucesso!" });
+            setTemplateName("");
+            setShowSaveInput(false);
+        },
+        onError: () => {
+            toast({ title: "Erro ao salvar template", variant: "destructive" });
+        },
+    });
+
+    // ─── Delete Template Mutation ───
+    const deleteTemplateMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const { error } = await supabase
+                .from("push_templates")
+                .delete()
+                .eq("id", id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["push-templates"] });
+            setSelectedTemplateId("");
+            toast({ title: "Template excluído!" });
+        },
+        onError: () => {
+            toast({ title: "Erro ao excluir template", variant: "destructive" });
+        },
+    });
+
+    // ─── Template Selection Handler ───
+    const handleTemplateSelect = (templateId: string) => {
+        if (templateId === "none") {
+            setSelectedTemplateId("");
+            setPushTitle("");
+            setPushBody("");
+            setPushUrl("");
+            setPushIcon("");
+            return;
+        }
+        setSelectedTemplateId(templateId);
+        const template = templates?.find((t) => t.id === templateId);
+        if (template) {
+            setPushTitle(template.titulo);
+            setPushBody(template.mensagem);
+            setPushUrl(template.url || "");
+            setPushIcon(template.icon_url || "");
+        }
+    };
+
+    const handleSaveTemplate = () => {
+        if (!templateName.trim()) {
+            toast({ title: "Digite um nome para o template", variant: "destructive" });
+            return;
+        }
+        if (!pushTitle || !pushBody) {
+            toast({ title: "Preencha título e mensagem antes de salvar", variant: "destructive" });
+            return;
+        }
+        saveTemplateMutation.mutate(templateName.trim());
+    };
 
     // ─── Stats ───
     const totalSent = logs?.reduce((sum, l) => sum + (l.total_sent || 0), 0) || 0;
@@ -354,6 +460,42 @@ export default function AdminPush() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {/* ─── Template Selector ─── */}
+                            {templates && templates.length > 0 && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium flex items-center gap-2">
+                                        <Save className="h-4 w-4 text-muted-foreground" />
+                                        Template Salvo
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <Select value={selectedTemplateId || "none"} onValueChange={handleTemplateSelect}>
+                                            <SelectTrigger className="flex-1">
+                                                <SelectValue placeholder="Selecionar template..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Nenhum (limpar campos)</SelectItem>
+                                                {templates.map((t) => (
+                                                    <SelectItem key={t.id} value={t.id}>
+                                                        {t.nome}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {selectedTemplateId && (
+                                            <Button
+                                                variant="destructive"
+                                                size="icon"
+                                                onClick={() => deleteTemplateMutation.mutate(selectedTemplateId)}
+                                                disabled={deleteTemplateMutation.isPending}
+                                                title="Excluir template"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Título *</label>
                                 <Input
@@ -431,16 +573,54 @@ export default function AdminPush() {
                                 </div>
                             </div>
 
-                            <Button
-                                className="w-full"
-                                onClick={() => sendPushMutation.mutate()}
-                                disabled={sendPushMutation.isPending || !pushTitle || !pushBody}
-                            >
-                                <Send className="h-4 w-4 mr-2" />
-                                {sendPushMutation.isPending
-                                    ? "Enviando..."
-                                    : `Enviar para ${subscriberCount ?? 0} inscritos`}
-                            </Button>
+                            {/* ─── Save Template Input ─── */}
+                            {showSaveInput && (
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Nome do template (ex: Pedido taxado)"
+                                        value={templateName}
+                                        onChange={(e) => setTemplateName(e.target.value)}
+                                        onKeyDown={(e) => e.key === "Enter" && handleSaveTemplate()}
+                                    />
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveTemplate}
+                                        disabled={saveTemplateMutation.isPending}
+                                    >
+                                        {saveTemplateMutation.isPending ? "..." : "Salvar"}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => { setShowSaveInput(false); setTemplateName(""); }}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* ─── Action Buttons ─── */}
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => setShowSaveInput(true)}
+                                    disabled={!pushTitle || !pushBody || showSaveInput}
+                                >
+                                    <Save className="h-4 w-4 mr-2" />
+                                    Salvar Template
+                                </Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={() => sendPushMutation.mutate()}
+                                    disabled={sendPushMutation.isPending || !pushTitle || !pushBody}
+                                >
+                                    <Send className="h-4 w-4 mr-2" />
+                                    {sendPushMutation.isPending
+                                        ? "Enviando..."
+                                        : `Enviar para ${subscriberCount ?? 0} inscritos`}
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
