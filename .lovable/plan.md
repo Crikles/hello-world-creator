@@ -1,30 +1,83 @@
 
+# Corrigir nome "Loja" e logo ausente nos e-mails
 
-# Adicionar Links Rápidos nos Cards de Envios
+## Problema
 
-## O que será feito
+Quando um pedido chega via webhook (Zedy, Corvex, Luna, Vega), o envio e criado **sem o campo `empresa_id`**. Na hora de enviar o e-mail, a edge function `send-email` so busca os dados da empresa se `envio.empresa_id` existir (linha 614). Como esta null, usa o fallback "Loja" sem logo.
 
-Adicionar botões de ação rápida em cada card de envio na página de Envios, permitindo ao usuário:
+## Solucao
 
-1. **Ver Rastreio** -- Abre a página pública de rastreio (`/r/CODIGO`) em nova aba
-2. **Ver Taxação** -- Visível apenas quando o status é "taxacao" ou "pagamento_confirmado", abre a página de pagamento (`/p/ENVIO_ID`) em nova aba
-3. **Ver DANFE/NF** -- Visível apenas quando o envio possui `nfe_chave_acesso`, navega para gerar/visualizar a DANFE
+Alterar a edge function `send-email/index.ts` para, quando `empresa_id` estiver vazio, buscar a empresa pela `loja_id` do envio. Isso garante que o nome e logo da empresa configurada no painel sejam sempre usados.
 
-## Alterações
+Tambem atualizar todos os 4 webhooks (Zedy, Corvex, Luna, Vega) para ja gravar o `empresa_id` no envio no momento da criacao, evitando o problema na origem.
 
-### `src/pages/Envios.tsx`
+## Alteracoes
 
-- Importar ícones adicionais: `ExternalLink`, `FileText`, `CreditCard`
-- No footer de cada card (linha ~395-426), adicionar uma row de botões de link rápido **sempre visíveis** (não apenas no hover):
-  - Botão "Rastreio" com ícone `ExternalLink` -- usa `window.open` para abrir `/r/{codigo_rastreio}` em nova aba. Visível quando o envio tem `codigo_rastreio`
-  - Botão "Taxação" com ícone `CreditCard` -- abre `/p/{envio.id}` em nova aba. Visível quando status é `taxacao` ou `pagamento_confirmado`
-  - Botão "NF-e" com ícone `FileText` -- abre a DANFE. Visível quando `nfe_chave_acesso` existe
+### 1. `supabase/functions/send-email/index.ts`
 
-- Os botões terão estilo discreto (`variant="ghost"`, tamanho pequeno) com texto de 10px e ícones de 3.5
+Na secao de "Fetch empresa data" (linhas 610-626), adicionar fallback por `loja_id`:
 
-### Detalhes técnicos
+```text
+// Fetch empresa data
+let fromName = "Loja";
+let empresaLogoUrl = "";
+let empresaNome = "Loja";
 
-Os links serão abertos com `window.open(url, '_blank')` para não perder o contexto da página de envios. A URL base para rastreio e pagamento será construída dinamicamente usando `window.location.origin` para funcionar em qualquer domínio.
+// Tentar por empresa_id primeiro
+if (envio.empresa_id) {
+  const { data: empresa } = await supabase
+    .from("empresas")
+    .select("nome_fantasia, razao_social, logo_url")
+    .eq("id", envio.empresa_id)
+    .single();
+  if (empresa) {
+    fromName = empresa.nome_fantasia || empresa.razao_social || "Loja";
+    empresaNome = fromName;
+    empresaLogoUrl = empresa.logo_url || "";
+  }
+}
 
-Os botões de ação existentes (avançar, deletar) continuam no hover como estão. Os novos botões de link ficam sempre visíveis no footer do card.
+// Fallback: buscar por loja_id se empresa_id nao existir ou nao retornou dados
+if (empresaNome === "Loja" && envio.loja_id) {
+  const { data: empresa } = await supabase
+    .from("empresas")
+    .select("nome_fantasia, razao_social, logo_url")
+    .eq("loja_id", envio.loja_id)
+    .maybeSingle();
+  if (empresa) {
+    fromName = empresa.nome_fantasia || empresa.razao_social || "Loja";
+    empresaNome = fromName;
+    empresaLogoUrl = empresa.logo_url || "";
+  }
+}
+```
 
+### 2. Webhooks (Zedy, Corvex, Luna, Vega)
+
+Em cada webhook, antes de criar o envio, buscar a empresa da loja e incluir `empresa_id` no insert:
+
+- `supabase/functions/webhook-zedy/index.ts`
+- `supabase/functions/webhook-corvex/index.ts`
+- `supabase/functions/webhook-luna/index.ts`
+- `supabase/functions/webhook-vega/index.ts`
+
+Adicionar antes do insert do envio:
+```typescript
+// Buscar empresa da loja
+const { data: empresaData } = await supabase
+  .from("empresas")
+  .select("id")
+  .eq("loja_id", lojaId)
+  .maybeSingle();
+```
+
+E incluir no objeto `envioData`:
+```typescript
+empresa_id: empresaData?.id || null,
+```
+
+## Resultado
+
+- E-mails enviados via webhook mostrarao o nome da empresa (ex: "MOMENTUS LTDA") e a logo configurada no painel
+- A correcao no `send-email` funciona retroativamente para envios ja existentes sem `empresa_id`
+- Os webhooks passam a gravar o `empresa_id` para evitar o fallback no futuro
