@@ -563,7 +563,7 @@ export default function AdminPush() {
                                         <p className="text-sm font-semibold truncate">
                                             {pushTitle || "Título da notificação"}
                                         </p>
-                                        <p className="text-xs text-muted-foreground line-clamp-2">
+                                        <p className="text-xs text-muted-foreground whitespace-pre-line line-clamp-4">
                                             {pushBody || "Mensagem da notificação aparecerá aqui..."}
                                         </p>
                                         {pushUrl && (
