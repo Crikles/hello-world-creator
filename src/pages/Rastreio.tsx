@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
-import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
-import { InstallAppPrompt } from "@/components/InstallAppPrompt";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 import {
     Package,
     Search,
@@ -496,8 +495,7 @@ export default function Rastreio() {
                 </div>
             </footer>
 
-            <PushNotificationPrompt codigoRastreio={envio?.codigo_rastreio} />
-            <InstallAppPrompt />
+            <NotificationPrompt codigoRastreio={envio?.codigo_rastreio} />
 
             <style>{styles}</style>
         </div>
