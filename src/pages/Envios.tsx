@@ -67,6 +67,7 @@ export default function Envios() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [autoEnvio, setAutoEnvio] = useState(false);
+  const [autoEnvioLoading, setAutoEnvioLoading] = useState(false);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [batchCooldown, setBatchCooldown] = useState(0);
   const [, setTick] = useState(0);
@@ -124,6 +125,39 @@ export default function Envios() {
       setDownloadingNfe(null);
     }
   }, [loja?.id]);
+
+  // Load auto_envio from DB
+  useEffect(() => {
+    if (!loja?.id) return;
+    const loadAutoEnvio = async () => {
+      const { data } = await supabase
+        .from("postagem_config")
+        .select("auto_envio")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      if (data && (data as any).auto_envio !== undefined) {
+        setAutoEnvio((data as any).auto_envio);
+      }
+    };
+    loadAutoEnvio();
+  }, [loja?.id]);
+
+  const handleToggleAutoEnvio = async (checked: boolean) => {
+    if (!loja?.id) return;
+    setAutoEnvioLoading(true);
+    setAutoEnvio(checked);
+    const { error } = await supabase
+      .from("postagem_config")
+      .update({ auto_envio: checked } as any)
+      .eq("loja_id", loja.id);
+    setAutoEnvioLoading(false);
+    if (error) {
+      toast.error("Erro ao salvar configuração AUTO");
+      setAutoEnvio(!checked);
+    } else {
+      toast.success(checked ? "AUTO ativado — funciona 24h mesmo com PC desligado" : "AUTO desativado");
+    }
+  };
 
   // Force re-render every second for countdown display
   useEffect(() => {
@@ -401,8 +435,8 @@ export default function Envios() {
           <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
-                <Switch checked={autoEnvio} onCheckedChange={setAutoEnvio} />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Auto</span>
+                <Switch checked={autoEnvio} onCheckedChange={handleToggleAutoEnvio} disabled={autoEnvioLoading} />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Auto {autoEnvio ? "🟢" : ""}</span>
               </div>
               <Button
                 variant="ghost"

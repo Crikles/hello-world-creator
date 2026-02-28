@@ -523,6 +523,7 @@ export type Database = {
         Row: {
           ativar_site_rastreio: boolean
           ativar_taxacao: boolean
+          auto_envio: boolean | null
           created_at: string
           email_remetente: string | null
           enviar_emails: boolean
@@ -537,6 +538,7 @@ export type Database = {
         Insert: {
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
+          auto_envio?: boolean | null
           created_at?: string
           email_remetente?: string | null
           enviar_emails?: boolean
@@ -551,6 +553,7 @@ export type Database = {
         Update: {
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
+          auto_envio?: boolean | null
           created_at?: string
           email_remetente?: string | null
           enviar_emails?: boolean

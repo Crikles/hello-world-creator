@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.shopify-webhook]
 verify_jwt = false
+
+[functions.advance-shipments]
+verify_jwt = false
+
+[functions.send-sms]
+verify_jwt = false
