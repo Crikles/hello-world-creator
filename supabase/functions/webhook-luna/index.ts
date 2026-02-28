@@ -141,6 +141,13 @@ Deno.serve(async (req) => {
     if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
       const firstProduct = normalizedProducts[0] || {};
 
+      // Buscar empresa da loja
+      const { data: empresaData } = await supabase
+        .from("empresas")
+        .select("id")
+        .eq("loja_id", lojaId)
+        .maybeSingle();
+
       const envioData = {
         cliente_nome: client.name || "Cliente Luna",
         cliente_email: client.email || "sem-email@luna.com",
@@ -158,6 +165,7 @@ Deno.serve(async (req) => {
         valor: totalPrice / 100,
         status: "pendente",
         loja_id: lojaId,
+        empresa_id: empresaData?.id || null,
       };
 
       const { data: newEnvio } = await supabase
