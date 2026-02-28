@@ -189,6 +189,7 @@ export type Database = {
           nfe_numero: string | null
           nfe_serie: string | null
           produto: string
+          proximo_avanco_em: string | null
           quantidade: number
           status: Database["public"]["Enums"]["shipment_status"]
           status_label: string | null
@@ -223,6 +224,7 @@ export type Database = {
           nfe_numero?: string | null
           nfe_serie?: string | null
           produto: string
+          proximo_avanco_em?: string | null
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           status_label?: string | null
@@ -257,6 +259,7 @@ export type Database = {
           nfe_numero?: string | null
           nfe_serie?: string | null
           produto?: string
+          proximo_avanco_em?: string | null
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           status_label?: string | null

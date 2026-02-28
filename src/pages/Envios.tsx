@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square } from "lucide-react";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,6 +73,10 @@ export default function Envios() {
   const queryClient = useQueryClient();
   const { loja } = useLoja();
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
+  
+  // Batch advance state
+  const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
+  const batchCancelRef = useRef(false);
 
   const handleDownloadNfe = useCallback(async (envio: any) => {
     if (!loja?.id) return;
@@ -186,11 +190,41 @@ export default function Envios() {
     return () => { supabase.removeChannel(channel); };
   }, [loja?.id, queryClient]);
 
+  // AUTO: Realtime listener that auto-starts NEW shipments (ultimo_evento_ordem = 0)
+  useEffect(() => {
+    if (!autoEnvio || !loja?.id) return;
+    const channel = supabase
+      .channel(`auto-envio-${loja.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "envios", filter: `loja_id=eq.${loja.id}` },
+        async (payload) => {
+          const newEnvio = payload.new as any;
+          if ((newEnvio.ultimo_evento_ordem ?? 0) === 0 && newEnvio.status === "pendente") {
+            console.log("AUTO: Starting new shipment", newEnvio.id);
+            try {
+              await triggerNextEmail(newEnvio.id, loja.id);
+              queryClient.invalidateQueries({ queryKey: ["envios", loja.id] });
+              toast.success(`Auto: envio ${newEnvio.cliente_nome} iniciado!`);
+            } catch (err: any) {
+              if (err instanceof InsufficientBalanceError) {
+                toast.error("Auto: saldo insuficiente de moedas.");
+              } else {
+                console.error("AUTO trigger error:", err);
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [autoEnvio, loja?.id, queryClient]);
+
   const advanceMutation = useMutation({
     mutationFn: async (envioId: string) => {
       if (!loja?.id) throw new Error("No loja");
       const result = await triggerNextEmail(envioId, loja.id);
-      if (!result) throw new Error("Nenhum evento para avançar");
+      if (!result) throw new Error("Nenhum evento para avançar (delay não atingido ou já finalizado)");
       return result;
     },
     onSuccess: (_data, envioId) => {
@@ -218,18 +252,72 @@ export default function Envios() {
     },
   });
 
-  const batchAdvance = async (filterFn: (e: any) => boolean) => {
-    const targets = envios.filter(filterFn);
-    if (targets.length === 0) return toast.info("Nenhum envio encontrado.");
+  const canAdvanceNow = (e: any) => {
+    const pa = (e as any).proximo_avanco_em;
+    return !pa || new Date(pa) <= new Date();
+  };
+
+  // INICIAR PENDENTES: only starts envios at stage 0
+  const handleIniciarPendentes = async () => {
+    const pendentes = envios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
+    if (pendentes.length === 0) return toast.info("Nenhum envio pendente na estaca zero.");
     let count = 0;
-    for (const envio of targets) {
+    for (const envio of pendentes) {
       if (!loja?.id) continue;
-      const result = await triggerNextEmail(envio.id, loja.id);
-      if (result) count++;
+      try {
+        const result = await triggerNextEmail(envio.id, loja.id);
+        if (result) count++;
+      } catch (err: any) {
+        if (err instanceof InsufficientBalanceError) {
+          toast.error("Saldo insuficiente. Parado.");
+          break;
+        }
+      }
     }
     queryClient.invalidateQueries({ queryKey: ["envios"] });
     setBatchCooldown(Date.now() + 120000);
+    toast.success(`${count} envio(s) iniciado(s)!`);
+  };
+
+  // AVANÇAR TODOS: advance 1 at a time with 60s interval
+  const handleAvancarTodos = async () => {
+    const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
+    if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
+    
+    batchCancelRef.current = false;
+    setBatchProgress({ processing: true, current: 0, total: targets.length });
+
+    let count = 0;
+    for (let i = 0; i < targets.length; i++) {
+      if (batchCancelRef.current) {
+        toast.info("Processamento cancelado.");
+        break;
+      }
+      setBatchProgress({ processing: true, current: i + 1, total: targets.length });
+      if (!loja?.id) continue;
+      try {
+        const result = await triggerNextEmail(targets[i].id, loja.id);
+        if (result) count++;
+      } catch (err: any) {
+        if (err instanceof InsufficientBalanceError) {
+          toast.error("Saldo insuficiente. Parado.");
+          break;
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      // Wait 60 seconds between each, except after last
+      if (i < targets.length - 1 && !batchCancelRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 60000));
+      }
+    }
+
+    setBatchProgress(null);
+    setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) avançado(s)!`);
+  };
+
+  const handleCancelBatch = () => {
+    batchCancelRef.current = true;
   };
 
   const filteredEnvios = envios.filter((e) => {
@@ -320,22 +408,34 @@ export default function Envios() {
                 variant="ghost"
                 size="sm"
                 className="text-xs hover:bg-primary/10 hover:text-primary"
-                disabled={batchCooldown > Date.now()}
-                onClick={() => batchAdvance((e) => e.status === "pendente")}
+                disabled={batchCooldown > Date.now() || !!batchProgress?.processing}
+                onClick={handleIniciarPendentes}
               >
                 <Play className="h-3.5 w-3.5 mr-1 text-primary" />
                 {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Iniciar Pendentes"}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs hover:bg-primary/10 hover:text-primary"
-                disabled={batchCooldown > Date.now()}
-                onClick={() => batchAdvance((e) => e.status !== "entregue")}
-              >
-                <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
-                {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Avançar Todos"}
-              </Button>
+              {batchProgress?.processing ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs hover:bg-destructive/10 hover:text-destructive"
+                  onClick={handleCancelBatch}
+                >
+                  <Square className="h-3.5 w-3.5 mr-1 text-destructive" />
+                  Avançando {batchProgress.current}/{batchProgress.total}... Cancelar
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs hover:bg-primary/10 hover:text-primary"
+                  disabled={batchCooldown > Date.now()}
+                  onClick={handleAvancarTodos}
+                >
+                  <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
+                  {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Avançar Todos"}
+                </Button>
+              )}
             </div>
 
             <div className="flex gap-2 items-center w-full lg:w-auto">
