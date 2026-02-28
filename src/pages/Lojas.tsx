@@ -25,6 +25,19 @@ export default function Lojas() {
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; lojaId: string; nome: string }>({ open: false, lojaId: "", nome: "" });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; lojaId: string; nome: string }>({ open: false, lojaId: "", nome: "" });
 
+  const { data: profile } = useQuery({
+    queryKey: ["meu-perfil", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
   const { data: saldo } = useQuery({
     queryKey: ["meu-saldo", user?.id],
     queryFn: async () => {
@@ -145,10 +158,7 @@ export default function Lojas() {
       <header className="sticky top-0 z-50 glass-strong">
         <div className="max-w-5xl mx-auto flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="relative h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Package className="h-5 w-5 text-primary" />
-              <div className="absolute inset-0 rounded-xl border border-primary/20 animate-glow-pulse" />
-            </div>
+            <img src="/logo-magnus.png" alt="Magnus Frete" className="h-10 w-auto" />
             <span className="text-lg font-bold text-foreground tracking-tight">Magnus</span>
           </div>
           <div className="flex items-center gap-3">
@@ -174,8 +184,8 @@ export default function Lojas() {
         {/* Hero Section */}
         <div className="mb-12 text-center">
           <div className="inline-block relative mb-4">
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight">
-              Minhas Lojas
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
+              Olá {profile?.full_name || user?.email?.split("@")[0] || ""}, seja bem-vindo à <span className="text-primary">Magnus</span>!
             </h1>
             <div className="absolute -inset-x-8 -inset-y-4 bg-[radial-gradient(ellipse_at_center,_hsla(43,74%,49%,0.08)_0%,_transparent_70%)] pointer-events-none" />
           </div>
