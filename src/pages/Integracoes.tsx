@@ -141,7 +141,11 @@ function ShopifyCard({ loja }: { loja: any }) {
           </div>
         </div>
 
-        <div className="mt-auto pt-4 border-t border-border/30 relative z-10">
+        <div className="mt-auto pt-4 border-t border-border/30 relative z-10 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Ativar integração</span>
+            <Switch checked={isActive} disabled />
+          </div>
           <Button
             variant="outline"
             className="w-full bg-[#95BF47]/5 text-[#95BF47] border-[#95BF47]/30 hover:bg-[#95BF47]/10 hover:text-[#95BF47] transition-colors"
