@@ -1,69 +1,27 @@
 
+# Corrigir status de Webhook no Dashboard
 
-# Templates de Notificação Push
+## Problema
+A logica atual na linha 123 do Dashboard considera o webhook como "Ativo" se existir qualquer registro na tabela `shopify_integrations` (mesmo que nao esteja realmente ativo) ou se houver checkout_integrations ativas. O campo `ativo` da tabela shopify_integrations tem default `true`, entao basta o registro existir para mostrar como ativo indevidamente.
 
-## Resumo
-Adicionar funcionalidade de salvar templates reutilizáveis de notificação push no painel admin, permitindo criar, selecionar e enviar notificações a partir de modelos pré-salvos.
+## Solucao
 
-## Nota sobre ícones por plataforma
-- **iOS**: O ícone da notificação é sempre o ícone do PWA (manifest.json). Não é possível customizar por notificação -- limitação da Apple.
-- **Android**: O campo `icon` do payload funciona normalmente. Cada notificação pode ter um ícone diferente.
+Alterar a logica de `webhookAtivo` no `src/pages/Dashboard.tsx` (linha 123) para ser mais rigorosa:
 
-## Alterações
-
-### 1. Criar tabela `push_templates` (migração SQL)
 ```text
-- id: uuid (PK)
-- nome: text (nome do template, ex: "Pedido atualizado")
-- titulo: text (título da notificação)
-- mensagem: text (corpo da notificação)
-- url: text (link de direcionamento, opcional)
-- icon_url: text (ícone personalizado, opcional)
-- created_at: timestamptz
-```
-RLS: Admins full access (apenas admins usam o painel push).
+Antes:
+  webhookAtivo = (!!shopifyConfig && shopifyConfig.ativo !== false) || checkoutIntegrations.length > 0
 
-### 2. Atualizar `src/pages/admin/AdminPush.tsx`
-
-**Novas funcionalidades no card "Enviar Notificação":**
-
-- **Botão "Salvar Template"**: Ao lado do botão "Enviar", adicionar um botão secundário que salva o conteúdo atual (título, mensagem, URL, ícone) como um template reutilizável. Pede o nome do template via prompt/input.
-
-- **Seletor de Templates**: Acima dos campos do formulário, adicionar um dropdown/select que lista os templates salvos. Ao selecionar um template, os campos são preenchidos automaticamente.
-
-- **Botão de excluir template**: Ao lado do seletor, um botão para remover o template selecionado.
-
-**Fluxo do usuário:**
-1. Preenche título, mensagem, URL e ícone
-2. Clica "Salvar Template" e dá um nome (ex: "Pedido taxado")
-3. Na próxima vez, seleciona o template no dropdown, campos são preenchidos
-4. Pode editar os campos antes de enviar
-5. Clica "Enviar" normalmente
-
-### Detalhes técnicos
-
-**Query para templates:**
-```text
-useQuery("push-templates") -> supabase.from("push_templates").select("*").order("created_at")
+Depois:
+  webhookAtivo = (!!shopifyConfig && shopifyConfig.ativo === true && !!shopifyConfig.access_token) || checkoutIntegrations.length > 0
 ```
 
-**Mutation salvar template:**
-```text
-supabase.from("push_templates").insert({ nome, titulo, mensagem, url, icon_url })
-```
+Isso garante que o Shopify so conta como ativo se:
+1. O registro existe
+2. O campo `ativo` e explicitamente `true`
+3. Possui um `access_token` configurado (integracao real)
 
-**Mutation excluir template:**
-```text
-supabase.from("push_templates").delete().eq("id", templateId)
-```
+Os checkout_integrations ja estao filtrados corretamente pela query (filtra por `ativo=true`).
 
-**UI do seletor:**
-- Select com placeholder "Selecionar template..."
-- Opção vazia para limpar seleção
-- Ao selecionar: setPushTitle, setPushBody, setPushUrl, setPushIcon com valores do template
-
-**Botões no card:**
-- Layout: dois botões lado a lado no final do card
-  - "Salvar Template" (variante outline, ícone Save)
-  - "Enviar para X inscritos" (variante default, ícone Send) -- mantém como está
-
+## Arquivo alterado
+- `src/pages/Dashboard.tsx` - Linha 123: ajuste na condicao `webhookAtivo`
