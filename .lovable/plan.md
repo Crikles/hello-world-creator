@@ -1,113 +1,89 @@
 
 
-# Automacao Server-Side: Delays + Sistema Funcionando com Computador Desligado
+# Plano: Corrigir Push Notifications para 100% de Envio
 
-## Problema Central
+## Problemas Identificados
 
-Atualmente, **todo o processamento de envios acontece no navegador do usuario**. Se o computador estiver desligado ou o navegador fechado, nada acontece:
-- Os delays (dias) configurados no fluxo nao sao respeitados automaticamente
-- O AUTO so funciona enquanto a aba esta aberta
-- Nenhum envio avanca sozinho
+1. **Duas notificacoes duplicadas no navegador**: O componente `PushNotificationPrompt` (push) e `InstallAppPrompt` (PWA install) aparecem simultaneamente na pagina de Rastreio com a mesma mensagem "Fique por dentro!", causando dois banners sobrepostos.
+
+2. **Falha no envio de push (0 enviados, todas falhas)**: A funcao `send-push-notification` usa `crypto.subtle.importKey("pkcs8", ...)` para importar a chave VAPID privada, mas chaves VAPID sao tipicamente raw EC keys de 32 bytes (formato JWK ou raw), nao formato PKCS8. Isso causa erro na assinatura do JWT e falha em todos os envios.
+
+3. **iOS requer PWA instalado primeiro**: No iOS, Web Push so funciona quando o app esta instalado como PWA (adicionado a Tela de Inicio). O fluxo atual mostra o prompt de push antes da instalacao do PWA.
 
 ## Solucao
 
-Criar uma **Edge Function cron** (funcao backend) que roda automaticamente a cada 5 minutos, 24h por dia, independente do computador do usuario. Essa funcao:
+### Tarefa 1: Unificar os dois prompts em um unico componente
 
-1. **Auto-inicia** novos pedidos (equivalente ao botao AUTO)
-2. **Avanca** envios cujo delay ja expirou (respeita os dias configurados)
-3. Funciona mesmo com o computador desligado
+Mesclar `PushNotificationPrompt` e `InstallAppPrompt` em um unico componente inteligente:
 
-## Alteracoes
+- **Android/Chrome**: Mostrar um unico banner que pede permissao de notificacao push diretamente (sem necessidade de instalar PWA para push funcionar no Android)
+- **iOS Safari**: Mostrar um unico banner que guia o usuario a instalar o PWA primeiro (Adicionar a Tela de Inicio), porque push so funciona em PWA no iOS
+- **Se ja instalado/permitido**: Nao mostrar nada
+- Usar um unico localStorage key para controlar se ja foi exibido
+- Remover o componente `PushNotificationPrompt` separado
+- Atualizar `InstallAppPrompt` para ser o unico componente, incorporando a logica de push subscription
 
-### 1. Nova Edge Function: `advance-shipments`
+No `Rastreio.tsx`, remover o import/uso de `PushNotificationPrompt` e manter apenas o componente unificado.
 
-Funcao backend que roda via cron a cada 5 minutos:
+### Tarefa 2: Corrigir o formato da chave VAPID na Edge Function
 
-```text
-Para cada loja que tem postagem configurada:
-  1. Busca envios pendentes (ultimo_evento_ordem = 0, status = pendente)
-     -> Se a loja tem AUTO ativado, inicia automaticamente
-  2. Busca envios em andamento (status != entregue, proximo_avanco_em <= now())
-     -> Avanca para o proximo evento
-  3. Respeita 100% os delays configurados (delay_horas)
-  4. Processa 1 envio por vez com intervalo para nao sobrecarregar
-```
-
-A logica de avanco (debitar creditos, enviar email, enviar SMS) sera replicada do `email-trigger.ts` diretamente na Edge Function, usando o Supabase service role key para operar sem depender de sessao de usuario.
-
-### 2. Coluna `auto_envio` na tabela `postagem_config`
-
-Adicionar uma coluna booleana para persistir o estado do AUTO no banco de dados (atualmente so existe no state do React e se perde ao fechar a pagina):
-
-```sql
-ALTER TABLE postagem_config ADD COLUMN auto_envio boolean DEFAULT false;
-```
-
-### 3. Cron Job via pg_cron + pg_net
-
-Habilitar as extensoes `pg_cron` e `pg_net` e criar um job que chama a Edge Function a cada 5 minutos:
+O problema principal de 0% de envio esta na funcao `createVapidJwt` dentro de `send-push-notification/index.ts`:
 
 ```text
-Cada 5 minutos -> HTTP POST -> advance-shipments
-  -> Busca todas as lojas com postagem configurada
-  -> Para cada loja, processa envios elegiveis
+Atual (falha):
+  crypto.subtle.importKey("pkcs8", rawBytes, ...)
+
+Correto:
+  crypto.subtle.importKey("jwk", { kty: "EC", crv: "P-256", d: base64url_key, x: ..., y: ... }, ...)
 ```
 
-### 4. Atualizar `src/pages/Envios.tsx`
+A correcao envolve:
+- Converter a chave VAPID privada (raw 32 bytes base64url) para formato JWK antes de importar
+- Derivar os componentes x/y da chave publica VAPID para montar o JWK completo
+- Alternativamente, usar importacao "raw" com wrapping manual para ECDSA P-256
+- Corrigir tambem o formato da assinatura ECDSA: Web Crypto retorna assinatura DER, mas VAPID precisa de assinatura raw r||s (64 bytes)
 
-- O switch AUTO agora salva/le do banco de dados (`postagem_config.auto_envio`)
-- Quando o usuario ativa o AUTO, ele persiste mesmo com o computador desligado
-- Os botoes INICIAR PENDENTES e AVANCAR TODOS continuam funcionando como acoes manuais imediatas
+### Tarefa 3: Limpar subscricoes invalidas e re-deploy
 
-### 5. Corrigir `proximo_avanco_em` nos envios existentes
-
-Os envios existentes tem `proximo_avanco_em = null` mesmo estando em andamento. A Edge Function tratara `null` como "pode avancar agora" para compatibilidade retroativa.
-
-## Como vai funcionar na pratica
-
-```text
-Usuario configura o fluxo:
-  Evento 1: Nota Fiscal (0 dias)
-  Evento 2: Coletado (1 dia)
-  Evento 3: Em Transito (2 dias)
-  Evento 4: Centro Local (5 dias)
-  Evento 5: Saiu para Entrega (1 dia)
-  Evento 6: Entregue (0 dias)
-
-Dia 0: Pedido chega via webhook -> AUTO inicia (Evento 1)
-        proximo_avanco_em = agora + 24h
-Dia 1: Cron detecta delay expirou -> Avanca (Evento 2)
-        proximo_avanco_em = agora + 48h
-Dia 3: Cron detecta delay expirou -> Avanca (Evento 3)
-        proximo_avanco_em = agora + 120h
-Dia 8: Cron detecta delay expirou -> Avanca (Evento 4)
-        ...e assim por diante
-```
-
-Tudo isso acontece **sem o computador ligado**.
+- Fazer deploy da edge function corrigida `send-push-notification`
+- Testar o envio chamando a funcao via curl para validar que o push chega
 
 ## Detalhes Tecnicos
 
-### Edge Function `advance-shipments`
+### Formato correto do VAPID JWT signing:
 
-- Usa `SUPABASE_SERVICE_ROLE_KEY` para operar sem autenticacao de usuario
-- Processa lojas sequencialmente para evitar sobrecarga
-- Limite de 50 envios por execucao (a cada 5 min processa mais)
-- Logs detalhados para debug
-- Reutiliza a logica de debito de creditos, envio de email e SMS
-- Nao gera DANFE/PDF (isso requer DOM do navegador, sera pulado no cron -- a NF-e so e gerada quando o usuario dispara manualmente ou via webhook)
+```typescript
+// Importar chave privada VAPID (32 bytes raw) como JWK
+const privateKeyBytes = urlBase64ToUint8Array(vapidPrivateKey);
+const publicKeyBytes = urlBase64ToUint8Array(vapidPublicKey);
 
-### Cron Job
+// Extrair x e y da chave publica (65 bytes: 0x04 || x[32] || y[32])
+const x = uint8ArrayToUrlBase64(publicKeyBytes.slice(1, 33));
+const y = uint8ArrayToUrlBase64(publicKeyBytes.slice(33, 65));
+const d = uint8ArrayToUrlBase64(privateKeyBytes);
 
-```text
-Frequencia: */5 * * * * (a cada 5 minutos)
-Metodo: HTTP POST via pg_net
-Endpoint: /functions/v1/advance-shipments
+const jwk = { kty: "EC", crv: "P-256", x, y, d, ext: true };
+const cryptoKey = await crypto.subtle.importKey(
+  "jwk", jwk,
+  { name: "ECDSA", namedCurve: "P-256" },
+  false, ["sign"]
+);
+
+// Assinatura: converter DER para raw r||s
+const derSig = new Uint8Array(await crypto.subtle.sign(
+  { name: "ECDSA", hash: "SHA-256" }, cryptoKey, data
+));
+const rawSig = derToRaw(derSig); // extrair r(32) || s(32)
 ```
 
-### Arquivos modificados
+### Componente unificado - logica de fluxo:
 
-1. `supabase/functions/advance-shipments/index.ts` -- Nova Edge Function (cron)
-2. `src/pages/Envios.tsx` -- AUTO salva no banco, nao apenas no state
-3. Migracao SQL -- Coluna `auto_envio` + cron job + extensoes
+```text
+1. Verificar se ja esta instalado (standalone) ou ja foi dismissado -> nao mostrar
+2. Verificar plataforma:
+   a. iOS: Mostrar banner "Instale o app" com guia Safari
+   b. Android/Desktop: Mostrar banner "Ative notificacoes"
+      -> Ao aceitar: requestPermission() + pushManager.subscribe() + salvar no backend
+3. Salvar estado no localStorage para nao repetir
+```
 
