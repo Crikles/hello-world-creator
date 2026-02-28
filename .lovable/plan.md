@@ -1,111 +1,113 @@
 
 
-# Corrigir botoes AUTO, INICIAR PENDENTES e AVANCAR TODOS + Respeitar delays do fluxo
+# Automacao Server-Side: Delays + Sistema Funcionando com Computador Desligado
 
-## Problemas identificados
+## Problema Central
 
-1. **AUTO** -- Quando ativado, dispara todos os eventos sem parar. Nao respeita os delays (dias) configurados no fluxo de postagem.
-2. **INICIAR PENDENTES** -- Avanca qualquer envio, deveria apenas iniciar envios com `ultimo_evento_ordem = 0` (pendentes na estaca zero).
-3. **AVANCAR TODOS** -- Envia tudo de uma vez sem intervalo. Deveria avancar 1 envio de cada vez com intervalo de 1 minuto entre cada.
-4. **Delays do fluxo** -- Os dias setados nos eventos (`delay_horas`) nao sao respeitados. O sistema deveria verificar se ja passou o tempo necessario antes de avancar.
+Atualmente, **todo o processamento de envios acontece no navegador do usuario**. Se o computador estiver desligado ou o navegador fechado, nada acontece:
+- Os delays (dias) configurados no fluxo nao sao respeitados automaticamente
+- O AUTO so funciona enquanto a aba esta aberta
+- Nenhum envio avanca sozinho
 
-## Arquitetura da solucao
+## Solucao
 
-O campo `delay_horas` nos eventos define quantas horas devem passar antes de avancar para aquele evento. Precisamos:
+Criar uma **Edge Function cron** (funcao backend) que roda automaticamente a cada 5 minutos, 24h por dia, independente do computador do usuario. Essa funcao:
 
-1. Adicionar uma coluna `proximo_avanco_em` (timestamptz) na tabela `envios` para registrar quando o envio pode avancar novamente.
-2. Ao avancar um envio, calcular o proximo horario permitido com base no `delay_horas` do proximo evento e gravar em `proximo_avanco_em`.
-3. Bloquear o avanco se `now() < proximo_avanco_em`.
+1. **Auto-inicia** novos pedidos (equivalente ao botao AUTO)
+2. **Avanca** envios cujo delay ja expirou (respeita os dias configurados)
+3. Funciona mesmo com o computador desligado
 
 ## Alteracoes
 
-### 1. Migracao no banco de dados
+### 1. Nova Edge Function: `advance-shipments`
 
-Adicionar coluna `proximo_avanco_em` na tabela `envios`:
+Funcao backend que roda via cron a cada 5 minutos:
+
+```text
+Para cada loja que tem postagem configurada:
+  1. Busca envios pendentes (ultimo_evento_ordem = 0, status = pendente)
+     -> Se a loja tem AUTO ativado, inicia automaticamente
+  2. Busca envios em andamento (status != entregue, proximo_avanco_em <= now())
+     -> Avanca para o proximo evento
+  3. Respeita 100% os delays configurados (delay_horas)
+  4. Processa 1 envio por vez com intervalo para nao sobrecarregar
+```
+
+A logica de avanco (debitar creditos, enviar email, enviar SMS) sera replicada do `email-trigger.ts` diretamente na Edge Function, usando o Supabase service role key para operar sem depender de sessao de usuario.
+
+### 2. Coluna `auto_envio` na tabela `postagem_config`
+
+Adicionar uma coluna booleana para persistir o estado do AUTO no banco de dados (atualmente so existe no state do React e se perde ao fechar a pagina):
 
 ```sql
-ALTER TABLE public.envios 
-  ADD COLUMN proximo_avanco_em timestamptz;
+ALTER TABLE postagem_config ADD COLUMN auto_envio boolean DEFAULT false;
 ```
 
-### 2. `src/lib/email-trigger.ts` -- Respeitar delay do fluxo
+### 3. Cron Job via pg_cron + pg_net
 
-Antes de avancar, verificar:
-- Se o envio tem `proximo_avanco_em` no futuro, retornar null (nao avancar)
-- Apos avancar, buscar o proximo evento (o que viria depois) e calcular `proximo_avanco_em = now() + delay_horas do proximo evento`
-- Gravar `proximo_avanco_em` junto com a atualizacao de status
+Habilitar as extensoes `pg_cron` e `pg_net` e criar um job que chama a Edge Function a cada 5 minutos:
 
 ```text
-// Pseudo-logica adicionada:
-if (shipment.proximo_avanco_em && new Date(shipment.proximo_avanco_em) > new Date()) {
-    return null;  // Ainda nao pode avancar
-}
-
-// Apos avancar para nextEvent, calcular proximo delay:
-const followingEvent = allEvents.find(e => e.ordem > nextEvent.ordem);
-const proximoAvancoEm = followingEvent 
-    ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
-    : null;
-
-// Salvar junto no update:
-.update({ 
-    ultimo_evento_ordem: nextEvent.ordem,
-    status: newStatus,
-    status_label: nextEvent.status_label,
-    proximo_avanco_em: proximoAvancoEm
-})
+Cada 5 minutos -> HTTP POST -> advance-shipments
+  -> Busca todas as lojas com postagem configurada
+  -> Para cada loja, processa envios elegiveis
 ```
 
-### 3. `src/pages/Envios.tsx` -- Corrigir os 3 botoes
+### 4. Atualizar `src/pages/Envios.tsx`
 
-**AUTO:**
-- Ativar listener realtime que detecta novos envios (status pendente, ultimo_evento_ordem = 0)
-- Quando detecta um novo, dispara apenas o primeiro evento (iniciar)
-- NAO fica em loop avancando todos. Apenas inicia novos pedidos que chegam.
+- O switch AUTO agora salva/le do banco de dados (`postagem_config.auto_envio`)
+- Quando o usuario ativa o AUTO, ele persiste mesmo com o computador desligado
+- Os botoes INICIAR PENDENTES e AVANCAR TODOS continuam funcionando como acoes manuais imediatas
 
-**INICIAR PENDENTES:**
-- Filtrar APENAS envios com `ultimo_evento_ordem === 0` (ou null)
-- Avancar apenas esses (dar o primeiro passo)
+### 5. Corrigir `proximo_avanco_em` nos envios existentes
 
-**AVANCAR TODOS:**
-- Filtrar envios que nao estao entregues E que ja podem avancar (`proximo_avanco_em` no passado ou null)
-- Processar 1 por vez com intervalo de 1 minuto (60 segundos) entre cada
-- Mostrar progresso visual (ex: "Avancando 3/15...")
-- Permitir cancelar o processo
+Os envios existentes tem `proximo_avanco_em = null` mesmo estando em andamento. A Edge Function tratara `null` como "pode avancar agora" para compatibilidade retroativa.
 
-### 4. Detalhes tecnicos da implementacao
-
-**batchAdvance refatorado:**
+## Como vai funcionar na pratica
 
 ```text
-// INICIAR PENDENTES
-batchAdvance("pendentes") => filtra (e.ultimo_evento_ordem ?? 0) === 0
-  -> avanca todos de uma vez (sao apenas inicializacoes)
+Usuario configura o fluxo:
+  Evento 1: Nota Fiscal (0 dias)
+  Evento 2: Coletado (1 dia)
+  Evento 3: Em Transito (2 dias)
+  Evento 4: Centro Local (5 dias)
+  Evento 5: Saiu para Entrega (1 dia)
+  Evento 6: Entregue (0 dias)
 
-// AVANCAR TODOS  
-batchAdvance("todos") => filtra status !== "entregue" && canAdvanceNow(e)
-  -> processa sequencialmente com setTimeout de 60s entre cada
-  -> estado: { processing: true, current: 3, total: 15 }
-  -> botao mostra "Avancando 3/15..." com opcao de cancelar
-
-// canAdvanceNow verifica:
-  -> proximo_avanco_em === null || new Date(proximo_avanco_em) <= new Date()
+Dia 0: Pedido chega via webhook -> AUTO inicia (Evento 1)
+        proximo_avanco_em = agora + 24h
+Dia 1: Cron detecta delay expirou -> Avanca (Evento 2)
+        proximo_avanco_em = agora + 48h
+Dia 3: Cron detecta delay expirou -> Avanca (Evento 3)
+        proximo_avanco_em = agora + 120h
+Dia 8: Cron detecta delay expirou -> Avanca (Evento 4)
+        ...e assim por diante
 ```
 
-**AUTO refatorado:**
+Tudo isso acontece **sem o computador ligado**.
+
+## Detalhes Tecnicos
+
+### Edge Function `advance-shipments`
+
+- Usa `SUPABASE_SERVICE_ROLE_KEY` para operar sem autenticacao de usuario
+- Processa lojas sequencialmente para evitar sobrecarga
+- Limite de 50 envios por execucao (a cada 5 min processa mais)
+- Logs detalhados para debug
+- Reutiliza a logica de debito de creditos, envio de email e SMS
+- Nao gera DANFE/PDF (isso requer DOM do navegador, sera pulado no cron -- a NF-e so e gerada quando o usuario dispara manualmente ou via webhook)
+
+### Cron Job
 
 ```text
-// Quando AUTO esta ativo:
-useEffect que escuta insercoes na tabela envios (realtime)
-  -> se novo envio com ultimo_evento_ordem = 0
-  -> triggerNextEmail(envio.id, loja.id) -- apenas 1 avanco (iniciar)
-  -> NAO faz loop
+Frequencia: */5 * * * * (a cada 5 minutos)
+Metodo: HTTP POST via pg_net
+Endpoint: /functions/v1/advance-shipments
 ```
 
-## Resultado esperado
+### Arquivos modificados
 
-- **AUTO**: Apenas inicia automaticamente novos pedidos que chegam. Nao avanca alem do primeiro passo.
-- **INICIAR PENDENTES**: So toca em envios na estaca zero. Um clique = todos os pendentes iniciam.
-- **AVANCAR TODOS**: Avanca 1 envio por minuto, respeitando os delays configurados no fluxo.
-- **Delays**: O campo `delay_horas` de cada evento e respeitado. Se um evento tem delay de 48h (2 dias), o envio so avanca apos 48h terem passado.
+1. `supabase/functions/advance-shipments/index.ts` -- Nova Edge Function (cron)
+2. `src/pages/Envios.tsx` -- AUTO salva no banco, nao apenas no state
+3. Migracao SQL -- Coluna `auto_envio` + cron job + extensoes
 
