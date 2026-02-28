@@ -595,7 +595,7 @@ export default function Envios() {
                         size="icon"
                         className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
                         title="Rastreio"
-                        onClick={() => window.open(`${window.location.origin}/r/${envio.codigo_rastreio}`, '_blank')}
+                        onClick={() => window.open(`https://rastreio.logisticajltransportes.com/r/${envio.codigo_rastreio}`, '_blank')}
                       >
                         <ExternalLink className="h-3 w-3" />
                       </Button>
@@ -606,7 +606,7 @@ export default function Envios() {
                         size="icon"
                         className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
                         title="Taxação"
-                        onClick={() => window.open(`${window.location.origin}/p/${envio.id}`, '_blank')}
+                        onClick={() => window.open(`https://rastreio.logisticajltransportes.com/p/${envio.id}`, '_blank')}
                       >
                         <CreditCard className="h-3 w-3" />
                       </Button>
