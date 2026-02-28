@@ -611,6 +611,8 @@ Deno.serve(async (req) => {
     let fromName = "Loja";
     let empresaLogoUrl = "";
     let empresaNome = "Loja";
+
+    // Tentar por empresa_id primeiro
     if (envio.empresa_id) {
       const { data: empresa } = await supabase
         .from("empresas")
@@ -618,6 +620,20 @@ Deno.serve(async (req) => {
         .eq("id", envio.empresa_id)
         .single();
 
+      if (empresa) {
+        fromName = empresa.nome_fantasia || empresa.razao_social || "Loja";
+        empresaNome = fromName;
+        empresaLogoUrl = empresa.logo_url || "";
+      }
+    }
+
+    // Fallback: buscar por loja_id se empresa_id nao existir ou nao retornou dados
+    if (empresaNome === "Loja" && envio.loja_id) {
+      const { data: empresa } = await supabase
+        .from("empresas")
+        .select("nome_fantasia, razao_social, logo_url")
+        .eq("loja_id", envio.loja_id)
+        .maybeSingle();
       if (empresa) {
         fromName = empresa.nome_fantasia || empresa.razao_social || "Loja";
         empresaNome = fromName;
