@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
 import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
+import { generateDanfePdfBase64 } from "@/lib/nfe-utils";
+import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
 function formatProduto(raw: string): string {
   try {
@@ -70,6 +72,54 @@ export default function Envios() {
   const [, setTick] = useState(0);
   const queryClient = useQueryClient();
   const { loja } = useLoja();
+  const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
+
+  const handleDownloadNfe = useCallback(async (envio: any) => {
+    if (!loja?.id) return;
+    setDownloadingNfe(envio.id);
+    try {
+      const { data: empresa } = await supabase
+        .from("empresas")
+        .select("*")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+
+      const empresaData: EmpresaData = empresa || {
+        razao_social: "Empresa",
+        cnpj: "00.000.000/0000-00",
+      };
+
+      const envioData: EnvioData = {
+        cliente_nome: envio.cliente_nome,
+        cliente_cpf: envio.cliente_cpf,
+        cliente_endereco: envio.cliente_endereco,
+        cliente_numero: envio.cliente_numero,
+        cliente_bairro: envio.cliente_bairro,
+        cliente_cidade: envio.cliente_cidade,
+        cliente_estado: envio.cliente_estado,
+        cliente_cep: envio.cliente_cep,
+        cliente_telefone: envio.cliente_telefone,
+        produto: envio.produto,
+        quantidade: envio.quantidade,
+        valor: envio.valor,
+        cfop: envio.cfop,
+        ncm_sh: envio.ncm_sh,
+        cst: envio.cst,
+        unidade: envio.unidade,
+      };
+
+      const base64 = await generateDanfePdfBase64(empresaData, envioData);
+      const link = document.createElement("a");
+      link.href = `data:application/pdf;base64,${base64}`;
+      link.download = `DANFE_${envio.cliente_nome.replace(/\s+/g, "_")}.pdf`;
+      link.click();
+      toast.success("DANFE baixada com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao gerar DANFE: " + (err.message || "erro desconhecido"));
+    } finally {
+      setDownloadingNfe(null);
+    }
+  }, [loja?.id]);
 
   // Force re-render every second for countdown display
   useEffect(() => {
@@ -417,9 +467,10 @@ export default function Envios() {
                     variant="ghost"
                     size="sm"
                     className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
-                    onClick={() => window.open(`${window.location.origin}/danfe/${envio.id}`, '_blank')}
+                    disabled={downloadingNfe === envio.id}
+                    onClick={() => handleDownloadNfe(envio)}
                   >
-                    <FileText className="h-3 w-3 mr-1" /> NF-e
+                    <FileText className="h-3 w-3 mr-1" /> {downloadingNfe === envio.id ? "Gerando..." : "NF-e"}
                   </Button>
                   <div className="ml-auto flex items-center gap-0.5">
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1 mr-1">
