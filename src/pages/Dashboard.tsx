@@ -120,7 +120,7 @@ export default function Dashboard() {
 
   const smsAtivo = postagemConfig?.ativar_site_rastreio ?? false;
   const emailAtivo = postagemConfig?.enviar_emails ?? false;
-  const webhookAtivo = (!!shopifyConfig && (shopifyConfig as any).ativo !== false) || checkoutIntegrations.length > 0;
+  const webhookAtivo = (!!shopifyConfig && (shopifyConfig as any).ativo === true && !!(shopifyConfig as any).access_token) || checkoutIntegrations.length > 0;
 
   const total = envios.length;
   const pendentes = envios.filter((e) => e.status === "pendente").length;
