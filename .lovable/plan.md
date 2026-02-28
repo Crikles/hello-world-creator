@@ -1,63 +1,46 @@
 
-# Corrigir cobranca de precos personalizados no avanço automático
+# Adicionar funcionalidade de Bloquear/Excluir usuários no painel admin
 
-## Problema encontrado
+## Visao geral
 
-Existem **dois caminhos** que avançam envios e debitam moedas:
+Adicionar botoes de "Bloquear" e "Excluir" na tabela de usuarios do painel admin (`AdminUsuarios.tsx`), com uma Edge Function no backend para executar essas operacoes de forma segura usando o service_role.
 
-1. **Client-side** (`src/lib/email-trigger.ts`) -- Busca `custom_prices` do perfil do usuario e aplica corretamente. Funciona bem.
+## 1. Adicionar coluna `blocked` na tabela `profiles`
 
-2. **Edge Function** (`supabase/functions/advance-shipments/index.ts`) -- Busca apenas os precos globais da tabela `system_config` e **ignora completamente** os precos personalizados do usuario. Este e o caminho usado pelo cron automatico.
+Nova migration para adicionar o campo que controla se o usuario esta bloqueado:
 
-Ou seja, quando o avanço e feito automaticamente (cron), o usuario e cobrado pelo preco global, nao pelo personalizado.
-
-## Solucao
-
-Alterar a edge function `advance-shipments` para buscar o `custom_prices` do perfil do usuario e sobrescrever os valores globais quando existirem precos personalizados.
-
-## Alteracao tecnica
-
-**Arquivo**: `supabase/functions/advance-shipments/index.ts`
-
-Dentro do loop principal (por config/loja), apos buscar os custos globais do `system_config`, adicionar:
-
-1. Buscar `custom_prices` do perfil do usuario (`profiles.custom_prices` onde `id = lojaUserId`)
-2. Sobrescrever os valores do `costMap` com os precos personalizados quando existirem
-
-Trecho atual (linhas 348-354):
-```text
-// Fetch costs
-const { data: costs } = await supabase
-  .from("system_config")
-  .select("key, value");
-
-const costMap: Record<string, number> = {};
-if (costs) for (const c of costs) costMap[c.key] = Number(c.value);
+```sql
+ALTER TABLE public.profiles ADD COLUMN blocked boolean NOT NULL DEFAULT false;
 ```
 
-Sera alterado para:
-```text
-// Fetch global costs
-const { data: costs } = await supabase
-  .from("system_config")
-  .select("key, value");
+## 2. Criar Edge Function `admin-manage-user`
 
-const costMap: Record<string, number> = {};
-if (costs) for (const c of costs) costMap[c.key] = Number(c.value);
+Nova edge function em `supabase/functions/admin-manage-user/index.ts` que recebe:
+- `action`: `"block"` | `"unblock"` | `"delete"`
+- `target_user_id`: ID do usuario alvo
 
-// Apply custom per-user prices if configured
-const { data: profileData } = await supabase
-  .from("profiles")
-  .select("custom_prices")
-  .eq("id", lojaUserId)
-  .single();
+A funcao vai:
+- Verificar se o chamador e admin (consultando `user_roles`)
+- Impedir que o admin exclua/bloqueie a si mesmo
+- **Bloquear**: Atualizar `profiles.blocked = true` e invalidar a sessao do usuario via `auth.admin.updateUserById(id, { banned_until: 'forever' })`
+- **Desbloquear**: Atualizar `profiles.blocked = false` e remover o ban via `auth.admin.updateUserById(id, { banned_until: null })`
+- **Excluir**: Remover o usuario completamente via `auth.admin.deleteUser(id)` (isso cascadeia para profiles, user_roles, creditos, etc. devido aos FK com `ON DELETE CASCADE` no auth.users)
 
-const customPrices = (profileData?.custom_prices as Record<string, number>) || {};
-for (const [key, val] of Object.entries(customPrices)) {
-  if (val !== undefined && val !== null) {
-    costMap[key] = Number(val);
-  }
-}
-```
+## 3. Atualizar a pagina `AdminUsuarios.tsx`
 
-Isso garante que tanto o fluxo manual quanto o automatico respeitam os precos personalizados por usuario.
+Adicionar na tabela de usuarios:
+- Coluna "Status" mostrando badge "Ativo" (verde) ou "Bloqueado" (vermelho)
+- Botoes de acao: "Bloquear/Desbloquear" e "Excluir"
+- Dialog de confirmacao com AlertDialog antes de excluir (acao irreversivel)
+- Dialog de confirmacao antes de bloquear
+
+## 4. Verificar bloqueio no login
+
+Atualizar o `AuthContext.tsx` ou a pagina de `Login.tsx` para verificar se o usuario esta bloqueado apos o login e, se estiver, fazer signOut automatico e exibir mensagem de erro.
+
+## Detalhes tecnicos
+
+- A exclusao de usuario via `auth.admin.deleteUser()` requer `SUPABASE_SERVICE_ROLE_KEY` (ja configurado nos secrets)
+- O ban via `auth.admin.updateUserById()` impede o usuario de fazer login mesmo com credenciais validas
+- Tabelas relacionadas sem `ON DELETE CASCADE` (lojas, envios, etc.) precisarao de limpeza manual na edge function antes de deletar o usuario
+- A interface UserRow ganhara o campo `blocked: boolean`
