@@ -1,38 +1,64 @@
 
+# Fix: Loading infinito no AuthContext
 
-# Botao "Forcar Avanco" individual por envio
+## Problema raiz
 
-## Resumo
-Adicionar um botao de "Forcar Avanco" em cada envio que ignora o delay do evento atual (`proximo_avanco_em`), mas ainda calcula e define o delay correto para o proximo evento futuro.
+O `onAuthStateChange` faz uma query async (verificacao de `blocked`) dentro do listener. Isso causa:
 
-## Alteracoes
+1. Evento `SIGNED_IN` dispara -> seta `loading=true` -> inicia query async ao banco
+2. Outros eventos auth (`TOKEN_REFRESHED`, `INITIAL_SESSION`) podem disparar durante a query e sao bloqueados pelo guard `isCheckingBlocked`
+3. Se multiplos eventos se cruzam, `loading` fica preso em `true` para sempre
+4. `ProtectedRoute` ve `loading=true` e mostra spinner infinito
 
-### 1. `src/lib/email-trigger.ts`
-- Adicionar um novo parametro `forceAdvance: boolean = false` na funcao `triggerNextEmail`
-- Na verificacao de delay (linhas 32-36), se `forceAdvance` for `true`, pular o bloqueio por `proximo_avanco_em`
-- O calculo de `proximoAvancoEm` para o evento seguinte (linhas 166-169) permanece inalterado, garantindo que o proximo evento respeite seu delay normalmente
+## Solucao
 
-### 2. `src/pages/Envios.tsx`
-- Criar uma nova mutation `forceAdvanceMutation` que chama `triggerNextEmail(envioId, loja.id, false, true)` (com `forceAdvance = true`)
-- No botao de avanco individual de cada envio, quando `canAdvanceNow(e)` retornar `false` (delay ainda ativo), exibir um botao alternativo com icone diferente (ex: `Zap`) e titulo "Forcar Avanco" que usa a mutation de forca
-- O botao normal de avanco (FastForward) continua funcionando quando o delay ja expirou
+Simplificar o `onAuthStateChange` para **nunca fazer operacoes async**. Ele deve apenas atualizar o state de forma sincrona. A verificacao de `blocked` ja e feita em dois lugares seguros:
 
-## Detalhes Tecnicos
+- **Login.tsx**: verifica `blocked` antes de navegar (ja implementado)
+- **getSession**: verifica `blocked` na carga inicial (ja implementado)
 
-**Assinatura atualizada:**
+## Alteracao
+
+**Arquivo**: `src/contexts/AuthContext.tsx`
+
+Reescrever o `useEffect` para:
+
 ```text
-triggerNextEmail(envioId, lojaId, forceSendEmail = false, forceAdvance = false)
+useEffect(() => {
+  // 1. Listener simples e sincrono - sem queries async
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    }
+  );
+
+  // 2. Carga inicial com verificacao de blocked
+  supabase.auth.getSession().then(async ({ data: { session } }) => {
+    if (session?.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("blocked")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      if (profile?.blocked) {
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+    }
+    setSession(session);
+    setUser(session?.user ?? null);
+    setLoading(false);
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
 ```
 
-**Logica de skip do delay:**
-```text
-// Linha 32-36 atualizada:
-if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
-  return null;  // bloqueado pelo delay
-}
-```
-
-**UI - botao condicional por envio:**
-- Se `canAdvanceNow(e)` = true: mostra botao normal (FastForward)
-- Se `canAdvanceNow(e)` = false E envio nao esta entregue: mostra botao "Forcar" (Zap) com cor de destaque (amarelo/warning)
-- Os botoes "Avancar Todos" e "Iniciar Pendentes" continuam respeitando o delay normalmente
+Mudancas principais:
+- Remover toda logica de `isCheckingBlocked` e query async do `onAuthStateChange`
+- Listener apenas sincroniza o state
+- Trocar `.single()` por `.maybeSingle()` no `getSession` para evitar erro se perfil nao existir
+- Manter a verificacao de `blocked` no Login.tsx (ja existente) e no `getSession` (carga inicial)
