@@ -20,10 +20,10 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const lojaSlug = url.searchParams.get("loja");
+    const token = url.searchParams.get("token");
 
-    if (!lojaSlug) {
-      return new Response(JSON.stringify({ error: "Missing 'loja' query parameter" }), {
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Missing 'token' query parameter" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -35,11 +35,11 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Resolve loja by slug
+    // Resolve loja by webhook_token
     const { data: lojaData, error: lojaError } = await supabase
       .from("lojas")
       .select("id")
-      .eq("slug", lojaSlug)
+      .eq("webhook_token", token)
       .maybeSingle();
 
     if (lojaError || !lojaData) {

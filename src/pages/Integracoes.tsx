@@ -66,8 +66,8 @@ export default function Integracoes() {
   });
 
   const getWebhookUrl = (checkout: typeof checkouts[0]) => {
-    const slug = loja?.slug || "SUA_LOJA";
-    return `${WEBHOOK_BASE}/${checkout.webhookFn}?loja=${slug}`;
+    const token = loja?.webhook_token || "SEU_TOKEN";
+    return `${WEBHOOK_BASE}/${checkout.webhookFn}?token=${token}`;
   };
 
   const copyWebhook = async (checkout: typeof checkouts[0]) => {

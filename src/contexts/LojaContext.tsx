@@ -8,6 +8,7 @@ interface Loja {
   user_id: string;
   nome: string;
   slug: string;
+  webhook_token: string;
   created_at: string;
   updated_at: string;
 }
