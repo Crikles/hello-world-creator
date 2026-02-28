@@ -1,0 +1,1 @@
+ALTER TABLE public.envios ADD COLUMN proximo_avanco_em timestamptz;

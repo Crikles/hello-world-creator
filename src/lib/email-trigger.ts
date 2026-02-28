@@ -28,6 +28,13 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             return null;
         }
 
+        // 1.5. Check delay constraint — block if proximo_avanco_em is in the future
+        const proximoAvanco = (shipment as any).proximo_avanco_em;
+        if (proximoAvanco && new Date(proximoAvanco) > new Date()) {
+            console.log("Trigger skip: delay not elapsed yet for envio", envioId, "next advance at", proximoAvanco);
+            return null;
+        }
+
         // 2. Fetch store configuration
         const { data: config, error: cErr } = await supabase
             .from("postagem_config")
@@ -143,14 +150,21 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             newStatus = "em_transito";
         }
 
-        // 6. Update envio with new ordem and status
+        // 6. Calculate proximo_avanco_em based on following event's delay_horas
+        const followingEvent = allEvents.find(e => e.ordem > nextEvent.ordem);
+        const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
+            ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
+            : null;
+
+        // 6b. Update envio with new ordem, status, and next allowed advance time
         const { error: uErr } = await supabase
             .from("envios")
             .update({ 
                 ultimo_evento_ordem: nextEvent.ordem, 
                 status: newStatus,
-                status_label: nextEvent.status_label 
-            })
+                status_label: nextEvent.status_label,
+                proximo_avanco_em: proximoAvancoEm,
+            } as any)
             .eq("id", envioId);
 
         if (uErr) {
