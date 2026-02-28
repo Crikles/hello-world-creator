@@ -315,13 +315,62 @@ function ShopifyCard({ loja }: { loja: any }) {
 }
 
 export default function Integracoes() {
-  const [activeMap, setActiveMap] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const { loja } = useLoja();
+  const queryClient = useQueryClient();
 
-  const toggleCheckout = (id: string) => {
-    setActiveMap((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  // Fetch checkout integration statuses from DB
+  const { data: checkoutStatuses = [] } = useQuery({
+    queryKey: ["checkout-integrations", loja?.id],
+    queryFn: async () => {
+      if (!loja?.id) return [];
+      const { data, error } = await (supabase as any)
+        .from("checkout_integrations")
+        .select("checkout_id, ativo")
+        .eq("loja_id", loja.id);
+      if (error) throw error;
+      return data as { checkout_id: string; ativo: boolean }[];
+    },
+    enabled: !!loja?.id,
+  });
+
+  const activeMap: Record<string, boolean> = {};
+  checkoutStatuses.forEach((s) => { activeMap[s.checkout_id] = s.ativo; });
+
+  // Fetch Shopify status for counter
+  const { data: shopifyConfig } = useQuery({
+    queryKey: ["shopify-integration", loja?.id],
+    queryFn: async () => {
+      if (!loja?.id) return null;
+      const { data, error } = await (supabase as any)
+        .from("shopify_integrations")
+        .select("id, ativo")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!loja?.id,
+  });
+
+  const toggleCheckoutMutation = useMutation({
+    mutationFn: async (checkoutId: string) => {
+      if (!loja?.id) throw new Error("Sem loja");
+      const currentlyActive = !!activeMap[checkoutId];
+      const { error } = await (supabase as any)
+        .from("checkout_integrations")
+        .upsert(
+          { loja_id: loja.id, checkout_id: checkoutId, ativo: !currentlyActive, updated_at: new Date().toISOString() },
+          { onConflict: "loja_id,checkout_id" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checkout-integrations", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["checkout-integrations-dashboard", loja?.id] });
+    },
+    onError: () => toast({ title: "Erro ao alterar status", variant: "destructive" }),
+  });
 
   const getWebhookUrl = (id: string) => {
     const slug = loja?.slug || "SUA_LOJA";
@@ -336,8 +385,11 @@ export default function Integracoes() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const activeCount = Object.values(activeMap).filter(Boolean).length;
-  const inactiveCount = checkouts.length - activeCount;
+  const shopifyActive = !!shopifyConfig && (shopifyConfig as any).ativo !== false;
+  const checkoutActiveCount = Object.values(activeMap).filter(Boolean).length;
+  const activeCount = checkoutActiveCount + (shopifyActive ? 1 : 0);
+  const totalIntegrations = checkouts.length + 1; // +1 for Shopify
+  const inactiveCount = totalIntegrations - activeCount;
 
   return (
     <>
@@ -445,7 +497,7 @@ export default function Integracoes() {
               {/* Toggle */}
               <div className="flex items-center justify-between pt-2 border-t border-border/30">
                 <span className="text-xs text-muted-foreground">Ativar integração</span>
-                <Switch checked={isActive} onCheckedChange={() => toggleCheckout(checkout.id)} />
+                <Switch checked={isActive} onCheckedChange={() => toggleCheckoutMutation.mutate(checkout.id)} disabled={toggleCheckoutMutation.isPending} />
               </div>
             </div>
           );

@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      checkout_integrations: {
+        Row: {
+          ativo: boolean
+          checkout_id: string
+          created_at: string
+          id: string
+          loja_id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          checkout_id: string
+          created_at?: string
+          id?: string
+          loja_id: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          checkout_id?: string
+          created_at?: string
+          id?: string
+          loja_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       creditos: {
         Row: {
           id: string

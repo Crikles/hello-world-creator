@@ -84,6 +84,21 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
+  const { data: checkoutIntegrations = [] } = useQuery({
+    queryKey: ["checkout-integrations-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return [];
+      const { data, error } = await (supabase as any)
+        .from("checkout_integrations")
+        .select("checkout_id, ativo")
+        .eq("loja_id", loja.id)
+        .eq("ativo", true);
+      if (error) throw error;
+      return data as { checkout_id: string; ativo: boolean }[];
+    },
+    enabled: !!loja,
+  });
+
   const clearLogsMutation = useMutation({
     mutationFn: async () => {
       if (!loja) throw new Error("Sem loja");
@@ -105,7 +120,7 @@ export default function Dashboard() {
 
   const smsAtivo = postagemConfig?.ativar_site_rastreio ?? false;
   const emailAtivo = postagemConfig?.enviar_emails ?? false;
-  const webhookAtivo = !!shopifyConfig && (shopifyConfig as any).ativo !== false;
+  const webhookAtivo = (!!shopifyConfig && (shopifyConfig as any).ativo !== false) || checkoutIntegrations.length > 0;
 
   const total = envios.length;
   const pendentes = envios.filter((e) => e.status === "pendente").length;
