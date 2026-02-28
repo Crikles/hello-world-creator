@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isCheckingBlocked) return;
 
       if (event === "SIGNED_IN" && session?.user) {
+        setLoading(true);
         isCheckingBlocked = true;
         const { data: profile } = await supabase
           .from("profiles")
