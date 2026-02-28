@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isLogisticsDomain } from "@/lib/domain-config";
-import { LayoutDashboard, Package, Building2, Plug, Settings, Store, LogOut, Coins, Mail, AlertTriangle, HelpCircle } from "lucide-react";
+import { Gauge, SendHorizonal, Megaphone, ShieldAlert, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
@@ -66,15 +66,15 @@ export function AppSidebar() {
   const base = loja ? `/loja/${loja.id}` : "";
 
   const menuItems = [
-    { title: "Dashboard", url: base, icon: LayoutDashboard },
-    { title: "Envios", url: `${base}/envios`, icon: Package },
-    { title: "Postagens", url: `${base}/postagens`, icon: Mail },
-    { title: "Taxação", url: `${base}/taxacao`, icon: AlertTriangle },
-    { title: "Moedas", url: `${base}/moedas`, icon: Coins },
-    { title: "Empresa", url: `${base}/empresa`, icon: Building2 },
-    { title: "Integrações", url: `${base}/integracoes`, icon: Plug },
-    { title: "Configurações", url: `${base}/configuracoes`, icon: Settings },
-    { title: "Suporte", url: `${base}/suporte`, icon: HelpCircle },
+    { title: "Dashboard", url: base, icon: Gauge },
+    { title: "Envios", url: `${base}/envios`, icon: SendHorizonal },
+    { title: "Postagens", url: `${base}/postagens`, icon: Megaphone },
+    { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
+    { title: "Moedas", url: `${base}/moedas`, icon: CircleDollarSign },
+    { title: "Empresa", url: `${base}/empresa`, icon: Landmark },
+    { title: "Integrações", url: `${base}/integracoes`, icon: Cable },
+    { title: "Configurações", url: `${base}/configuracoes`, icon: SlidersHorizontal },
+    { title: "Suporte", url: `${base}/suporte`, icon: LifeBuoy },
   ];
 
   const handleLogout = async () => {
