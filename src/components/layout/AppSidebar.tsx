@@ -8,6 +8,7 @@ import { useLoja } from "@/contexts/LojaContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import integraxLogo from "@/assets/logo-integrax.jpeg";
 
 // Preload checkout logos so they're cached before user navigates to Integracoes
 import "@/assets/logo-vega.png";
@@ -128,6 +129,28 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-muted-foreground/40 text-[10px] uppercase tracking-[0.15em] font-semibold px-3 mb-1">
+            Parceiros Oficiais
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <a
+              href="https://integrax.app/auth/register?a=0Zleb3"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block mx-3 p-3 rounded-xl glass glow-border-hover transition-all duration-200 group"
+            >
+              <img
+                src={integraxLogo}
+                alt="IntegraX"
+                className="w-full rounded-lg mb-2 group-hover:scale-[1.02] transition-transform"
+              />
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Parceira oficial de envios de SMS para todos os eventos de vendas
+              </p>
+            </a>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
