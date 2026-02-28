@@ -69,6 +69,21 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
+  const { data: shopifyConfig } = useQuery({
+    queryKey: ["shopify-integration-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return null;
+      const { data, error } = await (supabase as any)
+        .from("shopify_integrations")
+        .select("id, access_token")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!loja,
+  });
+
   const clearLogsMutation = useMutation({
     mutationFn: async () => {
       if (!loja) throw new Error("Sem loja");
@@ -90,6 +105,7 @@ export default function Dashboard() {
 
   const smsAtivo = postagemConfig?.ativar_site_rastreio ?? false;
   const emailAtivo = postagemConfig?.enviar_emails ?? false;
+  const webhookAtivo = !!shopifyConfig;
 
   const total = envios.length;
   const pendentes = envios.filter((e) => e.status === "pendente").length;
@@ -244,7 +260,7 @@ export default function Dashboard() {
             {[
               { icon: Mail, label: "Email", sub: emailAtivo ? "Notificações ativas" : "Não configurado", active: emailAtivo },
               { icon: MessageSquare, label: "SMS", sub: smsAtivo ? "Notificações ativas" : "Não configurado", active: smsAtivo },
-              { icon: Package, label: "Webhook", sub: "Não configurado", active: false },
+              { icon: Package, label: "Webhook", sub: webhookAtivo ? "Integração ativa" : "Não configurado", active: webhookAtivo },
             ].map((ch) => (
               <div
                 key={ch.label}
