@@ -1,46 +1,32 @@
 
-# Adicionar funcionalidade de Bloquear/Excluir usuários no painel admin
 
-## Visao geral
+# Fix: Login nao funciona devido a race condition no AuthContext
 
-Adicionar botoes de "Bloquear" e "Excluir" na tabela de usuarios do painel admin (`AdminUsuarios.tsx`), com uma Edge Function no backend para executar essas operacoes de forma segura usando o service_role.
+## Problema
 
-## 1. Adicionar coluna `blocked` na tabela `profiles`
+Quando o usuario faz login:
+1. `signInWithPassword` dispara o evento `SIGNED_IN`
+2. O handler do `onAuthStateChange` inicia uma consulta async ao banco para verificar `blocked`
+3. Enquanto isso, `handleLogin` em Login.tsx chama `navigate("/lojas")`
+4. O `ProtectedRoute` verifica: `user=null` e `loading=false` --> redireciona de volta para `/login`
+5. O usuario nunca consegue passar da tela de login
 
-Nova migration para adicionar o campo que controla se o usuario esta bloqueado:
+## Solucao
 
-```sql
-ALTER TABLE public.profiles ADD COLUMN blocked boolean NOT NULL DEFAULT false;
+No handler do `onAuthStateChange`, setar `loading=true` imediatamente ao receber o evento `SIGNED_IN` antes de fazer a consulta async. Isso faz o `ProtectedRoute` mostrar o spinner enquanto a verificacao de bloqueio ocorre, em vez de redirecionar para `/login`.
+
+## Alteracao
+
+**Arquivo**: `src/contexts/AuthContext.tsx`
+
+Na linha 30, logo apos detectar `event === "SIGNED_IN"`, adicionar `setLoading(true)` antes de setar `isCheckingBlocked`:
+
+```text
+if (event === "SIGNED_IN" && session?.user) {
+  setLoading(true);  // <-- adicionar esta linha
+  isCheckingBlocked = true;
+  ...
 ```
 
-## 2. Criar Edge Function `admin-manage-user`
+Isso garante que o `ProtectedRoute` mostra o spinner enquanto a verificacao de bloqueio esta em andamento, evitando o redirecionamento prematuro para `/login`.
 
-Nova edge function em `supabase/functions/admin-manage-user/index.ts` que recebe:
-- `action`: `"block"` | `"unblock"` | `"delete"`
-- `target_user_id`: ID do usuario alvo
-
-A funcao vai:
-- Verificar se o chamador e admin (consultando `user_roles`)
-- Impedir que o admin exclua/bloqueie a si mesmo
-- **Bloquear**: Atualizar `profiles.blocked = true` e invalidar a sessao do usuario via `auth.admin.updateUserById(id, { banned_until: 'forever' })`
-- **Desbloquear**: Atualizar `profiles.blocked = false` e remover o ban via `auth.admin.updateUserById(id, { banned_until: null })`
-- **Excluir**: Remover o usuario completamente via `auth.admin.deleteUser(id)` (isso cascadeia para profiles, user_roles, creditos, etc. devido aos FK com `ON DELETE CASCADE` no auth.users)
-
-## 3. Atualizar a pagina `AdminUsuarios.tsx`
-
-Adicionar na tabela de usuarios:
-- Coluna "Status" mostrando badge "Ativo" (verde) ou "Bloqueado" (vermelho)
-- Botoes de acao: "Bloquear/Desbloquear" e "Excluir"
-- Dialog de confirmacao com AlertDialog antes de excluir (acao irreversivel)
-- Dialog de confirmacao antes de bloquear
-
-## 4. Verificar bloqueio no login
-
-Atualizar o `AuthContext.tsx` ou a pagina de `Login.tsx` para verificar se o usuario esta bloqueado apos o login e, se estiver, fazer signOut automatico e exibir mensagem de erro.
-
-## Detalhes tecnicos
-
-- A exclusao de usuario via `auth.admin.deleteUser()` requer `SUPABASE_SERVICE_ROLE_KEY` (ja configurado nos secrets)
-- O ban via `auth.admin.updateUserById()` impede o usuario de fazer login mesmo com credenciais validas
-- Tabelas relacionadas sem `ON DELETE CASCADE` (lojas, envios, etc.) precisarao de limpeza manual na edge function antes de deletar o usuario
-- A interface UserRow ganhara o campo `blocked: boolean`
