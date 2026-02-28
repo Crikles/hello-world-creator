@@ -14,7 +14,7 @@ export class InsufficientBalanceError extends Error {
     }
 }
 
-export async function triggerNextEmail(envioId: string, lojaId: string, forceSendEmail: boolean = false): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
+export async function triggerNextEmail(envioId: string, lojaId: string, forceSendEmail: boolean = false, forceAdvance: boolean = false): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
     try {
         // 1. Fetch shipment with empresa details
         const { data: shipment, error: sErr } = await supabase
@@ -30,7 +30,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
 
         // 1.5. Check delay constraint — block if proximo_avanco_em is in the future
         const proximoAvanco = (shipment as any).proximo_avanco_em;
-        if (proximoAvanco && new Date(proximoAvanco) > new Date()) {
+        if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
             console.log("Trigger skip: delay not elapsed yet for envio", envioId, "next advance at", proximoAvanco);
             return null;
         }
