@@ -22,34 +22,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isCheckingBlocked = false;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (isCheckingBlocked) return;
-
-      if (event === "SIGNED_IN" && session?.user) {
-        setLoading(true);
-        isCheckingBlocked = true;
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("blocked")
-          .eq("id", session.user.id)
-          .single();
-        isCheckingBlocked = false;
-
-        if ((profile as any)?.blocked) {
-          setSession(null);
-          setUser(null);
-          setLoading(false);
-          await supabase.auth.signOut();
-          return;
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
       }
-
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    );
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
@@ -57,8 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .from("profiles")
           .select("blocked")
           .eq("id", session.user.id)
-          .single();
-        if ((profile as any)?.blocked) {
+          .maybeSingle();
+        if (profile?.blocked) {
           await supabase.auth.signOut();
           setLoading(false);
           return;
