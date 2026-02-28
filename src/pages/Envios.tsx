@@ -395,113 +395,105 @@ export default function Envios() {
             </Button>
           </div>
         ) : (
-          /* Envio Cards Grid */
-          <div className="flex flex-col gap-3">
+          /* Envio Rows */
+          <div className="flex flex-col gap-1.5">
             {filteredEnvios.map((envio, idx) => (
               <div
                 key={envio.id}
-                className="glass glow-border-hover rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] animate-stagger-in group"
-                style={{ animationDelay: `${idx * 0.05}s` }}
+                className="glass glow-border-hover rounded-lg px-3 py-2 transition-all duration-200 hover:bg-primary/5 animate-stagger-in group"
+                style={{ animationDelay: `${idx * 0.02}s` }}
               >
-                {/* Card Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-foreground truncate">{envio.cliente_nome}</p>
-                    <p className="text-xs text-muted-foreground truncate">{envio.cliente_email}</p>
+                {/* Single compact row */}
+                <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                  {/* Name + Email */}
+                  <div className="min-w-0 w-32 md:w-40 shrink-0">
+                    <p className="text-sm font-medium text-foreground truncate leading-tight">{envio.cliente_nome}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{envio.cliente_email}</p>
                   </div>
+
+                  {/* Product */}
+                  <p className="text-[11px] text-muted-foreground truncate hidden md:block w-28 shrink-0">{formatProduto(envio.produto)}</p>
+
+                  {/* Value */}
+                  <span className="text-sm font-bold text-primary whitespace-nowrap shrink-0">R$ {Number(envio.valor).toFixed(2)}</span>
+
+                  {/* Progress mini */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Progress value={getProgress(envio)} className="h-1 w-16" />
+                    <span className="text-[9px] text-muted-foreground whitespace-nowrap">{getCurrentStep(envio)}/{totalEventos}</span>
+                  </div>
+
+                  {/* Status */}
                   <Badge
                     variant="secondary"
-                    className={`${statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[10px] ml-2 whitespace-nowrap`}
+                    className={`${statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[9px] px-1.5 py-0 h-5 whitespace-nowrap shrink-0`}
                   >
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1 animate-pulse-dot" />
+                    <span className="inline-block h-1 w-1 rounded-full bg-current mr-1" />
                     {getDisplayStatus(envio)}
                   </Badge>
-                </div>
 
-                {/* Card Body */}
-                <div className="space-y-2.5">
-                  <p className="text-xs text-muted-foreground line-clamp-1">{formatProduto(envio.produto)}</p>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-primary">R$ {Number(envio.valor).toFixed(2)}</span>
+                  {/* Quick links */}
+                  <div className="flex items-center gap-0.5 ml-auto shrink-0">
                     {envio.codigo_rastreio && (
-                      <span className="font-mono text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
-                        {envio.codigo_rastreio}
-                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
+                        title="Rastreio"
+                        onClick={() => window.open(`${window.location.origin}/r/${envio.codigo_rastreio}`, '_blank')}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
                     )}
-                  </div>
-
-                  {/* Progress */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                      <span>Etapa {getCurrentStep(envio)}/{totalEventos}</span>
-                      <span>{getProgress(envio)}%</span>
-                    </div>
-                    <Progress value={getProgress(envio)} className="h-1.5" />
-                  </div>
-                </div>
-
-                {/* Quick Links */}
-                <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border/30 flex-wrap">
-                  {envio.codigo_rastreio && (
+                    {(envio.status === 'taxacao' || envio.status === 'pagamento_confirmado') && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
+                        title="Taxação"
+                        onClick={() => window.open(`${window.location.origin}/p/${envio.id}`, '_blank')}
+                      >
+                        <CreditCard className="h-3 w-3" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
-                      onClick={() => window.open(`${window.location.origin}/r/${envio.codigo_rastreio}`, '_blank')}
+                      size="icon"
+                      className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
+                      title="Baixar NF-e"
+                      disabled={downloadingNfe === envio.id}
+                      onClick={() => handleDownloadNfe(envio)}
                     >
-                      <ExternalLink className="h-3 w-3 mr-1" /> Rastreio
+                      <FileText className="h-3 w-3" />
                     </Button>
-                  )}
-                  {(envio.status === 'taxacao' || envio.status === 'pagamento_confirmado') && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
-                      onClick={() => window.open(`${window.location.origin}/p/${envio.id}`, '_blank')}
-                    >
-                      <CreditCard className="h-3 w-3 mr-1" /> Taxação
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
-                    disabled={downloadingNfe === envio.id}
-                    onClick={() => handleDownloadNfe(envio)}
-                  >
-                    <FileText className="h-3 w-3 mr-1" /> {downloadingNfe === envio.id ? "Gerando..." : "NF-e"}
-                  </Button>
-                  <div className="ml-auto flex items-center gap-0.5">
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1 mr-1">
-                      <Calendar className="h-3 w-3" />
-                      {format(new Date(envio.created_at), "dd/MM/yyyy")}
+                    <span className="text-[10px] text-muted-foreground mx-1 hidden sm:inline">
+                      {format(new Date(envio.created_at), "dd/MM")}
                     </span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       {canAdvance(envio) && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                          title={cooldowns[envio.id] > Date.now() ? `Aguarde ${formatCooldown(cooldowns[envio.id])}` : "Avançar próximo evento"}
+                          className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
+                          title={cooldowns[envio.id] > Date.now() ? `Aguarde ${formatCooldown(cooldowns[envio.id])}` : "Avançar"}
                           disabled={advanceMutation.isPending || cooldowns[envio.id] > Date.now()}
                           onClick={() => advanceMutation.mutate(envio.id)}
                         >
                           {cooldowns[envio.id] > Date.now() ? (
-                            <span className="text-[9px] font-mono">{formatCooldown(cooldowns[envio.id])}</span>
+                            <span className="text-[8px] font-mono">{formatCooldown(cooldowns[envio.id])}</span>
                           ) : (
-                            <FastForward className="h-3.5 w-3.5" />
+                            <FastForward className="h-3 w-3" />
                           )}
                         </Button>
                       )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
                         title="Remover"
                         onClick={() => deleteMutation.mutate(envio.id)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
