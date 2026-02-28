@@ -1,25 +1,30 @@
 
 
-# Adicionar seção "Parceiros Oficiais" na Sidebar
+# Adicionar Links Rápidos nos Cards de Envios
 
 ## O que será feito
 
-Adicionar uma nova seção na barra lateral chamada **"Parceiros Oficiais"** com a logo da IntegraX e uma breve descrição. Ao clicar na imagem, o usuário será redirecionado para o link de cadastro da IntegraX.
+Adicionar botões de ação rápida em cada card de envio na página de Envios, permitindo ao usuário:
+
+1. **Ver Rastreio** -- Abre a página pública de rastreio (`/r/CODIGO`) em nova aba
+2. **Ver Taxação** -- Visível apenas quando o status é "taxacao" ou "pagamento_confirmado", abre a página de pagamento (`/p/ENVIO_ID`) em nova aba
+3. **Ver DANFE/NF** -- Visível apenas quando o envio possui `nfe_chave_acesso`, navega para gerar/visualizar a DANFE
 
 ## Alterações
 
-### 1. Copiar a imagem da IntegraX para o projeto
-- Salvar a imagem enviada em `src/assets/logo-integrax.jpeg`
+### `src/pages/Envios.tsx`
 
-### 2. Atualizar `src/components/layout/AppSidebar.tsx`
-- Importar a imagem da IntegraX
-- Adicionar um novo `SidebarGroup` entre o menu e o footer com:
-  - Label: "Parceiros Oficiais"
-  - Logo da IntegraX clicável (abre `https://integrax.app/auth/register?a=0Zleb3` em nova aba)
-  - Texto descritivo: "Parceira oficial de envios de SMS para todos os eventos de vendas"
-- O bloco terá um visual discreto e elegante, seguindo o estilo glass/glow já existente na sidebar
+- Importar ícones adicionais: `ExternalLink`, `FileText`, `CreditCard`
+- No footer de cada card (linha ~395-426), adicionar uma row de botões de link rápido **sempre visíveis** (não apenas no hover):
+  - Botão "Rastreio" com ícone `ExternalLink` -- usa `window.open` para abrir `/r/{codigo_rastreio}` em nova aba. Visível quando o envio tem `codigo_rastreio`
+  - Botão "Taxação" com ícone `CreditCard` -- abre `/p/{envio.id}` em nova aba. Visível quando status é `taxacao` ou `pagamento_confirmado`
+  - Botão "NF-e" com ícone `FileText` -- abre a DANFE. Visível quando `nfe_chave_acesso` existe
 
-### Detalhes tecnicos
+- Os botões terão estilo discreto (`variant="ghost"`, tamanho pequeno) com texto de 10px e ícones de 3.5
 
-O novo grupo ficará posicionado após o menu principal e antes do footer, usando os mesmos componentes `SidebarGroup`, `SidebarGroupLabel` e `SidebarGroupContent` já utilizados. A imagem será um link (`<a>`) com `target="_blank"` e `rel="noopener noreferrer"`.
+### Detalhes técnicos
+
+Os links serão abertos com `window.open(url, '_blank')` para não perder o contexto da página de envios. A URL base para rastreio e pagamento será construída dinamicamente usando `window.location.origin` para funcionar em qualquer domínio.
+
+Os botões de ação existentes (avançar, deletar) continuam no hover como estão. Os novos botões de link ficam sempre visíveis no footer do card.
 
