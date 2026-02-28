@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap } from "lucide-react";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -271,6 +271,27 @@ export default function Envios() {
         toast.error("Saldo insuficiente de moedas. Adicione créditos para continuar.");
       } else {
         toast.error(err.message || "Erro ao avançar");
+      }
+    },
+  });
+
+  const forceAdvanceMutation = useMutation({
+    mutationFn: async (envioId: string) => {
+      if (!loja?.id) throw new Error("No loja");
+      const result = await triggerNextEmail(envioId, loja.id, false, true);
+      if (!result) throw new Error("Nenhum evento para avançar");
+      return result;
+    },
+    onSuccess: (_data, envioId) => {
+      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      setCooldowns((prev) => ({ ...prev, [envioId]: Date.now() + 120000 }));
+      toast.success("Avanço forçado!");
+    },
+    onError: (err: any) => {
+      if (err instanceof InsufficientBalanceError) {
+        toast.error("Saldo insuficiente de moedas. Adicione créditos para continuar.");
+      } else {
+        toast.error(err.message || "Erro ao forçar avanço");
       }
     },
   });
@@ -605,20 +626,38 @@ export default function Envios() {
                     </span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       {canAdvance(envio) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
-                          title={cooldowns[envio.id] > Date.now() ? `Aguarde ${formatCooldown(cooldowns[envio.id])}` : "Avançar"}
-                          disabled={advanceMutation.isPending || cooldowns[envio.id] > Date.now()}
-                          onClick={() => advanceMutation.mutate(envio.id)}
-                        >
-                          {cooldowns[envio.id] > Date.now() ? (
+                        cooldowns[envio.id] > Date.now() ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            disabled
+                          >
                             <span className="text-[8px] font-mono">{formatCooldown(cooldowns[envio.id])}</span>
-                          ) : (
+                          </Button>
+                        ) : canAdvanceNow(envio) ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
+                            title="Avançar"
+                            disabled={advanceMutation.isPending}
+                            onClick={() => advanceMutation.mutate(envio.id)}
+                          >
                             <FastForward className="h-3 w-3" />
-                          )}
-                        </Button>
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 hover:bg-yellow-500/10 text-yellow-500 hover:text-yellow-600"
+                            title="Forçar Avanço (ignora delay atual)"
+                            disabled={forceAdvanceMutation.isPending}
+                            onClick={() => forceAdvanceMutation.mutate(envio.id)}
+                          >
+                            <Zap className="h-3 w-3" />
+                          </Button>
+                        )
                       )}
                       <Button
                         variant="ghost"
