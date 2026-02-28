@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Coins, Plus, Minus, Settings } from "lucide-react";
+import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -23,6 +24,7 @@ interface UserRow {
   saldo: number;
   lojas_count: number;
   custom_prices: Record<string, number> | null;
+  blocked: boolean;
 }
 
 export default function AdminUsuarios() {
@@ -35,6 +37,9 @@ export default function AdminUsuarios() {
 
   const [selectedUserForPrices, setSelectedUserForPrices] = useState<UserRow | null>(null);
   const [customPricesForm, setCustomPricesForm] = useState<Record<string, string>>({});
+
+  const [userToBlock, setUserToBlock] = useState<UserRow | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UserRow | null>(null);
 
   const { data: systemConfigs } = useQuery({
     queryKey: ["system-config-admin"],
@@ -73,8 +78,49 @@ export default function AdminUsuarios() {
           saldo: userCredito?.saldo || 0,
           lojas_count: userLojas.length,
           custom_prices: (p.custom_prices as Record<string, number>) || null,
+          blocked: !!(p as any).blocked,
         };
       });
+    },
+  });
+
+  // --- Block/Unblock mutation ---
+  const blockMutation = useMutation({
+    mutationFn: async ({ userId, action }: { userId: string; action: "block" | "unblock" }) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action, target_user_id: userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      setUserToBlock(null);
+      toast.success(variables.action === "block" ? "Usuário bloqueado!" : "Usuário desbloqueado!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao gerenciar usuário.");
+    },
+  });
+
+  // --- Delete mutation ---
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "delete", target_user_id: userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      setUserToDelete(null);
+      toast.success("Usuário excluído permanentemente!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao excluir usuário.");
     },
   });
 
@@ -116,17 +162,10 @@ export default function AdminUsuarios() {
 
   const manageCreditsMutation = useMutation({
     mutationFn: async ({ userId, qty, desc, action }: { userId: string; qty: number; desc: string; action: "adicionar" | "remover" }) => {
-      // Fetch current saldo
-      const { data: current } = await supabase
-        .from("creditos")
-        .select("saldo")
-        .eq("user_id", userId)
-        .single();
-
+      const { data: current } = await supabase.from("creditos").select("saldo").eq("user_id", userId).single();
       const currentSaldo = current?.saldo || 0;
       let newSaldo = currentSaldo;
 
-      // Handle floating point precision
       if (action === "adicionar") {
         newSaldo = Number((currentSaldo + qty).toFixed(2));
       } else {
@@ -136,14 +175,12 @@ export default function AdminUsuarios() {
         }
       }
 
-      // Update saldo
       const { error: updateErr } = await supabase
         .from("creditos")
         .update({ saldo: newSaldo, updated_at: new Date().toISOString() })
         .eq("user_id", userId);
       if (updateErr) throw updateErr;
 
-      // Insert transaction
       const defaultDesc = action === "adicionar" ? "Adicionado pelo admin" : "Removido pelo admin";
       const { error: insertErr } = await supabase.from("creditos_transacoes").insert({
         user_id: userId,
@@ -196,68 +233,99 @@ export default function AdminUsuarios() {
               <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Cadastro</TableHead>
-                  <TableHead>Créditos</TableHead>
-                  <TableHead>Lojas</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {usuarios.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
-                    <TableCell>{u.email || "—"}</TableCell>
-                    <TableCell>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${u.role === "admin" ? "bg-primary/20 text-primary" : "bg-secondary text-secondary-foreground"}`}>
-                        {u.role}
-                      </span>
-                    </TableCell>
-                    <TableCell>{format(new Date(u.created_at), "dd/MM/yyyy")}</TableCell>
-                    <TableCell>
-                      <span className="flex items-center gap-1">
-                        <Coins className="h-3.5 w-3.5 text-primary" />
-                        {Number(u.saldo).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </TableCell>
-                    <TableCell>{u.lojas_count}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => {
-                          setSelectedUserForPrices(u);
-                          const initial: Record<string, string> = {};
-                          if (u.custom_prices) {
-                            Object.entries(u.custom_prices).forEach(([k, v]) => {
-                              initial[k] = String(v);
-                            });
-                          }
-                          setCustomPricesForm(initial);
-                        }}>
-                          <Settings className="h-3.5 w-3.5 mr-1" />
-                          Preços
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => {
-                          setSelectedUser(u);
-                          setOperacao("adicionar");
-                        }}>
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          Créditos
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Cadastro</TableHead>
+                    <TableHead>Créditos</TableHead>
+                    <TableHead>Lojas</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {usuarios.map((u) => (
+                    <TableRow key={u.id} className={u.blocked ? "opacity-60" : ""}>
+                      <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
+                      <TableCell>{u.email || "—"}</TableCell>
+                      <TableCell>
+                        {u.blocked ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive font-medium">Bloqueado</span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 font-medium">Ativo</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${u.role === "admin" ? "bg-primary/20 text-primary" : "bg-secondary text-secondary-foreground"}`}>
+                          {u.role}
+                        </span>
+                      </TableCell>
+                      <TableCell>{format(new Date(u.created_at), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1">
+                          <Coins className="h-3.5 w-3.5 text-primary" />
+                          {Number(u.saldo).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </TableCell>
+                      <TableCell>{u.lojas_count}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1.5 flex-wrap">
+                          <Button size="sm" variant="outline" onClick={() => {
+                            setSelectedUserForPrices(u);
+                            const initial: Record<string, string> = {};
+                            if (u.custom_prices) {
+                              Object.entries(u.custom_prices).forEach(([k, v]) => {
+                                initial[k] = String(v);
+                              });
+                            }
+                            setCustomPricesForm(initial);
+                          }}>
+                            <Settings className="h-3.5 w-3.5 mr-1" />
+                            Preços
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            setSelectedUser(u);
+                            setOperacao("adicionar");
+                          }}>
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Créditos
+                          </Button>
+                          {u.id !== user?.id && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant={u.blocked ? "outline" : "secondary"}
+                                onClick={() => setUserToBlock(u)}
+                              >
+                                {u.blocked ? <ShieldCheck className="h-3.5 w-3.5 mr-1" /> : <Ban className="h-3.5 w-3.5 mr-1" />}
+                                {u.blocked ? "Desbloquear" : "Bloquear"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setUserToDelete(u)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                Excluir
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Credits Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => {
         if (!open) {
           setSelectedUser(null);
@@ -331,6 +399,7 @@ export default function AdminUsuarios() {
         </DialogContent>
       </Dialog>
 
+      {/* Prices Dialog */}
       <Dialog open={!!selectedUserForPrices} onOpenChange={(open) => {
         if (!open) setSelectedUserForPrices(null);
       }}>
@@ -379,6 +448,62 @@ export default function AdminUsuarios() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Block/Unblock Confirmation */}
+      <AlertDialog open={!!userToBlock} onOpenChange={(open) => {
+        if (!open) setUserToBlock(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {userToBlock?.blocked ? "Desbloquear usuário?" : "Bloquear usuário?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {userToBlock?.blocked
+                ? `O usuário "${userToBlock?.full_name || userToBlock?.email}" poderá fazer login novamente.`
+                : `O usuário "${userToBlock?.full_name || userToBlock?.email}" não conseguirá mais acessar o sistema até ser desbloqueado.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blockMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (userToBlock) {
+                  blockMutation.mutate({ userId: userToBlock.id, action: userToBlock.blocked ? "unblock" : "block" });
+                }
+              }}
+              disabled={blockMutation.isPending}
+              className={!userToBlock?.blocked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              {blockMutation.isPending ? "Processando..." : userToBlock?.blocked ? "Desbloquear" : "Bloquear"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => {
+        if (!open) setUserToDelete(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é <strong>irreversível</strong>. Todos os dados do usuário "{userToDelete?.full_name || userToDelete?.email}" serão removidos permanentemente, incluindo lojas, envios, créditos e transações.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (userToDelete) deleteMutation.mutate(userToDelete.id); }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir Permanentemente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

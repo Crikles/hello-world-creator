@@ -12,13 +12,33 @@ export default function Login() {
 
   const handleLogin = async (email: string, password: string) => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast.error(error.message);
-    } else {
-      navigate("/lojas");
+      setLoading(false);
+      // Supabase returns "User is banned" when banned via admin API
+      if (error.message?.toLowerCase().includes("banned")) {
+        toast.error("Sua conta foi bloqueada. Entre em contato com o suporte.");
+      } else {
+        toast.error(error.message);
+      }
+      return;
     }
+    // Double-check blocked flag in profiles
+    if (data?.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("blocked")
+        .eq("id", data.user.id)
+        .single();
+      if ((profile as any)?.blocked) {
+        await supabase.auth.signOut();
+        setLoading(false);
+        toast.error("Sua conta foi bloqueada. Entre em contato com o suporte.");
+        return;
+      }
+    }
+    setLoading(false);
+    navigate("/lojas");
   };
 
   const handleReset = async (email: string) => {
