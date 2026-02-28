@@ -413,16 +413,14 @@ export default function Envios() {
                       <CreditCard className="h-3 w-3 mr-1" /> Taxação
                     </Button>
                   )}
-                  {(envio as any).nfe_chave_acesso && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
-                      onClick={() => window.open(`${window.location.origin}/danfe/${envio.id}`, '_blank')}
-                    >
-                      <FileText className="h-3 w-3 mr-1" /> NF-e
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary"
+                    onClick={() => window.open(`${window.location.origin}/danfe/${envio.id}`, '_blank')}
+                  >
+                    <FileText className="h-3 w-3 mr-1" /> NF-e
+                  </Button>
                   <div className="ml-auto flex items-center gap-0.5">
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1 mr-1">
                       <Calendar className="h-3 w-3" />
