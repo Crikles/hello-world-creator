@@ -8,6 +8,9 @@ import { AuthForm } from "@/components/ui/premium-auth";
 export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [signupEmail, setSignupEmail] = useState("");
+  const [resending, setResending] = useState(false);
   const isLogistics = isLogisticsDomain();
 
   const handleLogin = async (email: string, password: string) => {
@@ -54,13 +57,49 @@ export default function Login() {
     }
   };
 
+  const handleSignup = async (email: string, password: string, name: string) => {
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: window.location.origin + "/login",
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setSignupEmail(email);
+      setSignupSuccess(true);
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: signupEmail,
+      options: { emailRedirectTo: window.location.origin + "/login" },
+    });
+    setResending(false);
+    if (error) toast.error(error.message);
+    else toast.success("Email reenviado com sucesso!");
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <AuthForm
         initialMode="login"
         loading={loading}
         onLogin={handleLogin}
+        onSignup={handleSignup}
         onReset={handleReset}
+        signupSuccess={signupSuccess}
+        signupEmail={signupEmail}
+        onResendEmail={handleResend}
+        resending={resending}
         logo={isLogistics ? "/logojltransportes.png" : "/logo-magnus.png"}
         logoAlt={isLogistics ? "Logística JL Transportes" : "Magnus Frete"}
         title={isLogistics ? "Logística JL Transportes" : undefined}
