@@ -73,7 +73,7 @@ export default function Dashboard() {
     queryKey: ["shopify-integration-dashboard", loja?.id],
     queryFn: async () => {
       if (!loja) return null;
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("shopify_integrations")
         .select("id, access_token, ativo")
         .eq("loja_id", loja.id)
@@ -88,7 +88,7 @@ export default function Dashboard() {
     queryKey: ["checkout-integrations-dashboard", loja?.id],
     queryFn: async () => {
       if (!loja) return [];
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("checkout_integrations")
         .select("checkout_id, ativo")
         .eq("loja_id", loja.id)
