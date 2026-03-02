@@ -33,12 +33,12 @@ export default function Integracoes() {
     queryKey: ["checkout-integrations", loja?.id],
     queryFn: async () => {
       if (!loja?.id) return [];
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("checkout_integrations")
         .select("checkout_id, ativo")
         .eq("loja_id", loja.id);
       if (error) throw error;
-      return data as { checkout_id: string; ativo: boolean }[];
+      return (data ?? []) as { checkout_id: string; ativo: boolean }[];
     },
     enabled: !!loja?.id,
   });
@@ -50,7 +50,7 @@ export default function Integracoes() {
     mutationFn: async (checkoutId: string) => {
       if (!loja?.id) throw new Error("Sem loja");
       const currentlyActive = !!activeMap[checkoutId];
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("checkout_integrations")
         .upsert(
           { loja_id: loja.id, checkout_id: checkoutId, ativo: !currentlyActive, updated_at: new Date().toISOString() },
