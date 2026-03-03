@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         if (envio.loja_id) {
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao, origem_cidade, origem_estado")
+                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao, ativar_falha_entrega, origem_cidade, origem_estado")
                 .eq("loja_id", envio.loja_id)
                 .maybeSingle();
 
@@ -86,9 +86,13 @@ Deno.serve(async (req) => {
 
                 if (allEvents) {
                     // Filter out Taxação and Pago events unless taxação is active
+                    // Filter out Falha Entrega events unless falha_entrega is active
                     eventos = allEvents.filter((e) => {
                         if (e.status_label === "Taxação" || e.status_label === "Pago") {
                             return config.ativar_taxacao;
+                        }
+                        if (e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") {
+                            return config.ativar_falha_entrega;
                         }
                         return true;
                     });

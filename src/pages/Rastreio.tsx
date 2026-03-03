@@ -447,9 +447,9 @@ export default function Rastreio() {
                                                                                     PAGAR TAXA
                                                                                 </a>
                                                                             )}
-                                                                            {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && ev.corpo_email?.includes("{{falha_checkout_url:") && (
+                                                                            {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
                                                                                 <a
-                                                                                    href={ev.corpo_email.match(/\{\{falha_checkout_url:([^}]*)\}\}/)?.[1] || "#"}
+                                                                                    href={`/f/${envio.id}`}
                                                                                     className="falha-pay-btn"
                                                                                     style={{
                                                                                         display: 'inline-block',

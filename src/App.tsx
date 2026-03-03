@@ -31,8 +31,10 @@ import AdminPagamentos from "./pages/admin/AdminPagamentos";
 import AdminSuporte from "./pages/admin/AdminSuporte";
 import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
+import PagamentoFalha from "./pages/PagamentoFalha";
 import Rastreio from "./pages/Rastreio";
 import Taxacao from "./pages/Taxacao";
+import FalhaEntrega from "./pages/FalhaEntrega";
 import Moedas from "./pages/Moedas";
 import ResetPassword from "./pages/ResetPassword";
 import Suporte from "./pages/Suporte";
@@ -52,6 +54,7 @@ function LogisticsRoutes() {
     <Routes>
       <Route path="/" element={<Rastreio />} />
       <Route path="/p/:envioId" element={<Pagamento />} />
+      <Route path="/f/:envioId" element={<PagamentoFalha />} />
       <Route path="/r" element={<Rastreio />} />
       <Route path="/r/:codigoParam" element={<Rastreio />} />
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -89,6 +92,7 @@ function PanelRoutes() {
           <Route path="integracoes" element={<Integracoes />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="taxacao" element={<Taxacao />} />
+          <Route path="falha-entrega" element={<FalhaEntrega />} />
           <Route path="moedas" element={<Moedas />} />
           <Route path="suporte" element={<Suporte />} />
         </Route>
