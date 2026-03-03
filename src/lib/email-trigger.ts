@@ -139,6 +139,10 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 total += costMap["custo_taxacao"];
                 activeServices.push("Taxação");
             }
+            if (config.ativar_falha_entrega && costMap["custo_falha_entrega"]) {
+                total += costMap["custo_falha_entrega"];
+                activeServices.push("Falha na Entrega");
+            }
 
             if (total > 0) {
                 const descricao = `Envio processado (${activeServices.join(", ")})`;

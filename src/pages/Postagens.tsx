@@ -731,6 +731,7 @@ export default function Postagens() {
                   { label: "Rastreio por email", active: localConfig.enviar_emails, cost: systemConfigValues?.custo_email_rastreio ?? 1, display: formatMoedas(systemConfigValues?.custo_email_rastreio ?? 1) },
                   { label: `SMS (${smsEventCount}x ${formatMoedas(smsCostUnit)})`, active: localConfig.ativar_site_rastreio, cost: smsTotalCost, display: formatMoedas(smsTotalCost), prefix: "+" },
                   { label: "Funil de Taxação", active: localConfig.ativar_taxacao, cost: systemConfigValues?.custo_taxacao ?? 1, display: formatMoedas(systemConfigValues?.custo_taxacao ?? 1), prefix: "+" },
+                  { label: "Falha na Entrega", active: localConfig.ativar_falha_entrega, cost: systemConfigValues?.custo_falha_entrega ?? 1, display: formatMoedas(systemConfigValues?.custo_falha_entrega ?? 1), prefix: "+" },
                 ].map((item) => (
                   <div key={item.label} className="flex justify-between">
                     <span className={item.active ? "text-foreground" : "text-muted-foreground line-through"}>{item.label}</span>

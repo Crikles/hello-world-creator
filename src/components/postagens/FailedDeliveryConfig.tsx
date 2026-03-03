@@ -139,6 +139,162 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
 }
 
 
+/* ─────────────────────── Email Preview ─────────────────────── */
+
+function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEntregaSettings; empresaNome: string }) {
+    const valor = parseFloat(settings.valor_taxa_falha) || 0;
+    const valorFormatted = valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:20px;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+        <tr><td style="padding:40px 40px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td width="48"><div style="width:48px;height:48px;background-color:#fff7ed;border-radius:16px;text-align:center;line-height:48px;font-size:24px;">📦</div></td>
+              <td style="padding-left:16px;">
+                <h1 style="margin:0;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Falha na Entrega</h1>
+                <p style="margin:4px 0 0;font-size:14px;color:#ea580c;font-weight:600;">Ação Necessária</p>
+              </td>
+            </tr></table>
+        </td></tr>
+        <tr><td style="padding:32px 40px;">
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#334155;">Olá <strong>Maria Silva</strong>,</p>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#334155;">Tivemos um problema ao entregar o seu pedido <strong style="color:#0f172a;">Camiseta Polo Premium</strong>.</p>
+        </td></tr>
+        <tr><td style="padding:0 40px 24px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff7ed;border-radius:16px;border:1px solid #ffedd5;">
+              <tr><td style="padding:24px;">
+                <p style="margin:0 0 16px;font-size:15px;color:#c2410c;line-height:1.6;font-weight:500;">
+                  ${settings.msg_falha_entrega}
+                </p>
+                <div style="background-color:#ffffff;border-radius:12px;padding:16px;margin:16px 0;border:1px solid #ffedd5;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td><p style="margin:0;font-size:13px;color:#64748b;font-weight:600;text-transform:uppercase;">Taxa de Reenvio</p></td>
+                      <td align="right"><p style="margin:0;font-size:20px;color:#0f172a;font-weight:800;">R$ ${valorFormatted}</p></td>
+                    </tr>
+                  </table>
+                </div>
+                <div style="text-align:center;margin-top:24px;">
+                  <span style="display:inline-block;padding:14px 32px;background-color:#ea580c;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;border-radius:12px;">PAGAR REENVIO AGORA</span>
+                </div>
+              </td></tr>
+            </table>
+        </td></tr>
+        <tr><td style="padding:8px 40px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #f1f5f9;padding-top:20px;">
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;text-align:center;">Atenciosamente,<br><strong>${empresaNome}</strong></p>
+            </td></tr></table>
+        </td></tr>
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+        <tr><td style="padding:16px 0;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#cbd5e1;">Enviado por ${empresaNome} • Rastreio automático</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    return (
+        <div className="bg-[#f1f5f9] rounded-2xl border-2 border-border/50 shadow-xl overflow-hidden w-full h-[500px] flex flex-col">
+            {/* Header for Email Window */}
+            <div className="bg-white border-b border-black/5 px-4 py-3 flex items-center justify-between shadow-sm z-10">
+                <div className="flex items-center gap-3">
+                    <div className="flex gap-1.5">
+                        <div className="w-3 h-3 rounded-full bg-red-400" />
+                        <div className="w-3 h-3 rounded-full bg-amber-400" />
+                        <div className="w-3 h-3 rounded-full bg-green-400" />
+                    </div>
+                    <div className="flex flex-col ml-2">
+                        <span className="text-[11px] font-bold text-slate-700">Nova Mensagem</span>
+                        <span className="text-[9px] text-slate-400 flex items-center gap-1">
+                            Para: Maria Silva
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Scale Container */}
+            <div className="flex-1 relative overflow-auto custom-scrollbar bg-slate-100/50 flex">
+                <div className="absolute inset-0 origin-top flex items-start justify-center p-4">
+                    <div className="w-full max-w-[600px] shadow-sm transform scale-90 sm:scale-100 origin-top">
+                        <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+                    </div>
+                </div>
+            </div>
+            <div className="bg-slate-50 border-t border-black/5 px-5 py-2.5 text-center mt-auto z-10">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Preview visual do E-mail</p>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────────────────── SMS Preview ─────────────────────── */
+
+function FalhaEntregaSmsPreview({ settings, empresaNome }: { settings: FalhaEntregaSettings; empresaNome: string }) {
+    const rawMsg = settings.msg_falha_entrega.trim() !== "" ? settings.msg_falha_entrega : "(Sua mensagem personalizada aqui)";
+
+    return (
+        <div className="bg-[#f1f5f9] rounded-2xl border-2 border-border/50 shadow-xl overflow-hidden w-full h-[500px] flex flex-col items-center justify-center p-4">
+            {/* Phone Mockup */}
+            <div className="w-[300px] h-[480px] bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl relative border-4 border-slate-800">
+                {/* Screen */}
+                <div className="bg-white w-full h-full rounded-[2rem] overflow-hidden flex flex-col font-sans">
+                    {/* Status Bar */}
+                    <div className="h-6 flex items-center justify-between px-5 text-[10px] bg-slate-100/80 font-medium text-slate-800 backdrop-blur-sm z-10 pt-1">
+                        <span>9:41</span>
+                        <div className="flex items-center gap-1">
+                            <div className="w-3 h-2.5 bg-slate-800 rounded-[2px]" />
+                        </div>
+                    </div>
+                    {/* Header Messages */}
+                    <div className="bg-slate-100/80 px-4 py-2 flex items-center justify-center border-b border-black/5 pb-3">
+                        <div className="flex flex-col items-center gap-1">
+                            <div className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-white text-xs font-bold">JT</div>
+                            <span className="text-[10px] font-semibold text-slate-700">{empresaNome}</span>
+                        </div>
+                    </div>
+
+                    {/* Chat Area */}
+                    <div className="flex-1 bg-white p-4 flex flex-col justify-end gap-2 overflow-y-auto">
+                        <div className="text-[9px] text-center text-slate-400 font-medium mb-2">Hoje 09:41</div>
+
+                        <div className="bg-[#e2e8f0] text-slate-800 p-3 rounded-2xl rounded-bl-sm max-w-[85%] self-start shadow-sm text-[11px] leading-relaxed relative">
+                            <p className="font-semibold mb-1">Aviso de Falha na Entrega 📦</p>
+                            <p>{rawMsg}</p>
+                            <p className="mt-2 text-blue-600 font-medium underline">rastreio.site/br5474</p>
+
+                            <span className="absolute -bottom-1 -left-1 w-2 h-2 text-[#e2e8f0]">
+                                <svg viewBox="0 0 10 10" fill="currentColor"><path d="M0 10 L10 10 L10 0 C10 5, 5 10, 0 10" /></svg>
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Input Bar */}
+                    <div className="h-12 bg-slate-50 border-t border-black/5 px-4 flex items-center gap-2">
+                        <div className="flex-1 h-7 rounded-full bg-slate-200/50 border border-slate-300/50 flex items-center px-3">
+                            <span className="text-[10px] text-slate-400">Mensagem</span>
+                        </div>
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
+                            <svg className="w-3 h-3 text-white ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-slate-50 border-t border-black/5 px-5 py-2.5 text-center mt-auto w-full z-10 absolute bottom-0 left-0">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Preview visual do SMS</p>
+            </div>
+        </div>
+    );
+}
+
 /* ─────────────────────── Main Component ─────────────────────── */
 
 interface FalhaEntregaConfigProps {
@@ -149,6 +305,7 @@ interface FalhaEntregaConfigProps {
 export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaConfigProps) {
     const [settings, setSettings] = useState<FalhaEntregaSettings>(() => loadSettings(lojaId));
     const [savedSettings, setSavedSettings] = useState<FalhaEntregaSettings>(() => loadSettings(lojaId));
+    const [previewTab, setPreviewTab] = useState<"site" | "email" | "sms">("site");
     const queryClient = useQueryClient();
 
     const { data: empresa } = useQuery({
@@ -287,7 +444,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                                 </Label>
                                 <div className="flex items-center gap-1.5 w-1/2">
                                     <span className="text-xs text-muted-foreground">R$</span>
-                                    <Input type="number" step="0.01" min="0" value={settings.valor_taxa_falha} onChange={(e) => set("valor_taxa_falha", e.target.value)} className="text-sm bg-transparent border-border/50" />
+                                    <Input type="number" step="0.01" min="0" value={settings.valor_taxa_falha} onChange={(e) => set("valor_taxa_falha", String(e.target.value))} className="text-sm bg-transparent border-border/50" />
                                 </div>
                             </div>
 
@@ -339,17 +496,30 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                     </Button>
                 </div>
 
-                {/* RIGHT — Preview */}
+                {/* RIGHT — Previews */}
                 <div className="space-y-4">
-                    <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.1s" }}>
+                    <div className="glass glow-border rounded-xl p-5 animate-stagger-in flex flex-col" style={{ animationDelay: "0.1s" }}>
                         <div className="flex items-center gap-2 mb-4">
                             <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
                                 <Eye className="h-3.5 w-3.5 text-primary" />
                             </div>
-                            <p className="text-sm font-semibold text-foreground">Preview (Site de Rastreio)</p>
+                            <p className="text-sm font-semibold text-foreground">Pré-visualização</p>
                         </div>
 
-                        <FalhaEntregaTrackingPreview settings={settings} empresaNome={empresaNome} logoUrl={empresaLogoUrl} />
+                        <div className="flex-1 w-full flex flex-col">
+                            {/* Visualizar as 3 abas */}
+                            <div className="flex gap-2 p-1 bg-muted/30 rounded-lg mb-4 text-xs font-semibold w-full">
+                                <button onClick={() => setPreviewTab("site")} className={`flex-1 py-1.5 rounded-md transition-colors flex justify-center items-center gap-1.5 ${previewTab === "site" ? "text-slate-800 bg-white shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}><Eye size={14} /> Site</button>
+                                <button onClick={() => setPreviewTab("email")} className={`flex-1 py-1.5 rounded-md transition-colors flex justify-center items-center gap-1.5 ${previewTab === "email" ? "text-slate-800 bg-white shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}><Mail size={14} /> E-mail</button>
+                                <button onClick={() => setPreviewTab("sms")} className={`flex-1 py-1.5 rounded-md transition-colors flex justify-center items-center gap-1.5 ${previewTab === "sms" ? "text-slate-800 bg-white shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}><MessageSquare size={14} /> SMS</button>
+                            </div>
+
+                            <div className="mt-2 w-full max-w-full">
+                                {previewTab === "site" && <FalhaEntregaTrackingPreview settings={settings} empresaNome={empresaNome} logoUrl={empresaLogoUrl} />}
+                                {previewTab === "email" && <FalhaEntregaEmailPreview settings={settings} empresaNome={empresaNome} />}
+                                {previewTab === "sms" && <FalhaEntregaSmsPreview settings={settings} empresaNome={empresaNome} />}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
