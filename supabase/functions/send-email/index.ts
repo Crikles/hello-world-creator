@@ -110,6 +110,28 @@ function parseTaxacaoSettings(corpoEmail: string): TaxacaoSettings | null {
   };
 }
 
+interface FalhaEntregaSettings {
+  msg_falha_entrega: string;
+  checkout_url_falha: string;
+  valor_taxa_falha: string;
+}
+
+function parseFalhaEntregaSettings(corpoEmail: string): FalhaEntregaSettings | null {
+  if (!corpoEmail || !corpoEmail.includes("{{falha_checkout_url:")) return null;
+
+  const urlMatch = corpoEmail.match(/\{\{falha_checkout_url:([^}]*)\}\}/);
+  const valorMatch = corpoEmail.match(/\{\{falha_valor:([^}]*)\}\}/);
+
+  const msgEnd = corpoEmail.indexOf("{{falha_");
+  const plainMessage = msgEnd > 0 ? corpoEmail.substring(0, msgEnd).trim() : "Houve uma falha na entrega.";
+
+  return {
+    msg_falha_entrega: plainMessage,
+    checkout_url_falha: urlMatch?.[1] || "",
+    valor_taxa_falha: valorMatch?.[1] || "0.00",
+  };
+}
+
 function buildEmailHtml(
   evento: Record<string, unknown>,
   envio: Record<string, unknown>,
@@ -121,10 +143,15 @@ function buildEmailHtml(
   const statusLabel = (evento.status_label as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const taxSettings = (statusLabel === "Taxação") ? parseTaxacaoSettings(corpoEmail) : null;
+  const falhaSettings = (statusLabel === "Falha Entrega") ? parseFalhaEntregaSettings(corpoEmail) : null;
   const envioId = (envio.id as string) || "";
 
   if (taxSettings) {
     return buildTaxacaoEmailHtml(envio, extras, taxSettings, envioId, appBaseUrl);
+  }
+
+  if (falhaSettings) {
+    return buildFalhaEntregaEmailHtml(envio, extras, falhaSettings, appBaseUrl);
   }
 
   const enviarNfePdf = (evento.enviar_nfe_pdf as boolean) || false;
@@ -181,6 +208,7 @@ function buildEmailHtml(
     "Centro Local": { bg: "#f0f9ff", text: "#0284c7", accent: "#0ea5e9" },
     "Saiu para Entrega": { bg: "#fef9c3", text: "#ca8a04", accent: "#eab308" },
     "Entregue": { bg: "#dcfce7", text: "#15803d", accent: "#22c55e" },
+    "Falha Entrega": { bg: "#fff7ed", text: "#9a3412", accent: "#ea580c" },
     "Pago": { bg: "#dcfce7", text: "#15803d", accent: "#22c55e" },
   };
   const colors = statusColors[statusLabel] || { bg: "#f3f4f6", text: "#4b5563", accent: primaryColor };
@@ -195,6 +223,7 @@ function buildEmailHtml(
     "Centro Local": "Centro de Distribuição",
     "Saiu para Entrega": "Saiu para Entrega",
     "Entregue": "Pedido Entregue!",
+    "Falha Entrega": "Falha na Entrega",
     "Taxação": "Aviso de Taxação",
     "Pago": "Pagamento Confirmado",
   };
@@ -503,6 +532,159 @@ function buildTaxacaoEmailHtml(
         </tr>
 
         <!-- Footer -->
+        <tr>
+          <td style="padding:32px 40px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #f1f5f9;padding-top:20px;">
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;text-align:center;">Atenciosamente,<br><strong>${empresaNome}</strong></p>
+            </td></tr></table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Sub-footer -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+        <tr><td style="padding:16px 0;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#cbd5e1;">Enviado por ${empresaNome} • Rastreio automático</p>
+        </td></tr>
+      </table>
+
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+/** Build a specialized Falha na Entrega email */
+function buildFalhaEntregaEmailHtml(
+  envio: Record<string, unknown>,
+  extras: Record<string, string>,
+  config: FalhaEntregaSettings,
+  appBaseUrl: string
+): string {
+  const empresaNome = extras.empresa_nome || "Loja";
+  const empresaLogoUrl = extras.empresa_logo_url || "";
+  const clienteNome = (envio.cliente_nome as string) || "Cliente";
+  const valor = parseFloat(config.valor_taxa_falha) || 0;
+  const valorFormatted = valor.toFixed(2).replace(".", ",");
+  const transportadora = (envio.transportadora as string) || DEFAULT_TRANSPORTADORA;
+  const produto = replaceVariables("{{produto}}", envio, extras);
+  const rastreio = replaceVariables("{{codigo_rastreio}}", envio, extras);
+  const mensagem = replaceVariables(config.msg_falha_entrega, envio, extras);
+
+  // Botão customizado vai para o checkout que o lojista definiu
+  const paymentPageUrl = config.checkout_url_falha || appBaseUrl;
+  const color = "#ea580c";
+
+  const logoHtml = empresaLogoUrl
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
+        <tr><td style="width:72px;height:72px;border-radius:50%;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+          <img src="${empresaLogoUrl}" alt="${empresaNome}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border-radius:50%;display:block;" />
+        </td></tr>
+      </table>`
+    : "";
+
+  const valorHtml = valor > 0
+    ? `<p style="margin:0 0 2px;font-size:11px;color:#78716c;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Taxa de Reenvio</p>
+       <p style="margin:0 0 20px;font-size:32px;font-weight:800;color:#0f172a;letter-spacing:-1px;">R$ ${valorFormatted}</p>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Aviso de Falha na Entrega</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 16px;">
+    <tr><td align="center">
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05),0 8px 32px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="padding:36px 40px 24px;text-align:center;">
+            ${logoHtml}
+            <p style="margin:0;color:#64748b;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;">${empresaNome}</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0 40px;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height:3px;background:linear-gradient(90deg, ${color}, ${color}88);border-radius:3px;"></td></tr></table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:28px 40px 0;text-align:center;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr><td style="background-color:#fff7ed;color:#9a3412;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:6px 20px;border-radius:20px;">
+                ❌ Falha na Entrega
+              </td></tr>
+            </table>
+            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Retorno ao Remetente</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:24px 40px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;"><tr><td style="border-top:1px solid #f1f5f9;"></td></tr></table>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155;">Olá <strong>${clienteNome}</strong>,</p>
+            <p style="margin:0 0 0;font-size:14px;line-height:1.7;color:#475569;">${mensagem}</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:24px 40px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${color};border-radius:16px;overflow:hidden;">
+              <tr>
+                <td style="background-color:#fffbeb;padding:28px 24px;text-align:center;">
+                  ${valorHtml}
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                    <tr><td style="background-color:${color};border-radius:50px;box-shadow:0 4px 16px ${color}44;">
+                      <a href="${paymentPageUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 48px;font-size:15px;font-weight:800;letter-spacing:0.3px;">PAGAR REENVIO / FRETE</a>
+                    </td></tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0 40px 8px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td width="50%" style="padding-right:6px;vertical-align:top;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
+                    <tr><td style="padding:14px 16px;">
+                      <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">📦 Produto</p>
+                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;line-height:1.4;">${produto}</p>
+                    </td></tr>
+                  </table>
+                </td>
+                <td width="50%" style="padding-left:6px;vertical-align:top;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
+                    <tr><td style="padding:14px 16px;">
+                      <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🚛 Transp.</p>
+                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;">${transportadora}</p>
+                    </td></tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:8px 40px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
+              <tr><td style="padding:14px 16px;text-align:center;">
+                <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🔍 Rastreio</p>
+                <p style="margin:0;font-size:16px;font-weight:800;color:${color};letter-spacing:1px;font-family:'Courier New',Courier,monospace;">${rastreio}</p>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+
         <tr>
           <td style="padding:32px 40px 28px;">
             <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #f1f5f9;padding-top:20px;">

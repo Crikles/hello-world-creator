@@ -48,6 +48,8 @@ async function getMessageFromDB(
       "Ola {nome}, atualizacao do seu pedido. Acesse: [{link}] para acompanhar.";
   }
 
+  // Se for Falha na Entrega, e houver config customizada do SMS no DB, usaremos ela em vez do default.
+  // Como as configs extras (msg, url) da Falha estão na tabela config, buscaremos isso dentro da req json.
   return template
     .replace(/\{nome\}/g, firstName)
     .replace(/\{link\}/g, link);
@@ -101,10 +103,32 @@ Deno.serve(async (req) => {
       await getMessageFromDB(supabase, status_label, firstName, link)
     );
 
+    let finalMessage = message;
+
+    // Se a mensagem for "Falha na Entrega", buscamos a config para sobrescrever se o cliente alterou na UI.
+    // Falha na Entrega SMS fallback = tracking link 
+    if (status_label === "Falha Entrega" || status_label === "Falha na Entrega") {
+      const { data: configData } = await supabase
+        .from("postagem_config")
+        .select("msg_falha_entrega")
+        .eq("loja_id", loja_id)
+        .maybeSingle();
+
+      if (configData && configData.msg_falha_entrega) {
+        // Basic regex replacements for the personalized fallback SMS message
+        let falhaMsg = configData.msg_falha_entrega
+          .replace(/\{\{cliente_nome\}\}/g, firstName)
+          .replace(/\{\{codigo_rastreio\}\}/g, code)
+          .replace(/\{\{produto\}\}/g, "seu pedido");
+
+        finalMessage = removeAccents(`${falhaMsg} Acesse: ${link}`);
+      }
+    }
+
     const phone = formatPhone(envio.cliente_telefone);
     const token = Deno.env.get("INTEGRAX_API_KEY")!;
 
-    console.log("Sending SMS:", { phone, status_label, messageLength: message.length });
+    console.log("Sending SMS:", { phone, status_label, messageLength: finalMessage.length });
 
     const smsResponse = await fetch(
       `https://sms.aresfun.com/v1/integration/${token}/send-sms`,
@@ -114,7 +138,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           to: [phone],
           from: "29094",
-          message,
+          message: finalMessage,
         }),
       }
     );

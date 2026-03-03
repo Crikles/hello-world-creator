@@ -20,7 +20,8 @@ import {
     Zap,
     Box,
     Menu,
-    X
+    X,
+    PackageX
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -53,6 +54,7 @@ interface EventoData {
     nome: string;
     descricao: string | null;
     status_label: string | null;
+    corpo_email: string | null;
     ordem: number;
     delay_horas: number;
 }
@@ -65,6 +67,7 @@ const statusConfig: Record<string, { icon: any; color: string; label: string }> 
     "Centro Local": { icon: MapPin, color: "#fbbf24", label: "Centro Local" },
     "Saiu para Entrega": { icon: Truck, color: "#f97316", label: "Saiu para Entrega" },
     "Entregue": { icon: CheckCircle2, color: "#22c55e", label: "Entregue" },
+    "Falha Entrega": { icon: PackageX, color: "#ea580c", label: "Falha na Entrega" },
     "Taxação": { icon: AlertTriangle, color: "#ef4444", label: "Fiscalização" },
     "Pago": { icon: ShieldCheck, color: "#10b981", label: "Taxa Paga" },
     "Em Rota": { icon: Truck, color: "#eab308", label: "Em Rota" },
@@ -442,6 +445,26 @@ export default function Rastreio() {
                                                                                     }}
                                                                                 >
                                                                                     PAGAR TAXA
+                                                                                </a>
+                                                                            )}
+                                                                            {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && ev.corpo_email?.includes("{{falha_checkout_url:") && (
+                                                                                <a
+                                                                                    href={ev.corpo_email.match(/\{\{falha_checkout_url:([^}]*)\}\}/)?.[1] || "#"}
+                                                                                    className="falha-pay-btn"
+                                                                                    style={{
+                                                                                        display: 'inline-block',
+                                                                                        marginTop: 8,
+                                                                                        padding: '8px 20px',
+                                                                                        background: '#ea580c',
+                                                                                        color: '#fff',
+                                                                                        borderRadius: 8,
+                                                                                        fontSize: 13,
+                                                                                        fontWeight: 700,
+                                                                                        textDecoration: 'none',
+                                                                                        letterSpacing: '0.3px',
+                                                                                    }}
+                                                                                >
+                                                                                    PAGAR REENVIO / FRETE
                                                                                 </a>
                                                                             )}
                                                                         </>

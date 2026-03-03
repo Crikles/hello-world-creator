@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { TaxacaoConfig } from "@/components/postagens/TaxacaoConfig";
+import { FalhaEntregaConfig } from "@/components/postagens/FailedDeliveryConfig";
 import { cn } from "@/lib/utils";
 
 // ── Types ──
@@ -65,6 +66,7 @@ interface PostagemConfig {
   enviar_nfe_email: boolean;
   ativar_site_rastreio: boolean;
   ativar_taxacao: boolean;
+  ativar_falha_entrega: boolean;
   origem_cidade: string | null;
   origem_estado: string | null;
 }
@@ -110,6 +112,8 @@ function isEventoAtivo(evento: PostagemEvento, localConfig: PostagemConfig): boo
   if (evento.enviar_nfe_pdf) return localConfig.enviar_nfe_email;
   if (evento.status_label === "Taxação" || evento.status_label === "Pago")
     return localConfig.ativar_taxacao;
+  if (evento.status_label === "Falha Entrega" || evento.nome === "Falha na Entrega")
+    return localConfig.ativar_falha_entrega;
   return localConfig.enviar_emails;
 }
 
@@ -261,6 +265,7 @@ export default function Postagens() {
       config.enviar_nfe_email !== localConfig.enviar_nfe_email ||
       config.ativar_site_rastreio !== localConfig.ativar_site_rastreio ||
       config.ativar_taxacao !== localConfig.ativar_taxacao ||
+      config.ativar_falha_entrega !== localConfig.ativar_falha_entrega ||
       (config as any).origem_cidade !== localConfig.origem_cidade ||
       (config as any).origem_estado !== localConfig.origem_estado;
     const delaysChanged = activeEventos?.some(
@@ -287,6 +292,7 @@ export default function Postagens() {
     if (localConfig.enviar_emails) total += systemConfigValues.custo_email_rastreio ?? 1;
     if (localConfig.ativar_site_rastreio) total += smsTotalCost;
     if (localConfig.ativar_taxacao) total += systemConfigValues.custo_taxacao ?? 1;
+    // Falha na entrega sends normal tracking emails, unless customized later
     return total;
   })();
 
@@ -362,6 +368,7 @@ export default function Postagens() {
           enviar_nfe_email: localConfig.enviar_nfe_email,
           ativar_site_rastreio: localConfig.ativar_site_rastreio,
           ativar_taxacao: localConfig.ativar_taxacao,
+          ativar_falha_entrega: localConfig.ativar_falha_entrega,
           origem_cidade: localConfig.origem_cidade,
           origem_estado: localConfig.origem_estado,
         })
@@ -429,6 +436,15 @@ export default function Postagens() {
       cost: systemConfigValues?.custo_taxacao ?? 1,
       toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_taxacao: !prev.ativar_taxacao } : prev),
     },
+    {
+      key: "ativar_falha_entrega",
+      label: "Falha na Entrega",
+      desc: "Cobrar novo frete por falhas (Destinatário ausente, etc).",
+      icon: AlertTriangle,
+      checked: localConfig.ativar_falha_entrega || false,
+      cost: 1, // Email standard cost
+      toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_falha_entrega: !prev.ativar_falha_entrega } : prev),
+    },
   ] : [];
 
   return (
@@ -453,6 +469,13 @@ export default function Postagens() {
             Taxação
             {localConfig?.ativar_taxacao && (
               <span className="ml-1 w-2 h-2 rounded-full bg-primary animate-pulse-dot" />
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="falha_entrega" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
+            Falha na Entrega
+            {localConfig?.ativar_falha_entrega && (
+              <span className="ml-1 w-2 h-2 rounded-full bg-orange-500 animate-pulse-dot" />
             )}
           </TabsTrigger>
         </TabsList>
@@ -731,6 +754,16 @@ export default function Postagens() {
             <TaxacaoConfig
               lojaId={loja.id}
               taxacaoAtivo={localConfig?.ativar_taxacao ?? false}
+            />
+          )}
+        </TabsContent>
+
+        {/* ─── Falha Entrega Tab ─── */}
+        <TabsContent value="falha_entrega" className="mt-5">
+          {loja?.id && (
+            <FalhaEntregaConfig
+              lojaId={loja.id}
+              falhaEntregaAtivo={localConfig?.ativar_falha_entrega ?? false}
             />
           )}
         </TabsContent>

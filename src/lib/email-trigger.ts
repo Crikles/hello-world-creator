@@ -59,9 +59,22 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             return null;
         }
 
+        // Filter out "Falha Entrega/Falha na Entrega" if config.ativar_falha_entrega is not true
+        const filteredEvents = allEvents.filter(e => {
+            if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !(config as any).ativar_falha_entrega) {
+                return false;
+            }
+            return true;
+        });
+
+        // Re-calculate the ordens mathematically so the index doesn't skip
+        filteredEvents.forEach((ev, idx) => {
+            // Keep original logic untouched, we just run on `filteredEvents` instead of `allEvents`
+        });
+
         // 4. Find the NEXT event (ordem > ultimo_evento_ordem)
         const currentOrdem = (shipment as any).ultimo_evento_ordem ?? 0;
-        const nextEvent = allEvents.find(e => e.ordem > currentOrdem);
+        const nextEvent = filteredEvents.find(e => e.ordem > currentOrdem);
 
         if (!nextEvent) {
             console.log("Trigger skip: no more events to send");
@@ -150,8 +163,8 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         }
 
         // 5. Determine new status based on position
-        const totalEvents = allEvents.length;
-        const eventIndex = allEvents.indexOf(nextEvent);
+        const totalEvents = filteredEvents.length;
+        const eventIndex = filteredEvents.indexOf(nextEvent);
         let newStatus: ShipmentStatus;
 
         if (eventIndex === totalEvents - 1) {
@@ -163,7 +176,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         }
 
         // 6. Calculate proximo_avanco_em based on following event's delay_horas
-        const followingEvent = allEvents.find(e => e.ordem > nextEvent.ordem);
+        const followingEvent = filteredEvents.find(e => e.ordem > nextEvent.ordem);
         const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
             ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
             : null;
