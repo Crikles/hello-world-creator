@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Contact, Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { format } from "date-fns";
+import { Contact, Search, ChevronLeft, ChevronRight, Download, CalendarIcon } from "lucide-react";
+import { format, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 const PAGE_SIZE = 25;
 
@@ -55,6 +57,9 @@ export default function AdminLeads() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [datePreset, setDatePreset] = useState<string>("");
 
   // Fetch profiles for the filter
   const { data: profiles } = useQuery({
@@ -113,6 +118,14 @@ export default function AdminLeads() {
     if (selectedUsers.length > 0 && (!l._user_id || !selectedUsers.includes(l._user_id))) {
       return false;
     }
+    // Date filter
+    if (dateFrom && l.created_at) {
+      if (new Date(l.created_at) < startOfDay(dateFrom)) return false;
+    }
+    if (dateTo && l.created_at) {
+      if (new Date(l.created_at) > endOfDay(dateTo)) return false;
+    }
+    if ((dateFrom || dateTo) && !l.created_at) return false;
     // Text search
     if (!search) return true;
     const q = search.toLowerCase();
@@ -165,6 +178,64 @@ export default function AdminLeads() {
       );
     }
     setPage(0);
+  };
+
+  const applyDatePreset = (preset: string) => {
+    const now = new Date();
+    setDatePreset(preset);
+    switch (preset) {
+      case "today":
+        setDateFrom(startOfDay(now));
+        setDateTo(endOfDay(now));
+        break;
+      case "yesterday":
+        setDateFrom(startOfDay(subDays(now, 1)));
+        setDateTo(endOfDay(subDays(now, 1)));
+        break;
+      case "7d":
+        setDateFrom(startOfDay(subDays(now, 6)));
+        setDateTo(endOfDay(now));
+        break;
+      case "30d":
+        setDateFrom(startOfDay(subDays(now, 29)));
+        setDateTo(endOfDay(now));
+        break;
+      case "this_month":
+        setDateFrom(startOfMonth(now));
+        setDateTo(endOfMonth(now));
+        break;
+      case "this_week":
+        setDateFrom(startOfWeek(now, { locale: ptBR }));
+        setDateTo(endOfWeek(now, { locale: ptBR }));
+        break;
+      default:
+        setDateFrom(undefined);
+        setDateTo(undefined);
+        setDatePreset("");
+    }
+    setPage(0);
+  };
+
+  const clearDateFilter = () => {
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setDatePreset("");
+    setPage(0);
+  };
+
+  const dateLabel = () => {
+    if (dateFrom && dateTo) {
+      if (datePreset === "today") return "Hoje";
+      if (datePreset === "yesterday") return "Ontem";
+      if (datePreset === "7d") return "Últimos 7 dias";
+      if (datePreset === "30d") return "Últimos 30 dias";
+      if (datePreset === "this_month") return "Este mês";
+      if (datePreset === "this_week") return "Esta semana";
+      return `${format(dateFrom, "dd/MM/yy")} - ${format(dateTo, "dd/MM/yy")}`;
+    }
+    if (dateFrom) return `A partir de ${format(dateFrom, "dd/MM/yy")}`;
+    if (dateTo) return `Até ${format(dateTo, "dd/MM/yy")}`;
+    return "Filtrar por data";
   };
 
   return (
@@ -222,9 +293,66 @@ export default function AdminLeads() {
                   ))}
                 </SelectContent>
               </Select>
-              {selectedUsers.length > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => { setSelectedUsers([]); setPage(0); }}>
-                  Limpar filtro
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={`gap-1.5 ${(dateFrom || dateTo) ? "border-primary text-primary" : ""}`}>
+                    <CalendarIcon className="h-4 w-4" />
+                    <span className="text-xs">{dateLabel()}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-3" align="start">
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {[
+                      { key: "today", label: "Hoje" },
+                      { key: "yesterday", label: "Ontem" },
+                      { key: "7d", label: "7 dias" },
+                      { key: "30d", label: "30 dias" },
+                      { key: "this_week", label: "Semana" },
+                      { key: "this_month", label: "Mês" },
+                    ].map((p) => (
+                      <Button
+                        key={p.key}
+                        variant={datePreset === p.key ? "default" : "outline"}
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={() => applyDatePreset(p.key)}
+                      >
+                        {p.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">De</p>
+                      <Calendar
+                        mode="single"
+                        selected={dateFrom}
+                        onSelect={(d) => { setDateFrom(d); setDatePreset(""); setPage(0); }}
+                        locale={ptBR}
+                        className="rounded-md border"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Até</p>
+                      <Calendar
+                        mode="single"
+                        selected={dateTo}
+                        onSelect={(d) => { setDateTo(d); setDatePreset(""); setPage(0); }}
+                        locale={ptBR}
+                        className="rounded-md border"
+                      />
+                    </div>
+                  </div>
+                  {(dateFrom || dateTo) && (
+                    <Button variant="ghost" size="sm" className="w-full mt-2 text-xs" onClick={clearDateFilter}>
+                      Limpar datas
+                    </Button>
+                  )}
+                </PopoverContent>
+              </Popover>
+              {(selectedUsers.length > 0 || dateFrom || dateTo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setSelectedUsers([]); clearDateFilter(); }}>
+                  Limpar filtros
                 </Button>
               )}
             </div>
