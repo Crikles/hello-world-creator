@@ -135,8 +135,8 @@ export default function Envios() {
         .select("auto_envio")
         .eq("loja_id", loja.id)
         .maybeSingle();
-      if (data && (data as any).auto_envio !== undefined) {
-        setAutoEnvio((data as any).auto_envio);
+      if (data && data.auto_envio !== undefined) {
+        setAutoEnvio(data.auto_envio ?? false);
       }
     };
     loadAutoEnvio();
@@ -148,7 +148,7 @@ export default function Envios() {
     setAutoEnvio(checked);
     const { error } = await supabase
       .from("postagem_config")
-      .update({ auto_envio: checked } as any)
+      .update({ auto_envio: checked })
       .eq("loja_id", loja.id);
     setAutoEnvioLoading(false);
     if (error) {
@@ -200,7 +200,7 @@ export default function Envios() {
         .from("envios")
         .select("*")
         .eq("loja_id", loja.id)
-        .is("deleted_at" as any, null)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -298,7 +298,7 @@ export default function Envios() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("envios").update({ deleted_at: new Date().toISOString() } as any).eq("id", id);
+      const { error } = await supabase.from("envios").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

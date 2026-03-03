@@ -46,7 +46,7 @@ export default function Dashboard() {
         .from("envios")
         .select("*")
         .eq("loja_id", loja.id)
-        .is("deleted_at" as any, null)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -104,9 +104,9 @@ export default function Dashboard() {
       if (!loja) throw new Error("Sem loja");
       const { error } = await supabase
         .from("envios")
-        .update({ deleted_at: new Date().toISOString() } as any)
+        .update({ deleted_at: new Date().toISOString() })
         .eq("loja_id", loja.id)
-        .is("deleted_at" as any, null);
+        .is("deleted_at", null);
       if (error) throw error;
     },
     onSuccess: () => {
