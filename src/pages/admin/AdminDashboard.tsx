@@ -11,7 +11,7 @@ export default function AdminDashboard() {
       const [profiles, lojas, envios, creditos, leads] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("lojas").select("id", { count: "exact", head: true }),
-        supabase.from("envios").select("id", { count: "exact", head: true }),
+        supabase.from("envios").select("id", { count: "exact", head: true }).is("deleted_at", null),
         supabase.from("creditos").select("saldo"),
         supabase.from("leads").select("id", { count: "exact", head: true }),
       ]);

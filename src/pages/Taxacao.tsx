@@ -90,6 +90,7 @@ export default function Taxacao() {
                 .from("envios")
                 .select("*")
                 .eq("loja_id", loja.id)
+                .is("deleted_at", null)
                 .gte("ultimo_evento_ordem", taxEventos.taxacao_ordem)
                 .order("updated_at", { ascending: false });
             if (error) throw error;
@@ -274,11 +275,10 @@ export default function Taxacao() {
                                 </div>
                                 <Badge
                                     variant="secondary"
-                                    className={`text-[10px] ml-2 whitespace-nowrap ${
-                                        envio.taxacao_status === "pendente"
+                                    className={`text-[10px] ml-2 whitespace-nowrap ${envio.taxacao_status === "pendente"
                                             ? "bg-primary/20 text-primary"
                                             : "bg-primary/15 text-primary"
-                                    }`}
+                                        }`}
                                 >
                                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1 animate-pulse-dot" />
                                     {envio.taxacao_status === "pendente" ? "Pendente" : "Aprovado"}

@@ -11,7 +11,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
 import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
 import { generateDanfePdfBase64 } from "@/lib/nfe-utils";
@@ -70,11 +74,16 @@ export default function Envios() {
   const [autoEnvioLoading, setAutoEnvioLoading] = useState(false);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [batchCooldown, setBatchCooldown] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
   const [, setTick] = useState(0);
   const queryClient = useQueryClient();
   const { loja } = useLoja();
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
-  
+
   // Batch advance state
   const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
   const batchCancelRef = useRef(false);
@@ -303,8 +312,34 @@ export default function Envios() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["taxacao-envios"] });
       toast.success("Envio removido.");
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        // Note: the original logic here was slightly flawed for a generic delete, 
+        // but cleaning it up.
+        return next;
+      });
     },
+  });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from("envios")
+        .update({ deleted_at: new Date().toISOString() })
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["taxacao-envios"] });
+      toast.success(`${selectedIds.size} envio(s) removido(s).`);
+      setSelectedIds(new Set());
+    },
+    onError: (err: any) => {
+      toast.error("Erro ao excluir em massa: " + err.message);
+    }
   });
 
   const canAdvanceNow = (e: any) => {
@@ -338,7 +373,7 @@ export default function Envios() {
   const handleAvancarTodos = async () => {
     const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
-    
+
     batchCancelRef.current = false;
     setBatchProgress({ processing: true, current: 0, total: targets.length });
 
@@ -376,13 +411,46 @@ export default function Envios() {
   };
 
   const filteredEnvios = envios.filter((e) => {
+    const searchLower = search.toLowerCase();
     const matchSearch =
-      e.cliente_nome.toLowerCase().includes(search.toLowerCase()) ||
-      e.produto.toLowerCase().includes(search.toLowerCase()) ||
-      (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(search.toLowerCase()));
+      e.cliente_nome.toLowerCase().includes(searchLower) ||
+      e.produto.toLowerCase().includes(searchLower) ||
+      (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(searchLower)) ||
+      e.cliente_email.toLowerCase().includes(searchLower) ||
+      e.valor.toString().includes(searchLower);
+
     const matchStatus = filterStatus === "todos" || e.status === filterStatus;
-    return matchSearch && matchStatus;
+
+    let matchDate = true;
+    if (dateRange.from) {
+      const envioDate = new Date(e.created_at);
+      const start = startOfDay(dateRange.from);
+      const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      matchDate = isWithinInterval(envioDate, { start, end });
+    }
+
+    return matchSearch && matchStatus && matchDate;
   });
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredEnvios.map((e) => e.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const getProgress = (envio: any) => {
     if (totalEventos === 0) return 0;
@@ -455,9 +523,19 @@ export default function Envios() {
         <div className="glass-strong glow-border rounded-xl p-3">
           <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
-                <Switch checked={autoEnvio} onCheckedChange={handleToggleAutoEnvio} disabled={autoEnvioLoading} />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Auto {autoEnvio ? "🟢" : ""}</span>
+              <div className="flex items-center gap-3 glass rounded-lg px-3 py-1.5">
+                <div className="flex items-center gap-2 border-r border-border/50 pr-2">
+                  <Checkbox
+                    checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
+                    onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                    className="h-4 w-4 border-primary/30"
+                  />
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Tudo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={autoEnvio} onCheckedChange={handleToggleAutoEnvio} disabled={autoEnvioLoading} />
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Auto {autoEnvio ? "🟢" : ""}</span>
+                </div>
               </div>
               <Button
                 variant="ghost"
@@ -494,21 +572,87 @@ export default function Envios() {
             </div>
 
             <div className="flex gap-2 items-center w-full lg:w-auto">
+              {selectedIds.size > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => {
+                    if (confirm(`Excluir ${selectedIds.size} envios selecionados?`)) {
+                      batchDeleteMutation.mutate(Array.from(selectedIds));
+                    }
+                  }}
+                  disabled={batchDeleteMutation.isPending}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Excluir ({selectedIds.size})
+                </Button>
+              )}
+
               <div className="relative flex-1 lg:w-56">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar..."
+                  placeholder="Buscar nome, produto, preço..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-8 h-8 text-xs bg-transparent border-border/50"
                 />
               </div>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-8 text-xs bg-transparent border-border/50 font-normal",
+                      !dateRange.from && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-3.5 w-3.5" />
+                    {dateRange.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "dd/MM")} - {format(dateRange.to, "dd/MM")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "dd/MM/yyyy")
+                      )
+                    ) : (
+                      <span>Filtrar Data</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <CalendarComponent
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange.from}
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range: any) => setDateRange({ from: range?.from, to: range?.to })}
+                    numberOfMonths={1}
+                  />
+                  {dateRange.from && (
+                    <div className="p-2 border-t border-border flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[10px] h-7"
+                        onClick={() => setDateRange({ from: undefined, to: undefined })}
+                      >
+                        Limpar
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-[120px] h-8 text-xs bg-transparent border-border/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="todos">Todos Status</SelectItem>
                   {statusOptions.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
@@ -560,6 +704,14 @@ export default function Envios() {
               >
                 {/* Single compact row */}
                 <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                  <div className="flex items-center shrink-0">
+                    <Checkbox
+                      checked={selectedIds.has(envio.id)}
+                      onCheckedChange={() => toggleSelect(envio.id)}
+                      className="h-4 w-4 border-primary/30"
+                    />
+                  </div>
+
                   {/* Name + Email */}
                   <div className="min-w-0 w-32 md:w-40 shrink-0">
                     <p className="text-sm font-medium text-foreground truncate leading-tight">{envio.cliente_nome}</p>

@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { TaxacaoConfig } from "@/components/postagens/TaxacaoConfig";
+import { cn } from "@/lib/utils";
 
 // ── Types ──
 interface PostagemEvento {
@@ -183,7 +184,6 @@ export default function Postagens() {
     },
     enabled: !!loja,
   });
-
   const { data: activeEventos } = useQuery({
     queryKey: ["postagem-eventos-active", config?.template_ativo_id],
     queryFn: async () => {
@@ -194,6 +194,20 @@ export default function Postagens() {
         .order("ordem");
       if (error) throw error;
       return data as PostagemEvento[];
+    },
+    enabled: !!config?.template_ativo_id,
+  });
+
+  const { data: activeTemplate } = useQuery({
+    queryKey: ["postagem-template-active", config?.template_ativo_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("postagem_templates")
+        .select("*")
+        .eq("id", config!.template_ativo_id!)
+        .single();
+      if (error) throw error;
+      return data as PostagemTemplate;
     },
     enabled: !!config?.template_ativo_id,
   });
@@ -523,15 +537,30 @@ export default function Postagens() {
             <div className="grid gap-3 md:grid-cols-3">
               {systemTemplates?.map((template, idx) => {
                 const evts = systemEventos?.filter((e) => e.template_id === template.id) || [];
+                const isActive = activeTemplate?.tipo === template.tipo;
+
                 return (
                   <div
                     key={template.id}
-                    className="glass glow-border-hover rounded-xl p-4 cursor-pointer transition-all duration-300 hover:scale-[1.02] animate-stagger-in"
+                    className={cn(
+                      "glass rounded-xl p-4 cursor-pointer transition-all duration-300 hover:scale-[1.02] animate-stagger-in relative overflow-hidden",
+                      isActive ? "glow-border ring-1 ring-primary/50 shadow-lg shadow-primary/10" : "glow-border-hover border border-border/30"
+                    )}
                     style={{ animationDelay: `${(idx + 4) * 0.06}s` }}
-                    onClick={() => applyTemplate.mutate(template.id)}
+                    onClick={() => !isActive && applyTemplate.mutate(template.id)}
                   >
+                    {isActive && (
+                      <div className="absolute top-0 right-0">
+                        <div className="bg-primary text-primary-foreground text-[8px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">
+                          Ativo
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-foreground">{template.nome}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">{template.nome}</p>
+                        {isActive && <CheckCircle2 className="h-3 w-3 text-primary" />}
+                      </div>
                       <Badge variant="secondary" className="text-[10px]">
                         {evts.length} eventos
                       </Badge>
@@ -547,10 +576,18 @@ export default function Postagens() {
                         );
                       })}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
-                      <AlertTriangle className="h-2.5 w-2.5" />
-                      Aplicar substituirá eventos atuais
-                    </p>
+                    {!isActive && (
+                      <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
+                        <AlertTriangle className="h-2.5 w-2.5" />
+                        Aplicar substituirá eventos atuais
+                      </p>
+                    )}
+                    {isActive && (
+                      <p className="text-[10px] text-primary font-medium mt-2 flex items-center gap-1">
+                        <Zap className="h-2.5 w-2.5" />
+                        Este é o seu fluxo atual
+                      </p>
+                    )}
                   </div>
                 );
               })}
