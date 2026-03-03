@@ -118,6 +118,9 @@ export default function Lojas() {
       await supabase.from("pedidos").delete().eq("loja_id", id);
       await supabase.from("empresas").delete().eq("loja_id", id);
       await supabase.from("webhook_logs").delete().eq("loja_id", id);
+      await supabase.from("checkout_integrations").delete().eq("loja_id", id);
+      await supabase.from("shopify_integrations").delete().eq("loja_id", id);
+      await supabase.from("leads").delete().eq("loja_id", id);
       const { data: templates } = await supabase.from("postagem_templates").select("id").eq("loja_id", id);
       if (templates?.length) {
         const ids = templates.map(t => t.id);
