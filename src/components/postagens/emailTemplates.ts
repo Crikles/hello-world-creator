@@ -43,6 +43,7 @@ export const emojiMap: Record<string, string> = {
   Entregue: "✅",
   "Taxação": "⚠️",
   Pago: "💳",
+  "Falha Entrega": "⚠️",
 };
 
 export const emojiSugeridos: Record<string, string[]> = {
@@ -55,6 +56,7 @@ export const emojiSugeridos: Record<string, string[]> = {
   Entregue: ["✅", "🎁", "💚", "🥳"],
   "Taxação": ["⚠️", "📋", "💰", "🏛️"],
   Pago: ["💳", "✅", "🎉"],
+  "Falha Entrega": ["⚠️", "📦", "🛑", "🔔"],
 };
 
 export const defaultSectionsByEvent: Record<string, EmailSections> = {
@@ -139,6 +141,15 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
+  "Falha Entrega": {
+    saudacao: "Olá {{cliente_nome}},",
+    mensagem: "Houve uma falha na tentativa de entrega do seu pedido **{{produto}}**.\n\nPara reenviarmos, precisamos que você pague a taxa de retentativa acessando o checkout através do botão abaixo.",
+    mostrar_info_pedido: true,
+    mostrar_botao_cta: true,
+    texto_botao_cta: "PAGAR REENVIO",
+    url_botao_cta: "{{falha_checkout_url}}",
+    rodape: "Atenciosamente,\n{{empresa_nome}}",
+  },
 };
 
 export function replaceVariables(text: string, data: Record<string, string> = dadosExemplo): string {
@@ -173,6 +184,7 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
     "Entregue": "Pedido Entregue!",
     "Taxação": "Aviso de Taxação",
     "Pago": "Pagamento Confirmado",
+    "Falha Entrega": "Falha na Entrega",
   };
   const headerTitle = eventName ? `${emoji} ${titleMap[eventName] || eventName}` : "📬 Atualização do Pedido";
 

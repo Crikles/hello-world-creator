@@ -235,65 +235,7 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
     );
 }
 
-/* ─────────────────────── SMS Preview ─────────────────────── */
 
-function FalhaEntregaSmsPreview({ settings, empresaNome }: { settings: FalhaEntregaSettings; empresaNome: string }) {
-    const rawMsg = settings.msg_falha_entrega.trim() !== "" ? settings.msg_falha_entrega : "(Sua mensagem personalizada aqui)";
-
-    return (
-        <div className="bg-[#f1f5f9] rounded-2xl border-2 border-border/50 shadow-xl overflow-hidden w-full h-[500px] flex flex-col items-center justify-center p-4">
-            {/* Phone Mockup */}
-            <div className="w-[300px] h-[480px] bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl relative border-4 border-slate-800">
-                {/* Screen */}
-                <div className="bg-white w-full h-full rounded-[2rem] overflow-hidden flex flex-col font-sans">
-                    {/* Status Bar */}
-                    <div className="h-6 flex items-center justify-between px-5 text-[10px] bg-slate-100/80 font-medium text-slate-800 backdrop-blur-sm z-10 pt-1">
-                        <span>9:41</span>
-                        <div className="flex items-center gap-1">
-                            <div className="w-3 h-2.5 bg-slate-800 rounded-[2px]" />
-                        </div>
-                    </div>
-                    {/* Header Messages */}
-                    <div className="bg-slate-100/80 px-4 py-2 flex items-center justify-center border-b border-black/5 pb-3">
-                        <div className="flex flex-col items-center gap-1">
-                            <div className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-white text-xs font-bold">JT</div>
-                            <span className="text-[10px] font-semibold text-slate-700">{empresaNome}</span>
-                        </div>
-                    </div>
-
-                    {/* Chat Area */}
-                    <div className="flex-1 bg-white p-4 flex flex-col justify-end gap-2 overflow-y-auto">
-                        <div className="text-[9px] text-center text-slate-400 font-medium mb-2">Hoje 09:41</div>
-
-                        <div className="bg-[#e2e8f0] text-slate-800 p-3 rounded-2xl rounded-bl-sm max-w-[85%] self-start shadow-sm text-[11px] leading-relaxed relative">
-                            <p className="font-semibold mb-1">Aviso de Falha na Entrega 📦</p>
-                            <p>{rawMsg}</p>
-                            <p className="mt-2 text-blue-600 font-medium underline">rastreio.site/br5474</p>
-
-                            <span className="absolute -bottom-1 -left-1 w-2 h-2 text-[#e2e8f0]">
-                                <svg viewBox="0 0 10 10" fill="currentColor"><path d="M0 10 L10 10 L10 0 C10 5, 5 10, 0 10" /></svg>
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Input Bar */}
-                    <div className="h-12 bg-slate-50 border-t border-black/5 px-4 flex items-center gap-2">
-                        <div className="flex-1 h-7 rounded-full bg-slate-200/50 border border-slate-300/50 flex items-center px-3">
-                            <span className="text-[10px] text-slate-400">Mensagem</span>
-                        </div>
-                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
-                            <svg className="w-3 h-3 text-white ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-slate-50 border-t border-black/5 px-5 py-2.5 text-center mt-auto w-full z-10 absolute bottom-0 left-0">
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Preview visual do SMS</p>
-            </div>
-        </div>
-    );
-}
 
 /* ─────────────────────── Main Component ─────────────────────── */
 
@@ -305,7 +247,7 @@ interface FalhaEntregaConfigProps {
 export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaConfigProps) {
     const [settings, setSettings] = useState<FalhaEntregaSettings>(() => loadSettings(lojaId));
     const [savedSettings, setSavedSettings] = useState<FalhaEntregaSettings>(() => loadSettings(lojaId));
-    const [previewTab, setPreviewTab] = useState<"site" | "email" | "sms">("site");
+    const [previewTab, setPreviewTab] = useState<"site" | "email">("site");
     const queryClient = useQueryClient();
 
     const { data: empresa } = useQuery({
@@ -511,13 +453,11 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                             <div className="flex gap-2 p-1 bg-muted/30 rounded-lg mb-4 text-xs font-semibold w-full">
                                 <button onClick={() => setPreviewTab("site")} className={`flex-1 py-1.5 rounded-md transition-colors flex justify-center items-center gap-1.5 ${previewTab === "site" ? "text-slate-800 bg-white shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}><Eye size={14} /> Site</button>
                                 <button onClick={() => setPreviewTab("email")} className={`flex-1 py-1.5 rounded-md transition-colors flex justify-center items-center gap-1.5 ${previewTab === "email" ? "text-slate-800 bg-white shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}><Mail size={14} /> E-mail</button>
-                                <button onClick={() => setPreviewTab("sms")} className={`flex-1 py-1.5 rounded-md transition-colors flex justify-center items-center gap-1.5 ${previewTab === "sms" ? "text-slate-800 bg-white shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}><MessageSquare size={14} /> SMS</button>
                             </div>
 
                             <div className="mt-2 w-full max-w-full">
                                 {previewTab === "site" && <FalhaEntregaTrackingPreview settings={settings} empresaNome={empresaNome} logoUrl={empresaLogoUrl} />}
                                 {previewTab === "email" && <FalhaEntregaEmailPreview settings={settings} empresaNome={empresaNome} />}
-                                {previewTab === "sms" && <FalhaEntregaSmsPreview settings={settings} empresaNome={empresaNome} />}
                             </div>
                         </div>
                     </div>
