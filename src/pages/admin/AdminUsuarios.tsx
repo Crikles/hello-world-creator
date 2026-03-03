@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -28,7 +29,8 @@ interface UserRow {
 }
 
 export default function AdminUsuarios() {
-  const { user } = useAuth();
+  const { user, loginAs } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [quantidade, setQuantidade] = useState("");
@@ -219,6 +221,12 @@ export default function AdminUsuarios() {
     manageCreditsMutation.mutate({ userId: selectedUser.id, qty, desc: descricao, action: operacao });
   };
 
+  const handleImpersonate = (u: UserRow) => {
+    loginAs(u);
+    toast.success(`Entrando como ${u.full_name || u.email}`);
+    navigate("/lojas");
+  };
+
   return (
     <AdminLayout>
       <h1 className="text-2xl font-bold text-foreground mb-6">Gestão de Usuários</h1>
@@ -293,6 +301,15 @@ export default function AdminUsuarios() {
                           }}>
                             <Plus className="h-3.5 w-3.5 mr-1" />
                             Créditos
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-primary border-primary/20 hover:bg-primary/5"
+                            onClick={() => handleImpersonate(u)}
+                          >
+                            <LogIn className="h-3.5 w-3.5 mr-1" />
+                            Acessar Conta
                           </Button>
                           {u.id !== user?.id && (
                             <>

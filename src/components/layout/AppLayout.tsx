@@ -1,11 +1,16 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Outlet } from "react-router-dom";
+import { useNavigate, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Megaphone } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Megaphone, AlertTriangle } from "lucide-react";
 
 export function AppLayout() {
+  const navigate = useNavigate();
+  const { isImpersonating, exitImpersonation, user } = useAuth();
+
   const { data: whatsappConfig } = useQuery({
     queryKey: ["whatsapp-suporte-global"],
     queryFn: async () => {
@@ -23,6 +28,12 @@ export function AppLayout() {
       window.open(`https://wa.me/${whatsappConfig}`, "_blank");
     }
   };
+
+  const handleExitImpersonation = () => {
+    exitImpersonation();
+    navigate("/admin/usuarios");
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -34,7 +45,28 @@ export function AppLayout() {
             <div className="absolute inset-0 bg-grid-pattern opacity-20" />
           </div>
 
-          {whatsappConfig && (
+          {isImpersonating && (
+            <div className="bg-destructive text-destructive-foreground py-2 px-6 flex items-center justify-between z-50 animate-in slide-in-from-top-2 border-b border-white/10 shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-sm font-bold tracking-tight">
+                  MODO DE VISUALIZAÇÃO: Você está acessando a conta de <span className="underline decoration-white/30">{user?.user_metadata?.full_name || user?.email}</span>
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold h-7 px-4 rounded-full transition-all active:scale-95"
+                onClick={handleExitImpersonation}
+              >
+                Encerrar Visualização
+              </Button>
+            </div>
+          )}
+
+          {whatsappConfig && !isImpersonating && (
             <div
               onClick={handleSupportClick}
               className="bg-primary hover:bg-primary/90 text-primary-foreground py-2 px-4 shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors z-50 animate-in slide-in-from-top-2"

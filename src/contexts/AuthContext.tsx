@@ -7,19 +7,31 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  loginAs: (targetUser: any) => void;
+  exitImpersonation: () => void;
+  isImpersonating: boolean;
+  realUser: User | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,
-  signOut: async () => {},
+  signOut: async () => { },
+  loginAs: () => { },
+  exitImpersonation: () => { },
+  isImpersonating: false,
+  realUser: null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [impersonatedUser, setImpersonatedUser] = useState<any | null>(() => {
+    const saved = sessionStorage.getItem("impersonated_user");
+    return saved ? JSON.parse(saved) : null;
+  });
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -52,11 +64,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    sessionStorage.removeItem("impersonated_user");
     await supabase.auth.signOut();
   };
 
+  const loginAs = (targetUser: any) => {
+    // We construct a fake user object that looks like Supabase User
+    const fakeUser = {
+      id: targetUser.id,
+      email: targetUser.email,
+      user_metadata: {
+        full_name: targetUser.full_name
+      },
+      is_impersonated: true
+    };
+    setImpersonatedUser(fakeUser);
+    sessionStorage.setItem("impersonated_user", JSON.stringify(fakeUser));
+  };
+
+  const exitImpersonation = () => {
+    setImpersonatedUser(null);
+    sessionStorage.removeItem("impersonated_user");
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{
+      user: impersonatedUser ?? user,
+      session,
+      loading,
+      signOut,
+      loginAs,
+      exitImpersonation,
+      isImpersonating: !!impersonatedUser,
+      realUser: user
+    }}>
       {children}
     </AuthContext.Provider>
   );
