@@ -21,7 +21,7 @@ type AuthMode = 'login' | 'signup' | 'reset';
 
 interface AuthFormProps {
   onLogin?: (email: string, password: string) => Promise<void>;
-  onSignup?: (email: string, password: string, name: string) => Promise<void>;
+  onSignup?: (email: string, password: string, name: string, phone: string) => Promise<void>;
   onReset?: (email: string) => Promise<void>;
   initialMode?: AuthMode;
   loading?: boolean;
@@ -179,6 +179,13 @@ export function AuthForm({
       case 'name':
         if (typeof value === 'string' && authMode === 'signup' && !value.trim()) error = 'Nome é obrigatório';
         break;
+      case 'phone':
+        if (typeof value === 'string' && authMode === 'signup') {
+          if (!value.trim()) error = 'WhatsApp é obrigatório';
+          else if (!/^\d+$/.test(value.replace(/\D/g, ''))) error = 'Apenas números';
+          else if (value.replace(/\D/g, '').length < 10) error = 'Mínimo 10 dígitos';
+        }
+        break;
       case 'email':
         if (!value || (typeof value === 'string' && !value.trim())) error = 'Email é obrigatório';
         else if (typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Email inválido';
@@ -211,7 +218,7 @@ export function AuthForm({
   const validateForm = useCallback(() => {
     const newErrors: FormErrors = {};
     const fields: (keyof FormData)[] = authMode === 'signup'
-      ? ['name', 'email', 'password', 'confirmPassword']
+      ? ['name', 'phone', 'email', 'password', 'confirmPassword']
       : authMode === 'reset' ? ['email'] : ['email', 'password'];
     fields.forEach(f => {
       const err = validateField(f, formData[f]);
@@ -226,7 +233,7 @@ export function AuthForm({
     if (!validateForm()) return;
     try {
       if (authMode === 'login') await onLogin?.(formData.email, formData.password);
-      else if (authMode === 'signup') await onSignup?.(formData.email, formData.password, formData.name);
+      else if (authMode === 'signup') await onSignup?.(formData.email, formData.password, formData.name, formData.phone.replace(/\D/g, ''));
       else if (authMode === 'reset') await onReset?.(formData.email);
     } catch {
       // errors handled by parent
@@ -334,6 +341,26 @@ export function AuthForm({
           {errors.name && (
             <p className="text-xs text-destructive flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />{errors.name}
+            </p>
+          )}
+          {/* WhatsApp field */}
+          <div className="relative mt-3">
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="tel"
+              placeholder="WhatsApp (ex: 11999998888)"
+              value={formData.phone}
+              onChange={e => handleInputChange('phone', e.target.value)}
+              onBlur={() => handleFieldBlur('phone')}
+              className={cn(
+                "w-full pl-10 pr-4 py-3 bg-muted/50 border rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground",
+                errors.phone ? "border-destructive" : "border-input"
+              )}
+            />
+          </div>
+          {errors.phone && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />{errors.phone}
             </p>
           )}
         </div>

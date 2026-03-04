@@ -20,6 +20,7 @@ interface UserRow {
   id: string;
   full_name: string | null;
   email: string | null;
+  whatsapp: string | null;
   created_at: string;
   role: string;
   saldo: number;
@@ -75,6 +76,7 @@ export default function AdminUsuarios() {
           id: p.id,
           full_name: p.full_name,
           email: p.email,
+          whatsapp: (p as any).whatsapp || null,
           created_at: p.created_at,
           role: userRole?.role || "user",
           saldo: userCredito?.saldo || 0,
@@ -247,6 +249,7 @@ export default function AdminUsuarios() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>WhatsApp</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Cadastro</TableHead>
@@ -260,6 +263,7 @@ export default function AdminUsuarios() {
                     <TableRow key={u.id} className={u.blocked ? "opacity-60" : ""}>
                       <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
                       <TableCell>{u.email || "—"}</TableCell>
+                      <TableCell>{u.whatsapp || "—"}</TableCell>
                       <TableCell>
                         {u.blocked ? (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive font-medium">Bloqueado</span>

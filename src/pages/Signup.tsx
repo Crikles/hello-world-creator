@@ -11,13 +11,13 @@ export default function Signup() {
   const [resending, setResending] = useState(false);
   const isLogistics = isLogisticsDomain();
 
-  const handleSignup = async (emailVal: string, password: string, name: string) => {
+  const handleSignup = async (emailVal: string, password: string, name: string, phone: string) => {
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email: emailVal,
       password,
       options: {
-        data: { full_name: name },
+        data: { full_name: name, whatsapp: phone },
         emailRedirectTo: window.location.origin + "/login",
       },
     });
