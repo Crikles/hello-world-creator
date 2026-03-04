@@ -489,9 +489,10 @@ export default function Envios() {
   };
 
   const getProgress = (envio: any) => {
+    if (envio.status === "entregue") return 100;
     if (totalEventos === 0) return 0;
     const ordem = envio.ultimo_evento_ordem ?? 0;
-    return Math.round((ordem / totalEventos) * 100);
+    return Math.min(Math.round((ordem / totalEventos) * 100), 100);
   };
 
   const getCurrentStep = (envio: any) => {
@@ -499,6 +500,7 @@ export default function Envios() {
   };
 
   const canAdvance = (envio: any) => {
+    if (envio.status === "entregue") return false;
     const ordem = envio.ultimo_evento_ordem ?? 0;
     return totalEventos > 0 && ordem < totalEventos;
   };
@@ -775,7 +777,9 @@ export default function Envios() {
                   {/* Progress mini */}
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Progress value={getProgress(envio)} className="h-1 w-16" />
-                    <span className="text-[9px] text-muted-foreground whitespace-nowrap">{getCurrentStep(envio)}/{totalEventos}</span>
+                    <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                      {getCurrentStep(envio)}/{envio.status === "entregue" ? Math.max(getCurrentStep(envio), 1) : totalEventos}
+                    </span>
                   </div>
 
                   {/* Status */}
