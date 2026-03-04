@@ -1,68 +1,61 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+}
 
-/**
- * Public endpoint to fetch payment page data for a failed delivery given an envio.
- *
- * GET /falha-info?envio_id=<uuid>
- *
- * Returns: { envio, empresa, tax }
- */
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const url = new URL(req.url);
-    const envioId = url.searchParams.get("envio_id");
+    const url = new URL(req.url)
+    const envioId = url.searchParams.get("envio_id")
 
     if (!envioId) {
-      return new Response(
-        JSON.stringify({ error: "envio_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "envio_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      })
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
 
     const { data: envio, error: envioError } = await supabase
       .from("envios")
       .select("id, produto, codigo_rastreio, cliente_nome, cliente_cpf, cliente_endereco, cliente_numero, cliente_bairro, cliente_cidade, cliente_estado, cliente_cep, transportadora, valor, empresa_id, loja_id")
       .eq("id", envioId)
-      .maybeSingle();
+      .maybeSingle()
 
     if (envioError || !envio) {
-      return new Response(
-        JSON.stringify({ error: "Envio não encontrado" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Envio não encontrado" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      })
     }
 
-    let empresa = null;
+    let empresa = null
     if (envio.empresa_id) {
       const { data } = await supabase
         .from("empresas")
         .select("nome_fantasia, razao_social, logo_url")
         .eq("id", envio.empresa_id)
-        .maybeSingle();
-      empresa = data;
+        .maybeSingle()
+      empresa = data
     }
 
-    let tax = null;
+    let tax = null
     if (envio.loja_id) {
       const { data: config } = await supabase
         .from("postagem_config")
         .select("valor_taxa_falha, checkout_url_falha, ativar_falha_entrega")
         .eq("loja_id", envio.loja_id)
-        .maybeSingle();
+        .maybeSingle()
 
       if (config?.ativar_falha_entrega) {
         tax = {
@@ -75,7 +68,7 @@ Deno.serve(async (req) => {
           cor_header: "#ea580c",
           mostrar_valor: true,
           mostrar_prazo: true,
-        };
+        }
       }
     }
 
@@ -96,21 +89,23 @@ Deno.serve(async (req) => {
           transportadora: envio.transportadora || "JL Transportes",
           valor: envio.valor,
         },
-        empresa: empresa ? {
-          nome_fantasia: empresa.nome_fantasia,
-          razao_social: empresa.razao_social,
-          logo_url: empresa.logo_url,
-        } : null,
+        empresa: empresa
+          ? {
+              nome_fantasia: empresa.nome_fantasia,
+              razao_social: empresa.razao_social,
+              logo_url: empresa.logo_url,
+            }
+          : null,
         tax,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    )
   } catch (error: unknown) {
-    console.error("Error in falha-info:", error);
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error("Error in falha-info:", error)
+    const msg = error instanceof Error ? error.message : "Unknown error"
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    })
   }
-});
+})
