@@ -233,7 +233,7 @@ export function AuthForm({
     if (!validateForm()) return;
     try {
       if (authMode === 'login') await onLogin?.(formData.email, formData.password);
-      else if (authMode === 'signup') await onSignup?.(formData.email, formData.password, formData.name);
+      else if (authMode === 'signup') await onSignup?.(formData.email, formData.password, formData.name, formData.phone.replace(/\D/g, ''));
       else if (authMode === 'reset') await onReset?.(formData.email);
     } catch {
       // errors handled by parent
