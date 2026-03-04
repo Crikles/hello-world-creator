@@ -21,7 +21,7 @@ type AuthMode = 'login' | 'signup' | 'reset';
 
 interface AuthFormProps {
   onLogin?: (email: string, password: string) => Promise<void>;
-  onSignup?: (email: string, password: string, name: string) => Promise<void>;
+  onSignup?: (email: string, password: string, name: string, phone: string) => Promise<void>;
   onReset?: (email: string) => Promise<void>;
   initialMode?: AuthMode;
   loading?: boolean;
