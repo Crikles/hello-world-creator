@@ -20,6 +20,7 @@ interface UserRow {
   id: string;
   full_name: string | null;
   email: string | null;
+  whatsapp: string | null;
   created_at: string;
   role: string;
   saldo: number;
