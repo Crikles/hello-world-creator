@@ -1,27 +1,42 @@
 
-# Corrigir status de Webhook no Dashboard
 
-## Problema
-A logica atual na linha 123 do Dashboard considera o webhook como "Ativo" se existir qualquer registro na tabela `shopify_integrations` (mesmo que nao esteja realmente ativo) ou se houver checkout_integrations ativas. O campo `ativo` da tabela shopify_integrations tem default `true`, entao basta o registro existir para mostrar como ativo indevidamente.
+## Plan: Add WhatsApp field to signup and display in Admin
 
-## Solucao
+### 1. Database migration
+Add a `whatsapp` column to the `profiles` table and update the `handle_new_user` trigger to capture it from user metadata.
 
-Alterar a logica de `webhookAtivo` no `src/pages/Dashboard.tsx` (linha 123) para ser mais rigorosa:
+```sql
+ALTER TABLE public.profiles ADD COLUMN whatsapp text;
 
-```text
-Antes:
-  webhookAtivo = (!!shopifyConfig && shopifyConfig.ativo !== false) || checkoutIntegrations.length > 0
-
-Depois:
-  webhookAtivo = (!!shopifyConfig && shopifyConfig.ativo === true && !!shopifyConfig.access_token) || checkoutIntegrations.length > 0
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email, whatsapp)
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', ''), NEW.email, NEW.raw_user_meta_data->>'whatsapp');
+  RETURN NEW;
+END;
+$$;
 ```
 
-Isso garante que o Shopify so conta como ativo se:
-1. O registro existe
-2. O campo `ativo` e explicitamente `true`
-3. Possui um `access_token` configurado (integracao real)
+### 2. Add WhatsApp input to signup form (`src/components/ui/premium-auth.tsx`)
+- Add a WhatsApp input field (with Phone icon) after the name field, only visible in signup mode
+- Add validation: required, must be numeric, min 10 digits
+- Pass the phone value through the `onSignup` callback (update signature to include `phone` parameter)
 
-Os checkout_integrations ja estao filtrados corretamente pela query (filtra por `ativo=true`).
+### 3. Update signup handlers
+- **`src/pages/Login.tsx`** and **`src/pages/Signup.tsx`**: Update `handleSignup` to accept `phone` parameter and pass it as `user_metadata.whatsapp` in the `signUp` call
+- Update `onSignup` prop type in `AuthFormProps` to `(email, password, name, phone) => Promise<void>`
 
-## Arquivo alterado
-- `src/pages/Dashboard.tsx` - Linha 123: ajuste na condicao `webhookAtivo`
+### 4. Display WhatsApp in Admin (`src/pages/admin/AdminUsuarios.tsx`)
+- Add `whatsapp` to the `UserRow` interface
+- Fetch it from profiles query
+- Add a "WhatsApp" column to the users table, displaying the number (or "—" if empty)
+
+### Files changed
+- **Database migration**: Add `whatsapp` column + update trigger
+- **`src/components/ui/premium-auth.tsx`**: Add WhatsApp field to signup form
+- **`src/pages/Login.tsx`**: Pass WhatsApp in signup metadata
+- **`src/pages/Signup.tsx`**: Pass WhatsApp in signup metadata
+- **`src/pages/admin/AdminUsuarios.tsx`**: Show WhatsApp column
+
