@@ -1,27 +1,27 @@
 
-# Corrigir status de Webhook no Dashboard
 
-## Problema
-A logica atual na linha 123 do Dashboard considera o webhook como "Ativo" se existir qualquer registro na tabela `shopify_integrations` (mesmo que nao esteja realmente ativo) ou se houver checkout_integrations ativas. O campo `ativo` da tabela shopify_integrations tem default `true`, entao basta o registro existir para mostrar como ativo indevidamente.
+## Plan
 
-## Solucao
+### 1. Update "Entregue" delay in all system templates to 10 days
 
-Alterar a logica de `webhookAtivo` no `src/pages/Dashboard.tsx` (linha 123) para ser mais rigorosa:
+Run a SQL migration to update all system template events where `status_label = 'Entregue'` to have `delay_horas = 240` (10 days x 24 hours).
 
-```text
-Antes:
-  webhookAtivo = (!!shopifyConfig && shopifyConfig.ativo !== false) || checkoutIntegrations.length > 0
-
-Depois:
-  webhookAtivo = (!!shopifyConfig && shopifyConfig.ativo === true && !!shopifyConfig.access_token) || checkoutIntegrations.length > 0
+```sql
+UPDATE postagem_eventos 
+SET delay_horas = 240
+WHERE status_label = 'Entregue' 
+AND template_id IN (SELECT id FROM postagem_templates WHERE is_system = true);
 ```
 
-Isso garante que o Shopify so conta como ativo se:
-1. O registro existe
-2. O campo `ativo` e explicitamente `true`
-3. Possui um `access_token` configurado (integracao real)
+Currently the values are 0 or 24 hours -- all will become 240 (10 days).
 
-Os checkout_integrations ja estao filtrados corretamente pela query (filtra por `ativo=true`).
+### 2. Add clarifying text about delay meaning
 
-## Arquivo alterado
-- `src/pages/Dashboard.tsx` - Linha 123: ajuste na condicao `webhookAtivo`
+In `src/pages/Postagens.tsx`, update the delay input label area (around line 690-696) to include a small helper text explaining that the days shown are relative to the previous event (e.g., "dias apos o ultimo evento"). This will appear next to the clock icon and day input for each event row.
+
+Also add an informational note below the "Eventos do Fluxo Ativo" heading (around line 622-625) with a subtle description like: "Os dias configurados representam o intervalo a partir do ultimo evento concluido."
+
+### Files changed
+- **Database migration**: Update `delay_horas` for all system "Entregue" events to 240
+- **`src/pages/Postagens.tsx`**: Add helper text clarifying delay is relative to last event
+
