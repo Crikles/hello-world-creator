@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX } from "lucide-react";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -761,6 +761,17 @@ export default function Envios() {
                         onClick={() => window.open(`https://rastreio.logisticajltransportes.com/p/${envio.id}`, '_blank')}
                       >
                         <CreditCard className="h-3 w-3" />
+                      </Button>
+                    )}
+                    {(envio.status_label === 'Falha Entrega' || envio.status_label === 'Falha na Entrega') && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 hover:bg-orange-500/10 hover:text-orange-500"
+                        title="Falha na Entrega"
+                        onClick={() => window.open(`https://rastreio.logisticajltransportes.com/f/${envio.id}`, '_blank')}
+                      >
+                        <PackageX className="h-3 w-3" />
                       </Button>
                     )}
                     <Button
