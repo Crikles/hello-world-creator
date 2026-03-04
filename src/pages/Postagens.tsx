@@ -619,10 +619,15 @@ export default function Postagens() {
 
           {/* Active Flow Events */}
           <div>
-            <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              Eventos do Fluxo Ativo
-            </h2>
+            <div className="mb-3">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Eventos do Fluxo Ativo
+              </h2>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-6">
+                Os dias configurados representam o intervalo a partir do último evento concluído.
+              </p>
+            </div>
 
             {!config?.template_ativo_id ? (
               <div className="glass glow-border rounded-xl flex flex-col items-center justify-center py-16 text-center">
