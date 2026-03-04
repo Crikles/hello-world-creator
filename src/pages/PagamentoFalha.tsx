@@ -62,6 +62,24 @@ const DEFAULT_TAX: TaxSettings = {
     mostrar_prazo: true,
 };
 
+function formatProduto(raw: string): string {
+    try {
+        const items = JSON.parse(raw);
+        if (Array.isArray(items)) {
+            return items
+                .map((item: any) => {
+                    const name = item.name || item.nome || item.title || "Produto";
+                    const qty = item.quantity || item.quantidade || 1;
+                    return qty > 1 ? `${name} (x${qty})` : name;
+                })
+                .join(", ");
+        }
+    } catch {
+        // not JSON, return as-is
+    }
+    return raw;
+}
+
 function formatCPF(cpf: string): string {
     const digits = cpf.replace(/\D/g, '');
     if (digits.length === 11) {
@@ -218,7 +236,7 @@ export default function PagamentoFalha() {
                                     <div className="mag-inv-divider" />
                                     <div className="mag-inv-row">
                                         <span className="mag-inv-label">Produto</span>
-                                        <span className="mag-inv-val">{envio.produto || "Encomenda"}</span>
+                                        <span className="mag-inv-val">{formatProduto(envio.produto) || "Encomenda"}</span>
                                     </div>
                                     <div className="mag-inv-row">
                                         <span className="mag-inv-label">Referência</span>
@@ -582,17 +600,44 @@ const sharedStyles = `
 .mag-inv-row-address { flex-direction: column; gap: 6px; }
 .mag-inv-address { font-size: 13px; line-height: 1.5; }
 
+@media (max-width: 900px) {
+    .mag-pay-grid { grid-template-columns: 1fr; }
+    .mag-pay-grid .mag-action-side { order: -1; }
+}
+
 @media (max-width: 640px) {
     .mag-nav-container { padding: 0 16px; flex-direction: column; gap: 8px; padding-top: 12px; padding-bottom: 12px; }
     .mag-pay-header { height: auto; padding: 8px 0; }
-    .mag-pay-main { padding: 24px 16px; }
-    .mag-steps { gap: 16px; flex-wrap: wrap; }
-    .mag-invoice-card { padding: 20px; }
-    .mag-payment-card { padding: 24px; }
-    .mag-payment-card h1 { font-size: 24px; }
+    .mag-pay-main { padding: 24px 12px; }
+    .mag-steps { gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .mag-step { font-size: 9px; gap: 4px; letter-spacing: 0.5px; }
+    .mag-invoice-card { padding: 16px; border-radius: 16px; }
+    .mag-card-h { margin-bottom: 20px; padding-bottom: 14px; }
+    .mag-card-h h3 { font-size: 13px; }
+    .mag-inv-row { flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .mag-inv-label { font-size: 11px; }
+    .mag-inv-val { font-size: 13px; }
+    .mag-inv-mono { font-size: 13px; }
+    .mag-inv-divider { margin: 16px 0; }
+    .mag-total { flex-direction: row; }
+    .mag-payment-card { padding: 20px; border-radius: 16px; }
+    .mag-payment-card h1 { font-size: 22px; margin-bottom: 8px; }
+    .mag-pay-desc { font-size: 13px; margin-bottom: 24px; }
+    .mag-pay-badge { font-size: 9px; padding: 5px 12px; margin-bottom: 16px; }
     .mag-amt { font-size: 28px; }
-    .mag-large-pay-btn { height: 60px; font-size: 14px; }
-    .mag-security-stripe { gap: 12px; flex-wrap: wrap; }
-    .mag-pay-footer { padding: 24px 16px; }
+    .mag-curr { font-size: 16px; }
+    .mag-method-tile { padding: 16px; border-radius: 14px; }
+    .mag-method-tile span { font-size: 14px; }
+    .mag-payment-methods { margin-bottom: 24px; }
+    .mag-large-pay-btn { height: 56px; font-size: 14px; border-radius: 14px; }
+    .mag-deadline-info { font-size: 11px; }
+    .mag-security-stripe { gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .mag-sec-item { font-size: 8px; }
+    .mag-msg-box { padding: 14px; font-size: 12px; margin-top: 20px; border-radius: 12px; }
+    .mag-trust-v { padding: 16px; gap: 12px; }
+    .mag-trust-v h4 { font-size: 12px; }
+    .mag-trust-v p { font-size: 11px; }
+    .mag-pay-footer { padding: 20px 12px; }
+    .mag-card { border-radius: 16px; }
 }
 `;

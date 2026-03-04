@@ -31,17 +31,37 @@ const emojiMap: Record<string, string> = {
   "Pago": "💳",
 };
 
+function formatProdutoName(raw: string): string {
+  try {
+    const items = JSON.parse(raw);
+    if (Array.isArray(items)) {
+      return items
+        .map((i: any) => {
+          const name = i.name || i.nome || i.title || "Produto";
+          const qty = i.quantity || i.quantidade || 1;
+          return qty > 1 ? `${name} (x${qty})` : name;
+        })
+        .join(", ");
+    }
+  } catch {
+    // not JSON
+  }
+  return raw;
+}
+
 function replaceVariables(
   text: string,
   envio: Record<string, unknown>,
   extras: Record<string, string> = {}
 ): string {
   const transportadora = (envio.transportadora as string) || DEFAULT_TRANSPORTADORA;
+  const produtoRaw = (envio.produto as string) || "";
+  const produtoFormatted = formatProdutoName(produtoRaw);
 
   let result = text
     .replace(/\{\{cliente_nome\}\}/g, (envio.cliente_nome as string) || "")
     .replace(/\{\{cliente_email\}\}/g, (envio.cliente_email as string) || "")
-    .replace(/\{\{produto\}\}/g, (envio.produto as string) || "")
+    .replace(/\{\{produto\}\}/g, produtoFormatted)
     .replace(/\{\{codigo_rastreio\}\}/g, (envio.codigo_rastreio as string) || "")
     .replace(/\{\{transportadora\}\}/g, transportadora)
     .replace(/\{\{valor\}\}/g, String(envio.valor || "0"))

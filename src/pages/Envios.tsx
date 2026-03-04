@@ -406,6 +406,42 @@ export default function Envios() {
     toast.success(`${count} envio(s) avançado(s)!`);
   };
 
+  // FORÇAR TODOS: force-advance ignoring delays, 1 at a time with 60s interval
+  const handleForcarTodos = async () => {
+    const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
+    if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
+
+    batchCancelRef.current = false;
+    setBatchProgress({ processing: true, current: 0, total: targets.length });
+
+    let count = 0;
+    for (let i = 0; i < targets.length; i++) {
+      if (batchCancelRef.current) {
+        toast.info("Processamento cancelado.");
+        break;
+      }
+      setBatchProgress({ processing: true, current: i + 1, total: targets.length });
+      if (!loja?.id) continue;
+      try {
+        const result = await triggerNextEmail(targets[i].id, loja.id, false, true);
+        if (result) count++;
+      } catch (err: any) {
+        if (err instanceof InsufficientBalanceError) {
+          toast.error("Saldo insuficiente. Parado.");
+          break;
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      if (i < targets.length - 1 && !batchCancelRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 60000));
+      }
+    }
+
+    setBatchProgress(null);
+    setBatchCooldown(Date.now() + 120000);
+    toast.success(`${count} envio(s) forçado(s)!`);
+  };
+
   const handleCancelBatch = () => {
     batchCancelRef.current = true;
   };
@@ -558,16 +594,28 @@ export default function Envios() {
                   Avançando {batchProgress.current}/{batchProgress.total}... Cancelar
                 </Button>
               ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs hover:bg-primary/10 hover:text-primary"
-                  disabled={batchCooldown > Date.now()}
-                  onClick={handleAvancarTodos}
-                >
-                  <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
-                  {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Avançar Todos"}
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs hover:bg-primary/10 hover:text-primary"
+                    disabled={batchCooldown > Date.now()}
+                    onClick={handleAvancarTodos}
+                  >
+                    <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Avançar Todos"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs hover:bg-yellow-500/10 hover:text-yellow-500"
+                    disabled={batchCooldown > Date.now()}
+                    onClick={handleForcarTodos}
+                  >
+                    <Zap className="h-3.5 w-3.5 mr-1 text-yellow-500" />
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Forçar Todos"}
+                  </Button>
+                </>
               )}
             </div>
 
@@ -763,17 +811,15 @@ export default function Envios() {
                         <CreditCard className="h-3 w-3" />
                       </Button>
                     )}
-                    {(envio.status_label === 'Falha Entrega' || envio.status_label === 'Falha na Entrega') && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 hover:bg-orange-500/10 hover:text-orange-500"
-                        title="Falha na Entrega"
-                        onClick={() => window.open(`https://rastreio.logisticajltransportes.com/f/${envio.id}`, '_blank')}
-                      >
-                        <PackageX className="h-3 w-3" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 hover:bg-orange-500/10 hover:text-orange-500"
+                      title="Falha na Entrega"
+                      onClick={() => window.open(`https://rastreio.logisticajltransportes.com/f/${envio.id}`, '_blank')}
+                    >
+                      <PackageX className="h-3 w-3" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

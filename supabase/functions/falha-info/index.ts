@@ -5,6 +5,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+function formatProduto(raw: string): string {
+  try {
+    const items = JSON.parse(raw);
+    if (Array.isArray(items)) {
+      return items
+        .map((i: any) => {
+          const name = i.name || i.nome || i.title || "Produto";
+          const qty = i.quantity || i.quantidade || 1;
+          return qty > 1 ? `${name} (x${qty})` : name;
+        })
+        .join(", ");
+    }
+  } catch {
+    // not JSON
+  }
+  return raw;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders })
@@ -76,7 +94,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         envio: {
           id: envio.id,
-          produto: envio.produto,
+          produto: formatProduto(envio.produto),
           codigo_rastreio: envio.codigo_rastreio,
           cliente_nome: envio.cliente_nome,
           cliente_cpf: envio.cliente_cpf,
@@ -91,10 +109,10 @@ Deno.serve(async (req: Request) => {
         },
         empresa: empresa
           ? {
-              nome_fantasia: empresa.nome_fantasia,
-              razao_social: empresa.razao_social,
-              logo_url: empresa.logo_url,
-            }
+            nome_fantasia: empresa.nome_fantasia,
+            razao_social: empresa.razao_social,
+            logo_url: empresa.logo_url,
+          }
           : null,
         tax,
       }),
