@@ -294,7 +294,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                 .update({
                     msg_falha_entrega: settings.msg_falha_entrega,
                     checkout_url_falha: settings.checkout_url_falha,
-                    valor_taxa_falha: parseFloat(settings.valor_taxa_falha)
+                    valor_taxa_falha: parseFloat(settings.valor_taxa_falha) || 0
                 })
                 .eq("loja_id", lojaId);
             if (error) throw error;
