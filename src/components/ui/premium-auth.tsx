@@ -179,6 +179,13 @@ export function AuthForm({
       case 'name':
         if (typeof value === 'string' && authMode === 'signup' && !value.trim()) error = 'Nome é obrigatório';
         break;
+      case 'phone':
+        if (typeof value === 'string' && authMode === 'signup') {
+          if (!value.trim()) error = 'WhatsApp é obrigatório';
+          else if (!/^\d+$/.test(value.replace(/\D/g, ''))) error = 'Apenas números';
+          else if (value.replace(/\D/g, '').length < 10) error = 'Mínimo 10 dígitos';
+        }
+        break;
       case 'email':
         if (!value || (typeof value === 'string' && !value.trim())) error = 'Email é obrigatório';
         else if (typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Email inválido';
