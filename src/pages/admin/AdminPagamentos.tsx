@@ -20,7 +20,8 @@ type PixPaymentRow = {
   status: string;
   created_at: string;
   paid_at: string | null;
-  profiles: { full_name: string | null; email: string | null } | null;
+  transaction_id: string | null;
+  profiles: { full_name: string | null; email: string | null; whatsapp: string | null } | null;
 };
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -37,7 +38,7 @@ export default function AdminPagamentos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pix_payments")
-        .select("id, user_id, amount_cents, moedas, status, created_at, paid_at, profiles(full_name, email)")
+        .select("id, user_id, amount_cents, moedas, status, created_at, paid_at, transaction_id, profiles(full_name, email, whatsapp)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as PixPaymentRow[];
@@ -126,9 +127,11 @@ export default function AdminPagamentos() {
                       <TableRow>
                         <TableHead>Data</TableHead>
                         <TableHead>Usuário</TableHead>
+                        <TableHead>WhatsApp</TableHead>
                         <TableHead className="text-right">Valor (R$)</TableHead>
                         <TableHead className="text-right">Moedas</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>ID Transação</TableHead>
                         <TableHead>Pago em</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -146,6 +149,7 @@ export default function AdminPagamentos() {
                                 <span className="text-xs text-muted-foreground">{p.profiles?.email || "—"}</span>
                               </div>
                             </TableCell>
+                            <TableCell className="whitespace-nowrap">{p.profiles?.whatsapp || "—"}</TableCell>
                             <TableCell className="text-right font-medium">
                               {(p.amount_cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                             </TableCell>
@@ -153,6 +157,7 @@ export default function AdminPagamentos() {
                             <TableCell>
                               <Badge variant={cfg.variant}>{cfg.label}</Badge>
                             </TableCell>
+                            <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{p.transaction_id || "—"}</TableCell>
                             <TableCell className="whitespace-nowrap">
                               {p.paid_at ? format(new Date(p.paid_at), "dd/MM/yy HH:mm", { locale: ptBR }) : "—"}
                             </TableCell>
