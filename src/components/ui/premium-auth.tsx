@@ -218,7 +218,7 @@ export function AuthForm({
   const validateForm = useCallback(() => {
     const newErrors: FormErrors = {};
     const fields: (keyof FormData)[] = authMode === 'signup'
-      ? ['name', 'email', 'password', 'confirmPassword']
+      ? ['name', 'phone', 'email', 'password', 'confirmPassword']
       : authMode === 'reset' ? ['email'] : ['email', 'password'];
     fields.forEach(f => {
       const err = validateField(f, formData[f]);
