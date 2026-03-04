@@ -58,12 +58,13 @@ Deno.serve(async (req) => {
         // Get user profile for customer info
         const { data: profile } = await supabase
             .from("profiles")
-            .select("full_name, email")
+            .select("full_name, email, whatsapp")
             .eq("id", user.id)
             .maybeSingle();
 
         const customerName = profile?.full_name || user.email?.split("@")[0] || "Cliente";
         const customerEmail = profile?.email || user.email || "cliente@email.com";
+        const customerPhone = profile?.whatsapp?.replace(/\D/g, "") || "00000000000";
 
         // Insert payment record first to get the ID for externalRef
         const { data: pixPayment, error: insertError } = await supabase
@@ -106,9 +107,9 @@ Deno.serve(async (req) => {
             customer: {
                 name: customerName,
                 email: customerEmail,
-                phone: "00000000000",
+                phone: customerPhone,
                 document: {
-                    number: "00000000000",
+                    number: customerPhone,
                     type: "cpf",
                 },
             },
