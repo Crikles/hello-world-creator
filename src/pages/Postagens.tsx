@@ -442,7 +442,7 @@ export default function Postagens() {
       desc: "Cobrar novo frete por falhas (Destinatário ausente, etc).",
       icon: AlertTriangle,
       checked: localConfig.ativar_falha_entrega || false,
-      cost: 1, // Email standard cost
+      cost: systemConfigValues?.custo_falha_entrega ?? 1,
       toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_falha_entrega: !prev.ativar_falha_entrega } : prev),
     },
   ] : [];
