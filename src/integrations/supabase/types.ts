@@ -755,6 +755,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_admin: boolean | null
+          whatsapp: string | null
         }
         Insert: {
           blocked?: boolean
@@ -764,6 +765,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_admin?: boolean | null
+          whatsapp?: string | null
         }
         Update: {
           blocked?: boolean
@@ -773,6 +775,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_admin?: boolean | null
+          whatsapp?: string | null
         }
         Relationships: []
       }
