@@ -343,6 +343,26 @@ export function AuthForm({
               <AlertTriangle className="h-3 w-3" />{errors.name}
             </p>
           )}
+          {/* WhatsApp field */}
+          <div className="relative mt-3">
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="tel"
+              placeholder="WhatsApp (ex: 11999998888)"
+              value={formData.phone}
+              onChange={e => handleInputChange('phone', e.target.value)}
+              onBlur={() => handleFieldBlur('phone')}
+              className={cn(
+                "w-full pl-10 pr-4 py-3 bg-muted/50 border rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground",
+                errors.phone ? "border-destructive" : "border-input"
+              )}
+            />
+          </div>
+          {errors.phone && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />{errors.phone}
+            </p>
+          )}
         </div>
       )}
 

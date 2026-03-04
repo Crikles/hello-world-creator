@@ -263,6 +263,7 @@ export default function AdminUsuarios() {
                     <TableRow key={u.id} className={u.blocked ? "opacity-60" : ""}>
                       <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
                       <TableCell>{u.email || "—"}</TableCell>
+                      <TableCell>{u.whatsapp || "—"}</TableCell>
                       <TableCell>
                         {u.blocked ? (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive font-medium">Bloqueado</span>

@@ -57,13 +57,13 @@ export default function Login() {
     }
   };
 
-  const handleSignup = async (email: string, password: string, name: string) => {
+  const handleSignup = async (email: string, password: string, name: string, phone: string) => {
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: name },
+        data: { full_name: name, whatsapp: phone },
         emailRedirectTo: window.location.origin + "/login",
       },
     });
