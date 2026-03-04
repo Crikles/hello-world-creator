@@ -697,7 +697,7 @@ export default function Postagens() {
                               value={localDelays[evento.id] ?? evento.delay_horas}
                               onChange={(delay_horas) => setLocalDelays(prev => ({ ...prev, [evento.id]: delay_horas }))}
                             />
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">dias</span>
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">dias após último evento</span>
                           </div>
                         )}
                       </div>
