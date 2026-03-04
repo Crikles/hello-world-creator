@@ -76,6 +76,7 @@ export default function AdminUsuarios() {
           id: p.id,
           full_name: p.full_name,
           email: p.email,
+          whatsapp: (p as any).whatsapp || null,
           created_at: p.created_at,
           role: userRole?.role || "user",
           saldo: userCredito?.saldo || 0,
