@@ -1,43 +1,36 @@
 
 
-## Plan: Fix PIX payments visibility and customer name in BlackCat
+## Plan: Adjust billing logic and AUTO priority in advance-shipments
 
-There are two root causes for the issues:
+After reviewing the codebase, the core AUTO + billing flow is mostly correct, but there are a few discrepancies and missing pieces between `advance-shipments` (server-side cron) and `email-trigger.ts` (client-side):
 
-### Problem 1: Admin can't see payments (profiles join fails)
-The `pix_payments` table has no foreign key from `user_id` to `profiles.id`, so the Supabase join `profiles(full_name, email)` silently returns null. The admin panel query works but user info shows as "—".
+### Issues Found
 
-### Problem 2: BlackCat shows admin name instead of user name
-The `create-pix-payment` edge function correctly authenticates the user via JWT and fetches their profile. However, the profile query uses the service role client (`supabase`) which should work. The issue is likely that newer users don't have their `full_name` properly saved in profiles (the trigger may have failed or name wasn't provided), so it falls back to generic values. Additionally, the `customer.document.number` is hardcoded as `"00000000000"` which may cause the gateway to use a default/admin name.
+1. **Missing `custo_falha_entrega` in advance-shipments**: The cron function calculates costs for NF-e, Email, and Taxacao, but does NOT include `custo_falha_entrega` when `ativar_falha_entrega` is active. The client-side `email-trigger.ts` does include it. This means the cron undercharges.
 
-### Problem 3: Payments not showing as PENDING
-The user's SELECT RLS policy (`auth.uid() = user_id`) should work, but without a proper FK relationship the admin panel join breaks. Also need to verify the insert is succeeding.
+2. **Missing "Falha Entrega" event filter in advance-shipments**: The client-side `email-trigger.ts` filters out "Falha Entrega" events when `ativar_falha_entrega` is disabled. The cron function does NOT filter, causing it to send unwanted Falha Entrega emails.
 
----
+3. **Priority already correct**: Estaca 0 (AUTO-START section) runs before the ADVANCE section, so new orders already have priority. No change needed here.
+
+4. **Credit recovery already works**: When a user has no credits, `advanceShipment` returns `false` and the shipment stays at estaca 0. Next cron run (15 min later), if credits are available, it picks them up. This is correct.
 
 ### Changes
 
-#### 1. Database migration: Add foreign key from `pix_payments.user_id` to `profiles.id`
-This enables the Supabase PostgREST join to work properly in the admin query.
+#### 1. Fix `supabase/functions/advance-shipments/index.ts`
 
-```sql
-ALTER TABLE public.pix_payments 
-ADD CONSTRAINT pix_payments_user_id_fkey 
-FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+**a) Add `custo_falha_entrega` to initial debit calculation** (around line 475):
+```typescript
+if (config.ativar_falha_entrega && costMap["custo_falha_entrega"]) {
+    total += costMap["custo_falha_entrega"];
+    activeServices.push("Falha na Entrega");
+}
 ```
 
-#### 2. Update `create-pix-payment` edge function
-- Fetch the user's `full_name`, `email`, and `whatsapp` (phone) from profiles
-- Use the real user name and phone in the BlackCat `customer` payload instead of hardcoded placeholders
-- This ensures the gateway shows the correct account name
+**b) Filter out "Falha Entrega" events when disabled** (after fetching allEvents, around line 346):
+Filter events the same way `email-trigger.ts` does — remove "Falha Entrega"/"Falha na Entrega" events when `ativar_falha_entrega` is false. Use the filtered list for both `nextEvent` lookup and status calculation.
 
-#### 3. Update `AdminPagamentos.tsx`
-- Add `whatsapp` to the profiles join and display it in the table (so admin can see who recharged and contact them)
-- Add `transaction_id` column for reference
-- The FK added in step 1 will make the existing join actually return data
+**c) No other changes needed**: The AUTO check, credit skip, and priority logic are all correct.
 
 ### Files changed
-- **Database migration**: Add FK constraint
-- **`supabase/functions/create-pix-payment/index.ts`**: Use real user data in BlackCat payload
-- **`src/pages/admin/AdminPagamentos.tsx`**: Add WhatsApp and transaction ID columns
+- **`supabase/functions/advance-shipments/index.ts`**: Add falha_entrega cost + event filtering to match client-side logic
 
