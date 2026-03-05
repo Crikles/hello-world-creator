@@ -345,13 +345,17 @@ Deno.serve(async (req) => {
 
       if (!allEvents || allEvents.length === 0) continue;
 
-      // Filter out "Falha Entrega" events when the feature is disabled (match client-side logic)
-      const filteredEvents = config.ativar_falha_entrega
-        ? allEvents
-        : allEvents.filter((e: any) => {
-            const label = (e.status_label || "").toLowerCase();
-            return !label.includes("falha") || label.includes("pago");
-          });
+      // Filter out disabled events (match client-side logic)
+      const filteredEvents = allEvents.filter((e: any) => {
+        // Remove Falha Entrega events when disabled
+        if (!config.ativar_falha_entrega) {
+          const label = (e.status_label || "").toLowerCase();
+          if (label.includes("falha") && !label.includes("pago")) return false;
+        }
+        // Remove NF-e events when enviar_nfe_email is disabled
+        if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+        return true;
+      });
 
       // Fetch global costs
       const { data: costs } = await supabase
@@ -557,7 +561,7 @@ async function advanceShipment(
     let nfe_storage_path = "";
     let nfe_filename = "";
 
-    if (nextEvent.enviar_nfe_pdf && shipment.empresas) {
+    if (nextEvent.enviar_nfe_pdf && shipment.empresas && config.enviar_nfe_email) {
       try {
         const pdfBytes = await generateDanfePdf(shipment.empresas, shipment);
         nfe_filename = `DANFE_${Math.floor(Math.random() * 9000000000 + 1000000000)}.pdf`;
