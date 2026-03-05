@@ -1,36 +1,58 @@
 
 
-## Plan: Adjust billing logic and AUTO priority in advance-shipments
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-After reviewing the codebase, the core AUTO + billing flow is mostly correct, but there are a few discrepancies and missing pieces between `advance-shipments` (server-side cron) and `email-trigger.ts` (client-side):
+### Root cause
 
-### Issues Found
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-1. **Missing `custo_falha_entrega` in advance-shipments**: The cron function calculates costs for NF-e, Email, and Taxacao, but does NOT include `custo_falha_entrega` when `ativar_falha_entrega` is active. The client-side `email-trigger.ts` does include it. This means the cron undercharges.
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-2. **Missing "Falha Entrega" event filter in advance-shipments**: The client-side `email-trigger.ts` filters out "Falha Entrega" events when `ativar_falha_entrega` is disabled. The cron function does NOT filter, causing it to send unwanted Falha Entrega emails.
+### Fix
 
-3. **Priority already correct**: Estaca 0 (AUTO-START section) runs before the ADVANCE section, so new orders already have priority. No change needed here.
-
-4. **Credit recovery already works**: When a user has no credits, `advanceShipment` returns `false` and the shipment stays at estaca 0. Next cron run (15 min later), if credits are available, it picks them up. This is correct.
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
 ### Changes
 
-#### 1. Fix `supabase/functions/advance-shipments/index.ts`
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
 
-**a) Add `custo_falha_entrega` to initial debit calculation** (around line 475):
+Extend the existing filter to also remove NF-e events when disabled:
+
 ```typescript
-if (config.ativar_falha_entrega && costMap["custo_falha_entrega"]) {
-    total += costMap["custo_falha_entrega"];
-    activeServices.push("Falha na Entrega");
-}
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-**b) Filter out "Falha Entrega" events when disabled** (after fetching allEvents, around line 346):
-Filter events the same way `email-trigger.ts` does — remove "Falha Entrega"/"Falha na Entrega" events when `ativar_falha_entrega` is false. Use the filtered list for both `nextEvent` lookup and status calculation.
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-**c) No other changes needed**: The AUTO check, credit skip, and priority logic are all correct.
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
 
 ### Files changed
-- **`supabase/functions/advance-shipments/index.ts`**: Add falha_entrega cost + event filtering to match client-side logic
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
