@@ -386,6 +386,7 @@ Deno.serve(async (req) => {
           .eq("status", "pendente")
           .eq("ultimo_evento_ordem", 0)
           .is("deleted_at", null)
+          .order("created_at", { ascending: true })
           .limit(MAX_PER_RUN - totalProcessed);
 
         if (pending) {
@@ -409,6 +410,7 @@ Deno.serve(async (req) => {
         .neq("status", "entregue")
         .gt("ultimo_evento_ordem", 0)
         .is("deleted_at", null)
+        .order("created_at", { ascending: true })
         .limit(MAX_PER_RUN - totalProcessed);
 
       if (eligible) {
