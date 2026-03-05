@@ -345,6 +345,14 @@ Deno.serve(async (req) => {
 
       if (!allEvents || allEvents.length === 0) continue;
 
+      // Filter out "Falha Entrega" events when the feature is disabled (match client-side logic)
+      const filteredEvents = config.ativar_falha_entrega
+        ? allEvents
+        : allEvents.filter((e: any) => {
+            const label = (e.status_label || "").toLowerCase();
+            return !label.includes("falha") || label.includes("pago");
+          });
+
       // Fetch global costs
       const { data: costs } = await supabase
         .from("system_config")
@@ -384,7 +392,7 @@ Deno.serve(async (req) => {
           for (const envio of pending) {
             if (totalProcessed >= MAX_PER_RUN) break;
             const result = await advanceShipment(
-              supabase, envio.id, lojaId, lojaUserId, config, allEvents, costMap
+              supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap
             );
             if (result) totalProcessed++;
           }
@@ -411,7 +419,7 @@ Deno.serve(async (req) => {
           if (pa && new Date(pa) > new Date()) continue;
 
           const result = await advanceShipment(
-            supabase, envio.id, lojaId, lojaUserId, config, allEvents, costMap
+            supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap
           );
           if (result) totalProcessed++;
         }
@@ -475,6 +483,10 @@ async function advanceShipment(
       if (config.ativar_taxacao && costMap["custo_taxacao"]) {
         total += costMap["custo_taxacao"];
         activeServices.push("Taxacao");
+      }
+      if (config.ativar_falha_entrega && costMap["custo_falha_entrega"]) {
+        total += costMap["custo_falha_entrega"];
+        activeServices.push("Falha na Entrega");
       }
 
       if (total > 0) {
