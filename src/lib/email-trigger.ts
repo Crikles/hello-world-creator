@@ -64,6 +64,8 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !(config as any).ativar_falha_entrega) {
                 return false;
             }
+            // Remove NF-e events when enviar_nfe_email is disabled
+            if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
             return true;
         });
 
