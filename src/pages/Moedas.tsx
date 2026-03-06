@@ -23,9 +23,11 @@ interface CoinPackage {
 const COIN_PACKAGES: CoinPackage[] = [
     { moedas: 50, price_cents: 5000 },
     { moedas: 100, price_cents: 10000, popular: true },
-    { moedas: 500, price_cents: 50000 },
-    { moedas: 1000, price_cents: 100000 },
+    { moedas: 200, price_cents: 20000 },
+    { moedas: 300, price_cents: 30000 },
 ];
+
+const calcBonus = (moedas: number) => Math.floor(moedas / 100) * 10;
 
 interface PixPaymentData {
     paymentId: string;
