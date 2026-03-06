@@ -166,7 +166,7 @@ function markdownToHtml(text: string): string {
     .replace(/\n/g, "<br>");
 }
 
-export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1", eventName?: string): string {
+export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1", eventName?: string, whatsappVendedor?: string): string {
   const saudacaoHtml = markdownToHtml(sections.saudacao);
   const mensagemHtml = markdownToHtml(sections.mensagem);
   const rodapeHtml = markdownToHtml(sections.rodape);
@@ -215,6 +215,12 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
       </div>`
     : "";
 
+  const whatsappBlock = whatsappVendedor
+    ? `<div style="text-align:center;margin:12px 0 0;">
+        <a href="https://wa.me/${whatsappVendedor.replace(/\D/g, "")}" style="display:inline-block;background-color:#25D366;color:#ffffff;text-decoration:none;padding:12px 36px;border-radius:50px;font-size:13px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(37,211,102,0.3);">💬 Fale Com o Vendedor</a>
+      </div>`
+    : "";
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -249,6 +255,7 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
               <div style="margin:0 0 8px;font-size:15px;line-height:1.8;color:#555;">${mensagemHtml}</div>
               ${infoBlock}
               ${ctaBlock}
+              ${whatsappBlock}
             </td>
           </tr>
 

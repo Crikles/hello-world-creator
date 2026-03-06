@@ -7,9 +7,10 @@ interface EmailPreviewProps {
   sections: EmailSections;
   empresaNome?: string;
   eventName?: string;
+  whatsappVendedor?: string;
 }
 
-export function EmailPreview({ assunto, sections, empresaNome, eventName }: EmailPreviewProps) {
+export function EmailPreview({ assunto, sections, empresaNome, eventName, whatsappVendedor }: EmailPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const data = useMemo(() => ({
@@ -19,7 +20,7 @@ export function EmailPreview({ assunto, sections, empresaNome, eventName }: Emai
 
   const previewSubject = useMemo(() => replaceVariables(assunto, data), [assunto, data]);
   const fullHtml = useMemo(() => {
-    const raw = buildEmailHtml(sections, "#6366f1", eventName);
+    const raw = buildEmailHtml(sections, "#6366f1", eventName, whatsappVendedor);
     return replaceVariables(raw, data);
   }, [sections, data, eventName]);
 

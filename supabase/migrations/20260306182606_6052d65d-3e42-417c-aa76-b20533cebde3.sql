@@ -1,0 +1,1 @@
+ALTER TABLE public.postagem_config ADD COLUMN whatsapp_vendedor text DEFAULT NULL;
