@@ -566,6 +566,9 @@ function buildTaxacaoEmailHtml(
           </td>
         </tr>
 
+        <!-- WhatsApp -->
+        <tr><td style="padding:0 40px;text-align:center;">${buildWhatsAppButton(extras.whatsapp_vendedor || "")}</td></tr>
+
         <!-- Footer -->
         <tr>
           <td style="padding:32px 40px 28px;">
