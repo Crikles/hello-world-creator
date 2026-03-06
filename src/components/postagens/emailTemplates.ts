@@ -210,9 +210,9 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
     : "";
 
   const ctaBlock = sections.mostrar_botao_cta && sections.texto_botao_cta
-    ? `<div style="text-align:center;margin:32px 0 8px;">
-        <a href="${sections.url_botao_cta || "#"}" style="display:inline-block;background-color:#1a1a1a;color:#ffffff;text-decoration:none;padding:16px 40px;border-radius:50px;font-size:15px;font-weight:700;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(0,0,0,0.2);">${sections.texto_botao_cta}</a>
-      </div>`
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 8px;"><tr><td align="center" style="text-align:center;">
+        <a href="${sections.url_botao_cta || "#"}" style="display:inline-block;background-color:#1a1a1a;color:#ffffff;text-decoration:none;padding:16px 40px;border-radius:50px;font-size:15px;font-weight:700;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(0,0,0,0.2);text-align:center;">${sections.texto_botao_cta}</a>
+      </td></tr></table>`
     : "";
 
   const whatsappBlock = whatsappVendedor
