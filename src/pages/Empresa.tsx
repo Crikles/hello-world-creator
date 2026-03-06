@@ -368,7 +368,7 @@ export default function Empresa() {
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.numero} onChange={(e) => handleChange("numero", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Bairro *</Label>
+                <Label className="text-xs text-muted-foreground">Bairro</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.bairro} onChange={(e) => handleChange("bairro", e.target.value)} />
               </div>
               <div className="space-y-1.5">
