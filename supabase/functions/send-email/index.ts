@@ -391,6 +391,7 @@ function buildEmailHtml(
             ${trackingBlock}
             ${infoBlock}
             ${ctaBlock}
+            ${whatsappBlock}
           </td>
         </tr>
 
