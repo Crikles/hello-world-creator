@@ -387,7 +387,7 @@ export default function Empresa() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">CEP *</Label>
+                <Label className="text-xs text-muted-foreground">CEP</Label>
                 <div className="relative">
                   <Input className="glass border-primary/10 focus:border-primary/30" value={form.cep} onChange={(e) => handleChange("cep", e.target.value)} onBlur={handleCepBlur} placeholder="00000-000" />
                   {buscandoCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
