@@ -7,9 +7,10 @@ interface EmailPreviewProps {
   sections: EmailSections;
   empresaNome?: string;
   eventName?: string;
+  whatsappVendedor?: string;
 }
 
-export function EmailPreview({ assunto, sections, empresaNome, eventName }: EmailPreviewProps) {
+export function EmailPreview({ assunto, sections, empresaNome, eventName, whatsappVendedor }: EmailPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const data = useMemo(() => ({
