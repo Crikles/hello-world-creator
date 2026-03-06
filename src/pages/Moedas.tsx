@@ -130,7 +130,7 @@ export default function Moedas() {
                 },
                 body: JSON.stringify({
                     amount_cents: pkg.price_cents,
-                    moedas: pkg.moedas,
+                    moedas: pkg.moedas + calcBonus(pkg.moedas),
                 }),
             });
 
