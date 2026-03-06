@@ -1,58 +1,47 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+## Plano: Botão "Fale Com o Vendedor" via WhatsApp nos E-mails
 
-### Root cause
+### Resumo
+Adicionar um campo opcional na configuração de postagem onde o lojista informa seu WhatsApp. Quando ativado, todos os e-mails de rastreio incluem um botão verde "Fale Com o Vendedor" que direciona o cliente para `https://wa.me/{numero}`.
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+### Alterações
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
-
-### Fix
-
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
-
-### Changes
-
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+#### 1. Banco de dados — nova coluna em `postagem_config`
+```sql
+ALTER TABLE public.postagem_config ADD COLUMN whatsapp_vendedor text DEFAULT NULL;
 ```
+Quando preenchido = ativo. Quando nulo/vazio = desativado.
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+#### 2. Frontend — `src/pages/Postagens.tsx`
+Adicionar na aba "Configuração" um novo card com:
+- Toggle + campo de input para o número de WhatsApp do vendedor
+- Label: "Botão WhatsApp no E-mail"
+- Descrição: "Adiciona botão 'Fale Com o Vendedor' nos e-mails enviados ao cliente"
+- Input: número com DDI (ex: 5511999999999)
+- Salvar junto com as outras configs no `saveAll`
 
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
-
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+#### 3. Backend — `supabase/functions/send-email/index.ts`
+Na função `buildEmailHtml`:
+- Buscar `whatsapp_vendedor` do `postagem_config` (já é feito fetch da config)
+- Se presente, inserir após o CTA principal um botão verde com ícone WhatsApp:
+```html
+<table style="margin:12px auto 0;">
+  <tr><td style="background-color:#25D366;border-radius:50px;">
+    <a href="https://wa.me/{numero}" style="color:#fff;padding:12px 36px;...">
+      💬 Fale Com o Vendedor
+    </a>
+  </td></tr>
+</table>
 ```
+- Também adicionar na `buildTaxacaoEmailHtml` e `buildFalhaEntregaEmailHtml`
 
-### Result
+#### 4. Preview — `src/components/postagens/emailTemplates.ts`
+Atualizar `buildEmailHtml` do frontend para incluir o botão de WhatsApp na preview quando configurado.
 
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+### Arquivos alterados
+- **Migração SQL**: nova coluna `whatsapp_vendedor`
+- **`src/pages/Postagens.tsx`**: UI do campo + salvar
+- **`supabase/functions/send-email/index.ts`**: buscar config, renderizar botão
+- **`src/components/postagens/emailTemplates.ts`**: preview do botão (opcional)
 
