@@ -373,6 +373,7 @@ export default function Postagens() {
           ativar_falha_entrega: localConfig.ativar_falha_entrega,
           origem_cidade: localConfig.origem_cidade,
           origem_estado: localConfig.origem_estado,
+          whatsapp_vendedor: localConfig.whatsapp_vendedor || null,
         })
         .eq("loja_id", loja.id);
       if (configErr) throw configErr;
