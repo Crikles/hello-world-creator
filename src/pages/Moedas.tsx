@@ -425,6 +425,11 @@ export default function Moedas() {
                                         R$ {(parseInt(customAmount) * 1).toFixed(2)}
                                     </span>
                                 )}
+                                {customAmount && parseInt(customAmount) >= 100 && calcBonus(parseInt(customAmount)) > 0 && (
+                                    <span className="text-xs font-medium text-green-500 whitespace-nowrap">
+                                        🎁 +{calcBonus(parseInt(customAmount))} moedas grátis!
+                                    </span>
+                                )}
                                 <Button
                                     onClick={handleCustomPurchase}
                                     disabled={loading || !customAmount || parseInt(customAmount) < 1}
