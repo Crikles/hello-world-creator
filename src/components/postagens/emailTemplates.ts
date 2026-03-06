@@ -166,7 +166,7 @@ function markdownToHtml(text: string): string {
     .replace(/\n/g, "<br>");
 }
 
-export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1", eventName?: string): string {
+export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1", eventName?: string, whatsappVendedor?: string): string {
   const saudacaoHtml = markdownToHtml(sections.saudacao);
   const mensagemHtml = markdownToHtml(sections.mensagem);
   const rodapeHtml = markdownToHtml(sections.rodape);

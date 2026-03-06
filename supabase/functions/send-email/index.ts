@@ -723,6 +723,9 @@ function buildFalhaEntregaEmailHtml(
           </td>
         </tr>
 
+        <!-- WhatsApp -->
+        <tr><td style="padding:0 40px;text-align:center;">${buildWhatsAppButton(extras.whatsapp_vendedor || "")}</td></tr>
+
         <tr>
           <td style="padding:32px 40px 28px;">
             <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #f1f5f9;padding-top:20px;">
