@@ -20,7 +20,7 @@ export function EmailPreview({ assunto, sections, empresaNome, eventName, whatsa
 
   const previewSubject = useMemo(() => replaceVariables(assunto, data), [assunto, data]);
   const fullHtml = useMemo(() => {
-    const raw = buildEmailHtml(sections, "#6366f1", eventName);
+    const raw = buildEmailHtml(sections, "#6366f1", eventName, whatsappVendedor);
     return replaceVariables(raw, data);
   }, [sections, data, eventName]);
 
