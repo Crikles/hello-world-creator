@@ -805,16 +805,20 @@ Deno.serve(async (req) => {
       throw new Error(`Evento not found: ${eventoError?.message}`);
     }
 
-    // Fetch postagem_config for sender email
+    // Fetch postagem_config for sender email + whatsapp
     let emailRemetente = "noreply@jltransportes.pro";
+    let whatsappVendedor = "";
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente")
+      .select("email_remetente, whatsapp_vendedor")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
     if (config?.email_remetente) {
       emailRemetente = config.email_remetente;
+    }
+    if (config?.whatsapp_vendedor) {
+      whatsappVendedor = config.whatsapp_vendedor;
     }
 
     // Fetch empresa data
