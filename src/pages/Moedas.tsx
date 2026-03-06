@@ -262,7 +262,7 @@ export default function Moedas() {
                             <CardDescription>
                                 {paymentStatus === "paid"
                                     ? `${pixData.moedas} moedas foram adicionadas à sua conta`
-                                    : `Pague R$ ${(pixData.amount_cents / 100).toFixed(2)} para receber ${pixData.moedas} moedas`
+                                    : `Pague R$ ${(pixData.amount_cents / 100).toFixed(2)} para receber ${pixData.moedas} moedas${calcBonus(pixData.amount_cents / 100) > 0 ? ` (inclui +${calcBonus(pixData.amount_cents / 100)} bônus)` : ""}`
                                 }
                             </CardDescription>
                         </CardHeader>
