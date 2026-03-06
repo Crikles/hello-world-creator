@@ -376,7 +376,7 @@ export default function Empresa() {
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.cidade} onChange={(e) => handleChange("cidade", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Estado *</Label>
+                <Label className="text-xs text-muted-foreground">Estado</Label>
                 <Select value={form.estado} onValueChange={(v) => handleChange("estado", v)}>
                   <SelectTrigger className="glass border-primary/10 focus:border-primary/30"><SelectValue placeholder="UF" /></SelectTrigger>
                   <SelectContent>
