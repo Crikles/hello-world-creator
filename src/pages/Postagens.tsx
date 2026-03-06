@@ -69,6 +69,7 @@ interface PostagemConfig {
   ativar_falha_entrega: boolean;
   origem_cidade: string | null;
   origem_estado: string | null;
+  whatsapp_vendedor: string | null;
 }
 
 const ESTADOS_BR = [
