@@ -97,7 +97,7 @@ export type Database = {
           bairro: string | null
           cep: string | null
           cidade: string | null
-          cnpj: string
+          cnpj: string | null
           complemento: string | null
           created_at: string
           email: string | null
@@ -109,7 +109,7 @@ export type Database = {
           loja_id: string | null
           nome_fantasia: string | null
           numero: string | null
-          razao_social: string
+          razao_social: string | null
           telefone: string | null
           updated_at: string
         }
@@ -117,7 +117,7 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
-          cnpj: string
+          cnpj?: string | null
           complemento?: string | null
           created_at?: string
           email?: string | null
@@ -129,7 +129,7 @@ export type Database = {
           loja_id?: string | null
           nome_fantasia?: string | null
           numero?: string | null
-          razao_social: string
+          razao_social?: string | null
           telefone?: string | null
           updated_at?: string
         }
@@ -137,7 +137,7 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
-          cnpj?: string
+          cnpj?: string | null
           complemento?: string | null
           created_at?: string
           email?: string | null
@@ -149,7 +149,7 @@ export type Database = {
           loja_id?: string | null
           nome_fantasia?: string | null
           numero?: string | null
-          razao_social?: string
+          razao_social?: string | null
           telefone?: string | null
           updated_at?: string
         }
