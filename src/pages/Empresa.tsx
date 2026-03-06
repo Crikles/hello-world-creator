@@ -108,6 +108,9 @@ export default function Empresa() {
     mutationFn: async () => {
       const logo_url = await uploadLogo();
       const payload = { ...form, logo_url, loja_id: loja?.id } as any;
+      // Send empty strings as null for optional fields, but keep cnpj/razao_social with fallback
+      if (!payload.cnpj) payload.cnpj = payload.cnpj || '';
+      if (!payload.razao_social) payload.razao_social = payload.razao_social || '';
       if (empresa) {
         const { error } = await supabase.from("empresas").update(payload).eq("id", empresa.id);
         if (error) throw error;
@@ -318,7 +321,7 @@ export default function Empresa() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs text-muted-foreground">Razão Social *</Label>
+                <Label className="text-xs text-muted-foreground">Razão Social</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.razao_social} onChange={(e) => handleChange("razao_social", e.target.value)} />
               </div>
               <div className="space-y-1.5">
@@ -326,7 +329,7 @@ export default function Empresa() {
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.nome_fantasia} onChange={(e) => handleChange("nome_fantasia", e.target.value)} placeholder="Opcional" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">CNPJ *</Label>
+                <Label className="text-xs text-muted-foreground">CNPJ</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.cnpj} onChange={(e) => handleChange("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
               </div>
               <div className="space-y-1.5">
@@ -357,23 +360,23 @@ export default function Empresa() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs text-muted-foreground">Endereço (Rua) *</Label>
+                <Label className="text-xs text-muted-foreground">Endereço (Rua)</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.endereco} onChange={(e) => handleChange("endereco", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Número *</Label>
+                <Label className="text-xs text-muted-foreground">Número</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.numero} onChange={(e) => handleChange("numero", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Bairro *</Label>
+                <Label className="text-xs text-muted-foreground">Bairro</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.bairro} onChange={(e) => handleChange("bairro", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Cidade *</Label>
+                <Label className="text-xs text-muted-foreground">Cidade</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.cidade} onChange={(e) => handleChange("cidade", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Estado *</Label>
+                <Label className="text-xs text-muted-foreground">Estado</Label>
                 <Select value={form.estado} onValueChange={(v) => handleChange("estado", v)}>
                   <SelectTrigger className="glass border-primary/10 focus:border-primary/30"><SelectValue placeholder="UF" /></SelectTrigger>
                   <SelectContent>
@@ -384,7 +387,7 @@ export default function Empresa() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">CEP *</Label>
+                <Label className="text-xs text-muted-foreground">CEP</Label>
                 <div className="relative">
                   <Input className="glass border-primary/10 focus:border-primary/30" value={form.cep} onChange={(e) => handleChange("cep", e.target.value)} onBlur={handleCepBlur} placeholder="00000-000" />
                   {buscandoCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
@@ -403,7 +406,7 @@ export default function Empresa() {
               <RotateCcw className="h-4 w-4 mr-2" />
               Limpar
             </Button>
-            <Button className="shimmer-btn bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => saveMutation.mutate()} disabled={!form.razao_social || !form.cnpj || saveMutation.isPending}>
+            <Button className="shimmer-btn bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               <Save className="h-4 w-4 mr-2" />
               {saveMutation.isPending ? "Salvando..." : "Salvar Configuração"}
             </Button>
