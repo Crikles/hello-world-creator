@@ -255,6 +255,7 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
               <div style="margin:0 0 8px;font-size:15px;line-height:1.8;color:#555;">${mensagemHtml}</div>
               ${infoBlock}
               ${ctaBlock}
+              ${whatsappBlock}
             </td>
           </tr>
 
