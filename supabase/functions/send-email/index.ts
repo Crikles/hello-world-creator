@@ -332,6 +332,9 @@ function buildEmailHtml(
       </table>`
     : "";
 
+  // WhatsApp button
+  const whatsappBlock = buildWhatsAppButton(extras.whatsapp_vendedor || "");
+
   // Special celebration block for "Entregue"
   const entregueBlock = statusLabel === "Entregue"
     ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;">
