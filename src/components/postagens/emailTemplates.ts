@@ -216,9 +216,9 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
     : "";
 
   const whatsappBlock = whatsappVendedor
-    ? `<div style="text-align:center;margin:12px 0 0;">
-        <a href="https://wa.me/${whatsappVendedor.replace(/\D/g, "")}" style="display:inline-block;background-color:#25D366;color:#ffffff;text-decoration:none;padding:12px 36px;border-radius:50px;font-size:13px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(37,211,102,0.3);">💬 Fale Com o Vendedor</a>
-      </div>`
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:12px 0 0;"><tr><td align="center" style="text-align:center;">
+        <a href="https://wa.me/${whatsappVendedor.replace(/\D/g, "")}" style="display:inline-block;background-color:#25D366;color:#ffffff;text-decoration:none;padding:12px 36px;border-radius:50px;font-size:13px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(37,211,102,0.3);text-align:center;">💬 Fale Com o Vendedor</a>
+      </td></tr></table>`
     : "";
 
   return `<!DOCTYPE html>
