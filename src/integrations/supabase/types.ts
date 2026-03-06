@@ -546,6 +546,7 @@ export type Database = {
           template_ativo_id: string | null
           updated_at: string
           valor_taxa_falha: number | null
+          whatsapp_vendedor: string | null
         }
         Insert: {
           ativar_falha_entrega?: boolean
@@ -565,6 +566,7 @@ export type Database = {
           template_ativo_id?: string | null
           updated_at?: string
           valor_taxa_falha?: number | null
+          whatsapp_vendedor?: string | null
         }
         Update: {
           ativar_falha_entrega?: boolean
@@ -584,6 +586,7 @@ export type Database = {
           template_ativo_id?: string | null
           updated_at?: string
           valor_taxa_falha?: number | null
+          whatsapp_vendedor?: string | null
         }
         Relationships: [
           {
