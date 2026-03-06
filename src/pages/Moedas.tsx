@@ -23,9 +23,11 @@ interface CoinPackage {
 const COIN_PACKAGES: CoinPackage[] = [
     { moedas: 50, price_cents: 5000 },
     { moedas: 100, price_cents: 10000, popular: true },
-    { moedas: 500, price_cents: 50000 },
-    { moedas: 1000, price_cents: 100000 },
+    { moedas: 200, price_cents: 20000 },
+    { moedas: 300, price_cents: 30000 },
 ];
+
+const calcBonus = (moedas: number) => Math.floor(moedas / 100) * 10;
 
 interface PixPaymentData {
     paymentId: string;
@@ -128,7 +130,7 @@ export default function Moedas() {
                 },
                 body: JSON.stringify({
                     amount_cents: pkg.price_cents,
-                    moedas: pkg.moedas,
+                    moedas: pkg.moedas + calcBonus(pkg.moedas),
                 }),
             });
 
@@ -260,7 +262,7 @@ export default function Moedas() {
                             <CardDescription>
                                 {paymentStatus === "paid"
                                     ? `${pixData.moedas} moedas foram adicionadas à sua conta`
-                                    : `Pague R$ ${(pixData.amount_cents / 100).toFixed(2)} para receber ${pixData.moedas} moedas`
+                                    : `Pague R$ ${(pixData.amount_cents / 100).toFixed(2)} para receber ${pixData.moedas} moedas${calcBonus(pixData.amount_cents / 100) > 0 ? ` (inclui +${calcBonus(pixData.amount_cents / 100)} bônus)` : ""}`
                                 }
                             </CardDescription>
                         </CardHeader>
@@ -360,6 +362,11 @@ export default function Moedas() {
                                             Popular
                                         </Badge>
                                     )}
+                                    {calcBonus(pkg.moedas) > 0 && (
+                                        <Badge className="absolute top-3 right-3 bg-green-500/15 text-green-500 border-green-500/25 text-[10px]" style={pkg.popular ? { top: '2.25rem' } : {}}>
+                                            +{calcBonus(pkg.moedas)} grátis
+                                        </Badge>
+                                    )}
 
                                     <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-primary/5 group-hover:bg-primary/10 transition-colors" />
 
@@ -369,7 +376,12 @@ export default function Moedas() {
                                         </div>
                                     </div>
 
-                                    <p className="text-3xl font-bold text-foreground">{pkg.moedas}</p>
+                                    <p className="text-3xl font-bold text-foreground">
+                                        {pkg.moedas}
+                                        {calcBonus(pkg.moedas) > 0 && (
+                                            <span className="text-lg text-green-500 font-semibold"> +{calcBonus(pkg.moedas)}</span>
+                                        )}
+                                    </p>
                                     <p className="text-sm text-muted-foreground">moedas</p>
 
                                     <div className="mt-4 flex items-center justify-between">
@@ -411,6 +423,11 @@ export default function Moedas() {
                                 {customAmount && parseInt(customAmount) >= 1 && (
                                     <span className="text-sm font-semibold text-primary whitespace-nowrap">
                                         R$ {(parseInt(customAmount) * 1).toFixed(2)}
+                                    </span>
+                                )}
+                                {customAmount && parseInt(customAmount) >= 100 && calcBonus(parseInt(customAmount)) > 0 && (
+                                    <span className="text-xs font-medium text-green-500 whitespace-nowrap">
+                                        🎁 +{calcBonus(parseInt(customAmount))} moedas grátis!
                                     </span>
                                 )}
                                 <Button

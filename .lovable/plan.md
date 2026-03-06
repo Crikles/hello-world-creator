@@ -1,32 +1,58 @@
 
 
-## Plano: Bônus de 10 moedas a cada 100 recarregadas
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-### Lógica
-`bonus = Math.floor(moedas / 100) * 10` — aplicado tanto nos pacotes quanto no valor personalizado. O PIX é gerado pelo valor base (sem bônus), mas o total de moedas creditadas inclui o bônus.
+### Root cause
 
-### Alterações
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-#### 1. `src/pages/Moedas.tsx`
-- Atualizar pacotes: `50, 100, 200, 300` (removendo 500 e 1000)
-- Adicionar helper `calcBonus(moedas)` e exibir badge de bônus nos cards dos pacotes (ex: "+10 grátis" no de 100)
-- No campo personalizado: ao digitar, mostrar mensagem dinâmica do bônus (ex: "Você ganhará +20 moedas grátis!")
-- Enviar `moedas: base + bonus` no body do request para `create-pix-payment`, mantendo `amount_cents` apenas do valor base
-- Atualizar textos de confirmação para mostrar total com bônus
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-#### 2. `supabase/functions/create-pix-payment/index.ts`
-- Nenhuma alteração necessária — já recebe `moedas` do frontend e salva no `pix_payments`
+### Fix
 
-#### 3. `supabase/functions/webhook-blackcat/index.ts`
-- Nenhuma alteração necessária — já credita `pixPayment.moedas` que já inclui o bônus
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-### Resultado
-- 50 moedas = R$ 50 (sem bônus)
-- 100 moedas = R$ 100 + 10 grátis = 110 moedas creditadas
-- 200 moedas = R$ 200 + 20 grátis = 220 moedas creditadas
-- 300 moedas = R$ 300 + 30 grátis = 330 moedas creditadas
-- Personalizado: 150 moedas = R$ 150 + 10 grátis = 160 moedas
+### Changes
 
-### Arquivos alterados
-- `src/pages/Moedas.tsx`
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
+
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
