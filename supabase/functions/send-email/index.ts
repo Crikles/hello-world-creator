@@ -152,6 +152,17 @@ function parseFalhaEntregaSettings(corpoEmail: string): FalhaEntregaSettings | n
   };
 }
 
+function buildWhatsAppButton(whatsapp: string): string {
+  if (!whatsapp) return "";
+  const cleanNumber = whatsapp.replace(/\D/g, "");
+  if (!cleanNumber) return "";
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px auto 0;">
+    <tr><td style="background-color:#25D366;border-radius:50px;box-shadow:0 4px 16px #25D36644;">
+      <a href="https://wa.me/${cleanNumber}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:12px 36px;font-size:13px;font-weight:700;letter-spacing:0.3px;">💬 Fale Com o Vendedor</a>
+    </td></tr>
+  </table>`;
+}
+
 function buildEmailHtml(
   evento: Record<string, unknown>,
   envio: Record<string, unknown>,
