@@ -329,7 +329,7 @@ export default function Empresa() {
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.nome_fantasia} onChange={(e) => handleChange("nome_fantasia", e.target.value)} placeholder="Opcional" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">CNPJ *</Label>
+                <Label className="text-xs text-muted-foreground">CNPJ</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.cnpj} onChange={(e) => handleChange("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
               </div>
               <div className="space-y-1.5">
