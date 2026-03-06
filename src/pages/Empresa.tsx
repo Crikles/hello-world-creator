@@ -108,6 +108,9 @@ export default function Empresa() {
     mutationFn: async () => {
       const logo_url = await uploadLogo();
       const payload = { ...form, logo_url, loja_id: loja?.id } as any;
+      // Send empty strings as null for optional fields, but keep cnpj/razao_social with fallback
+      if (!payload.cnpj) payload.cnpj = payload.cnpj || '';
+      if (!payload.razao_social) payload.razao_social = payload.razao_social || '';
       if (empresa) {
         const { error } = await supabase.from("empresas").update(payload).eq("id", empresa.id);
         if (error) throw error;
