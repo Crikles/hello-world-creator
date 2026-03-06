@@ -268,7 +268,8 @@ export default function Postagens() {
       config.ativar_taxacao !== localConfig.ativar_taxacao ||
       config.ativar_falha_entrega !== localConfig.ativar_falha_entrega ||
       (config as any).origem_cidade !== localConfig.origem_cidade ||
-      (config as any).origem_estado !== localConfig.origem_estado;
+      (config as any).origem_estado !== localConfig.origem_estado ||
+      (config as any).whatsapp_vendedor !== localConfig.whatsapp_vendedor;
     const delaysChanged = activeEventos?.some(
       e => localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas
     );
