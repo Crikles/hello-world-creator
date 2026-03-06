@@ -516,6 +516,38 @@ export default function Postagens() {
             </div>
           )}
 
+          {/* WhatsApp Vendedor */}
+          {localConfig && (
+            <div className={`glass rounded-xl p-5 animate-stagger-in transition-all duration-300 ${localConfig.whatsapp_vendedor ? "glow-border" : "border border-border/30"}`} style={{ animationDelay: "0.22s" }}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${localConfig.whatsapp_vendedor ? "bg-[#25D366]/15" : "bg-muted/50"}`}>
+                    <MessageSquare className={`h-4 w-4 ${localConfig.whatsapp_vendedor ? "text-[#25D366]" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Botão WhatsApp no E-mail</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Adiciona botão "Fale Com o Vendedor" em todos os e-mails enviados ao cliente</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={!!localConfig.whatsapp_vendedor}
+                  onCheckedChange={(checked) => setLocalConfig(prev => prev ? { ...prev, whatsapp_vendedor: checked ? "" : null } : prev)}
+                />
+              </div>
+              {localConfig.whatsapp_vendedor !== null && (
+                <div className="mt-3 ml-12">
+                  <Label className="text-xs text-muted-foreground">Número com DDI (ex: 5511999999999)</Label>
+                  <Input
+                    placeholder="5511999999999"
+                    value={localConfig.whatsapp_vendedor || ""}
+                    onChange={(e) => setLocalConfig(prev => prev ? { ...prev, whatsapp_vendedor: e.target.value } : prev)}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Origem de Envio */}
           {localConfig && (
             <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.25s" }}>

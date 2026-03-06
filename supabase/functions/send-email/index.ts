@@ -855,9 +855,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    const extras = {
+    const extras: Record<string, string> = {
       empresa_nome: empresaNome,
       empresa_logo_url: empresaLogoUrl,
+      whatsapp_vendedor: whatsappVendedor,
     };
 
     // Build beautiful HTML email
