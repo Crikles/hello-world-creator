@@ -376,7 +376,12 @@ export default function Moedas() {
                                         </div>
                                     </div>
 
-                                    <p className="text-3xl font-bold text-foreground">{pkg.moedas}</p>
+                                    <p className="text-3xl font-bold text-foreground">
+                                        {pkg.moedas}
+                                        {calcBonus(pkg.moedas) > 0 && (
+                                            <span className="text-lg text-green-500 font-semibold"> +{calcBonus(pkg.moedas)}</span>
+                                        )}
+                                    </p>
                                     <p className="text-sm text-muted-foreground">moedas</p>
 
                                     <div className="mt-4 flex items-center justify-between">
