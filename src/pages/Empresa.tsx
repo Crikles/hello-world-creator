@@ -360,7 +360,7 @@ export default function Empresa() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs text-muted-foreground">Endereço (Rua) *</Label>
+                <Label className="text-xs text-muted-foreground">Endereço (Rua)</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.endereco} onChange={(e) => handleChange("endereco", e.target.value)} />
               </div>
               <div className="space-y-1.5">
