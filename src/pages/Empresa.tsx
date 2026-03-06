@@ -403,7 +403,7 @@ export default function Empresa() {
               <RotateCcw className="h-4 w-4 mr-2" />
               Limpar
             </Button>
-            <Button className="shimmer-btn bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => saveMutation.mutate()} disabled={!form.razao_social || !form.cnpj || saveMutation.isPending}>
+            <Button className="shimmer-btn bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               <Save className="h-4 w-4 mr-2" />
               {saveMutation.isPending ? "Salvando..." : "Salvar Configuração"}
             </Button>
