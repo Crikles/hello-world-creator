@@ -321,7 +321,7 @@ export default function Empresa() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs text-muted-foreground">Razão Social *</Label>
+                <Label className="text-xs text-muted-foreground">Razão Social</Label>
                 <Input className="glass border-primary/10 focus:border-primary/30" value={form.razao_social} onChange={(e) => handleChange("razao_social", e.target.value)} />
               </div>
               <div className="space-y-1.5">
