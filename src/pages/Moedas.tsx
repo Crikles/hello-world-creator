@@ -362,6 +362,11 @@ export default function Moedas() {
                                             Popular
                                         </Badge>
                                     )}
+                                    {calcBonus(pkg.moedas) > 0 && (
+                                        <Badge className="absolute top-3 right-3 bg-green-500/15 text-green-500 border-green-500/25 text-[10px]" style={pkg.popular ? { top: '2.25rem' } : {}}>
+                                            +{calcBonus(pkg.moedas)} grátis
+                                        </Badge>
+                                    )}
 
                                     <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-primary/5 group-hover:bg-primary/10 transition-colors" />
 
