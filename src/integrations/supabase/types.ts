@@ -766,6 +766,8 @@ export type Database = {
           full_name: string | null
           id: string
           is_admin: boolean | null
+          referral_code: string | null
+          referred_by: string | null
           whatsapp: string | null
         }
         Insert: {
@@ -776,6 +778,8 @@ export type Database = {
           full_name?: string | null
           id: string
           is_admin?: boolean | null
+          referral_code?: string | null
+          referred_by?: string | null
           whatsapp?: string | null
         }
         Update: {
@@ -786,6 +790,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_admin?: boolean | null
+          referral_code?: string | null
+          referred_by?: string | null
           whatsapp?: string | null
         }
         Relationships: []
@@ -904,6 +910,33 @@ export type Database = {
           nome?: string
           titulo?: string
           url?: string | null
+        }
+        Relationships: []
+      }
+      referral_earnings: {
+        Row: {
+          amount_earned: number
+          created_at: string
+          id: string
+          pix_payment_id: string
+          referred_id: string
+          referrer_id: string
+        }
+        Insert: {
+          amount_earned: number
+          created_at?: string
+          id?: string
+          pix_payment_id: string
+          referred_id: string
+          referrer_id: string
+        }
+        Update: {
+          amount_earned?: number
+          created_at?: string
+          id?: string
+          pix_payment_id?: string
+          referred_id?: string
+          referrer_id?: string
         }
         Relationships: []
       }
