@@ -1,58 +1,43 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+## Plano: Corrigir envio de Imagem e Botão Reply no WhatsApp
 
-### Root cause
+### Problemas identificados
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+1. **Imagem**: O código envia a imagem via `/send/image` com payload `{ number, url, caption }` — endpoint incorreto. A UAZAPI espera `/send/media` com `{ number, type: "image", file }`. Porém, a melhor solução é usar o campo `imageButton` do próprio `/send/menu`, que envia imagem + botões numa única mensagem.
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+2. **Reply button**: O `reply_text` é adicionado a um array `buttons` separado, mas a UAZAPI não tem esse campo. Botões de resposta devem ir no array `choices` (formato: `"texto"` ou `"texto|id"`).
 
-### Fix
+3. **Send-queue**: Mesmo problema — não envia imagem nem reply nos disparos em massa.
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+### Alterações em `supabase/functions/send-whatsapp/index.ts`
 
-### Changes
+#### Action `send` (linhas ~453-519)
 
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
-
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
+- Remover a chamada separada a `/send/image`
+- Se `image_url` existir, adicionar `imageButton: image_url` ao `sendBody`
+- Se `reply_text` existir, adicionar ao array `choices` (formato: `"reply_text"`)
+- Remover o array `buttons` que não existe na API
 
 ```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+// Antes: chamada separada /send/image + array buttons
+// Depois:
+const choices: string[] = [];
+if (reply_text) choices.push(reply_text);
+if (btn_text && btn_url) choices.push(`${btn_text}|${btn_url}`);
+
+const sendBody: Record<string, unknown> = {
+    number, type: "button", text, choices,
+};
+if (image_url) sendBody.imageButton = image_url;
+if (footer) sendBody.footerText = footer;
 ```
 
-### Result
+#### Action `send-queue` (linhas ~554-648)
 
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
+- Buscar `whatsapp_image_url` e `whatsapp_reply_text` do `postagem_config`
+- Adicionar `imageButton` e reply ao `sendBody` de cada mensagem em massa
 
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+### Arquivos alterados
+- `supabase/functions/send-whatsapp/index.ts`
 
