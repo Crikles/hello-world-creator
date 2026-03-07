@@ -369,7 +369,8 @@ export default function WhatsApp() {
         mutationFn: async (instanceId: string) => callWhatsApp("delete", { loja_id: loja!.id, instance_id: instanceId }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
-            toast.success("Instância removida!");
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
+            toast.success("Instância removida! Sua assinatura continua ativa — você pode criar uma nova instância sem custo.");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao remover"),
     });
