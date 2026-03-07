@@ -303,18 +303,21 @@ Deno.serve(async (req) => {
             const data = await res.json();
             console.log("UAZAPI connect response:", JSON.stringify(data));
 
+            const qrCode = data.instance?.qrcode || data.qrcode || data.qr_code || null;
+            const pairingCode = data.instance?.paircode || data.pairingCode || data.pairing_code || null;
+
             await supabaseAdmin
                 .from("whatsapp_instances")
                 .update({
                     status: "connecting",
-                    qr_code: data.qrcode || data.qr_code || null,
-                    pairing_code: data.pairingCode || data.pairing_code || null,
+                    qr_code: qrCode,
+                    pairing_code: pairingCode,
                     phone: body.phone || null,
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", instance.id);
 
-            return jsonResp({ success: true, ...data });
+            return jsonResp({ success: true, qrcode: qrCode, pairingCode: pairingCode });
         }
 
         // ── STATUS ──
