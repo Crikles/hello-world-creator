@@ -1,58 +1,41 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Análise: Rotação de Instâncias e Envio Automático em Background
 
-### Root cause
+## Status Atual
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
-
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
-
-### Fix
-
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
-
-### Changes
-
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+### Rotação de Instâncias — FUNCIONANDO
+A rotação round-robin já está implementada no `send-queue` (linha 583 do `send-whatsapp/index.ts`):
+```text
+const inst = activeInstances[i % activeInstances.length];
 ```
+Quando o usuário seleciona "Todas (rotação automática)" e envia em massa, cada mensagem vai para uma instância diferente, alternando entre as conectadas.
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+### Envio Automático com PC Desligado — NÃO FUNCIONA HOJE
+O `whatsapp_auto_send` é salvo no banco, mas **nenhum processo server-side o consome**. O envio automático de WhatsApp depende da página estar aberta no navegador. A cron `advance-shipments` (roda a cada 5 min) já envia **email** e **SMS** automaticamente, mas **não envia WhatsApp**.
 
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+---
 
-Apply the same NF-e filter to the client-side trigger:
+## Plano de Implementação
 
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
+### Adicionar envio de WhatsApp ao `advance-shipments`
 
-### Result
+Na função `advanceShipment` (já existente no cron), após o bloco de envio de SMS (linha ~634), adicionar lógica para:
 
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
+1. Verificar se `whatsapp_auto_send` está ativo na `postagem_config`
+2. Verificar se o envio tem `cliente_telefone`
+3. Buscar todas as instâncias conectadas e com assinatura ativa da loja
+4. Usar rotação round-robin (baseada no `envio_id` hash ou contagem de mensagens) para escolher a instância
+5. Montar o payload usando os campos de template da `postagem_config` (`whatsapp_msg_template`, `whatsapp_btn_text`, `whatsapp_footer`, etc.)
+6. Enviar via UAZAPI diretamente (sem chamar a edge function `send-whatsapp`, para evitar overhead)
+7. Registrar no `whatsapp_message_log`
 
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+### Rotação Inteligente no Cron
+Para garantir distribuição uniforme entre instâncias no cron (que processa envios sequencialmente), manter um **contador local** na execução do cron que incrementa a cada envio por loja, usando `counter % activeInstances.length`.
+
+### Arquivo Modificado
+- `supabase/functions/advance-shipments/index.ts` — adicionar bloco de envio WhatsApp após o bloco de SMS, com rotação round-robin
+
+### Sem mudanças no frontend
+A configuração `whatsapp_auto_send` já é salva pelo frontend. Apenas o backend precisa consumi-la.
 
