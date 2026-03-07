@@ -15,20 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 
 const PAGE_SIZE = 25;
 
-const formatProduto = (raw: string | null): string => {
-  if (!raw) return "—";
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map((p: any) => `${p.nome || p.produto || "Produto"} (x${p.quantidade || p.qtd || 1})`)
-        .join(", ");
-    }
-    return raw;
-  } catch {
-    return raw;
-  }
-};
+import { formatProduto } from "@/lib/format-produto";
 
 type LeadRow = {
   id: string;

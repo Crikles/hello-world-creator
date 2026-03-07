@@ -1,3 +1,4 @@
+import { formatProduto } from "@/lib/format-produto";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
@@ -73,23 +74,7 @@ const statusConfig: Record<string, { icon: any; color: string; label: string }> 
     "Em Rota": { icon: Truck, color: "#eab308", label: "Em Rota" },
 };
 
-function formatProduto(raw: string): string {
-    try {
-        const items = JSON.parse(raw);
-        if (Array.isArray(items)) {
-            return items
-                .map((item: any) => {
-                    const name = item.name || item.nome || item.title || "Produto";
-                    const qty = item.quantity || item.quantidade || 1;
-                    return qty > 1 ? `${name} (x${qty})` : name;
-                })
-                .join(", ");
-        }
-    } catch {
-        // not JSON, return as-is
-    }
-    return raw;
-}
+
 
 /* ─── Page Component ─── */
 export default function Rastreio() {

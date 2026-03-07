@@ -37,15 +37,7 @@ interface TaxacaoEnvio {
     taxacao_status: "pendente" | "aprovado";
 }
 
-function formatProduto(raw: string): string {
-    try {
-        const items = JSON.parse(raw);
-        if (Array.isArray(items)) {
-            return items.map((i: any) => `${i.nome} (x${i.quantidade})`).join(", ");
-        }
-    } catch { /* not JSON */ }
-    return raw;
-}
+import { formatProduto } from "@/lib/format-produto";
 
 /* ─── Component ─── */
 export default function Taxacao() {
