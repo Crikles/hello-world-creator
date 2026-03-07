@@ -43,8 +43,11 @@ Deno.serve(async (req) => {
             Deno.env.get("SUPABASE_ANON_KEY")!,
             { global: { headers: { Authorization: authHeader } } }
         );
-        const { data: { user }, error: userErr } = await supabaseUser.auth.getUser();
-        if (userErr || !user) return jsonResp({ error: "Invalid token" }, 401);
+
+        const token = authHeader.replace("Bearer ", "");
+        const { data: claimsData, error: claimsErr } = await supabaseUser.auth.getClaims(token);
+        if (claimsErr || !claimsData?.claims) return jsonResp({ error: "Invalid token" }, 401);
+        const userId = claimsData.claims.sub;
 
         const body = await req.json();
         const { action, loja_id } = body;
