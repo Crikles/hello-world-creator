@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
                     .from("whatsapp_subscriptions")
                     .insert({
                         loja_id,
-                        user_id: user.id,
+                        user_id: userId,
                         expires_at: expiresAt,
                         price_paid: price,
                     })
