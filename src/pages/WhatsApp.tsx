@@ -156,6 +156,8 @@ export default function WhatsApp() {
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
     const [previewEnvio, setPreviewEnvio] = useState<any>(null);
     const [copiedVar, setCopiedVar] = useState<string | null>(null);
+    const [connectData, setConnectData] = useState<{ instanceId: string; qrCode?: string; pairingCode?: string } | null>(null);
+    const [connectingStartedAt, setConnectingStartedAt] = useState<number | null>(null);
 
     // ── User credits ──
     const { data: creditos } = useQuery({
