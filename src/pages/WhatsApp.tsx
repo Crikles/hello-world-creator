@@ -302,15 +302,31 @@ export default function WhatsApp() {
     // ── Polling for status when connecting ──
     useEffect(() => {
         const connectingInstance = instances.find((i) => i.status === "connecting");
-        if (!connectingInstance) return;
+        if (!connectingInstance) {
+            // If no connecting instance and we have connectData, check if it got connected
+            if (connectData) {
+                const inst = instances.find((i) => i.id === connectData.instanceId);
+                if (inst && inst.status === "connected") {
+                    setConnectData(null);
+                    setConnectingStartedAt(null);
+                }
+            }
+            return;
+        }
         const interval = setInterval(async () => {
             try {
-                await callWhatsApp("status", { loja_id: loja?.id, instance_id: connectingInstance.id });
+                const result = await callWhatsApp("status", { loja_id: loja?.id, instance_id: connectingInstance.id });
+                // If status came back as disconnected but we just started connecting (< 2 min), keep connecting state
+                const elapsed = connectingStartedAt ? Date.now() - connectingStartedAt : Infinity;
+                if (result.status === "disconnected" && elapsed < 120000) {
+                    // Don't refetch — keep showing QR/pairing code
+                    return;
+                }
                 queryClient.invalidateQueries({ queryKey: ["whatsapp-instances", loja?.id] });
             } catch { /* ignore */ }
         }, 5000);
         return () => clearInterval(interval);
-    }, [instances, loja?.id, queryClient]);
+    }, [instances, loja?.id, queryClient, connectData, connectingStartedAt]);
 
     // ── Mutations ──
     const createInstanceMutation = useMutation({
