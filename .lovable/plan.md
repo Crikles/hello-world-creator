@@ -1,89 +1,58 @@
 
 
-## Plano: Sistema de Indicação com Comissão de 10%
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-### Resumo
-Cada usuário terá um código de indicação único. Quando alguém se registra via link de indicação e faz uma recarga, o indicador recebe 10% do valor em moedas automaticamente.
+### Root cause
 
-### Banco de dados
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-**1. Nova coluna em `profiles`:**
-```sql
-ALTER TABLE public.profiles ADD COLUMN referral_code text UNIQUE;
-ALTER TABLE public.profiles ADD COLUMN referred_by uuid REFERENCES auth.users(id);
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+
+### Fix
+
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+
+### Changes
+
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
+
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-**2. Trigger para gerar código automático no registro:**
-```sql
-CREATE OR REPLACE FUNCTION public.generate_referral_code()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public' AS $$
-BEGIN
-  IF NEW.referral_code IS NULL THEN
-    NEW.referral_code := upper(substr(md5(NEW.id::text || clock_timestamp()::text), 1, 8));
-  END IF;
-  RETURN NEW;
-END;
-$$;
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-CREATE TRIGGER trg_generate_referral_code
-  BEFORE INSERT ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION public.generate_referral_code();
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-**3. Atualizar profiles existentes** (via insert tool):
-```sql
-UPDATE public.profiles SET referral_code = upper(substr(md5(id::text || now()::text), 1, 8)) WHERE referral_code IS NULL;
-```
+### Result
 
-**4. Tabela de histórico de indicações:**
-```sql
-CREATE TABLE public.referral_earnings (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  referrer_id uuid NOT NULL,
-  referred_id uuid NOT NULL,
-  pix_payment_id uuid NOT NULL,
-  amount_earned numeric NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.referral_earnings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users view own referral earnings" ON public.referral_earnings
-  FOR SELECT TO authenticated USING (auth.uid() = referrer_id);
-```
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
 
-### Frontend
-
-**1. Signup (`src/pages/Signup.tsx`)**
-- Ler query param `?ref=CODIGO` da URL
-- Salvar no `localStorage` antes do signup
-- Passar `referral_code` no `user_metadata` do `signUp`
-
-**2. `handle_new_user` trigger (atualizar)**
-- Buscar `referral_code` do `raw_user_meta_data`
-- Encontrar o `referrer` pelo código e setar `referred_by` no novo perfil
-
-**3. Webhook BlackCat (`supabase/functions/webhook-blackcat/index.ts`)**
-- Após creditar moedas ao comprador, verificar se `user.referred_by` existe
-- Se sim, calcular 10% do valor em moedas e creditar ao indicador
-- Registrar na tabela `referral_earnings`
-
-**4. Nova página `src/pages/Indicacao.tsx`**
-- Card principal com link de indicação copiável (`{origin}/signup?ref={code}`)
-- Estatísticas: total de indicados, total de moedas ganhas
-- Histórico de ganhos com data e valor
-- Visual atraente com ícones e badges
-
-**5. Sidebar (`src/components/layout/AppSidebar.tsx`)**
-- Adicionar item "Indicação" com ícone `Users` entre Moedas e Empresa
-
-**6. Rotas (`src/App.tsx`)**
-- Adicionar rota `indicacao` dentro do layout da loja
-
-### Arquivos alterados
-- **Migração SQL**: colunas em `profiles`, tabela `referral_earnings`, trigger
-- **`src/pages/Signup.tsx`**: capturar `?ref=` param
-- **`supabase/functions/webhook-blackcat/index.ts`**: comissão de 10%
-- **`src/pages/Indicacao.tsx`**: nova página
-- **`src/components/layout/AppSidebar.tsx`**: novo menu item
-- **`src/App.tsx`**: nova rota
-- **Trigger `handle_new_user`**: associar `referred_by`
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
