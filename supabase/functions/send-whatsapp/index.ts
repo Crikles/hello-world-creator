@@ -455,6 +455,7 @@ Deno.serve(async (req) => {
             const expiredResp = checkSubscriptionExpired();
             if (expiredResp) return expiredResp;
 
+            console.log("SEND action received body:", JSON.stringify({ number: body.number, btn_text: body.btn_text, btn_url: body.btn_url, btn2_text: body.btn2_text, btn2_url: body.btn2_url, reply_text: body.reply_text, image_url: body.image_url }));
             const { number, text, btn_text, btn_url, footer, envio_id, image_url, reply_text, btn2_text, btn2_url } = body;
 
             if (!number || !text) {
