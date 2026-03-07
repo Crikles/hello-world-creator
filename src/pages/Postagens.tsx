@@ -696,7 +696,7 @@ export default function Postagens() {
                   return (
                     <div
                       key={evento.id}
-                      className={`glass rounded-xl transition-all duration-300 animate-stagger-in ${ativo ? "glow-border" : "border border-destructive/20 opacity-60"}`}
+                      className={`glass rounded-xl transition-all duration-300 animate-stagger-in ${ativo ? "border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]" : "border border-destructive/40 shadow-[0_0_8px_rgba(239,68,68,0.15)] opacity-60"}`}
                       style={{ animationDelay: `${index * 0.04}s` }}
                     >
                       <div className="flex items-center gap-3 py-3 px-4">
