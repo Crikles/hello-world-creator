@@ -461,31 +461,9 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "number and text are required" }, 400);
             }
 
-            if (image_url) {
-                try {
-                    await fetch(`${UAZAPI_BASE}/send/image`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            token: instanceToken,
-                        },
-                        body: JSON.stringify({ number, url: image_url, caption: "" }),
-                    });
-                } catch (e) {
-                    console.error("Image send error:", e);
-                }
-            }
-
             const choices: string[] = [];
-            if (btn_text && btn_url) {
-                choices.push(`${btn_text}|${btn_url}`);
-            }
-
-            const buttons: string[] = [];
-            if (reply_text) {
-                buttons.push(reply_text);
-            }
+            if (reply_text) choices.push(reply_text);
+            if (btn_text && btn_url) choices.push(`${btn_text}|${btn_url}`);
 
             const sendBody: Record<string, unknown> = {
                 number,
@@ -493,8 +471,7 @@ Deno.serve(async (req) => {
                 text,
                 choices,
             };
-
-            if (buttons.length > 0) sendBody.buttons = buttons;
+            if (image_url) sendBody.imageButton = image_url;
             if (footer) sendBody.footerText = footer;
 
             const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
