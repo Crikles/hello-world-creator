@@ -587,7 +587,18 @@ Deno.serve(async (req) => {
                     continue;
                 }
 
-                const text = msg_template || envio.produto;
+                // Parse produto for display name
+                let produtoNome = envio.produto;
+                try {
+                    const parsed = JSON.parse(envio.produto);
+                    if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
+                } catch { /* not JSON, use as-is */ }
+
+                let text = (msg_template || envio.produto)
+                    .replace(/\{\{nome\}\}/g, envio.cliente_nome || "")
+                    .replace(/\{\{produto\}\}/g, produtoNome)
+                    .replace(/\{\{valor\}\}/g, Number(envio.valor || 0).toFixed(2))
+                    .replace(/\{\{codigo_rastreio\}\}/g, envio.codigo_rastreio || "");
                 const number = envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
                     ? envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
                     : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
