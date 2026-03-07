@@ -346,12 +346,10 @@ Deno.serve(async (req) => {
       if (!allEvents || allEvents.length === 0) continue;
 
       // Filter out disabled events (match client-side logic)
+      const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
       const filteredEvents = allEvents.filter((e: any) => {
-        // Remove Falha Entrega events when disabled
-        if (!config.ativar_falha_entrega) {
-          const label = (e.status_label || "").toLowerCase();
-          if (label.includes("falha") && !label.includes("pago")) return false;
-        }
+        // Remove Falha Entrega + Reenvio events when disabled
+        if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
         // Remove NF-e events when enviar_nfe_email is disabled
         if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
         return true;
