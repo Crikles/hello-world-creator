@@ -334,6 +334,7 @@ export default function WhatsApp() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["creditos"] });
             toast.success("Assinatura renovada por mais 30 dias!");
         },
