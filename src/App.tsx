@@ -39,6 +39,7 @@ import Moedas from "./pages/Moedas";
 import Indicacao from "./pages/Indicacao";
 import ResetPassword from "./pages/ResetPassword";
 import Suporte from "./pages/Suporte";
+import WhatsApp from "./pages/WhatsApp";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ function PanelRoutes() {
           <Route path="moedas" element={<Moedas />} />
           <Route path="indicacao" element={<Indicacao />} />
           <Route path="suporte" element={<Suporte />} />
+          <Route path="whatsapp" element={<WhatsApp />} />
         </Route>
         <Route
           path="/admin"

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isLogisticsDomain } from "@/lib/domain-config";
-import { Gauge, SendHorizonal, Megaphone, ShieldAlert, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy, PackageX, Users } from "lucide-react";
+import { Gauge, SendHorizonal, Megaphone, ShieldAlert, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy, PackageX, Users, MessageCircle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
@@ -75,6 +75,7 @@ export function AppSidebar() {
     { title: "Indicação", url: `${base}/indicacao`, icon: Users },
     { title: "Empresa", url: `${base}/empresa`, icon: Landmark },
     { title: "Integrações", url: `${base}/integracoes`, icon: Cable },
+    { title: "WhatsApp", url: `${base}/whatsapp`, icon: MessageCircle },
     { title: "Configurações", url: `${base}/configuracoes`, icon: SlidersHorizontal },
     { title: "Suporte", url: `${base}/suporte`, icon: LifeBuoy },
   ];
