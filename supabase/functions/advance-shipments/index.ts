@@ -316,7 +316,9 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
   let totalProcessed = 0;
-  const MAX_PER_RUN = 50;
+  const MAX_PER_RUN = 200;
+  const MAX_PER_LOJA = 100;
+  const BATCH_SIZE = 10;
 
   try {
     // Fetch all stores with postagem config
