@@ -1,58 +1,64 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Otimizar advance-shipments para alta escala
 
-### Root cause
+## Problemas Identificados
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+O cron atual tem um limite de **50 envios por execução** (`MAX_PER_RUN = 50`). Rodando a cada 5 minutos, isso significa no maximo **600 envios/hora**. Com 1000+ pedidos/dia e cada pedido tendo ~8 etapas, seriam ~8000 avanços/dia necessarios. O sistema atual nao da conta.
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+Alem disso, o processamento e **sequencial** — cada envio faz ~5-10 queries ao banco antes de passar pro proximo. Uma loja com muitos pedidos pode bloquear as outras.
 
-### Fix
+## Solucao
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+### 1. Aumentar `MAX_PER_RUN` de 50 para 200
 
-### Changes
+Isso permite processar ate 2400 envios/hora (200 x 12 execucoes por hora), suficiente para o volume atual e proximo crescimento.
 
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+### 2. Processar envios em paralelo (batches de 10)
 
-Extend the existing filter to also remove NF-e events when disabled:
+Em vez de processar um envio por vez (`for...of` sequencial), agrupar em lotes de 10 e executar com `Promise.allSettled`. Isso reduz o tempo total de execucao drasticamente.
 
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+### 3. Garantir fairness entre lojas
+
+Limitar cada loja a no maximo `MAX_PER_RUN / 2` envios por execucao, garantindo que uma loja com muitos pedidos nao bloqueie as demais.
+
+## Arquivo Modificado
+
+- `supabase/functions/advance-shipments/index.ts`
+
+### Mudancas especificas:
+
+```text
+Linha 319: MAX_PER_RUN = 50 → MAX_PER_RUN = 200
+Linha ~337: Adicionar MAX_PER_LOJA = 100
+
+Linhas 402-410 (auto-start loop):
+  Agrupar pending em batches de 10
+  Processar cada batch com Promise.allSettled
+
+Linhas 427-435 (advance loop):
+  Mesmo pattern de batches de 10
+  
+Ambos loops: respeitar MAX_PER_LOJA por iteracao de loja
 ```
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
-
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
+### Estrutura do batch processing:
 
 ```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+const BATCH_SIZE = 10;
+for (let i = 0; i < items.length; i += BATCH_SIZE) {
+  const batch = items.slice(i, i + BATCH_SIZE);
+  const results = await Promise.allSettled(
+    batch.map(item => advanceShipment(...))
+  );
+  totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value).length;
+}
 ```
 
-### Result
+## Resultado Esperado
 
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+- Capacidade: de 600/hora para 2400+/hora
+- Latencia: cada execucao do cron sera ~5x mais rapida com paralelismo
+- Fairness: nenhuma loja monopoliza o processamento
+- Nenhum pedido atrasa no fluxo
 
