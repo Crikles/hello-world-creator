@@ -244,6 +244,8 @@ function buildEmailHtml(
     "Entregue": { bg: "#dcfce7", text: "#15803d", accent: "#22c55e" },
     "Falha Entrega": { bg: "#fff7ed", text: "#9a3412", accent: "#ea580c" },
     "Pago": { bg: "#dcfce7", text: "#15803d", accent: "#22c55e" },
+    "Reenvio Pago": { bg: "#dcfce7", text: "#15803d", accent: "#22c55e" },
+    "Reenvio Saiu": { bg: "#eff6ff", text: "#2563eb", accent: "#3b82f6" },
   };
   const colors = statusColors[statusLabel] || { bg: "#f3f4f6", text: "#4b5563", accent: primaryColor };
 
