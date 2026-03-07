@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
                 price = await getWhatsAppPrice(supabaseAdmin);
 
                 const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
-                    _user_id: user.id,
+                    _user_id: userId,
                     _quantidade: price,
                     _descricao: `Assinatura WhatsApp (${price} moedas/mês)`,
                 });
