@@ -44,10 +44,10 @@ Deno.serve(async (req) => {
             { global: { headers: { Authorization: authHeader } } }
         );
 
-        const token = authHeader.replace("Bearer ", "");
-        const { data: claimsData, error: claimsErr } = await supabaseUser.auth.getClaims(token);
-        if (claimsErr || !claimsData?.claims) return jsonResp({ error: "Invalid token" }, 401);
-        const userId = claimsData.claims.sub;
+        // Get user via getUser for reliable auth
+        const { data: { user }, error: userErr } = await supabaseUser.auth.getUser();
+        if (userErr || !user) return jsonResp({ error: "Invalid token" }, 401);
+        const userId = user.id;
 
         const body = await req.json();
         const { action, loja_id } = body;
@@ -56,12 +56,11 @@ Deno.serve(async (req) => {
             return jsonResp({ error: "action and loja_id are required" }, 400);
         }
 
-        // Verify user owns the loja
-        const { data: loja } = await supabaseAdmin
+        // Verify user owns the loja using RLS-aware client
+        const { data: loja } = await supabaseUser
             .from("lojas")
             .select("id, user_id")
             .eq("id", loja_id)
-            .eq("user_id", userId)
             .maybeSingle();
 
         if (!loja) return jsonResp({ error: "Loja not found or not owned by user" }, 403);
