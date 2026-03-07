@@ -620,6 +620,8 @@ Deno.serve(async (req) => {
                 if (queueImageUrl) sendBody.imageButton = queueImageUrl;
                 if (footer) sendBody.footerText = footer;
 
+                console.log(`SEND-QUEUE payload for envio ${envio.id}:`, JSON.stringify({ choices, text: sendBody.text, number: sendBody.number, btn2: cfgBtn2Text }));
+
                 try {
                     const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
                         method: "POST",
