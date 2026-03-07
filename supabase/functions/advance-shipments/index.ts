@@ -347,9 +347,12 @@ Deno.serve(async (req) => {
 
       // Filter out disabled events (match client-side logic)
       const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+      const taxLabels = ["Taxação", "Taxacao", "Pago"];
       const filteredEvents = allEvents.filter((e: any) => {
         // Remove Falha Entrega + Reenvio events when disabled
         if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
+        // Remove Taxação/Pago events when ativar_taxacao is disabled
+        if (!config.ativar_taxacao && taxLabels.includes(e.status_label || "")) return false;
         // Remove NF-e events when enviar_nfe_email is disabled
         if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
         return true;
@@ -600,8 +603,9 @@ async function advanceShipment(
       }
     }
 
-    // SMS dispatch
+    // SMS dispatch — only when the flow is active
     if (
+      isAtivo &&
       config.ativar_site_rastreio &&
       shipment.cliente_telefone &&
       !nextEvent.enviar_nfe_pdf
