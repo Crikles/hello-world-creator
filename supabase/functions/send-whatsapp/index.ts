@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
             .from("lojas")
             .select("id, user_id")
             .eq("id", loja_id)
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .maybeSingle();
 
         if (!loja) return jsonResp({ error: "Loja not found or not owned by user" }, 403);
