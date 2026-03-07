@@ -843,36 +843,8 @@ export default function WhatsApp() {
                 </div>
             )}
 
-                                            {inst.status === "connected" && (
-                                                <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/5">
-                                                    <Wifi className="h-4 w-4 text-green-500" />
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Pronta para enviar.{inst.phone && ` Tel: ${inst.phone}`}
-                                                    </p>
-                                                </div>
-                                            )}
 
-                                            {/* Action buttons */}
-                                            <div className="flex gap-2">
-                                                {inst.status === "connected" && (
-                                                    <Button variant="outline" size="sm" className="glass border-yellow-500/30 text-yellow-500 h-7 text-xs" onClick={() => disconnectMutation.mutate(inst.id)} disabled={disconnectMutation.isPending}>
-                                                        <Power className="h-3 w-3 mr-1" /> Desconectar
-                                                    </Button>
-                                                )}
-                                                <Button variant="outline" size="sm" className="glass border-red-500/30 text-red-500 h-7 text-xs" onClick={() => {
-                                                    if (confirm("Remover instância?\n\nSua assinatura continuará ativa e você poderá criar uma nova instância sem custo adicional.")) deleteMutation.mutate(inst.id);
-                                                }} disabled={deleteMutation.isPending}>
-                                                    <Trash2 className="h-3 w-3 mr-1" /> Remover
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+
 
             {/* ═══════ TAB 2: TEMPLATE EDITOR ═══════ */}
             {activeTab === "template" && (
