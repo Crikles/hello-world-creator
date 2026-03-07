@@ -7,6 +7,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const UAZAPI_BASE = "https://rushsend.uazapi.com";
+
+// Per-loja WhatsApp instance rotation counter (resets each cron run)
+const whatsappCounters: Record<string, number> = {};
+
 // deno-lint-ignore no-explicit-any
 interface ProductItem {
   codigo?: number;
