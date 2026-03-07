@@ -272,6 +272,8 @@ export default function WhatsApp() {
             setFooterText(config.whatsapp_footer || "Obrigado pela sua compra!");
             setImageUrl((config as any).whatsapp_image_url || "");
             setReplyText((config as any).whatsapp_reply_text || "Quero acompanhar meu pedido");
+            setBtn2Text((config as any).whatsapp_btn2_text || "");
+            setBtn2Url((config as any).whatsapp_btn2_url || "");
             setAutoSend(!!(config as any).whatsapp_auto_send);
             setDelayMinutes(Math.round(((config as any).whatsapp_delay_seconds || 300) / 60));
         }
