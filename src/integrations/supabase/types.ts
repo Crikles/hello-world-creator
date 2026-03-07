@@ -546,7 +546,9 @@ export type Database = {
           template_ativo_id: string | null
           updated_at: string
           valor_taxa_falha: number | null
+          whatsapp_auto_send: boolean | null
           whatsapp_btn_text: string | null
+          whatsapp_delay_seconds: number | null
           whatsapp_footer: string | null
           whatsapp_msg_template: string | null
           whatsapp_vendedor: string | null
@@ -569,7 +571,9 @@ export type Database = {
           template_ativo_id?: string | null
           updated_at?: string
           valor_taxa_falha?: number | null
+          whatsapp_auto_send?: boolean | null
           whatsapp_btn_text?: string | null
+          whatsapp_delay_seconds?: number | null
           whatsapp_footer?: string | null
           whatsapp_msg_template?: string | null
           whatsapp_vendedor?: string | null
@@ -592,7 +596,9 @@ export type Database = {
           template_ativo_id?: string | null
           updated_at?: string
           valor_taxa_falha?: number | null
+          whatsapp_auto_send?: boolean | null
           whatsapp_btn_text?: string | null
+          whatsapp_delay_seconds?: number | null
           whatsapp_footer?: string | null
           whatsapp_msg_template?: string | null
           whatsapp_vendedor?: string | null
@@ -1150,7 +1156,56 @@ export type Database = {
           {
             foreignKeyName: "whatsapp_instances_loja_id_fkey"
             columns: ["loja_id"]
-            isOneToOne: true
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_message_log: {
+        Row: {
+          created_at: string
+          envio_id: string
+          id: string
+          instance_id: string | null
+          loja_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          envio_id: string
+          id?: string
+          instance_id?: string | null
+          loja_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          envio_id?: string
+          id?: string
+          instance_id?: string | null
+          loja_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_message_log_envio_id_fkey"
+            columns: ["envio_id"]
+            isOneToOne: false
+            referencedRelation: "envios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_message_log_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_message_log_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
