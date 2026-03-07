@@ -65,19 +65,42 @@ export function AppSidebar() {
 
   const base = loja ? `/loja/${loja.id}` : "";
 
-  const menuItems = [
-    { title: "Dashboard", url: base, icon: Gauge },
-    { title: "Envios", url: `${base}/envios`, icon: SendHorizonal },
-    { title: "Postagens", url: `${base}/postagens`, icon: Megaphone },
-    { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
-    { title: "Falha na Entrega", url: `${base}/falha-entrega`, icon: PackageX },
-    { title: "Moedas", url: `${base}/moedas`, icon: CircleDollarSign },
-    { title: "Indicação", url: `${base}/indicacao`, icon: Users },
-    { title: "Empresa", url: `${base}/empresa`, icon: Landmark },
-    { title: "Integrações", url: `${base}/integracoes`, icon: Cable },
-    { title: "WhatsApp", url: `${base}/whatsapp`, icon: MessageCircle },
-    { title: "Configurações", url: `${base}/configuracoes`, icon: SlidersHorizontal },
-    { title: "Suporte", url: `${base}/suporte`, icon: LifeBuoy },
+  const menuSections = [
+    {
+      label: "Principal",
+      items: [{ title: "Dashboard", url: base, icon: Gauge }],
+    },
+    {
+      label: "Operações",
+      items: [
+        { title: "Envios", url: `${base}/envios`, icon: SendHorizonal },
+        { title: "Postagens", url: `${base}/postagens`, icon: Megaphone },
+        { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
+        { title: "Falha na Entrega", url: `${base}/falha-entrega`, icon: PackageX },
+      ],
+    },
+    {
+      label: "Financeiro",
+      items: [
+        { title: "Moedas", url: `${base}/moedas`, icon: CircleDollarSign },
+        { title: "Indicação", url: `${base}/indicacao`, icon: Users },
+      ],
+    },
+    {
+      label: "Negócio",
+      items: [
+        { title: "Empresa", url: `${base}/empresa`, icon: Landmark },
+        { title: "Integrações", url: `${base}/integracoes`, icon: Cable },
+        { title: "WhatsApp", url: `${base}/whatsapp`, icon: MessageCircle },
+      ],
+    },
+    {
+      label: "Sistema",
+      items: [
+        { title: "Configurações", url: `${base}/configuracoes`, icon: SlidersHorizontal },
+        { title: "Suporte", url: `${base}/suporte`, icon: LifeBuoy },
+      ],
+    },
   ];
 
   const handleLogout = async () => {
