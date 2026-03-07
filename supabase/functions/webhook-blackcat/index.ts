@@ -154,6 +154,58 @@ Deno.serve(async (req) => {
                 descricao: `Recarga via PIX - R$ ${(pixPayment.amount_cents / 100).toFixed(2)} - ${pixPayment.moedas} moedas`,
             });
 
+            // 4. Referral commission (10% of purchased moedas)
+            const { data: buyerProfile } = await supabase
+                .from("profiles")
+                .select("referred_by")
+                .eq("id", pixPayment.user_id)
+                .maybeSingle();
+
+            if (buyerProfile?.referred_by) {
+                const commission = Math.floor(pixPayment.moedas * 0.10);
+                if (commission > 0) {
+                    // Credit referrer
+                    const { data: referrerCredits } = await supabase
+                        .from("creditos")
+                        .select("id, saldo")
+                        .eq("user_id", buyerProfile.referred_by)
+                        .maybeSingle();
+
+                    if (referrerCredits) {
+                        await supabase
+                            .from("creditos")
+                            .update({
+                                saldo: referrerCredits.saldo + commission,
+                                updated_at: new Date().toISOString(),
+                            })
+                            .eq("id", referrerCredits.id);
+                    } else {
+                        await supabase.from("creditos").insert({
+                            user_id: buyerProfile.referred_by,
+                            saldo: commission,
+                        });
+                    }
+
+                    // Log referrer transaction
+                    await supabase.from("creditos_transacoes").insert({
+                        user_id: buyerProfile.referred_by,
+                        tipo: "comissao_indicacao",
+                        quantidade: commission,
+                        descricao: `Comissão de indicação - ${commission} moedas (10%)`,
+                    });
+
+                    // Log in referral_earnings
+                    await supabase.from("referral_earnings").insert({
+                        referrer_id: buyerProfile.referred_by,
+                        referred_id: pixPayment.user_id,
+                        pix_payment_id: pixPayment.id,
+                        amount_earned: commission,
+                    });
+
+                    console.log("Referral commission credited:", commission, "to", buyerProfile.referred_by);
+                }
+            }
+
             console.log(
                 "Payment processed successfully:",
                 transactionId,
