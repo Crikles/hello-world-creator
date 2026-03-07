@@ -455,6 +455,7 @@ Deno.serve(async (req) => {
             const expiredResp = checkSubscriptionExpired();
             if (expiredResp) return expiredResp;
 
+            console.log("SEND action received body:", JSON.stringify({ number: body.number, btn_text: body.btn_text, btn_url: body.btn_url, btn2_text: body.btn2_text, btn2_url: body.btn2_url, reply_text: body.reply_text, image_url: body.image_url }));
             const { number, text, btn_text, btn_url, footer, envio_id, image_url, reply_text, btn2_text, btn2_url } = body;
 
             if (!number || !text) {
@@ -533,6 +534,7 @@ Deno.serve(async (req) => {
 
         // ── SEND-QUEUE: Bulk send with rotation ──
         if (action === "send-queue") {
+            console.log("SEND-QUEUE action received body:", JSON.stringify({ envio_ids_count: body.envio_ids?.length, btn_text: body.btn_text, btn_url_template: body.btn_url_template, btn2_text: body.btn2_text, btn2_url: body.btn2_url, footer: body.footer }));
             const { envio_ids, msg_template, btn_text, btn_url_template, footer, btn2_text: queueBtn2Text, btn2_url: queueBtn2Url } = body;
 
             if (!envio_ids || !Array.isArray(envio_ids) || envio_ids.length === 0) {
@@ -586,7 +588,18 @@ Deno.serve(async (req) => {
                     continue;
                 }
 
-                const text = msg_template || envio.produto;
+                // Parse produto for display name
+                let produtoNome = envio.produto;
+                try {
+                    const parsed = JSON.parse(envio.produto);
+                    if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
+                } catch { /* not JSON, use as-is */ }
+
+                let text = (msg_template || envio.produto)
+                    .replace(/\{\{nome\}\}/g, envio.cliente_nome || "")
+                    .replace(/\{\{produto\}\}/g, produtoNome)
+                    .replace(/\{\{valor\}\}/g, Number(envio.valor || 0).toFixed(2))
+                    .replace(/\{\{codigo_rastreio\}\}/g, envio.codigo_rastreio || "");
                 const number = envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
                     ? envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
                     : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
@@ -606,6 +619,8 @@ Deno.serve(async (req) => {
                 };
                 if (queueImageUrl) sendBody.imageButton = queueImageUrl;
                 if (footer) sendBody.footerText = footer;
+
+                console.log(`SEND-QUEUE payload for envio ${envio.id}:`, JSON.stringify({ choices, text: sendBody.text, number: sendBody.number, btn2: cfgBtn2Text }));
 
                 try {
                     const res = await fetch(`${UAZAPI_BASE}/send/menu`, {

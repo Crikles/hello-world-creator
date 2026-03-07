@@ -1,37 +1,58 @@
 
 
-# Investigação e Correção: Segundo Botão URL do WhatsApp
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-## Situação Atual
+### Root cause
 
-O código no frontend (`WhatsApp.tsx`) e no backend (`send-whatsapp/index.ts`) já passa `btn2_text` e `btn2_url` corretamente para o array `choices`. A estrutura enviada para a UAZAPI deve ser algo como:
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-```text
-choices: ["📦 Rastrear Pedido|https://...", "💬 Suporte|https://...", "Quero acompanhar meu pedido"]
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+
+### Fix
+
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+
+### Changes
+
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
+
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-Porém os logs recentes da Edge Function mostram apenas "shutdown" — nenhum envio real foi registrado recentemente, então não consigo ver o payload exato que foi enviado nem a resposta da UAZAPI.
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-## Possíveis Causas
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
 
-1. **A Edge Function pode não ter sido re-deployada** após as últimas alterações que adicionaram `btn2_text`/`btn2_url`
-2. **Os campos `btn2Text`/`btn2Url` estavam vazios** no momento do envio (são opcionais e usam `|| undefined`)
-3. **Na rota `send-queue`**, o template de texto não substitui variáveis `{{nome}}`, `{{produto}}` etc. no servidor (bug separado)
+Apply the same NF-e filter to the client-side trigger:
 
-## Plano
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
 
-### 1. Re-deploy forçado da Edge Function
-Garantir que a versão mais recente do `send-whatsapp/index.ts` (que já tem o `console.log` do payload e suporte a `btn2`) esteja efetivamente deployada.
+### Result
 
-### 2. Melhorar logging para diagnóstico
-Adicionar logs mais detalhados no `send-whatsapp/index.ts`:
-- Log do body recebido do frontend (para confirmar que `btn2_text` e `btn2_url` chegam)
-- Log do array `choices` montado
-- Log da resposta completa da UAZAPI
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
 
-### 3. Corrigir substituição de variáveis no `send-queue`
-Na rota `send-queue` (linha 589), o texto `msg_template` é usado sem substituir variáveis como `{{nome}}`, `{{produto}}`, `{{valor}}`, `{{codigo_rastreio}}`. Isso faz com que o cliente receba o texto cru com `{{nome}}` ao invés do nome real. Será corrigido adicionando a substituição de variáveis no servidor.
-
-### Arquivos Modificados
-- `supabase/functions/send-whatsapp/index.ts` — logs detalhados + fix de variáveis no send-queue
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
