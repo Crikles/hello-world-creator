@@ -95,9 +95,13 @@ export default function AdminWhatsApp() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (instanceId: string) => {
-      const { error } = await supabase.from("whatsapp_instances").delete().eq("id", instanceId);
+    mutationFn: async (instance: InstanceWithLoja) => {
+      // Delete from UAZAPI first, then from DB (same as user flow)
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: { action: "delete", loja_id: instance.loja_id, instance_id: instance.id },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       toast.success("Instância removida com sucesso.");
@@ -314,7 +318,7 @@ export default function AdminWhatsApp() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
-            <Button variant="destructive" disabled={deleteMutation.isPending} onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>
+            <Button variant="destructive" disabled={deleteMutation.isPending} onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}>
               {deleteMutation.isPending ? "Removendo..." : "Remover"}
             </Button>
           </DialogFooter>
