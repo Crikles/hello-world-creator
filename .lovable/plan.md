@@ -1,58 +1,53 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+## Plano: Corrigir primeira linha do texto sendo "engolida" como título
 
-### Root cause
+### Causa raiz
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+Quando o `/send/menu` recebe `imageButton`, a UAZAPI automaticamente extrai a **primeira linha** do `text` e a usa como `title` (cabeçalho acima da imagem). Isso é visível na resposta da API:
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
-
-### Fix
-
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
-
-### Changes
-
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+```json
+{
+  "title": "Olá Luana Figueira! 👋",     // extraído automaticamente
+  "body": { "text": "\nSeu pedido ..." }  // restante
+}
 ```
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+O título aparece em fonte menor acima da imagem, dando a impressão de que sumiu.
 
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+### Solução
 
-Apply the same NF-e filter to the client-side trigger:
+Quando houver `image_url`, enviar em **2 etapas**:
 
+1. **Imagem** via `/send/media` (type: `image`, sem caption)
+2. **Mensagem com botões** via `/send/menu` (sem `imageButton`), mantendo o texto completo no body
+
+Isso garante que todo o texto aparece no corpo da mensagem, sem perda da primeira linha.
+
+### Alterações
+
+#### `supabase/functions/send-whatsapp/index.ts`
+
+**Action `send`** (~linhas 464-496):
 ```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+if (image_url) {
+  // Enviar imagem separada primeiro
+  await fetch(`${UAZAPI_BASE}/send/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", token: instanceToken },
+    body: JSON.stringify({ number, type: "image", file: image_url }),
+  });
+}
+
+// Enviar mensagem com botões (SEM imageButton)
+const sendBody = { number, type: "button", text, choices };
+if (footer) sendBody.footerText = footer;
+
+const res = await fetch(`${UAZAPI_BASE}/send/menu`, { ... });
 ```
 
-### Result
+**Action `send-queue`** (~linhas 554+): Mesma lógica — enviar imagem separada antes do menu.
 
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+### Arquivo alterado
+- `supabase/functions/send-whatsapp/index.ts`
 
