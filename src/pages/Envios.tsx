@@ -181,22 +181,29 @@ export default function Envios() {
     return `${m}m ${s.toString().padStart(2, "0")}s`;
   };
 
-  // Fetch total events count for progress calculation
+  // Fetch total events count for progress calculation (filtered by active config)
   const { data: totalEventos = 0 } = useQuery({
     queryKey: ["total-eventos", loja?.id],
     queryFn: async () => {
       if (!loja) return 0;
       const { data: config } = await supabase
         .from("postagem_config")
-        .select("template_ativo_id")
+        .select("template_ativo_id, ativar_falha_entrega, enviar_nfe_email")
         .eq("loja_id", loja.id)
         .maybeSingle();
       if (!config?.template_ativo_id) return 0;
-      const { count } = await supabase
+      const { data: eventos } = await supabase
         .from("postagem_eventos")
-        .select("*", { count: "exact", head: true })
+        .select("status_label, enviar_nfe_pdf")
         .eq("template_id", config.template_ativo_id);
-      return count ?? 0;
+      if (!eventos) return 0;
+      const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+      const filtered = eventos.filter(e => {
+        if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
+        if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+        return true;
+      });
+      return filtered.length;
     },
     enabled: !!loja,
   });
