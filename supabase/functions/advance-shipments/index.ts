@@ -546,11 +546,14 @@ async function advanceShipment(
     }
 
     // Check if this event should send email
+    const falhaLabelsCheck = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
     let isAtivo = false;
     if (nextEvent.enviar_nfe_pdf) {
       isAtivo = config.enviar_nfe_email;
     } else if (nextEvent.status_label === "Taxacao" || nextEvent.status_label === "Pago" || nextEvent.status_label === "Taxação") {
       isAtivo = config.ativar_taxacao;
+    } else if (falhaLabelsCheck.includes(nextEvent.status_label || "")) {
+      isAtivo = config.ativar_falha_entrega;
     } else {
       isAtivo = config.enviar_emails;
     }

@@ -109,11 +109,13 @@ const badgeColor: Record<string, string> = {
   "Em Rota": "bg-primary/25 text-primary",
 };
 
+const FALHA_LABELS = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+
 function isEventoAtivo(evento: PostagemEvento, localConfig: PostagemConfig): boolean {
   if (evento.enviar_nfe_pdf) return localConfig.enviar_nfe_email;
   if (evento.status_label === "Taxação" || evento.status_label === "Pago")
     return localConfig.ativar_taxacao;
-  if (evento.status_label === "Falha Entrega" || evento.nome === "Falha na Entrega")
+  if (FALHA_LABELS.includes(evento.status_label || "") || evento.nome === "Falha na Entrega")
     return localConfig.ativar_falha_entrega;
   return localConfig.enviar_emails;
 }

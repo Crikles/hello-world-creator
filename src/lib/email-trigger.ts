@@ -205,11 +205,14 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         }
 
         // 7. Check if this event should actually send an email
+        const falhaLabelsCheck = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
         let isAtivo = false;
         if (nextEvent.enviar_nfe_pdf) {
             isAtivo = config.enviar_nfe_email;
         } else if (nextEvent.status_label === "Taxação" || nextEvent.status_label === "Pago") {
             isAtivo = config.ativar_taxacao;
+        } else if (falhaLabelsCheck.includes(nextEvent.status_label || "")) {
+            isAtivo = (config as any).ativar_falha_entrega;
         } else {
             isAtivo = config.enviar_emails;
         }
