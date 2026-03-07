@@ -158,6 +158,7 @@ export default function WhatsApp() {
     const [copiedVar, setCopiedVar] = useState<string | null>(null);
     const [connectData, setConnectData] = useState<{ instanceId: string; qrCode?: string; pairingCode?: string } | null>(null);
     const [connectingStartedAt, setConnectingStartedAt] = useState<number | null>(null);
+    const [selectedInstanceId, setSelectedInstanceId] = useState<string>("all");
 
     // ── User credits ──
     const { data: creditos } = useQuery({
@@ -485,6 +486,7 @@ export default function WhatsApp() {
                 reply_text: replyText || undefined,
                 btn2_text: btn2Text || undefined,
                 btn2_url: btn2Url || undefined,
+                ...(selectedInstanceId !== "all" ? { instance_id: selectedInstanceId } : {}),
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
@@ -499,13 +501,13 @@ export default function WhatsApp() {
                 return next;
             });
         }
-    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url]);
+    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url, selectedInstanceId]);
 
     const handleSendSelected = async () => {
         const selected = envios.filter((e) => selectedIds.has(e.id));
         if (selected.length === 0) return toast.info("Selecione pelo menos 1 envio.");
 
-        if (connectedInstances.length > 1) {
+        if (connectedInstances.length > 1 && selectedInstanceId === "all") {
             // Use send-queue for rotation
             setSendingIds(new Set(selected.map((e) => e.id)));
             try {
@@ -513,7 +515,7 @@ export default function WhatsApp() {
                 await callWhatsApp("send-queue", {
                     loja_id: loja!.id,
                     envio_ids: selected.map((e) => e.id),
-                    msg_template: msgTemplate, // server will need to replace vars
+                    msg_template: msgTemplate,
                     btn_text: btnText,
                     btn_url_template: `${TRACKING_BASE_URL}/{{codigo_rastreio}}`,
                     footer: footerText,
@@ -1110,6 +1112,49 @@ export default function WhatsApp() {
                                 <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
                                 <p className="text-sm text-red-400">Assinaturas expiradas. Renove para enviar mensagens.</p>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Instance selector */}
+                    {connectedInstances.length > 0 && (
+                        <div className="glass glow-border rounded-xl p-4 space-y-3">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="p-2 rounded-xl bg-primary/10">
+                                    <Wifi className="h-4 w-4 text-primary" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-foreground">Instância de Envio</p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Escolha qual instância será usada para enviar as mensagens.
+                                    </p>
+                                </div>
+                            </div>
+                            <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
+                                <SelectTrigger className="w-full glass border-border/50 h-9 text-sm">
+                                    <SelectValue placeholder="Selecione a instância" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {connectedInstances.length > 1 && (
+                                        <SelectItem value="all">
+                                            <div className="flex items-center gap-2">
+                                                <RotateCcw className="h-3.5 w-3.5 text-primary" />
+                                                <span>Todas — rotação automática ({connectedInstances.length} instâncias)</span>
+                                            </div>
+                                        </SelectItem>
+                                    )}
+                                    {connectedInstances.map((inst) => (
+                                        <SelectItem key={inst.id} value={inst.id}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="inline-block h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                                                <span>{inst.instance_name}</span>
+                                                {inst.phone && (
+                                                    <span className="text-muted-foreground text-xs">({inst.phone})</span>
+                                                )}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     )}
 
