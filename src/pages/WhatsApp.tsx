@@ -156,6 +156,8 @@ export default function WhatsApp() {
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
     const [previewEnvio, setPreviewEnvio] = useState<any>(null);
     const [copiedVar, setCopiedVar] = useState<string | null>(null);
+    const [connectData, setConnectData] = useState<{ instanceId: string; qrCode?: string; pairingCode?: string } | null>(null);
+    const [connectingStartedAt, setConnectingStartedAt] = useState<number | null>(null);
 
     // ── User credits ──
     const { data: creditos } = useQuery({
@@ -300,25 +302,43 @@ export default function WhatsApp() {
     // ── Polling for status when connecting ──
     useEffect(() => {
         const connectingInstance = instances.find((i) => i.status === "connecting");
-        if (!connectingInstance) return;
+        if (!connectingInstance) {
+            // If no connecting instance and we have connectData, check if it got connected
+            if (connectData) {
+                const inst = instances.find((i) => i.id === connectData.instanceId);
+                if (inst && inst.status === "connected") {
+                    setConnectData(null);
+                    setConnectingStartedAt(null);
+                }
+            }
+            return;
+        }
         const interval = setInterval(async () => {
             try {
-                await callWhatsApp("status", { loja_id: loja?.id, instance_id: connectingInstance.id });
+                const result = await callWhatsApp("status", { loja_id: loja?.id, instance_id: connectingInstance.id });
+                // If status came back as disconnected but we just started connecting (< 2 min), keep connecting state
+                const elapsed = connectingStartedAt ? Date.now() - connectingStartedAt : Infinity;
+                if (result.status === "disconnected" && elapsed < 120000) {
+                    // Don't refetch — keep showing QR/pairing code
+                    return;
+                }
                 queryClient.invalidateQueries({ queryKey: ["whatsapp-instances", loja?.id] });
             } catch { /* ignore */ }
         }, 5000);
         return () => clearInterval(interval);
-    }, [instances, loja?.id, queryClient]);
+    }, [instances, loja?.id, queryClient, connectData, connectingStartedAt]);
 
     // ── Mutations ──
     const createInstanceMutation = useMutation({
         mutationFn: async () => {
             return callWhatsApp("init", { loja_id: loja!.id });
         },
-        onSuccess: (data: any) => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
-            queryClient.invalidateQueries({ queryKey: ["creditos"] });
+        onSuccess: async (data: any) => {
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["whatsapp-instances", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["whatsapp-subscriptions", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["creditos", user?.id] }),
+            ]);
             if (data.used_free_slot) {
                 toast.success("Instância criada usando slot disponível — sem custo!");
             } else {
@@ -332,10 +352,12 @@ export default function WhatsApp() {
         mutationFn: async (instanceId: string) => {
             return callWhatsApp("renew", { loja_id: loja!.id, instance_id: instanceId });
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
-            queryClient.invalidateQueries({ queryKey: ["creditos"] });
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["whatsapp-instances", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["whatsapp-subscriptions", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["creditos", user?.id] }),
+            ]);
             toast.success("Assinatura renovada por mais 30 dias!");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao renovar assinatura"),
@@ -349,8 +371,15 @@ export default function WhatsApp() {
                 ...(phoneInput ? { phone: formatPhone(phoneInput) } : {}),
             });
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+        onSuccess: (data: any, instanceId: string) => {
+            // Store connect response locally so QR/pairing shows immediately
+            setConnectData({
+                instanceId,
+                qrCode: data.qrcode || data.qr_code || undefined,
+                pairingCode: data.pairingCode || data.pairing_code || undefined,
+            });
+            setConnectingStartedAt(Date.now());
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances", loja?.id] });
             toast.success(phoneInput ? "Código de pareamento gerado!" : "QR Code gerado!");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao conectar"),
@@ -367,9 +396,13 @@ export default function WhatsApp() {
 
     const deleteMutation = useMutation({
         mutationFn: async (instanceId: string) => callWhatsApp("delete", { loja_id: loja!.id, instance_id: instanceId }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
+        onSuccess: async () => {
+            setConnectData(null);
+            setConnectingStartedAt(null);
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["whatsapp-instances", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["whatsapp-subscriptions", loja?.id] }),
+            ]);
             toast.success("Instância removida! Sua assinatura continua ativa — você pode criar uma nova instância sem custo.");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao remover"),
@@ -743,27 +776,45 @@ export default function WhatsApp() {
                                                 </div>
                                             )}
 
-                                            {inst.status === "connecting" && (
+                                            {(inst.status === "connecting" || (connectData?.instanceId === inst.id)) && (
                                                 <div className="space-y-3">
                                                     <p className="text-xs text-yellow-500 flex items-center gap-1.5">
                                                         <Loader2 className="h-3 w-3 animate-spin" /> Aguardando conexão...
                                                     </p>
-                                                    {inst.qr_code && (
-                                                        <div className="flex flex-col items-center gap-2">
-                                                            <div className="p-3 bg-white rounded-xl">
-                                                                <img
-                                                                    src={inst.qr_code.startsWith("data:") ? inst.qr_code : `data:image/png;base64,${inst.qr_code}`}
-                                                                    alt="QR Code"
-                                                                    className="w-48 h-48 object-contain"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {inst.pairing_code && (
-                                                        <code className="text-xl font-mono font-bold text-primary bg-primary/10 px-4 py-2 rounded-xl tracking-[0.3em] block text-center">
-                                                            {inst.pairing_code}
-                                                        </code>
-                                                    )}
+                                                    {(() => {
+                                                        const qr = (connectData?.instanceId === inst.id && connectData?.qrCode) || inst.qr_code;
+                                                        const pairing = (connectData?.instanceId === inst.id && connectData?.pairingCode) || inst.pairing_code;
+                                                        return (
+                                                            <>
+                                                                {qr && (
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <div className="p-3 bg-white rounded-xl">
+                                                                            <img
+                                                                                src={qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`}
+                                                                                alt="QR Code"
+                                                                                className="w-48 h-48 object-contain"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                {pairing && (
+                                                                    <code className="text-xl font-mono font-bold text-primary bg-primary/10 px-4 py-2 rounded-xl tracking-[0.3em] block text-center">
+                                                                        {pairing}
+                                                                    </code>
+                                                                )}
+                                                                {!qr && !pairing && (
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <p className="text-xs text-muted-foreground">Nenhum QR Code disponível. Tente reconectar.</p>
+                                                                        <Button size="sm" className="shimmer-btn h-8 text-xs" onClick={() => connectMutation.mutate(inst.id)} disabled={connectMutation.isPending}>
+                                                                            {connectMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                                                                            <QrCode className="h-3 w-3 mr-1" />
+                                                                            Reconectar
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             )}
 
@@ -797,6 +848,9 @@ export default function WhatsApp() {
                     </div>
                 </div>
             )}
+
+
+
 
             {/* ═══════ TAB 2: TEMPLATE EDITOR ═══════ */}
             {activeTab === "template" && (
