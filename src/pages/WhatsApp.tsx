@@ -247,7 +247,7 @@ export default function WhatsApp() {
             if (!loja?.id) return null;
             const { data } = await supabase
                 .from("postagem_config")
-                .select("whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_auto_send, whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text")
+                .select("whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_auto_send, whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
             return data;
