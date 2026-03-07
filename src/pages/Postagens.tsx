@@ -634,9 +634,18 @@ export default function Postagens() {
                     <p className="text-xs text-muted-foreground mb-3">{template.descricao}</p>
                     <div className="flex flex-wrap gap-1">
                       {evts.map((e) => {
-                        const color = badgeColor[e.status_label || ""] || "bg-muted text-muted-foreground";
+                        // Determine if this event's group is active based on config
+                        let evtAtivo = true;
+                        if (localConfig) {
+                          if (e.enviar_nfe_pdf) evtAtivo = localConfig.enviar_nfe_email;
+                          else if (e.status_label === "Taxação" || e.status_label === "Pago") evtAtivo = localConfig.ativar_taxacao;
+                          else if (FALHA_LABELS.includes(e.status_label || "")) evtAtivo = localConfig.ativar_falha_entrega;
+                        }
+                        const activeColor = evtAtivo
+                          ? (badgeColor[e.status_label || ""] || "bg-muted text-muted-foreground")
+                          : "bg-destructive/20 text-destructive line-through opacity-70";
                         return (
-                          <span key={e.id} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${color}`}>
+                          <span key={e.id} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${activeColor}`}>
                             {e.status_label}
                           </span>
                         );
@@ -696,7 +705,7 @@ export default function Postagens() {
                   return (
                     <div
                       key={evento.id}
-                      className={`glass rounded-xl transition-all duration-300 animate-stagger-in ${ativo ? "glow-border" : "border border-destructive/20 opacity-60"}`}
+                      className={`glass rounded-xl transition-all duration-300 animate-stagger-in ${ativo ? "border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]" : "border border-destructive/40 shadow-[0_0_8px_rgba(239,68,68,0.15)] opacity-60"}`}
                       style={{ animationDelay: `${index * 0.04}s` }}
                     >
                       <div className="flex items-center gap-3 py-3 px-4">
