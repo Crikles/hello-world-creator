@@ -21,17 +21,7 @@ import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger"
 import { generateDanfePdfBase64 } from "@/lib/nfe-utils";
 import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
-function formatProduto(raw: string): string {
-  try {
-    const items = JSON.parse(raw);
-    if (Array.isArray(items)) {
-      return items.map((i: any) => `${i.nome} (x${i.quantidade})`).join(", ");
-    }
-  } catch {
-    // not JSON, return as-is
-  }
-  return raw;
-}
+import { formatProduto } from "@/lib/format-produto";
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",

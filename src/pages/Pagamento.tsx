@@ -62,22 +62,7 @@ const DEFAULT_TAX: TaxSettings = {
     mostrar_prazo: true,
 };
 
-function formatProduto(raw: string): string {
-    try {
-        const items = JSON.parse(raw);
-        if (Array.isArray(items)) {
-            return items
-                .map((item: any) => {
-                    const name = item.name || item.nome || item.title || "Produto";
-                    const qty = item.quantity || item.quantidade || 1;
-                    return qty > 1 ? `${name} (x${qty})` : name;
-                })
-                .join(", ");
-        }
-    } catch {
-        // not JSON, return as-is
-    }
-    return raw;
+import { formatProduto } from "@/lib/format-produto";
 }
 
 function formatCPF(cpf: string): string {
