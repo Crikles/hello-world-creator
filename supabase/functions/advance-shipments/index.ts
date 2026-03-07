@@ -318,8 +318,7 @@ Deno.serve(async (req) => {
   let totalProcessed = 0;
   const MAX_PER_RUN = 200;
   const MAX_PER_LOJA = 100;
-  const BATCH_SIZE = 3;
-  const BATCH_DELAY_MS = 1500; // delay between batches to avoid rate limits
+  const BATCH_DELAY_MS = 500; // delay between each shipment to avoid rate limits
 
   try {
     // Fetch all stores with postagem config
@@ -403,16 +402,15 @@ Deno.serve(async (req) => {
           .limit(Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed));
 
         if (pending && pending.length > 0) {
-          for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+          for (const envio of pending) {
             if (totalProcessed >= MAX_PER_RUN) break;
-            const batch = pending.slice(i, i + BATCH_SIZE);
-            const results = await Promise.allSettled(
-              batch.map((envio: any) =>
-                advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap)
-              )
-            );
-            totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-            if (i + BATCH_SIZE < pending.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+            try {
+              const success = await advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap);
+              if (success) totalProcessed++;
+            } catch (e) {
+              console.error(`Error advancing pending ${envio.id}:`, e);
+            }
+            await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
           }
         }
       }
@@ -434,16 +432,15 @@ Deno.serve(async (req) => {
         .limit(lojaLimit);
 
       if (eligible && eligible.length > 0) {
-        for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
+        for (const envio of eligible) {
           if (totalProcessed >= MAX_PER_RUN) break;
-          const batch = eligible.slice(i, i + BATCH_SIZE);
-          const results = await Promise.allSettled(
-            batch.map((envio: any) =>
-              advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap)
-            )
-          );
-          totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-          if (i + BATCH_SIZE < eligible.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+          try {
+            const success = await advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap);
+            if (success) totalProcessed++;
+          } catch (e) {
+            console.error(`Error advancing eligible ${envio.id}:`, e);
+          }
+          await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
         }
       }
     }
