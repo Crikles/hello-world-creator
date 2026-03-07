@@ -1,0 +1,1 @@
+ALTER TABLE postagem_email_log ALTER COLUMN custo SET DEFAULT 0.0021;
