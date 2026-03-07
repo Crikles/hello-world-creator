@@ -418,6 +418,8 @@ Deno.serve(async (req) => {
       // --- 2. ADVANCE: shipments where delay has expired ---
       if (totalProcessed >= MAX_PER_RUN) break;
 
+      const lojaLimit = Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed);
+
       const { data: eligible } = await supabase
         .from("envios")
         .select("id, ultimo_evento_ordem, proximo_avanco_em")
@@ -427,16 +429,18 @@ Deno.serve(async (req) => {
         .is("deleted_at", null)
         .or(`proximo_avanco_em.is.null,proximo_avanco_em.lte.${now}`)
         .order("created_at", { ascending: true })
-        .limit(MAX_PER_RUN - totalProcessed);
+        .limit(lojaLimit);
 
-      if (eligible) {
-        for (const envio of eligible) {
+      if (eligible && eligible.length > 0) {
+        for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
           if (totalProcessed >= MAX_PER_RUN) break;
-
-          const result = await advanceShipment(
-            supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap
+          const batch = eligible.slice(i, i + BATCH_SIZE);
+          const results = await Promise.allSettled(
+            batch.map((envio: any) =>
+              advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap)
+            )
           );
-          if (result) totalProcessed++;
+          totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
         }
       }
     }
