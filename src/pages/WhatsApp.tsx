@@ -486,6 +486,7 @@ export default function WhatsApp() {
                 reply_text: replyText || undefined,
                 btn2_text: btn2Text || undefined,
                 btn2_url: btn2Url || undefined,
+                ...(selectedInstanceId !== "all" ? { instance_id: selectedInstanceId } : {}),
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
