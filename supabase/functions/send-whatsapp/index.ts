@@ -461,29 +461,17 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "number and text are required" }, 400);
             }
 
-            // Se houver imagem, enviar separadamente primeiro via /send/media
-            if (image_url) {
-                try {
-                    await fetch(`${UAZAPI_BASE}/send/media`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", Accept: "application/json", token: instanceToken },
-                        body: JSON.stringify({ number, type: "image", file: image_url }),
-                    });
-                } catch (e) {
-                    console.error("Erro ao enviar imagem separada:", e);
-                }
-            }
-
             const choices: string[] = [];
-            if (reply_text) choices.push(reply_text);
             if (btn_text && btn_url) choices.push(`${btn_text}|${btn_url}`);
+            if (reply_text) choices.push(reply_text);
 
             const sendBody: Record<string, unknown> = {
                 number,
                 type: "button",
-                text,
+                text: image_url ? `\n${text}` : text,
                 choices,
             };
+            if (image_url) sendBody.imageButton = image_url;
             if (footer) sendBody.footerText = footer;
 
             const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
@@ -599,30 +587,18 @@ Deno.serve(async (req) => {
                     : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
 
                 const choices: string[] = [];
-                if (queueReplyText) choices.push(queueReplyText);
                 if (btn_text && btn_url_template) {
                     choices.push(`${btn_text}|${btn_url_template.replace("{{codigo_rastreio}}", envio.codigo_rastreio || "")}`);
                 }
-
-                // Se houver imagem, enviar separadamente primeiro
-                if (queueImageUrl) {
-                    try {
-                        await fetch(`${UAZAPI_BASE}/send/media`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", Accept: "application/json", token: inst.instance_token },
-                            body: JSON.stringify({ number, type: "image", file: queueImageUrl }),
-                        });
-                    } catch (e) {
-                        console.error("Erro ao enviar imagem (queue):", e);
-                    }
-                }
+                if (queueReplyText) choices.push(queueReplyText);
 
                 const sendBody: Record<string, unknown> = {
                     number,
                     type: "button",
-                    text,
+                    text: queueImageUrl ? `\n${text}` : text,
                     choices,
                 };
+                if (queueImageUrl) sendBody.imageButton = queueImageUrl;
                 if (footer) sendBody.footerText = footer;
 
                 try {
