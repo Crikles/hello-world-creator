@@ -262,6 +262,8 @@ function buildEmailHtml(
     "Falha Entrega": "Falha na Entrega",
     "Taxação": "Aviso de Taxação",
     "Pago": "Pagamento Confirmado",
+    "Reenvio Pago": "Reenvio Confirmado",
+    "Reenvio Saiu": "Pedido Reenviado",
   };
   const headerTitle = enviarNfePdf
     ? "Nota Fiscal Emitida"

@@ -95,6 +95,9 @@ const iconMap: Record<string, React.ElementType> = {
   "Taxação": AlertTriangle,
   "Pago": CreditCard,
   "Em Rota": Truck,
+  "Falha Entrega": AlertTriangle,
+  "Reenvio Pago": CreditCard,
+  "Reenvio Saiu": Truck,
 };
 
 const badgeColor: Record<string, string> = {
@@ -107,6 +110,9 @@ const badgeColor: Record<string, string> = {
   "Taxação": "bg-destructive/20 text-destructive",
   "Pago": "bg-primary/20 text-primary",
   "Em Rota": "bg-primary/25 text-primary",
+  "Falha Entrega": "bg-destructive/15 text-destructive",
+  "Reenvio Pago": "bg-primary/20 text-primary",
+  "Reenvio Saiu": "bg-primary/25 text-primary",
 };
 
 const FALHA_LABELS = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
