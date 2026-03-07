@@ -1,60 +1,58 @@
 
 
-## Plano: Melhorias na aba "Enviar" do WhatsApp
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-### Problemas identificados
+### Root cause
 
-1. **Moedas com arredondamento errado**: Linha 449 usa `.toFixed(0)` que arredonda 7.70 para 8. Precisa usar `.toFixed(2)` para mostrar o valor real.
-2. **Filtro de status** usa status do envio (Pendente, Coletado...) mas deveria filtrar por "Enviado/Não Enviado" via WhatsApp.
-3. **Sem persistência** de quais mensagens já foram enviadas — atualmente é só estado local (`sentIds`).
-4. **Sem automação** de envio para novos leads.
-5. **Sem rotação** de instâncias.
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-### Alterações
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-#### 1. Database Migration
-- Criar tabela `whatsapp_message_log` para persistir envios:
-  - `id`, `envio_id`, `loja_id`, `instance_id`, `status` (sent/failed), `created_at`
-- Adicionar colunas em `postagem_config`:
-  - `whatsapp_auto_send BOOLEAN DEFAULT false`
-  - `whatsapp_delay_seconds INTEGER DEFAULT 300` (5 min)
-- RLS: `user_owns_loja` para acesso
+### Fix
 
-#### 2. Edge Function `send-whatsapp`
-- Nova action `send-queue`: recebe lista de envio IDs, aplica delay entre envios, faz rotação de instâncias (round-robin entre todas as instâncias ativas da loja com assinatura válida)
-- Registrar cada envio na `whatsapp_message_log`
-- Action `send` também registra no log
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-#### 3. Frontend `src/pages/WhatsApp.tsx`
-- **Corrigir moedas**: `.toFixed(0)` → `.toFixed(2)` na exibição do saldo
-- **Filtro**: Trocar filtro de status do envio por "Todos", "Enviado", "Não Enviado" baseado na tabela `whatsapp_message_log`
-- **Toggle Automático**: Switch para ativar `whatsapp_auto_send` com campo de delay em minutos
-- **Rotação**: Buscar todas as instâncias da loja (permitir múltiplas), exibir indicador de rotação no envio em massa
-- Carregar `whatsapp_message_log` para marcar visualmente quais envios já foram enviados (persistente, não apenas local state)
+### Changes
 
-#### 4. Suporte a múltiplas instâncias
-- Remover constraint `UNIQUE(loja_id)` de `whatsapp_instances` (atualmente upsert com `onConflict: "loja_id"`)
-- Atualizar edge function `init` para não usar upsert — usar insert simples
-- Na UI de instância, listar todas as instâncias da loja
-- Na rotação: intercalar mensagens entre instâncias conectadas com assinatura ativa
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
 
-### Arquivos alterados
-- `src/pages/WhatsApp.tsx` — filtro, auto-send, delay, rotação, fix moedas
-- `supabase/functions/send-whatsapp/index.ts` — log de mensagens, rotação
-- Migration SQL — `whatsapp_message_log`, colunas em `postagem_config`, remover unique constraint
+Extend the existing filter to also remove NF-e events when disabled:
 
-### Detalhes técnicos
-
-```text
-Rotação round-robin:
-  Instâncias ativas: [A, B, C]
-  Envios: [1, 2, 3, 4, 5]
-  → Envio 1 → Instância A
-  → Envio 2 → Instância B
-  → Envio 3 → Instância C
-  → Envio 4 → Instância A
-  → Envio 5 → Instância B
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-Auto-send: Quando ativado, a edge function `advance-shipments` (ou um cron job) verificará novos envios sem registro em `whatsapp_message_log` e os enviará automaticamente com o delay configurado.
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 

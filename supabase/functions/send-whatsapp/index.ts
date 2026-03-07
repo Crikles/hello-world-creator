@@ -38,7 +38,6 @@ Deno.serve(async (req) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
 
-        // Verify user from JWT
         const supabaseUser = createClient(
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -68,10 +67,8 @@ Deno.serve(async (req) => {
 
         // ── INIT: Create instance (with subscription debit) ──
         if (action === "init") {
-            // Get price from system_config
             const price = await getWhatsAppPrice(supabaseAdmin);
 
-            // Debit credits atomically
             const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
                 _user_id: user.id,
                 _quantidade: price,
@@ -82,7 +79,7 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "Saldo insuficiente para assinar o WhatsApp" }, 402);
             }
 
-            const instanceName = body.instance_name || `magnus-${loja_id.slice(0, 8)}`;
+            const instanceName = body.instance_name || `magnus-${loja_id.slice(0, 8)}-${Date.now().toString(36)}`;
 
             const res = await fetch(`${UAZAPI_BASE}/instance/init`, {
                 method: "POST",
@@ -107,21 +104,18 @@ Deno.serve(async (req) => {
 
             const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-            // Save to DB
+            // Use INSERT (not upsert) to support multiple instances
             const { error: dbErr } = await supabaseAdmin
                 .from("whatsapp_instances")
-                .upsert(
-                    {
-                        loja_id,
-                        instance_name: instanceName,
-                        instance_token: token,
-                        status: "disconnected",
-                        expires_at: expiresAt,
-                        subscription_price: price,
-                        updated_at: new Date().toISOString(),
-                    },
-                    { onConflict: "loja_id" }
-                );
+                .insert({
+                    loja_id,
+                    instance_name: instanceName,
+                    instance_token: token,
+                    status: "disconnected",
+                    expires_at: expiresAt,
+                    subscription_price: price,
+                    updated_at: new Date().toISOString(),
+                });
 
             if (dbErr) return jsonResp({ error: "DB save failed", details: dbErr.message }, 500);
 
@@ -129,11 +123,24 @@ Deno.serve(async (req) => {
         }
 
         // ── Get instance token from DB ──
-        const { data: instance } = await supabaseAdmin
-            .from("whatsapp_instances")
-            .select("*")
-            .eq("loja_id", loja_id)
-            .maybeSingle();
+        // If instance_id is provided, use that specific instance; otherwise get any for the loja
+        let instance: any = null;
+        if (body.instance_id) {
+            const { data } = await supabaseAdmin
+                .from("whatsapp_instances")
+                .select("*")
+                .eq("id", body.instance_id)
+                .eq("loja_id", loja_id)
+                .maybeSingle();
+            instance = data;
+        } else {
+            const { data } = await supabaseAdmin
+                .from("whatsapp_instances")
+                .select("*")
+                .eq("loja_id", loja_id)
+                .maybeSingle();
+            instance = data;
+        }
 
         if (!instance && action !== "init") {
             return jsonResp({ error: "No WhatsApp instance found. Create one first." }, 404);
@@ -155,7 +162,6 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "Saldo insuficiente para renovar o WhatsApp" }, 402);
             }
 
-            // Extend from current expiration if still in the future, otherwise from now
             const currentExpires = instance?.expires_at ? new Date(instance.expires_at) : new Date();
             const baseDate = currentExpires > new Date() ? currentExpires : new Date();
             const newExpires = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -167,7 +173,7 @@ Deno.serve(async (req) => {
                     subscription_price: price,
                     updated_at: new Date().toISOString(),
                 })
-                .eq("loja_id", loja_id);
+                .eq("id", instance.id);
 
             return jsonResp({ success: true, expires_at: newExpires, price });
         }
@@ -199,7 +205,7 @@ Deno.serve(async (req) => {
                     phone: body.phone || null,
                     updated_at: new Date().toISOString(),
                 })
-                .eq("loja_id", loja_id);
+                .eq("id", instance.id);
 
             return jsonResp({ success: true, ...data });
         }
@@ -225,7 +231,7 @@ Deno.serve(async (req) => {
                     pairing_code: data.pairingCode || data.pairing_code || instance?.pairing_code || null,
                     updated_at: new Date().toISOString(),
                 })
-                .eq("loja_id", loja_id);
+                .eq("id", instance.id);
 
             return jsonResp({
                 success: true,
@@ -259,7 +265,7 @@ Deno.serve(async (req) => {
                     pairing_code: null,
                     updated_at: new Date().toISOString(),
                 })
-                .eq("loja_id", loja_id);
+                .eq("id", instance.id);
 
             return jsonResp({ success: true });
         }
@@ -277,7 +283,7 @@ Deno.serve(async (req) => {
             await supabaseAdmin
                 .from("whatsapp_instances")
                 .delete()
-                .eq("loja_id", loja_id);
+                .eq("id", instance.id);
 
             return jsonResp({ success: true });
         }
@@ -290,12 +296,22 @@ Deno.serve(async (req) => {
             return null;
         }
 
+        // ── Helper: log message to whatsapp_message_log ──
+        async function logMessage(envioId: string, instanceId: string, status: string) {
+            await supabaseAdmin.from("whatsapp_message_log").insert({
+                envio_id: envioId,
+                loja_id,
+                instance_id: instanceId,
+                status,
+            });
+        }
+
         // ── SEND (with button) ──
         if (action === "send") {
             const expiredResp = checkSubscriptionExpired();
             if (expiredResp) return expiredResp;
 
-            const { number, text, btn_text, btn_url, footer } = body;
+            const { number, text, btn_text, btn_url, footer, envio_id } = body;
 
             if (!number || !text) {
                 return jsonResp({ error: "number and text are required" }, 400);
@@ -328,6 +344,11 @@ Deno.serve(async (req) => {
             const data = await res.json();
             console.log("UAZAPI send response:", JSON.stringify(data));
 
+            // Log the message
+            if (envio_id) {
+                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed");
+            }
+
             if (!res.ok) return jsonResp({ error: "Send failed", details: data }, 500);
 
             return jsonResp({ success: true, ...data });
@@ -338,7 +359,7 @@ Deno.serve(async (req) => {
             const expiredResp = checkSubscriptionExpired();
             if (expiredResp) return expiredResp;
 
-            const { number, text } = body;
+            const { number, text, envio_id } = body;
 
             if (!number || !text) {
                 return jsonResp({ error: "number and text are required" }, 400);
@@ -356,9 +377,114 @@ Deno.serve(async (req) => {
 
             const data = await res.json();
 
+            if (envio_id) {
+                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed");
+            }
+
             if (!res.ok) return jsonResp({ error: "Send failed", details: data }, 500);
 
             return jsonResp({ success: true, ...data });
+        }
+
+        // ── SEND-QUEUE: Bulk send with rotation ──
+        if (action === "send-queue") {
+            const { envio_ids, msg_template, btn_text, btn_url_template, footer } = body;
+
+            if (!envio_ids || !Array.isArray(envio_ids) || envio_ids.length === 0) {
+                return jsonResp({ error: "envio_ids array is required" }, 400);
+            }
+
+            // Get ALL active instances for this loja (connected + valid subscription)
+            const { data: allInstances } = await supabaseAdmin
+                .from("whatsapp_instances")
+                .select("*")
+                .eq("loja_id", loja_id)
+                .eq("status", "connected");
+
+            const activeInstances = (allInstances || []).filter(
+                (i: any) => i.expires_at && new Date(i.expires_at) > new Date()
+            );
+
+            if (activeInstances.length === 0) {
+                return jsonResp({ error: "Nenhuma instância WhatsApp ativa e conectada encontrada." }, 400);
+            }
+
+            // Get envios data
+            const { data: enviosData } = await supabaseAdmin
+                .from("envios")
+                .select("*")
+                .in("id", envio_ids);
+
+            if (!enviosData || enviosData.length === 0) {
+                return jsonResp({ error: "No envios found" }, 404);
+            }
+
+            // Get delay from postagem_config
+            const { data: configData } = await supabaseAdmin
+                .from("postagem_config")
+                .select("whatsapp_delay_seconds")
+                .eq("loja_id", loja_id)
+                .maybeSingle();
+
+            const delayMs = ((configData?.whatsapp_delay_seconds) || 300) * 1000;
+
+            const results: { envio_id: string; status: string; instance_name: string }[] = [];
+
+            for (let i = 0; i < enviosData.length; i++) {
+                const envio = enviosData[i];
+                // Round-robin rotation
+                const inst = activeInstances[i % activeInstances.length];
+
+                if (!envio.cliente_telefone) {
+                    await logMessage(envio.id, inst.id, "failed");
+                    results.push({ envio_id: envio.id, status: "failed", instance_name: inst.instance_name });
+                    continue;
+                }
+
+                const text = msg_template || envio.produto;
+                const number = envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
+                    ? envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
+                    : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
+
+                const choices: string[] = [];
+                if (btn_text && btn_url_template) {
+                    choices.push(`${btn_text}|${btn_url_template.replace("{{codigo_rastreio}}", envio.codigo_rastreio || "")}`);
+                }
+
+                const sendBody: Record<string, unknown> = {
+                    number,
+                    type: "button",
+                    text,
+                    choices,
+                };
+                if (footer) sendBody.footerText = footer;
+
+                try {
+                    const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            token: inst.instance_token,
+                        },
+                        body: JSON.stringify(sendBody),
+                    });
+
+                    const status = res.ok ? "sent" : "failed";
+                    await logMessage(envio.id, inst.id, status);
+                    results.push({ envio_id: envio.id, status, instance_name: inst.instance_name });
+                } catch {
+                    await logMessage(envio.id, inst.id, "failed");
+                    results.push({ envio_id: envio.id, status: "failed", instance_name: inst.instance_name });
+                }
+
+                // Delay between sends (except last)
+                if (i < enviosData.length - 1 && delayMs > 0) {
+                    await new Promise((r) => setTimeout(r, Math.min(delayMs, 10000))); // cap at 10s for edge function
+                }
+            }
+
+            return jsonResp({ success: true, results });
         }
 
         return jsonResp({ error: `Unknown action: ${action}` }, 400);
