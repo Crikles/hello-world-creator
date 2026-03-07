@@ -60,8 +60,9 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         }
 
         // Filter out "Falha Entrega/Falha na Entrega" if config.ativar_falha_entrega is not true
+        const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
         const filteredEvents = allEvents.filter(e => {
-            if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !(config as any).ativar_falha_entrega) {
+            if (falhaLabels.includes(e.status_label || "") && !(config as any).ativar_falha_entrega) {
                 return false;
             }
             // Remove NF-e events when enviar_nfe_email is disabled
@@ -204,11 +205,14 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         }
 
         // 7. Check if this event should actually send an email
+        const falhaLabelsCheck = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
         let isAtivo = false;
         if (nextEvent.enviar_nfe_pdf) {
             isAtivo = config.enviar_nfe_email;
         } else if (nextEvent.status_label === "Taxação" || nextEvent.status_label === "Pago") {
             isAtivo = config.ativar_taxacao;
+        } else if (falhaLabelsCheck.includes(nextEvent.status_label || "")) {
+            isAtivo = (config as any).ativar_falha_entrega;
         } else {
             isAtivo = config.enviar_emails;
         }

@@ -1,57 +1,58 @@
 
 
-## Plano: Adicionar fluxo completo de Falha na Entrega (3 eventos)
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-### Situação atual
-Falha na Entrega é apenas 1 evento. Ao ativar, o fluxo envia o e-mail de falha e para. Faltam os passos de **Pagamento Confirmado** e **Saiu para Entrega** (reenvio).
+### Root cause
 
-### Mudança
-Ao ativar "Falha na Entrega", o sistema ativará 3 eventos em sequência:
-1. **Falha Entrega** (existente) — notifica o cliente da falha
-2. **Reenvio Pago** (novo) — pagamento do reenvio confirmado (e-mail diferente do "Pago" da Taxação)
-3. **Reenvio Saiu** (novo) — pedido saiu novamente para entrega
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-### Alterações
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-#### 1. Migração SQL — Inserir 2 novos eventos em cada template
-Para cada template existente que tem "Falha Entrega", inserir "Reenvio Pago" e "Reenvio Saiu" logo após, reordenando o "Entregue" para ficar por último. Os novos status_labels serão `Reenvio Pago` e `Reenvio Saiu` para não conflitar com Taxação.
+### Fix
 
-#### 2. `src/pages/Postagens.tsx` — Filtro `isEventoAtivo`
-Adicionar `Reenvio Pago` e `Reenvio Saiu` ao grupo controlado por `ativar_falha_entrega`:
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+
+### Changes
+
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
+
 ```typescript
-if (["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"].includes(evento.status_label))
-  return localConfig.ativar_falha_entrega;
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-Adicionar cores de badge para os novos status.
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-#### 3. `src/lib/email-trigger.ts` — Filtro de eventos
-Estender o filtro para incluir `Reenvio Pago` e `Reenvio Saiu` no grupo falha:
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
 ```typescript
-const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
-if (falhaLabels.includes(e.status_label) && !config.ativar_falha_entrega) return false;
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-#### 4. `supabase/functions/advance-shipments/index.ts` — Filtro servidor
-Mesma lógica: filtrar `Reenvio Pago` e `Reenvio Saiu` junto com `Falha Entrega` quando desativado.
+### Result
 
-#### 5. `supabase/functions/send-email/index.ts` — E-mail do Reenvio Pago
-- Adicionar cores e títulos para `Reenvio Pago` e `Reenvio Saiu` nos mapas existentes
-- O `Reenvio Pago` usará o template genérico (não o de Taxação), com mensagem contextualizada sobre reenvio confirmado
-- O `Reenvio Saiu` usará o template genérico de "Saiu para Entrega"
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
 
-#### 6. `supabase/functions/falha-info/index.ts` — Sem alteração necessária
-
-### Resultado do fluxo
-```text
-... → Centro Local → Saiu p/ Entrega → [Falha Entrega] → [Reenvio Pago] → [Reenvio Saiu] → Entregue
-```
-Quando `ativar_falha_entrega = false`, os 3 eventos são omitidos e o fluxo pula direto para Entregue.
-
-### Arquivos alterados
-- Migração SQL (novos eventos + reordenação)
-- `src/pages/Postagens.tsx`
-- `src/lib/email-trigger.ts`
-- `supabase/functions/advance-shipments/index.ts`
-- `supabase/functions/send-email/index.ts`
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
