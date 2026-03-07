@@ -61,10 +61,13 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
 
         // Filter out "Falha Entrega/Falha na Entrega" if config.ativar_falha_entrega is not true
         const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+        const taxLabels = ["Taxação", "Taxacao", "Pago"];
         const filteredEvents = allEvents.filter(e => {
             if (falhaLabels.includes(e.status_label || "") && !(config as any).ativar_falha_entrega) {
                 return false;
             }
+            // Remove Taxação/Pago events when ativar_taxacao is disabled
+            if (taxLabels.includes(e.status_label || "") && !config.ativar_taxacao) return false;
             // Remove NF-e events when enviar_nfe_email is disabled
             if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
             return true;
