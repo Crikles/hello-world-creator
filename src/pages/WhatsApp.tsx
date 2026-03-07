@@ -213,8 +213,8 @@ export default function WhatsApp() {
         enabled: !!loja?.id,
     });
 
-    const freeSlots = subsInfo?.free_slots ?? 0;
     const totalActiveSubs = subsInfo?.total_active ?? 0;
+    const freeSlots = Math.max(0, totalActiveSubs - instances.length);
 
     // Compat: first instance for backwards compat in tabs
     const instance = instances.length > 0 ? instances[0] : null;
