@@ -200,6 +200,20 @@ export default function WhatsApp() {
         enabled: !!loja?.id,
     });
 
+    // ── Subscriptions (free slots) ──
+    const { data: subsInfo } = useQuery({
+        queryKey: ["whatsapp-subscriptions", loja?.id],
+        queryFn: async () => {
+            if (!loja?.id) return { free_slots: 0, total_active: 0, subscriptions: [] };
+            const result = await callWhatsApp("list-subscriptions", { loja_id: loja.id });
+            return result as { free_slots: number; total_active: number; subscriptions: any[] };
+        },
+        enabled: !!loja?.id,
+    });
+
+    const freeSlots = subsInfo?.free_slots ?? 0;
+    const totalActiveSubs = subsInfo?.total_active ?? 0;
+
     // Compat: first instance for backwards compat in tabs
     const instance = instances.length > 0 ? instances[0] : null;
     const isExpired = instance?.expires_at ? new Date(instance.expires_at) < new Date() : true;
