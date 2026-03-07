@@ -97,9 +97,9 @@ export default function AdminWhatsApp() {
   });
 
   const statusBadge = (status: string) => {
-    if (status === "connected") return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30"><Wifi className="h-3 w-3 mr-1" />Conectado</Badge>;
-    if (status === "connecting") return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30"><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Conectando</Badge>;
-    return <Badge className="bg-red-500/20 text-red-400 border-red-500/30"><WifiOff className="h-3 w-3 mr-1" />Desconectado</Badge>;
+    if (status === "connected") return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30"><Wifi className="h-3 w-3 mr-1" />Conectado</Badge>;
+    if (status === "connecting") return <Badge variant="outline" className="bg-accent/50 text-accent-foreground border-accent"><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Conectando</Badge>;
+    return <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30"><WifiOff className="h-3 w-3 mr-1" />Desconectado</Badge>;
   };
 
   return (
