@@ -561,11 +561,13 @@ Deno.serve(async (req) => {
 
             const { data: configData } = await supabaseAdmin
                 .from("postagem_config")
-                .select("whatsapp_delay_seconds")
+                .select("whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text")
                 .eq("loja_id", loja_id)
                 .maybeSingle();
 
             const delayMs = ((configData?.whatsapp_delay_seconds) || 300) * 1000;
+            const queueImageUrl = configData?.whatsapp_image_url || null;
+            const queueReplyText = configData?.whatsapp_reply_text || null;
 
             const results: { envio_id: string; status: string; instance_name: string }[] = [];
 
