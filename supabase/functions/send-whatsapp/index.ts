@@ -455,7 +455,7 @@ Deno.serve(async (req) => {
             const expiredResp = checkSubscriptionExpired();
             if (expiredResp) return expiredResp;
 
-            const { number, text, btn_text, btn_url, footer, envio_id, image_url, reply_text } = body;
+            const { number, text, btn_text, btn_url, footer, envio_id, image_url, reply_text, btn2_text, btn2_url } = body;
 
             if (!number || !text) {
                 return jsonResp({ error: "number and text are required" }, 400);
