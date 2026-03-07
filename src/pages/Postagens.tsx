@@ -642,7 +642,7 @@ export default function Postagens() {
                           else if (FALHA_LABELS.includes(e.status_label || "")) evtAtivo = localConfig.ativar_falha_entrega;
                         }
                         const activeColor = evtAtivo
-                          ? (badgeColor[e.status_label || ""] || "bg-muted text-muted-foreground")
+                          ? "bg-emerald-500/20 text-emerald-400"
                           : "bg-destructive/20 text-destructive line-through opacity-70";
                         return (
                           <span key={e.id} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${activeColor}`}>
