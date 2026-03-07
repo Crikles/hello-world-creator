@@ -315,10 +315,15 @@ export default function WhatsApp() {
         mutationFn: async () => {
             return callWhatsApp("init", { loja_id: loja!.id });
         },
-        onSuccess: () => {
+        onSuccess: (data: any) => {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["creditos"] });
-            toast.success("Instância criada com sucesso! Assinatura ativa por 30 dias.");
+            if (data.used_free_slot) {
+                toast.success("Instância criada usando slot disponível — sem custo!");
+            } else {
+                toast.success("Instância criada com sucesso! Assinatura ativa por 30 dias.");
+            }
         },
         onError: (err: any) => toast.error(err.message || "Erro ao criar instância"),
     });
