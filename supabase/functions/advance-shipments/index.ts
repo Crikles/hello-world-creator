@@ -443,6 +443,7 @@ Deno.serve(async (req) => {
             )
           );
           totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+          if (i + BATCH_SIZE < eligible.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
         }
       }
     }
