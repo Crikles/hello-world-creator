@@ -65,18 +65,76 @@ Deno.serve(async (req) => {
 
         const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN")!;
 
-        // ── INIT: Create instance (with subscription debit) ──
+        // ── Helper: find a free subscription slot (active sub with no linked instance) ──
+        async function findFreeSlot(): Promise<any | null> {
+            // Get all active subscriptions for this loja
+            const { data: subs } = await supabaseAdmin
+                .from("whatsapp_subscriptions")
+                .select("id, expires_at, price_paid")
+                .eq("loja_id", loja_id)
+                .gt("expires_at", new Date().toISOString());
+
+            if (!subs || subs.length === 0) return null;
+
+            // Get all instances that have a subscription_id
+            const { data: usedInstances } = await supabaseAdmin
+                .from("whatsapp_instances")
+                .select("subscription_id")
+                .eq("loja_id", loja_id)
+                .not("subscription_id", "is", null);
+
+            const usedSubIds = new Set((usedInstances || []).map((i: any) => i.subscription_id));
+
+            // Find first sub not linked to any instance
+            return subs.find((s: any) => !usedSubIds.has(s.id)) || null;
+        }
+
+        // ── INIT: Create instance (with slot-based subscription) ──
         if (action === "init") {
-            const price = await getWhatsAppPrice(supabaseAdmin);
+            // Check for a free slot first
+            const freeSlot = await findFreeSlot();
+            let subscriptionId: string;
+            let expiresAt: string;
+            let price: number;
 
-            const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
-                _user_id: user.id,
-                _quantidade: price,
-                _descricao: `Assinatura WhatsApp (${price} moedas/mês)`,
-            });
+            if (freeSlot) {
+                // Use existing slot — no charge
+                subscriptionId = freeSlot.id;
+                expiresAt = freeSlot.expires_at;
+                price = 0;
+            } else {
+                // No free slot — charge credits and create new subscription
+                price = await getWhatsAppPrice(supabaseAdmin);
 
-            if (debitErr || !debited) {
-                return jsonResp({ error: "Saldo insuficiente para assinar o WhatsApp" }, 402);
+                const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
+                    _user_id: user.id,
+                    _quantidade: price,
+                    _descricao: `Assinatura WhatsApp (${price} moedas/mês)`,
+                });
+
+                if (debitErr || !debited) {
+                    return jsonResp({ error: "Saldo insuficiente para assinar o WhatsApp" }, 402);
+                }
+
+                expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+                // Create subscription record
+                const { data: newSub, error: subErr } = await supabaseAdmin
+                    .from("whatsapp_subscriptions")
+                    .insert({
+                        loja_id,
+                        user_id: user.id,
+                        expires_at: expiresAt,
+                        price_paid: price,
+                    })
+                    .select("id")
+                    .single();
+
+                if (subErr || !newSub) {
+                    return jsonResp({ error: "Failed to create subscription", details: subErr?.message }, 500);
+                }
+
+                subscriptionId = newSub.id;
             }
 
             const instanceName = body.instance_name || `magnus-${loja_id.slice(0, 8)}-${Date.now().toString(36)}`;
@@ -102,9 +160,6 @@ Deno.serve(async (req) => {
             const token = data.token || data.instance?.token;
             if (!token) return jsonResp({ error: "No token in UAZAPI response", details: data }, 500);
 
-            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-            // Use INSERT (not upsert) to support multiple instances
             const { error: dbErr } = await supabaseAdmin
                 .from("whatsapp_instances")
                 .insert({
@@ -113,17 +168,24 @@ Deno.serve(async (req) => {
                     instance_token: token,
                     status: "disconnected",
                     expires_at: expiresAt,
-                    subscription_price: price,
+                    subscription_price: price || (await getWhatsAppPrice(supabaseAdmin)),
+                    subscription_id: subscriptionId,
                     updated_at: new Date().toISOString(),
                 });
 
             if (dbErr) return jsonResp({ error: "DB save failed", details: dbErr.message }, 500);
 
-            return jsonResp({ success: true, token, instance_name: instanceName, expires_at: expiresAt, price });
+            return jsonResp({
+                success: true,
+                token,
+                instance_name: instanceName,
+                expires_at: expiresAt,
+                price,
+                used_free_slot: !!freeSlot,
+            });
         }
 
         // ── Get instance token from DB ──
-        // If instance_id is provided, use that specific instance; otherwise get any for the loja
         let instance: any = null;
         if (body.instance_id) {
             const { data } = await supabaseAdmin
@@ -162,20 +224,63 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "Saldo insuficiente para renovar o WhatsApp" }, 402);
             }
 
-            const currentExpires = instance?.expires_at ? new Date(instance.expires_at) : new Date();
-            const baseDate = currentExpires > new Date() ? currentExpires : new Date();
-            const newExpires = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            // Renew or create subscription
+            if (instance.subscription_id) {
+                // Get current subscription
+                const { data: sub } = await supabaseAdmin
+                    .from("whatsapp_subscriptions")
+                    .select("expires_at")
+                    .eq("id", instance.subscription_id)
+                    .maybeSingle();
 
-            await supabaseAdmin
-                .from("whatsapp_instances")
-                .update({
-                    expires_at: newExpires,
-                    subscription_price: price,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq("id", instance.id);
+                const currentExpires = sub?.expires_at ? new Date(sub.expires_at) : new Date();
+                const baseDate = currentExpires > new Date() ? currentExpires : new Date();
+                const newExpires = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-            return jsonResp({ success: true, expires_at: newExpires, price });
+                await supabaseAdmin
+                    .from("whatsapp_subscriptions")
+                    .update({ expires_at: newExpires })
+                    .eq("id", instance.subscription_id);
+
+                await supabaseAdmin
+                    .from("whatsapp_instances")
+                    .update({
+                        expires_at: newExpires,
+                        subscription_price: price,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", instance.id);
+
+                return jsonResp({ success: true, expires_at: newExpires, price });
+            } else {
+                // Legacy instance without subscription — create one
+                const currentExpires = instance?.expires_at ? new Date(instance.expires_at) : new Date();
+                const baseDate = currentExpires > new Date() ? currentExpires : new Date();
+                const newExpires = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+                const { data: newSub } = await supabaseAdmin
+                    .from("whatsapp_subscriptions")
+                    .insert({
+                        loja_id,
+                        user_id: user.id,
+                        expires_at: newExpires,
+                        price_paid: price,
+                    })
+                    .select("id")
+                    .single();
+
+                await supabaseAdmin
+                    .from("whatsapp_instances")
+                    .update({
+                        expires_at: newExpires,
+                        subscription_price: price,
+                        subscription_id: newSub?.id || null,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", instance.id);
+
+                return jsonResp({ success: true, expires_at: newExpires, price });
+            }
         }
 
         // ── CONNECT ──
@@ -272,6 +377,7 @@ Deno.serve(async (req) => {
 
         // ── DELETE ──
         if (action === "delete") {
+            // Delete from UAZAPI
             await fetch(`${UAZAPI_BASE}/instance`, {
                 method: "DELETE",
                 headers: {
@@ -280,12 +386,43 @@ Deno.serve(async (req) => {
                 },
             });
 
+            // Delete instance row — subscription stays intact
             await supabaseAdmin
                 .from("whatsapp_instances")
                 .delete()
                 .eq("id", instance.id);
 
             return jsonResp({ success: true });
+        }
+
+        // ── LIST-SUBSCRIPTIONS: Get subscriptions and free slots ──
+        if (action === "list-subscriptions") {
+            const { data: subs } = await supabaseAdmin
+                .from("whatsapp_subscriptions")
+                .select("*")
+                .eq("loja_id", loja_id)
+                .order("created_at", { ascending: true });
+
+            const { data: insts } = await supabaseAdmin
+                .from("whatsapp_instances")
+                .select("subscription_id")
+                .eq("loja_id", loja_id)
+                .not("subscription_id", "is", null);
+
+            const usedSubIds = new Set((insts || []).map((i: any) => i.subscription_id));
+
+            const subsWithStatus = (subs || []).map((s: any) => ({
+                ...s,
+                is_active: new Date(s.expires_at) > new Date(),
+                is_free: !usedSubIds.has(s.id) && new Date(s.expires_at) > new Date(),
+            }));
+
+            return jsonResp({
+                success: true,
+                subscriptions: subsWithStatus,
+                total_active: subsWithStatus.filter((s: any) => s.is_active).length,
+                free_slots: subsWithStatus.filter((s: any) => s.is_free).length,
+            });
         }
 
         // ── Helper: check subscription expiration ──
@@ -317,7 +454,6 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "number and text are required" }, 400);
             }
 
-            // If image_url is provided, send image first
             if (image_url) {
                 try {
                     await fetch(`${UAZAPI_BASE}/send/image`, {
@@ -416,7 +552,6 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "envio_ids array is required" }, 400);
             }
 
-            // Get ALL active instances for this loja (connected + valid subscription)
             const { data: allInstances } = await supabaseAdmin
                 .from("whatsapp_instances")
                 .select("*")
@@ -431,7 +566,6 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "Nenhuma instância WhatsApp ativa e conectada encontrada." }, 400);
             }
 
-            // Get envios data
             const { data: enviosData } = await supabaseAdmin
                 .from("envios")
                 .select("*")
@@ -441,7 +575,6 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "No envios found" }, 404);
             }
 
-            // Get delay from postagem_config
             const { data: configData } = await supabaseAdmin
                 .from("postagem_config")
                 .select("whatsapp_delay_seconds")
@@ -454,7 +587,6 @@ Deno.serve(async (req) => {
 
             for (let i = 0; i < enviosData.length; i++) {
                 const envio = enviosData[i];
-                // Round-robin rotation
                 const inst = activeInstances[i % activeInstances.length];
 
                 if (!envio.cliente_telefone) {
@@ -500,9 +632,8 @@ Deno.serve(async (req) => {
                     results.push({ envio_id: envio.id, status: "failed", instance_name: inst.instance_name });
                 }
 
-                // Delay between sends (except last)
                 if (i < enviosData.length - 1 && delayMs > 0) {
-                    await new Promise((r) => setTimeout(r, Math.min(delayMs, 10000))); // cap at 10s for edge function
+                    await new Promise((r) => setTimeout(r, Math.min(delayMs, 10000)));
                 }
             }
 
