@@ -38,6 +38,7 @@ export default function Signup() {
     } else {
       setEmail(emailVal);
       setSuccess(true);
+      localStorage.removeItem("referral_code");
     }
   };
 

@@ -95,6 +95,7 @@ function PanelRoutes() {
           <Route path="taxacao" element={<Taxacao />} />
           <Route path="falha-entrega" element={<FalhaEntrega />} />
           <Route path="moedas" element={<Moedas />} />
+          <Route path="indicacao" element={<Indicacao />} />
           <Route path="suporte" element={<Suporte />} />
         </Route>
         <Route

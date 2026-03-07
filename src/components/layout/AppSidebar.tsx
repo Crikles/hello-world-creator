@@ -72,6 +72,7 @@ export function AppSidebar() {
     { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
     { title: "Falha na Entrega", url: `${base}/falha-entrega`, icon: PackageX },
     { title: "Moedas", url: `${base}/moedas`, icon: CircleDollarSign },
+    { title: "Indicação", url: `${base}/indicacao`, icon: Users },
     { title: "Empresa", url: `${base}/empresa`, icon: Landmark },
     { title: "Integrações", url: `${base}/integracoes`, icon: Cable },
     { title: "Configurações", url: `${base}/configuracoes`, icon: SlidersHorizontal },
