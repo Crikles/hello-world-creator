@@ -421,6 +421,8 @@ export default function WhatsApp() {
                 btn_url: trackingUrl,
                 footer: footerText,
                 envio_id: envio.id,
+                image_url: imageUrl || undefined,
+                reply_text: replyText || undefined,
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
