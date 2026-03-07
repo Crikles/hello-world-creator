@@ -420,15 +420,13 @@ Deno.serve(async (req) => {
         .neq("status", "entregue")
         .gt("ultimo_evento_ordem", 0)
         .is("deleted_at", null)
+        .or(`proximo_avanco_em.is.null,proximo_avanco_em.lte.${now}`)
         .order("created_at", { ascending: true })
         .limit(MAX_PER_RUN - totalProcessed);
 
       if (eligible) {
         for (const envio of eligible) {
           if (totalProcessed >= MAX_PER_RUN) break;
-          // deno-lint-ignore no-explicit-any
-          const pa = (envio as any).proximo_avanco_em;
-          if (pa && new Date(pa) > new Date()) continue;
 
           const result = await advanceShipment(
             supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap
