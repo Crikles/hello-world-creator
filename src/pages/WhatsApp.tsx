@@ -517,6 +517,8 @@ export default function WhatsApp() {
                     btn_text: btnText,
                     btn_url_template: `${TRACKING_BASE_URL}/{{codigo_rastreio}}`,
                     footer: footerText,
+                    btn2_text: btn2Text || undefined,
+                    btn2_url: btn2Url || undefined,
                 });
                 queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
                 toast.success(`Envio em massa finalizado com rotação entre ${connectedInstances.length} instâncias!`);
