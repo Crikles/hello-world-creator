@@ -5,13 +5,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+function decodeHtmlEntities(str: string): string {
+    return str.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
+}
+
 function formatProduto(raw: string): string {
   try {
     const items = JSON.parse(raw);
     if (Array.isArray(items)) {
       return items
         .map((i: any) => {
-          const name = i.name || i.nome || i.title || "Produto";
+          const name = decodeHtmlEntities(i.name || i.nome || i.title || "Produto");
           const qty = i.quantity || i.quantidade || 1;
           return qty > 1 ? `${name} (x${qty})` : name;
         })
@@ -20,7 +24,7 @@ function formatProduto(raw: string): string {
   } catch {
     // not JSON
   }
-  return raw;
+  return decodeHtmlEntities(raw);
 }
 
 Deno.serve(async (req: Request) => {
