@@ -794,6 +794,18 @@ export default function WhatsApp() {
                             </div>
                         </div>
 
+                        {/* Image URL */}
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL da Imagem (opcional)</label>
+                            <Input
+                                value={imageUrl}
+                                onChange={(e) => setImageUrl(e.target.value)}
+                                className="bg-transparent border-border/50"
+                                placeholder="https://exemplo.com/imagem.jpg"
+                            />
+                            <p className="text-[10px] text-muted-foreground mt-1">A imagem será enviada junto com a mensagem.</p>
+                        </div>
+
                         {/* Template textarea */}
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Mensagem</label>
@@ -811,6 +823,13 @@ export default function WhatsApp() {
                             <Input value={btnText} onChange={(e) => setBtnText(e.target.value)} className="bg-transparent border-border/50" placeholder="📦 Rastrear Pedido" />
                         </div>
 
+                        {/* Reply button */}
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Texto do Botão de Resposta Rápida</label>
+                            <Input value={replyText} onChange={(e) => setReplyText(e.target.value)} className="bg-transparent border-border/50" placeholder="Quero acompanhar meu pedido" />
+                            <p className="text-[10px] text-muted-foreground mt-1">O cliente clica e envia essa mensagem como resposta automática.</p>
+                        </div>
+
                         {/* Footer */}
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Texto do Rodapé (opcional)</label>
@@ -823,7 +842,7 @@ export default function WhatsApp() {
                         </Button>
                     </div>
 
-                    {/* Preview */}
+                    {/* Preview - Phone mockup */}
                     <div className="glass glow-border rounded-xl p-6 space-y-4">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="p-2.5 rounded-xl bg-green-500/10">
@@ -835,36 +854,97 @@ export default function WhatsApp() {
                             </div>
                         </div>
 
-                        <div className="rounded-xl bg-[#0b141a] p-4 space-y-3 min-h-[300px]">
-                            <div className="max-w-[85%] ml-auto">
-                                <div className="bg-[#005c4b] rounded-xl rounded-tr-sm p-3 shadow-lg">
-                                    <p className="text-sm text-white whitespace-pre-wrap leading-relaxed">
-                                        {previewEnvio
-                                            ? replaceVars(msgTemplate, previewEnvio)
-                                            : replaceVars(msgTemplate, {
-                                                cliente_nome: "João Silva",
-                                                produto: "Tênis Nike Air Max",
-                                                valor: 299.90,
-                                                codigo_rastreio: "BR123456789XX",
-                                                cliente_endereco: "Rua das Flores",
-                                                cliente_numero: "123",
-                                                cliente_bairro: "Centro",
-                                                cliente_cidade: "São Paulo",
-                                                cliente_estado: "SP",
-                                                cliente_cep: "01000-000",
-                                                cliente_cpf: "123.456.789-00",
-                                                cliente_email: "joao@email.com",
-                                                cliente_telefone: "11999999999",
-                                            })}
-                                    </p>
-                                    <div className="mt-3 pt-2 border-t border-white/10">
-                                        <div className="text-center py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                                            <span className="text-[#53bdeb] text-sm font-medium">🔗 {btnText}</span>
-                                        </div>
+                        {/* Phone frame */}
+                        <div className="flex justify-center">
+                            <div className="w-[320px] rounded-[2rem] border-[3px] border-zinc-700 bg-[#0b141a] shadow-2xl overflow-hidden">
+                                {/* Phone top bar */}
+                                <div className="bg-[#1f2c34] px-4 py-2 flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold">
+                                        {(previewEnvio?.cliente_nome?.[0] || "J").toUpperCase()}
                                     </div>
-                                    {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
+                                    <div className="flex-1">
+                                        <p className="text-white text-sm font-medium truncate">
+                                            {previewEnvio?.cliente_nome || "João Silva"}
+                                        </p>
+                                        <p className="text-green-400 text-[10px]">online</p>
+                                    </div>
+                                    <Phone className="h-4 w-4 text-zinc-400" />
                                 </div>
-                                <p className="text-[10px] text-white/30 text-right mt-1">10:07</p>
+
+                                {/* Chat area */}
+                                <div className="bg-[#0b141a] p-3 min-h-[420px] flex flex-col justify-end">
+                                    <div className="max-w-[92%] ml-auto">
+                                        <div className="bg-[#005c4b] rounded-xl rounded-tr-sm shadow-lg overflow-hidden">
+                                            {/* Image preview */}
+                                            {imageUrl && (
+                                                <div className="w-full aspect-video bg-zinc-800 flex items-center justify-center overflow-hidden">
+                                                    <img
+                                                        src={imageUrl}
+                                                        alt="Preview"
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).style.display = "none";
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="p-3">
+                                                <p className="text-sm text-white whitespace-pre-wrap leading-relaxed"
+                                                    dangerouslySetInnerHTML={{
+                                                        __html: formatWhatsAppText(
+                                                            previewEnvio
+                                                                ? replaceVars(msgTemplate, previewEnvio)
+                                                                : replaceVars(msgTemplate, {
+                                                                    cliente_nome: "João Silva",
+                                                                    produto: "Tênis Nike Air Max",
+                                                                    valor: 299.90,
+                                                                    codigo_rastreio: "BR123456789XX",
+                                                                    cliente_endereco: "Rua das Flores",
+                                                                    cliente_numero: "123",
+                                                                    cliente_bairro: "Centro",
+                                                                    cliente_cidade: "São Paulo",
+                                                                    cliente_estado: "SP",
+                                                                    cliente_cep: "01000-000",
+                                                                    cliente_cpf: "123.456.789-00",
+                                                                    cliente_email: "joao@email.com",
+                                                                    cliente_telefone: "11999999999",
+                                                                })
+                                                        ),
+                                                    }}
+                                                />
+                                                {/* Link button */}
+                                                <div className="mt-3 pt-2 border-t border-white/10">
+                                                    <div className="text-center py-2 px-3 rounded-lg bg-white/5">
+                                                        <span className="text-[#53bdeb] text-sm font-medium">🔗 {btnText}</span>
+                                                    </div>
+                                                </div>
+                                                {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-white/30 text-right mt-1">
+                                            {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                        </p>
+                                    </div>
+
+                                    {/* Reply button */}
+                                    {replyText && (
+                                        <div className="max-w-[92%] ml-auto mt-2">
+                                            <div className="bg-[#1f2c34] rounded-xl py-2.5 px-4 text-center border border-zinc-700/50">
+                                                <span className="text-[#53bdeb] text-sm font-medium">{replyText}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Phone bottom bar */}
+                                <div className="bg-[#1f2c34] px-3 py-2 flex items-center gap-2">
+                                    <div className="flex-1 bg-[#2a3942] rounded-full px-4 py-1.5">
+                                        <p className="text-zinc-500 text-xs">Mensagem</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-full bg-green-600 flex items-center justify-center">
+                                        <Send className="h-3.5 w-3.5 text-white" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
