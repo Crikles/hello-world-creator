@@ -226,6 +226,8 @@ export default function WhatsApp() {
     const [msgTemplate, setMsgTemplate] = useState(DEFAULT_TEMPLATE);
     const [btnText, setBtnText] = useState("📦 Rastrear Pedido");
     const [footerText, setFooterText] = useState("Obrigado pela sua compra!");
+    const [imageUrl, setImageUrl] = useState("");
+    const [replyText, setReplyText] = useState("Quero acompanhar meu pedido");
     const [autoSend, setAutoSend] = useState(false);
     const [delayMinutes, setDelayMinutes] = useState(5);
 
@@ -234,6 +236,8 @@ export default function WhatsApp() {
             setMsgTemplate(config.whatsapp_msg_template || DEFAULT_TEMPLATE);
             setBtnText(config.whatsapp_btn_text || "📦 Rastrear Pedido");
             setFooterText(config.whatsapp_footer || "Obrigado pela sua compra!");
+            setImageUrl((config as any).whatsapp_image_url || "");
+            setReplyText((config as any).whatsapp_reply_text || "Quero acompanhar meu pedido");
             setAutoSend(!!(config as any).whatsapp_auto_send);
             setDelayMinutes(Math.round(((config as any).whatsapp_delay_seconds || 300) / 60));
         }
