@@ -399,15 +399,18 @@ Deno.serve(async (req) => {
           .eq("ultimo_evento_ordem", 0)
           .is("deleted_at", null)
           .order("created_at", { ascending: true })
-          .limit(MAX_PER_RUN - totalProcessed);
+          .limit(Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed));
 
-        if (pending) {
-          for (const envio of pending) {
+        if (pending && pending.length > 0) {
+          for (let i = 0; i < pending.length; i += BATCH_SIZE) {
             if (totalProcessed >= MAX_PER_RUN) break;
-            const result = await advanceShipment(
-              supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap
+            const batch = pending.slice(i, i + BATCH_SIZE);
+            const results = await Promise.allSettled(
+              batch.map((envio: any) =>
+                advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap)
+              )
             );
-            if (result) totalProcessed++;
+            totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
           }
         }
       }
