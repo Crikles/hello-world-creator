@@ -507,7 +507,7 @@ export default function WhatsApp() {
         const selected = envios.filter((e) => selectedIds.has(e.id));
         if (selected.length === 0) return toast.info("Selecione pelo menos 1 envio.");
 
-        if (connectedInstances.length > 1) {
+        if (connectedInstances.length > 1 && selectedInstanceId === "all") {
             // Use send-queue for rotation
             setSendingIds(new Set(selected.map((e) => e.id)));
             try {
@@ -515,7 +515,7 @@ export default function WhatsApp() {
                 await callWhatsApp("send-queue", {
                     loja_id: loja!.id,
                     envio_ids: selected.map((e) => e.id),
-                    msg_template: msgTemplate, // server will need to replace vars
+                    msg_template: msgTemplate,
                     btn_text: btnText,
                     btn_url_template: `${TRACKING_BASE_URL}/{{codigo_rastreio}}`,
                     footer: footerText,
