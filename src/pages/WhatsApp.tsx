@@ -396,9 +396,13 @@ export default function WhatsApp() {
 
     const deleteMutation = useMutation({
         mutationFn: async (instanceId: string) => callWhatsApp("delete", { loja_id: loja!.id, instance_id: instanceId }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
+        onSuccess: async () => {
+            setConnectData(null);
+            setConnectingStartedAt(null);
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["whatsapp-instances", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["whatsapp-subscriptions", loja?.id] }),
+            ]);
             toast.success("Instância removida! Sua assinatura continua ativa — você pode criar uma nova instância sem custo.");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao remover"),
