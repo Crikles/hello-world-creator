@@ -1127,6 +1127,7 @@ export type Database = {
           phone: string | null
           qr_code: string | null
           status: string
+          subscription_id: string | null
           subscription_price: number | null
           updated_at: string
         }
@@ -1141,6 +1142,7 @@ export type Database = {
           phone?: string | null
           qr_code?: string | null
           status?: string
+          subscription_id?: string | null
           subscription_price?: number | null
           updated_at?: string
         }
@@ -1155,6 +1157,7 @@ export type Database = {
           phone?: string | null
           qr_code?: string | null
           status?: string
+          subscription_id?: string | null
           subscription_price?: number | null
           updated_at?: string
         }
@@ -1164,6 +1167,13 @@ export type Database = {
             columns: ["loja_id"]
             isOneToOne: false
             referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instances_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -1210,6 +1220,41 @@ export type Database = {
           },
           {
             foreignKeyName: "whatsapp_message_log_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          loja_id: string
+          price_paid: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          loja_id: string
+          price_paid?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          loja_id?: string
+          price_paid?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_subscriptions_loja_id_fkey"
             columns: ["loja_id"]
             isOneToOne: false
             referencedRelation: "lojas"

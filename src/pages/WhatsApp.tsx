@@ -200,6 +200,20 @@ export default function WhatsApp() {
         enabled: !!loja?.id,
     });
 
+    // ── Subscriptions (free slots) ──
+    const { data: subsInfo } = useQuery({
+        queryKey: ["whatsapp-subscriptions", loja?.id],
+        queryFn: async () => {
+            if (!loja?.id) return { free_slots: 0, total_active: 0, subscriptions: [] };
+            const result = await callWhatsApp("list-subscriptions", { loja_id: loja.id });
+            return result as { free_slots: number; total_active: number; subscriptions: any[] };
+        },
+        enabled: !!loja?.id,
+    });
+
+    const freeSlots = subsInfo?.free_slots ?? 0;
+    const totalActiveSubs = subsInfo?.total_active ?? 0;
+
     // Compat: first instance for backwards compat in tabs
     const instance = instances.length > 0 ? instances[0] : null;
     const isExpired = instance?.expires_at ? new Date(instance.expires_at) < new Date() : true;
@@ -301,10 +315,15 @@ export default function WhatsApp() {
         mutationFn: async () => {
             return callWhatsApp("init", { loja_id: loja!.id });
         },
-        onSuccess: () => {
+        onSuccess: (data: any) => {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["creditos"] });
-            toast.success("Instância criada com sucesso! Assinatura ativa por 30 dias.");
+            if (data.used_free_slot) {
+                toast.success("Instância criada usando slot disponível — sem custo!");
+            } else {
+                toast.success("Instância criada com sucesso! Assinatura ativa por 30 dias.");
+            }
         },
         onError: (err: any) => toast.error(err.message || "Erro ao criar instância"),
     });
@@ -315,6 +334,7 @@ export default function WhatsApp() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["creditos"] });
             toast.success("Assinatura renovada por mais 30 dias!");
         },
@@ -349,7 +369,8 @@ export default function WhatsApp() {
         mutationFn: async (instanceId: string) => callWhatsApp("delete", { loja_id: loja!.id, instance_id: instanceId }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
-            toast.success("Instância removida!");
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
+            toast.success("Instância removida! Sua assinatura continua ativa — você pode criar uma nova instância sem custo.");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao remover"),
     });
@@ -574,14 +595,31 @@ export default function WhatsApp() {
                                     size="sm"
                                     className="shimmer-btn"
                                     onClick={() => createInstanceMutation.mutate()}
-                                    disabled={createInstanceMutation.isPending || !canAfford}
+                                    disabled={createInstanceMutation.isPending || (freeSlots === 0 && !canAfford)}
                                 >
                                     {createInstanceMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                                     <Plug className="h-3.5 w-3.5 mr-1.5" />
-                                    Nova Instância
+                                    {freeSlots > 0 ? "Usar Slot Disponível" : `Nova Instância (${whatsappPrice})`}
                                 </Button>
                             )}
                         </div>
+
+                        {/* Slots info banner */}
+                        {totalActiveSubs > 0 && (
+                            <div className="glass rounded-xl p-3 flex items-center justify-between mb-4 border border-primary/20">
+                                <div className="flex items-center gap-2">
+                                    <Coins className="h-4 w-4 text-amber-500 shrink-0" />
+                                    <p className="text-xs text-muted-foreground">
+                                        <span className="font-semibold text-foreground">{totalActiveSubs} assinatura{totalActiveSubs > 1 ? "s" : ""} ativa{totalActiveSubs > 1 ? "s" : ""}</span>
+                                        {" · "}
+                                        <span className="font-semibold text-foreground">{instances.length} instância{instances.length !== 1 ? "s" : ""}</span>
+                                        {freeSlots > 0 && (
+                                            <span className="text-green-400 font-semibold"> · {freeSlots} slot{freeSlots > 1 ? "s" : ""} livre{freeSlots > 1 ? "s" : ""}</span>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         {instances.length === 0 ? (
                             /* No instance yet */
@@ -591,18 +629,22 @@ export default function WhatsApp() {
                                 </div>
                                 <p className="text-foreground font-medium">Nenhuma instância configurada</p>
                                 <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                                    Crie sua instância do WhatsApp para começar a enviar mensagens de rastreio.
+                                    {freeSlots > 0
+                                        ? "Você tem um slot de assinatura disponível! Crie uma instância sem custo."
+                                        : "Crie sua instância do WhatsApp para começar a enviar mensagens de rastreio."}
                                 </p>
 
-                                <div className="glass rounded-xl px-5 py-3 mt-4 flex items-center gap-3">
-                                    <Coins className="h-5 w-5 text-amber-500" />
-                                    <div className="text-left">
-                                        <p className="text-sm font-semibold text-foreground">{whatsappPrice} moedas/mês</p>
-                                        <p className="text-[10px] text-muted-foreground">Será debitado ao criar a instância. Sem reembolso.</p>
+                                {freeSlots === 0 && (
+                                    <div className="glass rounded-xl px-5 py-3 mt-4 flex items-center gap-3">
+                                        <Coins className="h-5 w-5 text-amber-500" />
+                                        <div className="text-left">
+                                            <p className="text-sm font-semibold text-foreground">{whatsappPrice} moedas/mês</p>
+                                            <p className="text-[10px] text-muted-foreground">Será debitado ao criar a instância.</p>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
-                                {!canAfford && (
+                                {freeSlots === 0 && !canAfford && (
                                     <p className="text-xs text-red-400 mt-3 flex items-center gap-1">
                                         <AlertCircle className="h-3 w-3" />
                                         Saldo insuficiente. Você tem {Number(creditos ?? 0).toFixed(2)} moedas.
@@ -612,11 +654,11 @@ export default function WhatsApp() {
                                 <Button
                                     className="shimmer-btn mt-5"
                                     onClick={() => createInstanceMutation.mutate()}
-                                    disabled={createInstanceMutation.isPending || !canAfford}
+                                    disabled={createInstanceMutation.isPending || (freeSlots === 0 && !canAfford)}
                                 >
                                     {createInstanceMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                     <Plug className="h-4 w-4 mr-1.5" />
-                                    Criar Instância ({whatsappPrice} moedas)
+                                    {freeSlots > 0 ? "Criar Instância (Slot Disponível)" : `Criar Instância (${whatsappPrice} moedas)`}
                                 </Button>
                             </div>
                         ) : (
@@ -742,7 +784,7 @@ export default function WhatsApp() {
                                                     </Button>
                                                 )}
                                                 <Button variant="outline" size="sm" className="glass border-red-500/30 text-red-500 h-7 text-xs" onClick={() => {
-                                                    if (confirm("Remover instância? Moedas não serão reembolsadas.")) deleteMutation.mutate(inst.id);
+                                                    if (confirm("Remover instância?\n\nSua assinatura continuará ativa e você poderá criar uma nova instância sem custo adicional.")) deleteMutation.mutate(inst.id);
                                                 }} disabled={deleteMutation.isPending}>
                                                     <Trash2 className="h-3 w-3 mr-1" /> Remover
                                                 </Button>

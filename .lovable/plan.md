@@ -1,41 +1,58 @@
 
 
-## Plano: Slots de assinatura WhatsApp
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-### Problema atual
-Ao deletar uma instância, o usuário perde a assinatura paga. Ele deveria poder criar uma nova instância sem pagar novamente, desde que o período da assinatura ainda esteja ativo.
+### Root cause
 
-### Solução: Tabela `whatsapp_subscriptions`
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-Separar o conceito de **assinatura (slot pago)** da **instância (conexão UAZAPI)**. Cada slot pago permite criar/deletar instâncias livremente até expirar.
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-### Alterações
+### Fix
 
-#### 1. Database Migration
-- Criar tabela `whatsapp_subscriptions`:
-  - `id`, `loja_id`, `user_id`, `expires_at`, `price_paid`, `created_at`
-  - RLS: `user_owns_loja` para acesso
-- As colunas `expires_at` e `subscription_price` em `whatsapp_instances` continuam existindo mas serão preenchidas a partir da subscription
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-#### 2. Edge Function `send-whatsapp`
-- **Action `init`**:
-  - Antes de cobrar, verificar se existe um slot livre (subscription sem instância vinculada e com `expires_at > now()`)
-  - Se existe slot livre: criar instância sem cobrar, vinculando ao slot
-  - Se não existe: cobrar moedas e criar nova subscription + instância
-- **Action `delete`**:
-  - Deletar a instância mas **manter** a subscription ativa
-  - Assim o slot fica "livre" para nova instância
-- **Action `renew`**: renovar a subscription (não a instância)
-- Adicionar coluna `subscription_id` em `whatsapp_instances` para vincular
+### Changes
 
-#### 3. Frontend `src/pages/WhatsApp.tsx`
-- Ao criar instância: mostrar "Slot disponível — criar sem custo" quando há subscription ativa sem instância
-- Ao deletar: confirmar que a assinatura permanece ativa e ele pode criar nova instância
-- Mostrar quantos slots ativos o usuário tem vs quantas instâncias existem
-- Botão "Nova Instância" com label diferente quando há slot livre ("Usar Slot") vs pago ("Nova Instância — {price} moedas")
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
 
-### Arquivos alterados
-- `supabase/functions/send-whatsapp/index.ts` — lógica de slots
-- `src/pages/WhatsApp.tsx` — UI de slots
-- Migration SQL — tabela `whatsapp_subscriptions`, coluna `subscription_id` em `whatsapp_instances`
+Extend the existing filter to also remove NF-e events when disabled:
+
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
