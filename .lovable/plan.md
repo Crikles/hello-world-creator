@@ -1,58 +1,31 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+## Plano: Corrigir botão "Nova Instância" e fluxo de conexão QR Code
 
-### Root cause
+### Problemas identificados
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+1. **Botão "Nova Instância" desabilitado após compra**: As queries (`creditos`, `whatsapp-subscriptions`) são invalidadas mas não aguardam o refetch completar. O estado `canAfford` e `freeSlots` permanecem stale até o próximo render, mantendo o botão desabilitado.
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+2. **QR Code / Código não aparece**: O `connectMutation` depende de refetch do banco para mostrar o QR Code. Se a resposta da API for rápida mas o refetch demorar, nada é exibido. Além disso, o polling de status (a cada 5s) pode sobrescrever o estado "connecting" para "disconnected" antes do usuário escanear.
 
-### Fix
+3. **Sem opção de reconectar**: Se o polling muda o status para "disconnected" e limpa o `qr_code`/`pairing_code`, o botão de conectar reaparece mas o usuário perde contexto.
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+### Alterações em `src/pages/WhatsApp.tsx`
 
-### Changes
+#### Fix 1: Forçar refetch após criação
+- Trocar `invalidateQueries` por `refetchQueries` com `await` no `onSuccess` do `createInstanceMutation`
+- Isso garante que `creditos`, `whatsapp-subscriptions` e `whatsapp-instances` estejam atualizados antes do re-render
 
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+#### Fix 2: Usar resposta do connect diretamente
+- Criar estado local `connectData` (`{ instanceId, qrCode, pairingCode }`)
+- No `onSuccess` do `connectMutation`, salvar os dados da resposta no estado local
+- Na renderização, priorizar `connectData` sobre os dados do banco para QR Code e pairing code
+- Limpar `connectData` quando o status mudar para "connected"
 
-Extend the existing filter to also remove NF-e events when disabled:
+#### Fix 3: Proteger polling contra override prematuro
+- No polling de status, não sobrescrever para "disconnected" se o estado atual local é "connecting" e ainda não passou tempo suficiente (ex: 2 minutos)
+- Adicionar botão "Reconectar" visível quando status é "disconnected" e a instância não está expirada (já existe na linha 728, mas garantir que funcione independente do polling)
 
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
-
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
-
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+### Arquivos alterados
+- `src/pages/WhatsApp.tsx` — refetch queries, estado local para QR/pairing, proteção no polling
 
