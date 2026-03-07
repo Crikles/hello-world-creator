@@ -68,6 +68,22 @@ function replaceVars(template: string, envio: any): string {
         .replace(/\{\{telefone\}\}/g, envio.cliente_telefone || "");
 }
 
+function formatWhatsAppText(text: string): string {
+    let html = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    // Bold: *text*
+    html = html.replace(/\*([^*]+)\*/g, "<b>$1</b>");
+    // Italic: _text_
+    html = html.replace(/_([^_]+)_/g, "<i>$1</i>");
+    // Strikethrough: ~text~
+    html = html.replace(/~([^~]+)~/g, "<s>$1</s>");
+    // Monospace: ```text```
+    html = html.replace(/```([^`]+)```/g, "<code>$1</code>");
+    return html;
+}
+
 function formatProduto(raw: string): string {
     try {
         const items = JSON.parse(raw);
