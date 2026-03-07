@@ -569,6 +569,8 @@ Deno.serve(async (req) => {
             const delayMs = ((configData?.whatsapp_delay_seconds) || 300) * 1000;
             const queueImageUrl = configData?.whatsapp_image_url || null;
             const queueReplyText = configData?.whatsapp_reply_text || null;
+            const cfgBtn2Text = queueBtn2Text || configData?.whatsapp_btn2_text || null;
+            const cfgBtn2Url = queueBtn2Url || configData?.whatsapp_btn2_url || null;
 
             const results: { envio_id: string; status: string; instance_name: string }[] = [];
 
