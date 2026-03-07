@@ -36,6 +36,7 @@ import Rastreio from "./pages/Rastreio";
 import Taxacao from "./pages/Taxacao";
 import FalhaEntrega from "./pages/FalhaEntrega";
 import Moedas from "./pages/Moedas";
+import Indicacao from "./pages/Indicacao";
 import ResetPassword from "./pages/ResetPassword";
 import Suporte from "./pages/Suporte";
 
