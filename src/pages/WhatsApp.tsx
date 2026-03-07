@@ -770,29 +770,78 @@ export default function WhatsApp() {
                                                 </div>
                                             )}
 
-                                            {inst.status === "connecting" && (
+                                            {(inst.status === "connecting" || (connectData?.instanceId === inst.id)) && (
                                                 <div className="space-y-3">
                                                     <p className="text-xs text-yellow-500 flex items-center gap-1.5">
                                                         <Loader2 className="h-3 w-3 animate-spin" /> Aguardando conexão...
                                                     </p>
-                                                    {inst.qr_code && (
-                                                        <div className="flex flex-col items-center gap-2">
-                                                            <div className="p-3 bg-white rounded-xl">
-                                                                <img
-                                                                    src={inst.qr_code.startsWith("data:") ? inst.qr_code : `data:image/png;base64,${inst.qr_code}`}
-                                                                    alt="QR Code"
-                                                                    className="w-48 h-48 object-contain"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {inst.pairing_code && (
-                                                        <code className="text-xl font-mono font-bold text-primary bg-primary/10 px-4 py-2 rounded-xl tracking-[0.3em] block text-center">
-                                                            {inst.pairing_code}
-                                                        </code>
-                                                    )}
+                                                    {(() => {
+                                                        const qr = (connectData?.instanceId === inst.id && connectData?.qrCode) || inst.qr_code;
+                                                        const pairing = (connectData?.instanceId === inst.id && connectData?.pairingCode) || inst.pairing_code;
+                                                        return (
+                                                            <>
+                                                                {qr && (
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <div className="p-3 bg-white rounded-xl">
+                                                                            <img
+                                                                                src={qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`}
+                                                                                alt="QR Code"
+                                                                                className="w-48 h-48 object-contain"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                {pairing && (
+                                                                    <code className="text-xl font-mono font-bold text-primary bg-primary/10 px-4 py-2 rounded-xl tracking-[0.3em] block text-center">
+                                                                        {pairing}
+                                                                    </code>
+                                                                )}
+                                                                {!qr && !pairing && (
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <p className="text-xs text-muted-foreground">Nenhum QR Code disponível. Tente reconectar.</p>
+                                                                        <Button size="sm" className="shimmer-btn h-8 text-xs" onClick={() => connectMutation.mutate(inst.id)} disabled={connectMutation.isPending}>
+                                                                            {connectMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                                                                            <QrCode className="h-3 w-3 mr-1" />
+                                                                            Reconectar
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             )}
+
+                                            {inst.status === "connected" && (
+                                                <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/5">
+                                                    <Wifi className="h-4 w-4 text-green-500" />
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Pronta para enviar.{inst.phone && ` Tel: ${inst.phone}`}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* Action buttons */}
+                                            <div className="flex gap-2">
+                                                {inst.status === "connected" && (
+                                                    <Button variant="outline" size="sm" className="glass border-yellow-500/30 text-yellow-500 h-7 text-xs" onClick={() => disconnectMutation.mutate(inst.id)} disabled={disconnectMutation.isPending}>
+                                                        <Power className="h-3 w-3 mr-1" /> Desconectar
+                                                    </Button>
+                                                )}
+                                                <Button variant="outline" size="sm" className="glass border-red-500/30 text-red-500 h-7 text-xs" onClick={() => {
+                                                    if (confirm("Remover instância?\n\nSua assinatura continuará ativa e você poderá criar uma nova instância sem custo adicional.")) deleteMutation.mutate(inst.id);
+                                                }} disabled={deleteMutation.isPending}>
+                                                    <Trash2 className="h-3 w-3 mr-1" /> Remover
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
                                             {inst.status === "connected" && (
                                                 <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/5">
