@@ -260,6 +260,8 @@ export default function WhatsApp() {
     const [footerText, setFooterText] = useState("Obrigado pela sua compra!");
     const [imageUrl, setImageUrl] = useState("");
     const [replyText, setReplyText] = useState("Quero acompanhar meu pedido");
+    const [btn2Text, setBtn2Text] = useState("");
+    const [btn2Url, setBtn2Url] = useState("");
     const [autoSend, setAutoSend] = useState(false);
     const [delayMinutes, setDelayMinutes] = useState(5);
 
