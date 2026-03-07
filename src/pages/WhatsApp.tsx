@@ -1041,6 +1041,14 @@ export default function WhatsApp() {
                                                     <span className="text-[#53bdeb] text-sm font-medium">{btnText}</span>
                                                 </div>
                                             </div>
+                                            {btn2Text && btn2Url && (
+                                                <div className="border-t border-white/10">
+                                                    <div className="flex items-center justify-center gap-1.5 py-2 cursor-pointer hover:bg-white/5">
+                                                        <span className="text-[#53bdeb] text-sm">🔗</span>
+                                                        <span className="text-[#53bdeb] text-sm font-medium">{btn2Text}</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                             {replyText && (
                                                 <div className="border-t border-white/10">
                                                     <div className="flex items-center justify-center gap-1.5 py-2 cursor-pointer hover:bg-white/5">

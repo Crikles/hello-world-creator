@@ -593,6 +593,7 @@ Deno.serve(async (req) => {
                 if (btn_text && btn_url_template) {
                     choices.push(`${btn_text}|${btn_url_template.replace("{{codigo_rastreio}}", envio.codigo_rastreio || "")}`);
                 }
+                if (cfgBtn2Text && cfgBtn2Url) choices.push(`${cfgBtn2Text}|${cfgBtn2Url}`);
                 if (queueReplyText) choices.push(queueReplyText);
 
                 const sendBody: Record<string, unknown> = {
