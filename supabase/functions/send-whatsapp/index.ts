@@ -331,14 +331,17 @@ Deno.serve(async (req) => {
             });
 
             const data = await res.json();
-            const newStatus = data.status || data.state || "disconnected";
+            const inst = data.instance || {};
+            const newStatus = inst.status || data.status || data.state || "disconnected";
+            const qrCode = inst.qrcode || data.qrcode || data.qr_code || instance?.qr_code || null;
+            const pairingCode = inst.paircode || data.pairingCode || data.pairing_code || instance?.pairing_code || null;
 
             await supabaseAdmin
                 .from("whatsapp_instances")
                 .update({
                     status: newStatus,
-                    qr_code: data.qrcode || data.qr_code || instance?.qr_code || null,
-                    pairing_code: data.pairingCode || data.pairing_code || instance?.pairing_code || null,
+                    qr_code: qrCode,
+                    pairing_code: pairingCode,
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", instance.id);
@@ -346,12 +349,11 @@ Deno.serve(async (req) => {
             return jsonResp({
                 success: true,
                 status: newStatus,
-                qr_code: data.qrcode || data.qr_code || null,
-                pairing_code: data.pairingCode || data.pairing_code || null,
+                qrcode: qrCode,
+                pairingCode: pairingCode,
                 instance_name: instance?.instance_name,
                 phone: instance?.phone,
                 expires_at: instance?.expires_at,
-                ...data,
             });
         }
 
