@@ -1,59 +1,58 @@
 
 
-# Corrigir produtos nos webhooks: mostrar todos os itens do pedido
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-## Problema
+### Root cause
 
-Todos os 5 webhooks (Shopify, Vega, Zedy, Luna, Corvex) salvam apenas o **primeiro produto** no campo `envio.produto`:
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+
+### Fix
+
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+
+### Changes
+
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
 
 ```typescript
-const firstProduct = normalizedProducts[0] || {};
-produto: firstProduct.title || "Produto Vega",
-quantidade: firstProduct.quantity || 1,
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-Se o cliente pediu 5 camisetas diferentes, apenas 1 aparece. O campo `pedidos.products` tem todos os itens corretos (JSON array), mas o `envio.produto` recebe apenas o nome do primeiro.
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-## Solucao
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
 
-O frontend (`formatProduto`) ja suporta JSON no formato `[{ nome, quantidade }]`. Basta salvar todos os produtos como JSON string no `envio.produto` e somar as quantidades no `envio.quantidade`.
+Apply the same NF-e filter to the client-side trigger:
 
-### Mudanca em todos os 5 webhooks:
-
-Substituir:
 ```typescript
-const firstProduct = normalizedProducts[0] || {};
-// ...
-produto: firstProduct.title || "Produto ...",
-quantidade: firstProduct.quantity || 1,
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-Por:
-```typescript
-const produtoJson = JSON.stringify(
-  normalizedProducts.map((p: any) => ({
-    nome: p.title,
-    quantidade: p.quantity || 1,
-  }))
-);
-const totalQuantidade = normalizedProducts.reduce(
-  (sum: number, p: any) => sum + (p.quantity || 1), 0
-);
-// ...
-produto: produtoJson || "Produto ...",
-quantidade: totalQuantidade || 1,
-```
+### Result
 
-### Arquivos modificados:
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
 
-1. `supabase/functions/shopify-webhook/index.ts`
-2. `supabase/functions/webhook-vega/index.ts`
-3. `supabase/functions/webhook-zedy/index.ts`
-4. `supabase/functions/webhook-luna/index.ts`
-5. `supabase/functions/webhook-corvex/index.ts`
-
-### Impacto:
-- Novos pedidos mostrarao todos os produtos corretamente
-- Pedidos antigos continuam funcionando (formatProduto trata string pura como fallback)
-- Nenhuma mudanca no frontend necessaria
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 

@@ -154,7 +154,10 @@ Deno.serve(async (req) => {
 
     // 4. If approved and no envio linked yet, create envio
     if (status === "approved" && !existingPedido?.envio_id && pedidoId) {
-      const firstProduct = normalizedProducts[0] || {};
+      const produtoJson = JSON.stringify(
+        normalizedProducts.map((p: any) => ({ nome: p.title || p.name, quantidade: p.quantity || 1 }))
+      );
+      const totalQuantidade = normalizedProducts.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
 
       // Buscar empresa da loja
       const { data: empresaData } = await supabase
@@ -175,8 +178,8 @@ Deno.serve(async (req) => {
         cliente_cidade: address.city || null,
         cliente_estado: address.state || null,
         cliente_complemento: address.complement || null,
-        produto: firstProduct.title || firstProduct.name || "Produto Vega",
-        quantidade: firstProduct.quantity || 1,
+        produto: produtoJson || "Produto Vega",
+        quantidade: totalQuantidade || 1,
         valor: totalPrice / 100,
         status: "pendente",
         loja_id: lojaId,
