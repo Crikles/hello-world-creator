@@ -483,6 +483,8 @@ export default function WhatsApp() {
                 envio_id: envio.id,
                 image_url: imageUrl || undefined,
                 reply_text: replyText || undefined,
+                btn2_text: btn2Text || undefined,
+                btn2_url: btn2Url || undefined,
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
