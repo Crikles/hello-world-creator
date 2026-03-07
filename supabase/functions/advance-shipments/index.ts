@@ -316,7 +316,9 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
   let totalProcessed = 0;
-  const MAX_PER_RUN = 50;
+  const MAX_PER_RUN = 200;
+  const MAX_PER_LOJA = 100;
+  const BATCH_SIZE = 10;
 
   try {
     // Fetch all stores with postagem config
@@ -397,21 +399,26 @@ Deno.serve(async (req) => {
           .eq("ultimo_evento_ordem", 0)
           .is("deleted_at", null)
           .order("created_at", { ascending: true })
-          .limit(MAX_PER_RUN - totalProcessed);
+          .limit(Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed));
 
-        if (pending) {
-          for (const envio of pending) {
+        if (pending && pending.length > 0) {
+          for (let i = 0; i < pending.length; i += BATCH_SIZE) {
             if (totalProcessed >= MAX_PER_RUN) break;
-            const result = await advanceShipment(
-              supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap
+            const batch = pending.slice(i, i + BATCH_SIZE);
+            const results = await Promise.allSettled(
+              batch.map((envio: any) =>
+                advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap)
+              )
             );
-            if (result) totalProcessed++;
+            totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
           }
         }
       }
 
       // --- 2. ADVANCE: shipments where delay has expired ---
       if (totalProcessed >= MAX_PER_RUN) break;
+
+      const lojaLimit = Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed);
 
       const { data: eligible } = await supabase
         .from("envios")
@@ -422,16 +429,18 @@ Deno.serve(async (req) => {
         .is("deleted_at", null)
         .or(`proximo_avanco_em.is.null,proximo_avanco_em.lte.${now}`)
         .order("created_at", { ascending: true })
-        .limit(MAX_PER_RUN - totalProcessed);
+        .limit(lojaLimit);
 
-      if (eligible) {
-        for (const envio of eligible) {
+      if (eligible && eligible.length > 0) {
+        for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
           if (totalProcessed >= MAX_PER_RUN) break;
-
-          const result = await advanceShipment(
-            supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap
+          const batch = eligible.slice(i, i + BATCH_SIZE);
+          const results = await Promise.allSettled(
+            batch.map((envio: any) =>
+              advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap)
+            )
           );
-          if (result) totalProcessed++;
+          totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
         }
       }
     }
