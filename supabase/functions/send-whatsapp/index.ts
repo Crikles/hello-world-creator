@@ -463,6 +463,7 @@ Deno.serve(async (req) => {
 
             const choices: string[] = [];
             if (btn_text && btn_url) choices.push(`${btn_text}|${btn_url}`);
+            if (btn2_text && btn2_url) choices.push(`${btn2_text}|${btn2_url}`);
             if (reply_text) choices.push(reply_text);
 
             const sendBody: Record<string, unknown> = {
