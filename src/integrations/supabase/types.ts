@@ -1106,6 +1106,7 @@ export type Database = {
       whatsapp_instances: {
         Row: {
           created_at: string
+          expires_at: string | null
           id: string
           instance_name: string
           instance_token: string
@@ -1114,10 +1115,12 @@ export type Database = {
           phone: string | null
           qr_code: string | null
           status: string
+          subscription_price: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           instance_name: string
           instance_token: string
@@ -1126,10 +1129,12 @@ export type Database = {
           phone?: string | null
           qr_code?: string | null
           status?: string
+          subscription_price?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           instance_name?: string
           instance_token?: string
@@ -1138,6 +1143,7 @@ export type Database = {
           phone?: string | null
           qr_code?: string | null
           status?: string
+          subscription_price?: number | null
           updated_at?: string
         }
         Relationships: [
