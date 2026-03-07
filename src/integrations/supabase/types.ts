@@ -550,7 +550,9 @@ export type Database = {
           whatsapp_btn_text: string | null
           whatsapp_delay_seconds: number | null
           whatsapp_footer: string | null
+          whatsapp_image_url: string | null
           whatsapp_msg_template: string | null
+          whatsapp_reply_text: string | null
           whatsapp_vendedor: string | null
         }
         Insert: {
@@ -575,7 +577,9 @@ export type Database = {
           whatsapp_btn_text?: string | null
           whatsapp_delay_seconds?: number | null
           whatsapp_footer?: string | null
+          whatsapp_image_url?: string | null
           whatsapp_msg_template?: string | null
+          whatsapp_reply_text?: string | null
           whatsapp_vendedor?: string | null
         }
         Update: {
@@ -600,7 +604,9 @@ export type Database = {
           whatsapp_btn_text?: string | null
           whatsapp_delay_seconds?: number | null
           whatsapp_footer?: string | null
+          whatsapp_image_url?: string | null
           whatsapp_msg_template?: string | null
+          whatsapp_reply_text?: string | null
           whatsapp_vendedor?: string | null
         }
         Relationships: [
