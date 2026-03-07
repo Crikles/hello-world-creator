@@ -432,16 +432,15 @@ Deno.serve(async (req) => {
         .limit(lojaLimit);
 
       if (eligible && eligible.length > 0) {
-        for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
+        for (const envio of eligible) {
           if (totalProcessed >= MAX_PER_RUN) break;
-          const batch = eligible.slice(i, i + BATCH_SIZE);
-          const results = await Promise.allSettled(
-            batch.map((envio: any) =>
-              advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap)
-            )
-          );
-          totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-          if (i + BATCH_SIZE < eligible.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+          try {
+            const success = await advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap);
+            if (success) totalProcessed++;
+          } catch (e) {
+            console.error(`Error advancing eligible ${envio.id}:`, e);
+          }
+          await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
         }
       }
     }
