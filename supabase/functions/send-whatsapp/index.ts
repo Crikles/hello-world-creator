@@ -43,8 +43,11 @@ Deno.serve(async (req) => {
             Deno.env.get("SUPABASE_ANON_KEY")!,
             { global: { headers: { Authorization: authHeader } } }
         );
-        const { data: { user }, error: userErr } = await supabaseUser.auth.getUser();
-        if (userErr || !user) return jsonResp({ error: "Invalid token" }, 401);
+
+        const token = authHeader.replace("Bearer ", "");
+        const { data: claimsData, error: claimsErr } = await supabaseUser.auth.getClaims(token);
+        if (claimsErr || !claimsData?.claims) return jsonResp({ error: "Invalid token" }, 401);
+        const userId = claimsData.claims.sub;
 
         const body = await req.json();
         const { action, loja_id } = body;
@@ -58,7 +61,7 @@ Deno.serve(async (req) => {
             .from("lojas")
             .select("id, user_id")
             .eq("id", loja_id)
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .maybeSingle();
 
         if (!loja) return jsonResp({ error: "Loja not found or not owned by user" }, 403);
@@ -107,7 +110,7 @@ Deno.serve(async (req) => {
                 price = await getWhatsAppPrice(supabaseAdmin);
 
                 const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
-                    _user_id: user.id,
+                    _user_id: userId,
                     _quantidade: price,
                     _descricao: `Assinatura WhatsApp (${price} moedas/mês)`,
                 });
@@ -123,7 +126,7 @@ Deno.serve(async (req) => {
                     .from("whatsapp_subscriptions")
                     .insert({
                         loja_id,
-                        user_id: user.id,
+                        user_id: userId,
                         expires_at: expiresAt,
                         price_paid: price,
                     })
@@ -217,7 +220,7 @@ Deno.serve(async (req) => {
             const price = await getWhatsAppPrice(supabaseAdmin);
 
             const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
-                _user_id: user.id,
+                _user_id: userId,
                 _quantidade: price,
                 _descricao: `Renovação WhatsApp (${price} moedas/mês)`,
             });
@@ -264,7 +267,7 @@ Deno.serve(async (req) => {
                     .from("whatsapp_subscriptions")
                     .insert({
                         loja_id,
-                        user_id: user.id,
+                        user_id: userId,
                         expires_at: newExpires,
                         price_paid: price,
                     })
