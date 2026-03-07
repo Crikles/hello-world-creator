@@ -1,3 +1,4 @@
+import { formatProduto } from "@/lib/format-produto";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {

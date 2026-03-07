@@ -1,3 +1,4 @@
+import { formatProduto } from "@/lib/format-produto";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
