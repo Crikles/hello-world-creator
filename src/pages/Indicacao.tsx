@@ -35,7 +35,7 @@ export default function Indicacao() {
         .select("*")
         .eq("referrer_id", user!.id)
         .order("created_at", { ascending: false });
-      return (data || []) as Array<{
+      return (data || []) as unknown as Array<{
         id: string;
         referrer_id: string;
         referred_id: string;
