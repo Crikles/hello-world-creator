@@ -603,8 +603,9 @@ async function advanceShipment(
       }
     }
 
-    // SMS dispatch
+    // SMS dispatch — only when the flow is active
     if (
+      isAtivo &&
       config.ativar_site_rastreio &&
       shipment.cliente_telefone &&
       !nextEvent.enviar_nfe_pdf

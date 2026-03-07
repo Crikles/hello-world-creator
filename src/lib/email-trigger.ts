@@ -281,8 +281,9 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             console.log("Email sent for event:", nextEvent.nome);
         }
 
-        // SMS dispatch — charged individually per message
+        // SMS dispatch — charged individually per message, only when the flow is active
         if (
+            isAtivo &&
             config.ativar_site_rastreio &&
             shipment.cliente_telefone &&
             !nextEvent.enviar_nfe_pdf
