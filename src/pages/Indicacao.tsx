@@ -60,7 +60,7 @@ export default function Indicacao() {
   });
 
   const referralCode = profile?.referral_code || "";
-  const referralLink = `${window.location.origin}/signup?ref=${referralCode}`;
+  const referralLink = `https://app.magnusfrete.site/signup?ref=${referralCode}`;
   const totalEarned = earnings?.reduce((sum, e) => sum + Number(e.amount_earned), 0) || 0;
 
   const handleCopy = () => {
