@@ -929,6 +929,17 @@ export default function WhatsApp() {
                             <Input value={btnText} onChange={(e) => setBtnText(e.target.value)} className="bg-transparent border-border/50" placeholder="📦 Rastrear Pedido" />
                         </div>
 
+                        {/* 2nd URL button (optional) */}
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Texto do 2º Botão URL (opcional)</label>
+                            <Input value={btn2Text} onChange={(e) => setBtn2Text(e.target.value)} className="bg-transparent border-border/50" placeholder="💬 Falar com Suporte" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL do 2º Botão (opcional)</label>
+                            <Input value={btn2Url} onChange={(e) => setBtn2Url(e.target.value)} className="bg-transparent border-border/50" placeholder="https://wa.me/5511999999999" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Ex: link do suporte, site, ou qualquer URL.</p>
+                        </div>
+
                         {/* Reply button */}
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Texto do Botão de Resposta Rápida</label>
