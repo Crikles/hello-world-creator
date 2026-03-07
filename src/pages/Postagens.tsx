@@ -698,9 +698,11 @@ export default function Postagens() {
               <div className="space-y-2">
                 {sortedActiveEventos?.map((evento, index) => {
                   const Icon = iconMap[evento.status_label || ""] || Mail;
-                  const color = badgeColor[evento.status_label || ""] || "bg-muted text-muted-foreground";
                   const isFirst = index === 0;
                   const ativo = localConfig ? isEventoAtivo(evento, localConfig) : false;
+                  const color = ativo
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "bg-destructive/20 text-destructive";
 
                   return (
                     <div
