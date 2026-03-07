@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isLogisticsDomain } from "@/lib/domain-config";
@@ -10,14 +11,24 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [resending, setResending] = useState(false);
   const isLogistics = isLogisticsDomain();
+  const [searchParams] = useSearchParams();
+
+  // Capture referral code from URL
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      localStorage.setItem("referral_code", ref);
+    }
+  }, [searchParams]);
 
   const handleSignup = async (emailVal: string, password: string, name: string, phone: string) => {
     setLoading(true);
+    const refCode = localStorage.getItem("referral_code") || "";
     const { error } = await supabase.auth.signUp({
       email: emailVal,
       password,
       options: {
-        data: { full_name: name, whatsapp: phone },
+        data: { full_name: name, whatsapp: phone, ...(refCode ? { referral_code: refCode } : {}) },
         emailRedirectTo: window.location.origin + "/login",
       },
     });
