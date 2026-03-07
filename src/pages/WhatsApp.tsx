@@ -429,6 +429,8 @@ export default function WhatsApp() {
                     whatsapp_footer: footerText,
                     whatsapp_image_url: imageUrl || null,
                     whatsapp_reply_text: replyText || null,
+                    whatsapp_btn2_text: btn2Text || null,
+                    whatsapp_btn2_url: btn2Url || null,
                 } as any)
                 .eq("loja_id", loja!.id);
             if (error) throw error;
