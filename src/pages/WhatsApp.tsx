@@ -1114,6 +1114,49 @@ export default function WhatsApp() {
                         </div>
                     )}
 
+                    {/* Instance selector */}
+                    {connectedInstances.length > 0 && (
+                        <div className="glass glow-border rounded-xl p-4 space-y-3">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="p-2 rounded-xl bg-primary/10">
+                                    <Wifi className="h-4 w-4 text-primary" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-foreground">Instância de Envio</p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Escolha qual instância será usada para enviar as mensagens.
+                                    </p>
+                                </div>
+                            </div>
+                            <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
+                                <SelectTrigger className="w-full glass border-border/50 h-9 text-sm">
+                                    <SelectValue placeholder="Selecione a instância" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {connectedInstances.length > 1 && (
+                                        <SelectItem value="all">
+                                            <div className="flex items-center gap-2">
+                                                <RotateCcw className="h-3.5 w-3.5 text-primary" />
+                                                <span>Todas — rotação automática ({connectedInstances.length} instâncias)</span>
+                                            </div>
+                                        </SelectItem>
+                                    )}
+                                    {connectedInstances.map((inst) => (
+                                        <SelectItem key={inst.id} value={inst.id}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="inline-block h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                                                <span>{inst.instance_name}</span>
+                                                {inst.phone && (
+                                                    <span className="text-muted-foreground text-xs">({inst.phone})</span>
+                                                )}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
                     {/* Auto-send config */}
                     <div className="glass glow-border rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
