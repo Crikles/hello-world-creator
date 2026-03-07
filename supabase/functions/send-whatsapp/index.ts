@@ -475,6 +475,8 @@ Deno.serve(async (req) => {
             if (image_url) sendBody.imageButton = image_url;
             if (footer) sendBody.footerText = footer;
 
+            console.log("UAZAPI send payload:", JSON.stringify(sendBody));
+
             const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
                 method: "POST",
                 headers: {
