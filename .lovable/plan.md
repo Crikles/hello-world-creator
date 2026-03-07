@@ -1,39 +1,58 @@
 
 
-## Plano: Adicionar 2o botão de URL opcional
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-### Resumo
+### Root cause
 
-Adicionar um botão de URL extra opcional (texto + URL customizáveis) para o template de WhatsApp, permitindo ao usuário direcionar para suporte ou qualquer link.
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-### Alterações
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-#### 1. Database — nova migração
+### Fix
 
-Adicionar 2 colunas na tabela `postagem_config`:
-```sql
-ALTER TABLE postagem_config ADD COLUMN whatsapp_btn2_text text DEFAULT NULL;
-ALTER TABLE postagem_config ADD COLUMN whatsapp_btn2_url text DEFAULT NULL;
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+
+### Changes
+
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
+
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-#### 2. `src/pages/WhatsApp.tsx` — UI + lógica
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-- Novos states: `btn2Text`, `btn2Url`
-- Carregar e salvar os novos campos (`whatsapp_btn2_text`, `whatsapp_btn2_url`)
-- Adicionar 2 inputs na seção de botões (após o reply button): "Texto do 2o Botão URL (opcional)" e "URL do 2o Botão (opcional)"
-- No preview, renderizar o botão extra entre o botão de rastreio e o reply (se preenchido)
-- No envio individual (`handleSendSingle`), passar `btn2_text` e `btn2_url`
-- No envio em massa (`handleSendSelected`), passar `btn2_text` e `btn2_url`
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
 
-#### 3. `supabase/functions/send-whatsapp/index.ts`
+Apply the same NF-e filter to the client-side trigger:
 
-- **Action `send`**: Receber `btn2_text` e `btn2_url`, adicionar ao `choices` após o primeiro botão URL e antes do reply
-- **Action `send-queue`**: Buscar `whatsapp_btn2_text` e `whatsapp_btn2_url` do `postagem_config`, adicionar ao `choices`
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
 
-Ordem final dos botões: Rastreio URL → 2o URL (se configurado) → Reply
+### Result
 
-### Arquivos alterados
-- Nova migração SQL (2 colunas)
-- `src/pages/WhatsApp.tsx`
-- `supabase/functions/send-whatsapp/index.ts`
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 

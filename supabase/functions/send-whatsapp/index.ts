@@ -455,7 +455,7 @@ Deno.serve(async (req) => {
             const expiredResp = checkSubscriptionExpired();
             if (expiredResp) return expiredResp;
 
-            const { number, text, btn_text, btn_url, footer, envio_id, image_url, reply_text } = body;
+            const { number, text, btn_text, btn_url, footer, envio_id, image_url, reply_text, btn2_text, btn2_url } = body;
 
             if (!number || !text) {
                 return jsonResp({ error: "number and text are required" }, 400);
@@ -463,6 +463,7 @@ Deno.serve(async (req) => {
 
             const choices: string[] = [];
             if (btn_text && btn_url) choices.push(`${btn_text}|${btn_url}`);
+            if (btn2_text && btn2_url) choices.push(`${btn2_text}|${btn2_url}`);
             if (reply_text) choices.push(reply_text);
 
             const sendBody: Record<string, unknown> = {
@@ -530,7 +531,7 @@ Deno.serve(async (req) => {
 
         // ── SEND-QUEUE: Bulk send with rotation ──
         if (action === "send-queue") {
-            const { envio_ids, msg_template, btn_text, btn_url_template, footer } = body;
+            const { envio_ids, msg_template, btn_text, btn_url_template, footer, btn2_text: queueBtn2Text, btn2_url: queueBtn2Url } = body;
 
             if (!envio_ids || !Array.isArray(envio_ids) || envio_ids.length === 0) {
                 return jsonResp({ error: "envio_ids array is required" }, 400);
@@ -561,13 +562,15 @@ Deno.serve(async (req) => {
 
             const { data: configData } = await supabaseAdmin
                 .from("postagem_config")
-                .select("whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text")
+                .select("whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url")
                 .eq("loja_id", loja_id)
                 .maybeSingle();
 
             const delayMs = ((configData?.whatsapp_delay_seconds) || 300) * 1000;
             const queueImageUrl = configData?.whatsapp_image_url || null;
             const queueReplyText = configData?.whatsapp_reply_text || null;
+            const cfgBtn2Text = queueBtn2Text || configData?.whatsapp_btn2_text || null;
+            const cfgBtn2Url = queueBtn2Url || configData?.whatsapp_btn2_url || null;
 
             const results: { envio_id: string; status: string; instance_name: string }[] = [];
 
@@ -590,6 +593,7 @@ Deno.serve(async (req) => {
                 if (btn_text && btn_url_template) {
                     choices.push(`${btn_text}|${btn_url_template.replace("{{codigo_rastreio}}", envio.codigo_rastreio || "")}`);
                 }
+                if (cfgBtn2Text && cfgBtn2Url) choices.push(`${cfgBtn2Text}|${cfgBtn2Url}`);
                 if (queueReplyText) choices.push(queueReplyText);
 
                 const sendBody: Record<string, unknown> = {

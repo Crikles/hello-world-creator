@@ -548,6 +548,8 @@ export type Database = {
           valor_taxa_falha: number | null
           whatsapp_auto_send: boolean | null
           whatsapp_btn_text: string | null
+          whatsapp_btn2_text: string | null
+          whatsapp_btn2_url: string | null
           whatsapp_delay_seconds: number | null
           whatsapp_footer: string | null
           whatsapp_image_url: string | null
@@ -575,6 +577,8 @@ export type Database = {
           valor_taxa_falha?: number | null
           whatsapp_auto_send?: boolean | null
           whatsapp_btn_text?: string | null
+          whatsapp_btn2_text?: string | null
+          whatsapp_btn2_url?: string | null
           whatsapp_delay_seconds?: number | null
           whatsapp_footer?: string | null
           whatsapp_image_url?: string | null
@@ -602,6 +606,8 @@ export type Database = {
           valor_taxa_falha?: number | null
           whatsapp_auto_send?: boolean | null
           whatsapp_btn_text?: string | null
+          whatsapp_btn2_text?: string | null
+          whatsapp_btn2_url?: string | null
           whatsapp_delay_seconds?: number | null
           whatsapp_footer?: string | null
           whatsapp_image_url?: string | null

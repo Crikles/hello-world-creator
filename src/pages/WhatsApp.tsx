@@ -247,7 +247,7 @@ export default function WhatsApp() {
             if (!loja?.id) return null;
             const { data } = await supabase
                 .from("postagem_config")
-                .select("whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_auto_send, whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text")
+                .select("whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_auto_send, whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
             return data;
@@ -260,6 +260,8 @@ export default function WhatsApp() {
     const [footerText, setFooterText] = useState("Obrigado pela sua compra!");
     const [imageUrl, setImageUrl] = useState("");
     const [replyText, setReplyText] = useState("Quero acompanhar meu pedido");
+    const [btn2Text, setBtn2Text] = useState("");
+    const [btn2Url, setBtn2Url] = useState("");
     const [autoSend, setAutoSend] = useState(false);
     const [delayMinutes, setDelayMinutes] = useState(5);
 
@@ -270,6 +272,8 @@ export default function WhatsApp() {
             setFooterText(config.whatsapp_footer || "Obrigado pela sua compra!");
             setImageUrl((config as any).whatsapp_image_url || "");
             setReplyText((config as any).whatsapp_reply_text || "Quero acompanhar meu pedido");
+            setBtn2Text((config as any).whatsapp_btn2_text || "");
+            setBtn2Url((config as any).whatsapp_btn2_url || "");
             setAutoSend(!!(config as any).whatsapp_auto_send);
             setDelayMinutes(Math.round(((config as any).whatsapp_delay_seconds || 300) / 60));
         }
@@ -425,6 +429,8 @@ export default function WhatsApp() {
                     whatsapp_footer: footerText,
                     whatsapp_image_url: imageUrl || null,
                     whatsapp_reply_text: replyText || null,
+                    whatsapp_btn2_text: btn2Text || null,
+                    whatsapp_btn2_url: btn2Url || null,
                 } as any)
                 .eq("loja_id", loja!.id);
             if (error) throw error;
@@ -477,6 +483,8 @@ export default function WhatsApp() {
                 envio_id: envio.id,
                 image_url: imageUrl || undefined,
                 reply_text: replyText || undefined,
+                btn2_text: btn2Text || undefined,
+                btn2_url: btn2Url || undefined,
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
@@ -491,7 +499,7 @@ export default function WhatsApp() {
                 return next;
             });
         }
-    }, [msgTemplate, btnText, footerText, loja, queryClient]);
+    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url]);
 
     const handleSendSelected = async () => {
         const selected = envios.filter((e) => selectedIds.has(e.id));
@@ -509,6 +517,8 @@ export default function WhatsApp() {
                     btn_text: btnText,
                     btn_url_template: `${TRACKING_BASE_URL}/{{codigo_rastreio}}`,
                     footer: footerText,
+                    btn2_text: btn2Text || undefined,
+                    btn2_url: btn2Url || undefined,
                 });
                 queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
                 toast.success(`Envio em massa finalizado com rotação entre ${connectedInstances.length} instâncias!`);
@@ -919,6 +929,17 @@ export default function WhatsApp() {
                             <Input value={btnText} onChange={(e) => setBtnText(e.target.value)} className="bg-transparent border-border/50" placeholder="📦 Rastrear Pedido" />
                         </div>
 
+                        {/* 2nd URL button (optional) */}
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Texto do 2º Botão URL (opcional)</label>
+                            <Input value={btn2Text} onChange={(e) => setBtn2Text(e.target.value)} className="bg-transparent border-border/50" placeholder="💬 Falar com Suporte" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL do 2º Botão (opcional)</label>
+                            <Input value={btn2Url} onChange={(e) => setBtn2Url(e.target.value)} className="bg-transparent border-border/50" placeholder="https://wa.me/5511999999999" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Ex: link do suporte, site, ou qualquer URL.</p>
+                        </div>
+
                         {/* Reply button */}
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Texto do Botão de Resposta Rápida</label>
@@ -1020,6 +1041,14 @@ export default function WhatsApp() {
                                                     <span className="text-[#53bdeb] text-sm font-medium">{btnText}</span>
                                                 </div>
                                             </div>
+                                            {btn2Text && btn2Url && (
+                                                <div className="border-t border-white/10">
+                                                    <div className="flex items-center justify-center gap-1.5 py-2 cursor-pointer hover:bg-white/5">
+                                                        <span className="text-[#53bdeb] text-sm">🔗</span>
+                                                        <span className="text-[#53bdeb] text-sm font-medium">{btn2Text}</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                             {replyText && (
                                                 <div className="border-t border-white/10">
                                                     <div className="flex items-center justify-center gap-1.5 py-2 cursor-pointer hover:bg-white/5">
