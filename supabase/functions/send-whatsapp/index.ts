@@ -587,30 +587,18 @@ Deno.serve(async (req) => {
                     : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
 
                 const choices: string[] = [];
-                if (queueReplyText) choices.push(queueReplyText);
                 if (btn_text && btn_url_template) {
                     choices.push(`${btn_text}|${btn_url_template.replace("{{codigo_rastreio}}", envio.codigo_rastreio || "")}`);
                 }
-
-                // Se houver imagem, enviar separadamente primeiro
-                if (queueImageUrl) {
-                    try {
-                        await fetch(`${UAZAPI_BASE}/send/media`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", Accept: "application/json", token: inst.instance_token },
-                            body: JSON.stringify({ number, type: "image", file: queueImageUrl }),
-                        });
-                    } catch (e) {
-                        console.error("Erro ao enviar imagem (queue):", e);
-                    }
-                }
+                if (queueReplyText) choices.push(queueReplyText);
 
                 const sendBody: Record<string, unknown> = {
                     number,
                     type: "button",
-                    text,
+                    text: queueImageUrl ? `\n${text}` : text,
                     choices,
                 };
+                if (queueImageUrl) sendBody.imageButton = queueImageUrl;
                 if (footer) sendBody.footerText = footer;
 
                 try {
