@@ -318,7 +318,8 @@ Deno.serve(async (req) => {
   let totalProcessed = 0;
   const MAX_PER_RUN = 200;
   const MAX_PER_LOJA = 100;
-  const BATCH_SIZE = 10;
+  const BATCH_SIZE = 3;
+  const BATCH_DELAY_MS = 1500; // delay between batches to avoid rate limits
 
   try {
     // Fetch all stores with postagem config
@@ -411,6 +412,7 @@ Deno.serve(async (req) => {
               )
             );
             totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+            if (i + BATCH_SIZE < pending.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
           }
         }
       }
@@ -441,6 +443,7 @@ Deno.serve(async (req) => {
             )
           );
           totalProcessed += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+          if (i + BATCH_SIZE < eligible.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
         }
       }
     }
