@@ -531,7 +531,7 @@ Deno.serve(async (req) => {
 
         // ── SEND-QUEUE: Bulk send with rotation ──
         if (action === "send-queue") {
-            const { envio_ids, msg_template, btn_text, btn_url_template, footer } = body;
+            const { envio_ids, msg_template, btn_text, btn_url_template, footer, btn2_text: queueBtn2Text, btn2_url: queueBtn2Url } = body;
 
             if (!envio_ids || !Array.isArray(envio_ids) || envio_ids.length === 0) {
                 return jsonResp({ error: "envio_ids array is required" }, 400);
