@@ -68,6 +68,22 @@ function replaceVars(template: string, envio: any): string {
         .replace(/\{\{telefone\}\}/g, envio.cliente_telefone || "");
 }
 
+function formatWhatsAppText(text: string): string {
+    let html = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    // Bold: *text*
+    html = html.replace(/\*([^*]+)\*/g, "<b>$1</b>");
+    // Italic: _text_
+    html = html.replace(/_([^_]+)_/g, "<i>$1</i>");
+    // Strikethrough: ~text~
+    html = html.replace(/~([^~]+)~/g, "<s>$1</s>");
+    // Monospace: ```text```
+    html = html.replace(/```([^`]+)```/g, "<code>$1</code>");
+    return html;
+}
+
 function formatProduto(raw: string): string {
     try {
         const items = JSON.parse(raw);
@@ -215,7 +231,7 @@ export default function WhatsApp() {
             if (!loja?.id) return null;
             const { data } = await supabase
                 .from("postagem_config")
-                .select("whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_auto_send, whatsapp_delay_seconds")
+                .select("whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_auto_send, whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
             return data;
@@ -226,6 +242,8 @@ export default function WhatsApp() {
     const [msgTemplate, setMsgTemplate] = useState(DEFAULT_TEMPLATE);
     const [btnText, setBtnText] = useState("📦 Rastrear Pedido");
     const [footerText, setFooterText] = useState("Obrigado pela sua compra!");
+    const [imageUrl, setImageUrl] = useState("");
+    const [replyText, setReplyText] = useState("Quero acompanhar meu pedido");
     const [autoSend, setAutoSend] = useState(false);
     const [delayMinutes, setDelayMinutes] = useState(5);
 
@@ -234,6 +252,8 @@ export default function WhatsApp() {
             setMsgTemplate(config.whatsapp_msg_template || DEFAULT_TEMPLATE);
             setBtnText(config.whatsapp_btn_text || "📦 Rastrear Pedido");
             setFooterText(config.whatsapp_footer || "Obrigado pela sua compra!");
+            setImageUrl((config as any).whatsapp_image_url || "");
+            setReplyText((config as any).whatsapp_reply_text || "Quero acompanhar meu pedido");
             setAutoSend(!!(config as any).whatsapp_auto_send);
             setDelayMinutes(Math.round(((config as any).whatsapp_delay_seconds || 300) / 60));
         }
@@ -349,7 +369,9 @@ export default function WhatsApp() {
                     whatsapp_msg_template: msgTemplate,
                     whatsapp_btn_text: btnText,
                     whatsapp_footer: footerText,
-                })
+                    whatsapp_image_url: imageUrl || null,
+                    whatsapp_reply_text: replyText || null,
+                } as any)
                 .eq("loja_id", loja!.id);
             if (error) throw error;
         },
@@ -399,6 +421,8 @@ export default function WhatsApp() {
                 btn_url: trackingUrl,
                 footer: footerText,
                 envio_id: envio.id,
+                image_url: imageUrl || undefined,
+                reply_text: replyText || undefined,
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });

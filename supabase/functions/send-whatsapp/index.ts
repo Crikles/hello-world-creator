@@ -306,20 +306,42 @@ Deno.serve(async (req) => {
             });
         }
 
-        // ── SEND (with button) ──
+        // ── SEND (with button + optional image + reply) ──
         if (action === "send") {
             const expiredResp = checkSubscriptionExpired();
             if (expiredResp) return expiredResp;
 
-            const { number, text, btn_text, btn_url, footer, envio_id } = body;
+            const { number, text, btn_text, btn_url, footer, envio_id, image_url, reply_text } = body;
 
             if (!number || !text) {
                 return jsonResp({ error: "number and text are required" }, 400);
             }
 
+            // If image_url is provided, send image first
+            if (image_url) {
+                try {
+                    await fetch(`${UAZAPI_BASE}/send/image`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            token: instanceToken,
+                        },
+                        body: JSON.stringify({ number, url: image_url, caption: "" }),
+                    });
+                } catch (e) {
+                    console.error("Image send error:", e);
+                }
+            }
+
             const choices: string[] = [];
             if (btn_text && btn_url) {
                 choices.push(`${btn_text}|${btn_url}`);
+            }
+
+            const buttons: string[] = [];
+            if (reply_text) {
+                buttons.push(reply_text);
             }
 
             const sendBody: Record<string, unknown> = {
@@ -329,6 +351,7 @@ Deno.serve(async (req) => {
                 choices,
             };
 
+            if (buttons.length > 0) sendBody.buttons = buttons;
             if (footer) sendBody.footerText = footer;
 
             const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
@@ -344,7 +367,6 @@ Deno.serve(async (req) => {
             const data = await res.json();
             console.log("UAZAPI send response:", JSON.stringify(data));
 
-            // Log the message
             if (envio_id) {
                 await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed");
             }
