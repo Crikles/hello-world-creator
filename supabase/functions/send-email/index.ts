@@ -991,7 +991,7 @@ Deno.serve(async (req) => {
       destinatario: envio.cliente_email,
       assunto: subject,
       status: "sent",
-      custo: 0.15,
+      custo: 0.0021,
     });
 
     return new Response(
