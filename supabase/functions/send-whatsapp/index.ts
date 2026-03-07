@@ -534,6 +534,7 @@ Deno.serve(async (req) => {
 
         // ── SEND-QUEUE: Bulk send with rotation ──
         if (action === "send-queue") {
+            console.log("SEND-QUEUE action received body:", JSON.stringify({ envio_ids_count: body.envio_ids?.length, btn_text: body.btn_text, btn_url_template: body.btn_url_template, btn2_text: body.btn2_text, btn2_url: body.btn2_url, footer: body.footer }));
             const { envio_ids, msg_template, btn_text, btn_url_template, footer, btn2_text: queueBtn2Text, btn2_url: queueBtn2Url } = body;
 
             if (!envio_ids || !Array.isArray(envio_ids) || envio_ids.length === 0) {
