@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     MessageCircle, Wifi, WifiOff, QrCode, Trash2, Send, Search,
-    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle
+    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock
 } from "lucide-react";
 import { useLoja } from "@/contexts/LojaContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -95,6 +95,37 @@ async function callWhatsApp(action: string, body: Record<string, unknown>) {
     return data;
 }
 
+function getDaysRemaining(expiresAt: string | null): number | null {
+    if (!expiresAt) return null;
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function SubscriptionBadge({ expiresAt }: { expiresAt: string | null }) {
+    const days = getDaysRemaining(expiresAt);
+    if (days === null) return null;
+
+    if (days <= 0) {
+        return (
+            <Badge variant="secondary" className="bg-red-500/20 text-red-400 text-[10px] px-2 py-0.5">
+                <AlertCircle className="h-3 w-3 mr-1" /> Expirada
+            </Badge>
+        );
+    }
+    if (days <= 5) {
+        return (
+            <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-500 text-[10px] px-2 py-0.5">
+                <Clock className="h-3 w-3 mr-1" /> {days} dia{days > 1 ? "s" : ""} restante{days > 1 ? "s" : ""}
+            </Badge>
+        );
+    }
+    return (
+        <Badge variant="secondary" className="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5">
+            <Check className="h-3 w-3 mr-1" /> {days} dias restantes
+        </Badge>
+    );
+}
+
 export default function WhatsApp() {
     const { loja } = useLoja();
     const { user } = useAuth();
@@ -109,6 +140,33 @@ export default function WhatsApp() {
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
     const [previewEnvio, setPreviewEnvio] = useState<any>(null);
     const [copiedVar, setCopiedVar] = useState<string | null>(null);
+
+    // ── User credits ──
+    const { data: creditos } = useQuery({
+        queryKey: ["creditos", user?.id],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from("creditos")
+                .select("saldo")
+                .eq("user_id", user!.id)
+                .maybeSingle();
+            return data?.saldo ?? 0;
+        },
+        enabled: !!user?.id,
+    });
+
+    // ── WhatsApp price ──
+    const { data: whatsappPrice = 29.99 } = useQuery({
+        queryKey: ["system-config-whatsapp-price"],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from("system_config")
+                .select("value")
+                .eq("key", "custo_whatsapp")
+                .maybeSingle();
+            return data?.value ?? 29.99;
+        },
+    });
 
     // ── Instance data ──
     const { data: instance, isLoading: instanceLoading } = useQuery({
@@ -125,6 +183,9 @@ export default function WhatsApp() {
         },
         enabled: !!loja?.id,
     });
+
+    const isExpired = instance?.expires_at ? new Date(instance.expires_at) < new Date() : true;
+    const daysRemaining = getDaysRemaining(instance?.expires_at ?? null);
 
     // ── Config (template) ──
     const { data: config } = useQuery({
@@ -196,9 +257,22 @@ export default function WhatsApp() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
-            toast.success("Instância criada com sucesso!");
+            queryClient.invalidateQueries({ queryKey: ["creditos"] });
+            toast.success("Instância criada com sucesso! Assinatura ativa por 30 dias.");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao criar instância"),
+    });
+
+    const renewMutation = useMutation({
+        mutationFn: async () => {
+            return callWhatsApp("renew", { loja_id: loja!.id });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+            queryClient.invalidateQueries({ queryKey: ["creditos"] });
+            toast.success("Assinatura renovada por mais 30 dias!");
+        },
+        onError: (err: any) => toast.error(err.message || "Erro ao renovar assinatura"),
     });
 
     const connectMutation = useMutation({
@@ -300,7 +374,6 @@ export default function WhatsApp() {
         if (selected.length === 0) return toast.info("Selecione pelo menos 1 envio.");
         for (const envio of selected) {
             await sendMessage(envio);
-            // Small delay between sends
             await new Promise((r) => setTimeout(r, 1500));
         }
         toast.success(`Envio em massa finalizado!`);
@@ -358,14 +431,24 @@ export default function WhatsApp() {
         { id: "send" as const, label: "Enviar", icon: Send },
     ];
 
+    const canAfford = (creditos ?? 0) >= whatsappPrice;
+
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-foreground tracking-tight">WhatsApp</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Envie mensagens personalizadas de rastreio para seus clientes via WhatsApp.
-                </p>
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground tracking-tight">WhatsApp</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Envie mensagens personalizadas de rastreio para seus clientes via WhatsApp.
+                    </p>
+                </div>
+                {/* Balance indicator */}
+                <div className="glass rounded-xl px-4 py-2 flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm font-bold text-foreground">{Number(creditos ?? 0).toFixed(0)}</span>
+                    <span className="text-xs text-muted-foreground">moedas</span>
+                </div>
             </div>
 
             {/* Tabs */}
@@ -397,7 +480,7 @@ export default function WhatsApp() {
                             <div>
                                 <h2 className="text-lg font-bold text-foreground">Instância WhatsApp</h2>
                                 <p className="text-sm text-muted-foreground">
-                                    Gerencie sua conexão com o WhatsApp via UAZAPI.
+                                    Gerencie sua conexão com o WhatsApp. Assinatura mensal de {whatsappPrice} moedas.
                                 </p>
                             </div>
                         </div>
@@ -412,14 +495,31 @@ export default function WhatsApp() {
                                 <p className="text-sm text-muted-foreground mt-1 max-w-sm">
                                     Crie sua instância do WhatsApp para começar a enviar mensagens de rastreio.
                                 </p>
+
+                                {/* Price info */}
+                                <div className="glass rounded-xl px-5 py-3 mt-4 flex items-center gap-3">
+                                    <Coins className="h-5 w-5 text-amber-500" />
+                                    <div className="text-left">
+                                        <p className="text-sm font-semibold text-foreground">{whatsappPrice} moedas/mês</p>
+                                        <p className="text-[10px] text-muted-foreground">Será debitado ao criar a instância. Sem reembolso.</p>
+                                    </div>
+                                </div>
+
+                                {!canAfford && (
+                                    <p className="text-xs text-red-400 mt-3 flex items-center gap-1">
+                                        <AlertCircle className="h-3 w-3" />
+                                        Saldo insuficiente. Você tem {Number(creditos ?? 0).toFixed(0)} moedas.
+                                    </p>
+                                )}
+
                                 <Button
                                     className="shimmer-btn mt-5"
                                     onClick={() => createInstanceMutation.mutate()}
-                                    disabled={createInstanceMutation.isPending}
+                                    disabled={createInstanceMutation.isPending || !canAfford}
                                 >
                                     {createInstanceMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                     <Plug className="h-4 w-4 mr-1.5" />
-                                    Criar Instância
+                                    Criar Instância ({whatsappPrice} moedas)
                                 </Button>
                             </div>
                         ) : (
@@ -437,7 +537,8 @@ export default function WhatsApp() {
                                             <p className={`text-xs font-medium ${statusColor}`}>{statusLabel}</p>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <SubscriptionBadge expiresAt={(instance as any).expires_at} />
                                         <Button
                                             variant="ghost"
                                             size="icon"
@@ -449,6 +550,52 @@ export default function WhatsApp() {
                                         </Button>
                                     </div>
                                 </div>
+
+                                {/* Subscription expired/expiring banner */}
+                                {isExpired && (
+                                    <div className="glass rounded-xl p-4 border border-red-500/30 flex items-center justify-between gap-3 flex-wrap">
+                                        <div className="flex items-center gap-3">
+                                            <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
+                                            <div>
+                                                <p className="text-sm font-semibold text-red-400">Assinatura expirada</p>
+                                                <p className="text-xs text-muted-foreground">Renove para continuar enviando mensagens.</p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            className="shimmer-btn"
+                                            onClick={() => renewMutation.mutate()}
+                                            disabled={renewMutation.isPending || !canAfford}
+                                        >
+                                            {renewMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                                            <Coins className="h-3.5 w-3.5 mr-1.5" />
+                                            Renovar ({whatsappPrice} moedas)
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {!isExpired && daysRemaining !== null && daysRemaining <= 5 && (
+                                    <div className="glass rounded-xl p-4 border border-yellow-500/30 flex items-center justify-between gap-3 flex-wrap">
+                                        <div className="flex items-center gap-3">
+                                            <Clock className="h-5 w-5 text-yellow-500 shrink-0" />
+                                            <div>
+                                                <p className="text-sm font-semibold text-yellow-500">Assinatura expira em {daysRemaining} dia{daysRemaining > 1 ? "s" : ""}</p>
+                                                <p className="text-xs text-muted-foreground">Renove agora para não perder o acesso ao envio.</p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="glass border-yellow-500/30 hover:border-yellow-500/50 text-yellow-500"
+                                            onClick={() => renewMutation.mutate()}
+                                            disabled={renewMutation.isPending || !canAfford}
+                                        >
+                                            {renewMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                                            <Coins className="h-3.5 w-3.5 mr-1.5" />
+                                            Renovar ({whatsappPrice} moedas)
+                                        </Button>
+                                    </div>
+                                )}
 
                                 {/* Connect / QR code section */}
                                 {instance.status === "disconnected" && (
@@ -554,7 +701,7 @@ export default function WhatsApp() {
                                         size="sm"
                                         className="glass border-red-500/30 hover:border-red-500/50 text-red-500"
                                         onClick={() => {
-                                            if (confirm("Tem certeza que deseja remover a instância? Será necessário criar uma nova.")) {
+                                            if (confirm("Tem certeza que deseja remover a instância? As moedas não serão reembolsadas.")) {
                                                 deleteMutation.mutate();
                                             }
                                         }}
@@ -758,6 +905,27 @@ export default function WhatsApp() {
                         </div>
                     )}
 
+                    {/* Warning if subscription expired */}
+                    {instance && isExpired && (
+                        <div className="glass rounded-xl p-4 flex items-center justify-between gap-3 border border-red-500/30 flex-wrap">
+                            <div className="flex items-center gap-3">
+                                <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
+                                <p className="text-sm text-red-400">
+                                    Assinatura expirada. Renove para enviar mensagens.
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                className="shimmer-btn"
+                                onClick={() => renewMutation.mutate()}
+                                disabled={renewMutation.isPending || !canAfford}
+                            >
+                                {renewMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                                Renovar ({whatsappPrice} moedas)
+                            </Button>
+                        </div>
+                    )}
+
                     {/* Action bar */}
                     <div className="glass-strong glow-border rounded-xl p-3">
                         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
@@ -776,7 +944,7 @@ export default function WhatsApp() {
                                         size="sm"
                                         className="shimmer-btn h-8 text-xs"
                                         onClick={handleSendSelected}
-                                        disabled={instance?.status !== "connected" || sendingIds.size > 0}
+                                        disabled={instance?.status !== "connected" || sendingIds.size > 0 || isExpired}
                                     >
                                         {sendingIds.size > 0 ? (
                                             <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -891,8 +1059,8 @@ export default function WhatsApp() {
                                                     size="icon"
                                                     className="h-7 w-7 hover:bg-green-500/10"
                                                     onClick={() => sendMessage(envio)}
-                                                    disabled={isSending || instance?.status !== "connected"}
-                                                    title="Enviar mensagem"
+                                                    disabled={isSending || instance?.status !== "connected" || isExpired}
+                                                    title={isExpired ? "Assinatura expirada" : "Enviar mensagem"}
                                                 >
                                                     {isSending ? (
                                                         <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />

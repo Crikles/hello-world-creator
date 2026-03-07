@@ -15,6 +15,15 @@ function jsonResp(body: unknown, status = 200) {
     });
 }
 
+async function getWhatsAppPrice(supabaseAdmin: any): Promise<number> {
+    const { data } = await supabaseAdmin
+        .from("system_config")
+        .select("value")
+        .eq("key", "custo_whatsapp")
+        .maybeSingle();
+    return data?.value ?? 29.99;
+}
+
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
         return new Response(null, { headers: corsHeaders });
@@ -48,7 +57,7 @@ Deno.serve(async (req) => {
         // Verify user owns the loja
         const { data: loja } = await supabaseAdmin
             .from("lojas")
-            .select("id")
+            .select("id, user_id")
             .eq("id", loja_id)
             .eq("user_id", user.id)
             .maybeSingle();
@@ -57,8 +66,22 @@ Deno.serve(async (req) => {
 
         const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN")!;
 
-        // ── INIT: Create instance ──
+        // ── INIT: Create instance (with subscription debit) ──
         if (action === "init") {
+            // Get price from system_config
+            const price = await getWhatsAppPrice(supabaseAdmin);
+
+            // Debit credits atomically
+            const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
+                _user_id: user.id,
+                _quantidade: price,
+                _descricao: `Assinatura WhatsApp (${price} moedas/mês)`,
+            });
+
+            if (debitErr || !debited) {
+                return jsonResp({ error: "Saldo insuficiente para assinar o WhatsApp" }, 402);
+            }
+
             const instanceName = body.instance_name || `magnus-${loja_id.slice(0, 8)}`;
 
             const res = await fetch(`${UAZAPI_BASE}/instance/init`, {
@@ -82,6 +105,8 @@ Deno.serve(async (req) => {
             const token = data.token || data.instance?.token;
             if (!token) return jsonResp({ error: "No token in UAZAPI response", details: data }, 500);
 
+            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
             // Save to DB
             const { error: dbErr } = await supabaseAdmin
                 .from("whatsapp_instances")
@@ -91,6 +116,8 @@ Deno.serve(async (req) => {
                         instance_name: instanceName,
                         instance_token: token,
                         status: "disconnected",
+                        expires_at: expiresAt,
+                        subscription_price: price,
                         updated_at: new Date().toISOString(),
                     },
                     { onConflict: "loja_id" }
@@ -98,7 +125,7 @@ Deno.serve(async (req) => {
 
             if (dbErr) return jsonResp({ error: "DB save failed", details: dbErr.message }, 500);
 
-            return jsonResp({ success: true, token, instance_name: instanceName });
+            return jsonResp({ success: true, token, instance_name: instanceName, expires_at: expiresAt, price });
         }
 
         // ── Get instance token from DB ──
@@ -113,6 +140,37 @@ Deno.serve(async (req) => {
         }
 
         const instanceToken = instance?.instance_token;
+
+        // ── RENEW: Renew subscription ──
+        if (action === "renew") {
+            const price = await getWhatsAppPrice(supabaseAdmin);
+
+            const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
+                _user_id: user.id,
+                _quantidade: price,
+                _descricao: `Renovação WhatsApp (${price} moedas/mês)`,
+            });
+
+            if (debitErr || !debited) {
+                return jsonResp({ error: "Saldo insuficiente para renovar o WhatsApp" }, 402);
+            }
+
+            // Extend from current expiration if still in the future, otherwise from now
+            const currentExpires = instance?.expires_at ? new Date(instance.expires_at) : new Date();
+            const baseDate = currentExpires > new Date() ? currentExpires : new Date();
+            const newExpires = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+            await supabaseAdmin
+                .from("whatsapp_instances")
+                .update({
+                    expires_at: newExpires,
+                    subscription_price: price,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("loja_id", loja_id);
+
+            return jsonResp({ success: true, expires_at: newExpires, price });
+        }
 
         // ── CONNECT ──
         if (action === "connect") {
@@ -132,7 +190,6 @@ Deno.serve(async (req) => {
             const data = await res.json();
             console.log("UAZAPI connect response:", JSON.stringify(data));
 
-            // Update status in DB
             await supabaseAdmin
                 .from("whatsapp_instances")
                 .update({
@@ -158,10 +215,8 @@ Deno.serve(async (req) => {
             });
 
             const data = await res.json();
-
             const newStatus = data.status || data.state || "disconnected";
 
-            // Update DB with latest status
             await supabaseAdmin
                 .from("whatsapp_instances")
                 .update({
@@ -179,6 +234,7 @@ Deno.serve(async (req) => {
                 pairing_code: data.pairingCode || data.pairing_code || null,
                 instance_name: instance?.instance_name,
                 phone: instance?.phone,
+                expires_at: instance?.expires_at,
                 ...data,
             });
         }
@@ -226,8 +282,19 @@ Deno.serve(async (req) => {
             return jsonResp({ success: true });
         }
 
+        // ── Helper: check subscription expiration ──
+        function checkSubscriptionExpired(): Response | null {
+            if (!instance?.expires_at || new Date(instance.expires_at) < new Date()) {
+                return jsonResp({ error: "Assinatura WhatsApp expirada. Renove para continuar enviando mensagens." }, 403);
+            }
+            return null;
+        }
+
         // ── SEND (with button) ──
         if (action === "send") {
+            const expiredResp = checkSubscriptionExpired();
+            if (expiredResp) return expiredResp;
+
             const { number, text, btn_text, btn_url, footer } = body;
 
             if (!number || !text) {
@@ -268,6 +335,9 @@ Deno.serve(async (req) => {
 
         // ── SEND-TEXT ──
         if (action === "send-text") {
+            const expiredResp = checkSubscriptionExpired();
+            if (expiredResp) return expiredResp;
+
             const { number, text } = body;
 
             if (!number || !text) {
