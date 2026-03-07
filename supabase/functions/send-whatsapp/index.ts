@@ -587,6 +587,7 @@ Deno.serve(async (req) => {
                     : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
 
                 const choices: string[] = [];
+                if (queueReplyText) choices.push(queueReplyText);
                 if (btn_text && btn_url_template) {
                     choices.push(`${btn_text}|${btn_url_template.replace("{{codigo_rastreio}}", envio.codigo_rastreio || "")}`);
                 }
@@ -597,6 +598,7 @@ Deno.serve(async (req) => {
                     text,
                     choices,
                 };
+                if (queueImageUrl) sendBody.imageButton = queueImageUrl;
                 if (footer) sendBody.footerText = footer;
 
                 try {
