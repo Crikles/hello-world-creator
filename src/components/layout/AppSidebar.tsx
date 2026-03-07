@@ -65,19 +65,42 @@ export function AppSidebar() {
 
   const base = loja ? `/loja/${loja.id}` : "";
 
-  const menuItems = [
-    { title: "Dashboard", url: base, icon: Gauge },
-    { title: "Envios", url: `${base}/envios`, icon: SendHorizonal },
-    { title: "Postagens", url: `${base}/postagens`, icon: Megaphone },
-    { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
-    { title: "Falha na Entrega", url: `${base}/falha-entrega`, icon: PackageX },
-    { title: "Moedas", url: `${base}/moedas`, icon: CircleDollarSign },
-    { title: "Indicação", url: `${base}/indicacao`, icon: Users },
-    { title: "Empresa", url: `${base}/empresa`, icon: Landmark },
-    { title: "Integrações", url: `${base}/integracoes`, icon: Cable },
-    { title: "WhatsApp", url: `${base}/whatsapp`, icon: MessageCircle },
-    { title: "Configurações", url: `${base}/configuracoes`, icon: SlidersHorizontal },
-    { title: "Suporte", url: `${base}/suporte`, icon: LifeBuoy },
+  const menuSections = [
+    {
+      label: "Principal",
+      items: [{ title: "Dashboard", url: base, icon: Gauge }],
+    },
+    {
+      label: "Operações",
+      items: [
+        { title: "Envios", url: `${base}/envios`, icon: SendHorizonal },
+        { title: "Postagens", url: `${base}/postagens`, icon: Megaphone },
+        { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
+        { title: "Falha na Entrega", url: `${base}/falha-entrega`, icon: PackageX },
+      ],
+    },
+    {
+      label: "Financeiro",
+      items: [
+        { title: "Moedas", url: `${base}/moedas`, icon: CircleDollarSign },
+        { title: "Indicação", url: `${base}/indicacao`, icon: Users },
+      ],
+    },
+    {
+      label: "Negócio",
+      items: [
+        { title: "Empresa", url: `${base}/empresa`, icon: Landmark },
+        { title: "Integrações", url: `${base}/integracoes`, icon: Cable },
+        { title: "WhatsApp", url: `${base}/whatsapp`, icon: MessageCircle },
+      ],
+    },
+    {
+      label: "Sistema",
+      items: [
+        { title: "Configurações", url: `${base}/configuracoes`, icon: SlidersHorizontal },
+        { title: "Suporte", url: `${base}/suporte`, icon: LifeBuoy },
+      ],
+    },
   ];
 
   const handleLogout = async () => {
@@ -111,30 +134,32 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="px-2 pt-2">
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground/40 text-[10px] uppercase tracking-[0.15em] font-semibold px-3 mb-1">
-            Menu
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === base}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/60 hover:text-primary hover:bg-primary/5 transition-all duration-200"
-                      activeClassName="glass glow-border text-primary font-semibold"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {menuSections.map((section) => (
+          <SidebarGroup key={section.label}>
+            <SidebarGroupLabel className="text-muted-foreground/40 text-[10px] uppercase tracking-[0.15em] font-semibold px-3 mb-1">
+              {section.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === base}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/60 hover:text-primary hover:bg-primary/5 transition-all duration-200"
+                        activeClassName="glass glow-border text-primary font-semibold"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground/40 text-[10px] uppercase tracking-[0.15em] font-semibold px-3 mb-1">
             Parceiros Oficiais
