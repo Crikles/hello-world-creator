@@ -74,8 +74,6 @@ const statusConfig: Record<string, { icon: any; color: string; label: string }> 
 };
 
 import { formatProduto } from "@/lib/format-produto";
-    return raw;
-}
 
 /* ─── Page Component ─── */
 export default function Rastreio() {
