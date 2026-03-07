@@ -784,7 +784,7 @@ export default function WhatsApp() {
                                                     </Button>
                                                 )}
                                                 <Button variant="outline" size="sm" className="glass border-red-500/30 text-red-500 h-7 text-xs" onClick={() => {
-                                                    if (confirm("Remover instância? Moedas não serão reembolsadas.")) deleteMutation.mutate(inst.id);
+                                                    if (confirm("Remover instância?\n\nSua assinatura continuará ativa e você poderá criar uma nova instância sem custo adicional.")) deleteMutation.mutate(inst.id);
                                                 }} disabled={deleteMutation.isPending}>
                                                     <Trash2 className="h-3 w-3 mr-1" /> Remover
                                                 </Button>
