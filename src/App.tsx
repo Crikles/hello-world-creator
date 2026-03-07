@@ -145,6 +145,10 @@ function PanelRoutes() {
           path="/admin/suporte"
           element={<AdminRoute><AdminSuporte /></AdminRoute>}
         />
+        <Route
+          path="/admin/whatsapp"
+          element={<AdminRoute><AdminWhatsApp /></AdminRoute>}
+        />
         <Route path="/r" element={<Rastreio />} />
         <Route path="/r/:codigoParam" element={<Rastreio />} />
         <Route path="/p/:envioId" element={<Pagamento />} />

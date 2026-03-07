@@ -27,6 +27,7 @@ const menuItems = [
   { title: "Leads", url: "/admin/leads", icon: Contact },
   { title: "Push Web", url: "/admin/push", icon: Bell },
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
+  { title: "WhatsApp", url: "/admin/whatsapp", icon: Smartphone },
   { title: "Suporte", url: "/admin/suporte", icon: HeadphonesIcon },
 ];
 
