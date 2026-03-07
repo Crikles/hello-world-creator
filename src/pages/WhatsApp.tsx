@@ -369,8 +369,15 @@ export default function WhatsApp() {
                 ...(phoneInput ? { phone: formatPhone(phoneInput) } : {}),
             });
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+        onSuccess: (data: any, instanceId: string) => {
+            // Store connect response locally so QR/pairing shows immediately
+            setConnectData({
+                instanceId,
+                qrCode: data.qrcode || data.qr_code || undefined,
+                pairingCode: data.pairingCode || data.pairing_code || undefined,
+            });
+            setConnectingStartedAt(Date.now());
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances", loja?.id] });
             toast.success(phoneInput ? "Código de pareamento gerado!" : "QR Code gerado!");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao conectar"),
