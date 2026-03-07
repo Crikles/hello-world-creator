@@ -333,10 +333,12 @@ export default function WhatsApp() {
         mutationFn: async () => {
             return callWhatsApp("init", { loja_id: loja!.id });
         },
-        onSuccess: (data: any) => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
-            queryClient.invalidateQueries({ queryKey: ["creditos"] });
+        onSuccess: async (data: any) => {
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["whatsapp-instances", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["whatsapp-subscriptions", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["creditos", user?.id] }),
+            ]);
             if (data.used_free_slot) {
                 toast.success("Instância criada usando slot disponível — sem custo!");
             } else {
