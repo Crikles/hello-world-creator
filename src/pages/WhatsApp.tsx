@@ -501,7 +501,7 @@ export default function WhatsApp() {
                 return next;
             });
         }
-    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url]);
+    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url, selectedInstanceId]);
 
     const handleSendSelected = async () => {
         const selected = envios.filter((e) => selectedIds.has(e.id));
