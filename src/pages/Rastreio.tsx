@@ -73,7 +73,7 @@ const statusConfig: Record<string, { icon: any; color: string; label: string }> 
     "Em Rota": { icon: Truck, color: "#eab308", label: "Em Rota" },
 };
 
-import { formatProduto } from "@/lib/format-produto";
+
 
 /* ─── Page Component ─── */
 export default function Rastreio() {

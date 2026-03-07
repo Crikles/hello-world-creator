@@ -62,7 +62,7 @@ const DEFAULT_TAX: TaxSettings = {
     mostrar_prazo: true,
 };
 
-import { formatProduto } from "@/lib/format-produto";
+
 
 function formatCPF(cpf: string): string {
     const digits = cpf.replace(/\D/g, '');
