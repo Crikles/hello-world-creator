@@ -461,6 +461,19 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "number and text are required" }, 400);
             }
 
+            // Se houver imagem, enviar separadamente primeiro via /send/media
+            if (image_url) {
+                try {
+                    await fetch(`${UAZAPI_BASE}/send/media`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Accept: "application/json", token: instanceToken },
+                        body: JSON.stringify({ number, type: "image", file: image_url }),
+                    });
+                } catch (e) {
+                    console.error("Erro ao enviar imagem separada:", e);
+                }
+            }
+
             const choices: string[] = [];
             if (reply_text) choices.push(reply_text);
             if (btn_text && btn_url) choices.push(`${btn_text}|${btn_url}`);
@@ -471,7 +484,6 @@ Deno.serve(async (req) => {
                 text,
                 choices,
             };
-            if (image_url) sendBody.imageButton = image_url;
             if (footer) sendBody.footerText = footer;
 
             const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
