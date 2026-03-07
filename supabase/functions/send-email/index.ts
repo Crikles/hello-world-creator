@@ -29,6 +29,9 @@ const emojiMap: Record<string, string> = {
   "Entregue": "✅",
   "Taxação": "⚠️",
   "Pago": "💳",
+  "Falha Entrega": "❌",
+  "Reenvio Pago": "✅",
+  "Reenvio Saiu": "🚚",
 };
 
 function formatProdutoName(raw: string): string {
