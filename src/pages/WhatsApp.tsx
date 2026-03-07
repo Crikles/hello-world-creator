@@ -352,10 +352,12 @@ export default function WhatsApp() {
         mutationFn: async (instanceId: string) => {
             return callWhatsApp("renew", { loja_id: loja!.id, instance_id: instanceId });
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-subscriptions"] });
-            queryClient.invalidateQueries({ queryKey: ["creditos"] });
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["whatsapp-instances", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["whatsapp-subscriptions", loja?.id] }),
+                queryClient.refetchQueries({ queryKey: ["creditos", user?.id] }),
+            ]);
             toast.success("Assinatura renovada por mais 30 dias!");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao renovar assinatura"),
