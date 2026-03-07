@@ -195,16 +195,18 @@ Deno.serve(async (req) => {
                 .eq("loja_id", loja_id)
                 .maybeSingle();
             instance = data;
-        } else {
+        } else if (action !== "list-subscriptions") {
+            // For actions that don't specify instance_id, pick the first one
             const { data } = await supabaseAdmin
                 .from("whatsapp_instances")
                 .select("*")
                 .eq("loja_id", loja_id)
-                .maybeSingle();
-            instance = data;
+                .order("created_at", { ascending: true })
+                .limit(1);
+            instance = data?.[0] || null;
         }
 
-        if (!instance && action !== "init") {
+        if (!instance && action !== "init" && action !== "list-subscriptions") {
             return jsonResp({ error: "No WhatsApp instance found. Create one first." }, 404);
         }
 
