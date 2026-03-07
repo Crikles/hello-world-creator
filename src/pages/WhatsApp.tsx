@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     MessageCircle, Wifi, WifiOff, QrCode, Trash2, Send, Search,
-    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock
+    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw
 } from "lucide-react";
 import { useLoja } from "@/contexts/LojaContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -136,7 +137,6 @@ export default function WhatsApp() {
     const [filterStatus, setFilterStatus] = useState("todos");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
-    const [sentIds, setSentIds] = useState<Set<string>>(new Set());
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
     const [previewEnvio, setPreviewEnvio] = useState<any>(null);
     const [copiedVar, setCopiedVar] = useState<string | null>(null);
@@ -168,33 +168,54 @@ export default function WhatsApp() {
         },
     });
 
-    // ── Instance data ──
-    const { data: instance, isLoading: instanceLoading } = useQuery({
-        queryKey: ["whatsapp-instance", loja?.id],
+    // ── ALL instances for this loja (multiple) ──
+    const { data: instances = [], isLoading: instanceLoading } = useQuery({
+        queryKey: ["whatsapp-instances", loja?.id],
         queryFn: async () => {
-            if (!loja?.id) return null;
+            if (!loja?.id) return [];
             const { data, error } = await supabase
                 .from("whatsapp_instances")
                 .select("*")
                 .eq("loja_id", loja.id)
-                .maybeSingle();
+                .order("created_at", { ascending: true });
             if (error) throw error;
-            return data;
+            return data || [];
         },
         enabled: !!loja?.id,
     });
 
+    // Compat: first instance for backwards compat in tabs
+    const instance = instances.length > 0 ? instances[0] : null;
     const isExpired = instance?.expires_at ? new Date(instance.expires_at) < new Date() : true;
     const daysRemaining = getDaysRemaining(instance?.expires_at ?? null);
 
-    // ── Config (template) ──
+    const connectedInstances = instances.filter((i) => i.status === "connected" && i.expires_at && new Date(i.expires_at) > new Date());
+
+    // ── Message log (persistent sent tracking) ──
+    const { data: messageLogs = [] } = useQuery({
+        queryKey: ["whatsapp-message-log", loja?.id],
+        queryFn: async () => {
+            if (!loja?.id) return [];
+            const { data } = await supabase
+                .from("whatsapp_message_log")
+                .select("envio_id, status")
+                .eq("loja_id", loja.id);
+            return data || [];
+        },
+        enabled: !!loja?.id,
+    });
+
+    const sentEnvioIds = new Set(messageLogs.filter((l) => l.status === "sent").map((l) => l.envio_id));
+    const failedEnvioIds = new Set(messageLogs.filter((l) => l.status === "failed").map((l) => l.envio_id));
+
+    // ── Config (template + auto-send) ──
     const { data: config } = useQuery({
         queryKey: ["whatsapp-config", loja?.id],
         queryFn: async () => {
             if (!loja?.id) return null;
             const { data } = await supabase
                 .from("postagem_config")
-                .select("whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer")
+                .select("whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_auto_send, whatsapp_delay_seconds")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
             return data;
@@ -205,12 +226,16 @@ export default function WhatsApp() {
     const [msgTemplate, setMsgTemplate] = useState(DEFAULT_TEMPLATE);
     const [btnText, setBtnText] = useState("📦 Rastrear Pedido");
     const [footerText, setFooterText] = useState("Obrigado pela sua compra!");
+    const [autoSend, setAutoSend] = useState(false);
+    const [delayMinutes, setDelayMinutes] = useState(5);
 
     useEffect(() => {
         if (config) {
             setMsgTemplate(config.whatsapp_msg_template || DEFAULT_TEMPLATE);
             setBtnText(config.whatsapp_btn_text || "📦 Rastrear Pedido");
             setFooterText(config.whatsapp_footer || "Obrigado pela sua compra!");
+            setAutoSend(!!(config as any).whatsapp_auto_send);
+            setDelayMinutes(Math.round(((config as any).whatsapp_delay_seconds || 300) / 60));
         }
     }, [config]);
 
@@ -240,15 +265,16 @@ export default function WhatsApp() {
 
     // ── Polling for status when connecting ──
     useEffect(() => {
-        if (instance?.status !== "connecting") return;
+        const connectingInstance = instances.find((i) => i.status === "connecting");
+        if (!connectingInstance) return;
         const interval = setInterval(async () => {
             try {
-                await callWhatsApp("status", { loja_id: loja?.id });
-                queryClient.invalidateQueries({ queryKey: ["whatsapp-instance", loja?.id] });
+                await callWhatsApp("status", { loja_id: loja?.id, instance_id: connectingInstance.id });
+                queryClient.invalidateQueries({ queryKey: ["whatsapp-instances", loja?.id] });
             } catch { /* ignore */ }
         }, 5000);
         return () => clearInterval(interval);
-    }, [instance?.status, loja?.id, queryClient]);
+    }, [instances, loja?.id, queryClient]);
 
     // ── Mutations ──
     const createInstanceMutation = useMutation({
@@ -256,7 +282,7 @@ export default function WhatsApp() {
             return callWhatsApp("init", { loja_id: loja!.id });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
             queryClient.invalidateQueries({ queryKey: ["creditos"] });
             toast.success("Instância criada com sucesso! Assinatura ativa por 30 dias.");
         },
@@ -264,11 +290,11 @@ export default function WhatsApp() {
     });
 
     const renewMutation = useMutation({
-        mutationFn: async () => {
-            return callWhatsApp("renew", { loja_id: loja!.id });
+        mutationFn: async (instanceId: string) => {
+            return callWhatsApp("renew", { loja_id: loja!.id, instance_id: instanceId });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
             queryClient.invalidateQueries({ queryKey: ["creditos"] });
             toast.success("Assinatura renovada por mais 30 dias!");
         },
@@ -276,41 +302,42 @@ export default function WhatsApp() {
     });
 
     const connectMutation = useMutation({
-        mutationFn: async () => {
+        mutationFn: async (instanceId: string) => {
             return callWhatsApp("connect", {
                 loja_id: loja!.id,
+                instance_id: instanceId,
                 ...(phoneInput ? { phone: formatPhone(phoneInput) } : {}),
             });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
             toast.success(phoneInput ? "Código de pareamento gerado!" : "QR Code gerado!");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao conectar"),
     });
 
     const disconnectMutation = useMutation({
-        mutationFn: async () => callWhatsApp("disconnect", { loja_id: loja!.id }),
+        mutationFn: async (instanceId: string) => callWhatsApp("disconnect", { loja_id: loja!.id, instance_id: instanceId }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
             toast.success("Desconectado com sucesso!");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao desconectar"),
     });
 
     const deleteMutation = useMutation({
-        mutationFn: async () => callWhatsApp("delete", { loja_id: loja!.id }),
+        mutationFn: async (instanceId: string) => callWhatsApp("delete", { loja_id: loja!.id, instance_id: instanceId }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
             toast.success("Instância removida!");
         },
         onError: (err: any) => toast.error(err.message || "Erro ao remover"),
     });
 
     const refreshStatusMutation = useMutation({
-        mutationFn: async () => callWhatsApp("status", { loja_id: loja!.id }),
+        mutationFn: async (instanceId: string) => callWhatsApp("status", { loja_id: loja!.id, instance_id: instanceId }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
         },
     });
 
@@ -333,6 +360,24 @@ export default function WhatsApp() {
         onError: () => toast.error("Erro ao salvar template"),
     });
 
+    const saveAutoSendMutation = useMutation({
+        mutationFn: async ({ auto, delay }: { auto: boolean; delay: number }) => {
+            const { error } = await supabase
+                .from("postagem_config")
+                .update({
+                    whatsapp_auto_send: auto,
+                    whatsapp_delay_seconds: delay * 60,
+                } as any)
+                .eq("loja_id", loja!.id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-config"] });
+            toast.success("Configurações de automação salvas!");
+        },
+        onError: () => toast.error("Erro ao salvar configurações"),
+    });
+
     // ── Send message ──
     const sendMessage = useCallback(async (envio: any) => {
         if (!envio.cliente_telefone) {
@@ -353,9 +398,10 @@ export default function WhatsApp() {
                 btn_text: btnText,
                 btn_url: trackingUrl,
                 footer: footerText,
+                envio_id: envio.id,
             });
 
-            setSentIds((prev) => new Set(prev).add(envio.id));
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
             toast.success(`Mensagem enviada para ${envio.cliente_nome}!`);
         } catch (err: any) {
             setFailedIds((prev) => new Set(prev).add(envio.id));
@@ -367,16 +413,39 @@ export default function WhatsApp() {
                 return next;
             });
         }
-    }, [msgTemplate, btnText, footerText, loja]);
+    }, [msgTemplate, btnText, footerText, loja, queryClient]);
 
     const handleSendSelected = async () => {
         const selected = envios.filter((e) => selectedIds.has(e.id));
         if (selected.length === 0) return toast.info("Selecione pelo menos 1 envio.");
-        for (const envio of selected) {
-            await sendMessage(envio);
-            await new Promise((r) => setTimeout(r, 1500));
+
+        if (connectedInstances.length > 1) {
+            // Use send-queue for rotation
+            setSendingIds(new Set(selected.map((e) => e.id)));
+            try {
+                const texts = selected.map((e) => replaceVars(msgTemplate, e));
+                await callWhatsApp("send-queue", {
+                    loja_id: loja!.id,
+                    envio_ids: selected.map((e) => e.id),
+                    msg_template: msgTemplate, // server will need to replace vars
+                    btn_text: btnText,
+                    btn_url_template: `${TRACKING_BASE_URL}/{{codigo_rastreio}}`,
+                    footer: footerText,
+                });
+                queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
+                toast.success(`Envio em massa finalizado com rotação entre ${connectedInstances.length} instâncias!`);
+            } catch (err: any) {
+                toast.error(err.message || "Erro no envio em massa");
+            } finally {
+                setSendingIds(new Set());
+            }
+        } else {
+            for (const envio of selected) {
+                await sendMessage(envio);
+                await new Promise((r) => setTimeout(r, 1500));
+            }
+            toast.success(`Envio em massa finalizado!`);
         }
-        toast.success(`Envio em massa finalizado!`);
     };
 
     const insertVariable = (varKey: string) => {
@@ -393,8 +462,11 @@ export default function WhatsApp() {
             e.produto.toLowerCase().includes(s) ||
             (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(s)) ||
             e.cliente_email.toLowerCase().includes(s);
-        const matchStatus = filterStatus === "todos" || e.status === filterStatus;
-        return matchSearch && matchStatus;
+
+        if (filterStatus === "todos") return matchSearch;
+        if (filterStatus === "enviado") return matchSearch && sentEnvioIds.has(e.id);
+        if (filterStatus === "nao_enviado") return matchSearch && !sentEnvioIds.has(e.id);
+        return matchSearch;
     });
 
     const handleSelectAll = (checked: boolean) => {
@@ -412,18 +484,6 @@ export default function WhatsApp() {
             return next;
         });
     };
-
-    const statusColor = instance?.status === "connected"
-        ? "text-green-500"
-        : instance?.status === "connecting"
-            ? "text-yellow-500"
-            : "text-red-400";
-
-    const statusLabel = instance?.status === "connected"
-        ? "Conectado"
-        : instance?.status === "connecting"
-            ? "Conectando..."
-            : "Desconectado";
 
     const tabs = [
         { id: "instance" as const, label: "Instância", icon: Plug },
@@ -443,10 +503,10 @@ export default function WhatsApp() {
                         Envie mensagens personalizadas de rastreio para seus clientes via WhatsApp.
                     </p>
                 </div>
-                {/* Balance indicator */}
+                {/* Balance indicator - FIXED: .toFixed(2) */}
                 <div className="glass rounded-xl px-4 py-2 flex items-center gap-2">
                     <Coins className="h-4 w-4 text-amber-500" />
-                    <span className="text-sm font-bold text-foreground">{Number(creditos ?? 0).toFixed(0)}</span>
+                    <span className="text-sm font-bold text-foreground">{Number(creditos ?? 0).toFixed(2)}</span>
                     <span className="text-xs text-muted-foreground">moedas</span>
                 </div>
             </div>
@@ -473,19 +533,33 @@ export default function WhatsApp() {
             {activeTab === "instance" && (
                 <div className="space-y-4 animate-stagger-in">
                     <div className="glass glow-border rounded-xl p-6">
-                        <div className="flex items-center gap-3 mb-5">
-                            <div className="p-2.5 rounded-xl bg-green-500/10">
-                                <MessageCircle className="h-5 w-5 text-green-500" />
+                        <div className="flex items-center justify-between mb-5">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-green-500/10">
+                                    <MessageCircle className="h-5 w-5 text-green-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-foreground">Instâncias WhatsApp</h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        Gerencie suas conexões. Assinatura de {whatsappPrice} moedas/mês por instância.
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-foreground">Instância WhatsApp</h2>
-                                <p className="text-sm text-muted-foreground">
-                                    Gerencie sua conexão com o WhatsApp. Assinatura mensal de {whatsappPrice} moedas.
-                                </p>
-                            </div>
+                            {instances.length > 0 && (
+                                <Button
+                                    size="sm"
+                                    className="shimmer-btn"
+                                    onClick={() => createInstanceMutation.mutate()}
+                                    disabled={createInstanceMutation.isPending || !canAfford}
+                                >
+                                    {createInstanceMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                                    <Plug className="h-3.5 w-3.5 mr-1.5" />
+                                    Nova Instância
+                                </Button>
+                            )}
                         </div>
 
-                        {!instance ? (
+                        {instances.length === 0 ? (
                             /* No instance yet */
                             <div className="flex flex-col items-center py-8 text-center">
                                 <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center mb-4">
@@ -496,7 +570,6 @@ export default function WhatsApp() {
                                     Crie sua instância do WhatsApp para começar a enviar mensagens de rastreio.
                                 </p>
 
-                                {/* Price info */}
                                 <div className="glass rounded-xl px-5 py-3 mt-4 flex items-center gap-3">
                                     <Coins className="h-5 w-5 text-amber-500" />
                                     <div className="text-left">
@@ -508,7 +581,7 @@ export default function WhatsApp() {
                                 {!canAfford && (
                                     <p className="text-xs text-red-400 mt-3 flex items-center gap-1">
                                         <AlertCircle className="h-3 w-3" />
-                                        Saldo insuficiente. Você tem {Number(creditos ?? 0).toFixed(0)} moedas.
+                                        Saldo insuficiente. Você tem {Number(creditos ?? 0).toFixed(2)} moedas.
                                     </p>
                                 )}
 
@@ -523,195 +596,136 @@ export default function WhatsApp() {
                                 </Button>
                             </div>
                         ) : (
-                            /* Instance exists */
-                            <div className="space-y-5">
-                                {/* Status bar */}
-                                <div className="glass rounded-xl p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`h-3 w-3 rounded-full ${instance.status === "connected" ? "bg-green-500 animate-pulse" :
-                                                instance.status === "connecting" ? "bg-yellow-500 animate-pulse" :
-                                                    "bg-red-400"
-                                            }`} />
-                                        <div>
-                                            <p className="text-sm font-semibold text-foreground">{instance.instance_name}</p>
-                                            <p className={`text-xs font-medium ${statusColor}`}>{statusLabel}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <SubscriptionBadge expiresAt={(instance as any).expires_at} />
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => refreshStatusMutation.mutate()}
-                                            disabled={refreshStatusMutation.isPending}
-                                        >
-                                            <RefreshCw className={`h-4 w-4 ${refreshStatusMutation.isPending ? "animate-spin" : ""}`} />
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {/* Subscription expired/expiring banner */}
-                                {isExpired && (
-                                    <div className="glass rounded-xl p-4 border border-red-500/30 flex items-center justify-between gap-3 flex-wrap">
-                                        <div className="flex items-center gap-3">
-                                            <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
-                                            <div>
-                                                <p className="text-sm font-semibold text-red-400">Assinatura expirada</p>
-                                                <p className="text-xs text-muted-foreground">Renove para continuar enviando mensagens.</p>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            className="shimmer-btn"
-                                            onClick={() => renewMutation.mutate()}
-                                            disabled={renewMutation.isPending || !canAfford}
-                                        >
-                                            {renewMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                                            <Coins className="h-3.5 w-3.5 mr-1.5" />
-                                            Renovar ({whatsappPrice} moedas)
-                                        </Button>
+                            /* List of instances */
+                            <div className="space-y-3">
+                                {connectedInstances.length > 1 && (
+                                    <div className="glass rounded-xl p-3 flex items-center gap-2 border border-primary/20">
+                                        <RotateCcw className="h-4 w-4 text-primary shrink-0" />
+                                        <p className="text-xs text-muted-foreground">
+                                            <span className="font-semibold text-primary">{connectedInstances.length} instâncias ativas</span> — O envio em massa fará rotação automática entre elas.
+                                        </p>
                                     </div>
                                 )}
 
-                                {!isExpired && daysRemaining !== null && daysRemaining <= 5 && (
-                                    <div className="glass rounded-xl p-4 border border-yellow-500/30 flex items-center justify-between gap-3 flex-wrap">
-                                        <div className="flex items-center gap-3">
-                                            <Clock className="h-5 w-5 text-yellow-500 shrink-0" />
-                                            <div>
-                                                <p className="text-sm font-semibold text-yellow-500">Assinatura expira em {daysRemaining} dia{daysRemaining > 1 ? "s" : ""}</p>
-                                                <p className="text-xs text-muted-foreground">Renove agora para não perder o acesso ao envio.</p>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="glass border-yellow-500/30 hover:border-yellow-500/50 text-yellow-500"
-                                            onClick={() => renewMutation.mutate()}
-                                            disabled={renewMutation.isPending || !canAfford}
-                                        >
-                                            {renewMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                                            <Coins className="h-3.5 w-3.5 mr-1.5" />
-                                            Renovar ({whatsappPrice} moedas)
-                                        </Button>
-                                    </div>
-                                )}
+                                {instances.map((inst) => {
+                                    const instExpired = inst.expires_at ? new Date(inst.expires_at) < new Date() : true;
+                                    const instDays = getDaysRemaining(inst.expires_at ?? null);
+                                    const instStatusColor = inst.status === "connected" ? "text-green-500" : inst.status === "connecting" ? "text-yellow-500" : "text-red-400";
+                                    const instStatusLabel = inst.status === "connected" ? "Conectado" : inst.status === "connecting" ? "Conectando..." : "Desconectado";
 
-                                {/* Connect / QR code section */}
-                                {instance.status === "disconnected" && (
-                                    <div className="glass rounded-xl p-5 space-y-4">
-                                        <h3 className="text-sm font-semibold text-foreground">Conectar ao WhatsApp</h3>
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="text-xs text-muted-foreground mb-1 block">
-                                                    Número de telefone (opcional — se informar, será gerado código de pareamento)
-                                                </label>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        placeholder="5511999999999"
-                                                        value={phoneInput}
-                                                        onChange={(e) => setPhoneInput(e.target.value)}
-                                                        className="flex-1 bg-transparent border-border/50"
-                                                    />
+                                    return (
+                                        <div key={inst.id} className="glass glow-border-hover rounded-xl p-4 space-y-3">
+                                            {/* Status bar */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`h-3 w-3 rounded-full ${inst.status === "connected" ? "bg-green-500 animate-pulse" : inst.status === "connecting" ? "bg-yellow-500 animate-pulse" : "bg-red-400"}`} />
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-foreground">{inst.instance_name}</p>
+                                                        <p className={`text-xs font-medium ${instStatusColor}`}>{instStatusLabel}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <SubscriptionBadge expiresAt={inst.expires_at} />
                                                     <Button
-                                                        onClick={() => connectMutation.mutate()}
-                                                        disabled={connectMutation.isPending}
-                                                        className="shimmer-btn"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={() => refreshStatusMutation.mutate(inst.id)}
+                                                        disabled={refreshStatusMutation.isPending}
                                                     >
-                                                        {connectMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                                        <QrCode className="h-4 w-4 mr-1.5" />
-                                                        {phoneInput ? "Gerar Código" : "Gerar QR Code"}
+                                                        <RefreshCw className={`h-4 w-4 ${refreshStatusMutation.isPending ? "animate-spin" : ""}`} />
                                                     </Button>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                )}
 
-                                {instance.status === "connecting" && (
-                                    <div className="glass rounded-xl p-5 space-y-4">
-                                        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                            <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />
-                                            Aguardando conexão...
-                                        </h3>
-
-                                        {instance.qr_code && (
-                                            <div className="flex flex-col items-center gap-3">
-                                                <p className="text-xs text-muted-foreground">
-                                                    Escaneie o QR Code abaixo no seu WhatsApp:
-                                                </p>
-                                                <div className="p-4 bg-white rounded-xl">
-                                                    <img
-                                                        src={instance.qr_code.startsWith("data:") ? instance.qr_code : `data:image/png;base64,${instance.qr_code}`}
-                                                        alt="QR Code WhatsApp"
-                                                        className="w-64 h-64 object-contain"
-                                                    />
+                                            {/* Expired banner */}
+                                            {instExpired && (
+                                                <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                                    <p className="text-xs text-red-400">Assinatura expirada. Renove para enviar mensagens.</p>
+                                                    <Button size="sm" className="shimmer-btn h-7 text-xs" onClick={() => renewMutation.mutate(inst.id)} disabled={renewMutation.isPending || !canAfford}>
+                                                        {renewMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                                                        Renovar ({whatsappPrice})
+                                                    </Button>
                                                 </div>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    O QR Code atualiza automaticamente a cada 5 segundos.
-                                                </p>
+                                            )}
+
+                                            {!instExpired && instDays !== null && instDays <= 5 && (
+                                                <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                                                    <p className="text-xs text-yellow-500">Expira em {instDays} dia{instDays > 1 ? "s" : ""}.</p>
+                                                    <Button size="sm" variant="outline" className="h-7 text-xs glass border-yellow-500/30 text-yellow-500" onClick={() => renewMutation.mutate(inst.id)} disabled={renewMutation.isPending || !canAfford}>
+                                                        Renovar ({whatsappPrice})
+                                                    </Button>
+                                                </div>
+                                            )}
+
+                                            {/* Connect section */}
+                                            {inst.status === "disconnected" && (
+                                                <div className="space-y-2">
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            placeholder="5511999999999 (opcional)"
+                                                            value={phoneInput}
+                                                            onChange={(e) => setPhoneInput(e.target.value)}
+                                                            className="flex-1 bg-transparent border-border/50 h-8 text-xs"
+                                                        />
+                                                        <Button size="sm" className="shimmer-btn h-8 text-xs" onClick={() => connectMutation.mutate(inst.id)} disabled={connectMutation.isPending}>
+                                                            {connectMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                                                            <QrCode className="h-3 w-3 mr-1" />
+                                                            {phoneInput ? "Código" : "QR Code"}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {inst.status === "connecting" && (
+                                                <div className="space-y-3">
+                                                    <p className="text-xs text-yellow-500 flex items-center gap-1.5">
+                                                        <Loader2 className="h-3 w-3 animate-spin" /> Aguardando conexão...
+                                                    </p>
+                                                    {inst.qr_code && (
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <div className="p-3 bg-white rounded-xl">
+                                                                <img
+                                                                    src={inst.qr_code.startsWith("data:") ? inst.qr_code : `data:image/png;base64,${inst.qr_code}`}
+                                                                    alt="QR Code"
+                                                                    className="w-48 h-48 object-contain"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {inst.pairing_code && (
+                                                        <code className="text-xl font-mono font-bold text-primary bg-primary/10 px-4 py-2 rounded-xl tracking-[0.3em] block text-center">
+                                                            {inst.pairing_code}
+                                                        </code>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {inst.status === "connected" && (
+                                                <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/5">
+                                                    <Wifi className="h-4 w-4 text-green-500" />
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Pronta para enviar.{inst.phone && ` Tel: ${inst.phone}`}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* Action buttons */}
+                                            <div className="flex gap-2">
+                                                {inst.status === "connected" && (
+                                                    <Button variant="outline" size="sm" className="glass border-yellow-500/30 text-yellow-500 h-7 text-xs" onClick={() => disconnectMutation.mutate(inst.id)} disabled={disconnectMutation.isPending}>
+                                                        <Power className="h-3 w-3 mr-1" /> Desconectar
+                                                    </Button>
+                                                )}
+                                                <Button variant="outline" size="sm" className="glass border-red-500/30 text-red-500 h-7 text-xs" onClick={() => {
+                                                    if (confirm("Remover instância? Moedas não serão reembolsadas.")) deleteMutation.mutate(inst.id);
+                                                }} disabled={deleteMutation.isPending}>
+                                                    <Trash2 className="h-3 w-3 mr-1" /> Remover
+                                                </Button>
                                             </div>
-                                        )}
-
-                                        {instance.pairing_code && (
-                                            <div className="flex flex-col items-center gap-3">
-                                                <p className="text-xs text-muted-foreground">
-                                                    Use o código de pareamento abaixo no seu WhatsApp:
-                                                </p>
-                                                <code className="text-2xl font-mono font-bold text-primary bg-primary/10 px-6 py-3 rounded-xl tracking-[0.3em]">
-                                                    {instance.pairing_code}
-                                                </code>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {instance.status === "connected" && (
-                                    <div className="glass rounded-xl p-5 flex items-center gap-4">
-                                        <div className="p-3 rounded-xl bg-green-500/10">
-                                            <Wifi className="h-6 w-6 text-green-500" />
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-foreground">WhatsApp conectado!</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                Sua instância está pronta para enviar mensagens.
-                                                {instance.phone && ` Telefone: ${instance.phone}`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Action buttons */}
-                                <div className="flex gap-2 flex-wrap">
-                                    {instance.status === "connected" && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="glass border-yellow-500/30 hover:border-yellow-500/50 text-yellow-500"
-                                            onClick={() => disconnectMutation.mutate()}
-                                            disabled={disconnectMutation.isPending}
-                                        >
-                                            {disconnectMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                                            <Power className="h-3.5 w-3.5 mr-1.5" />
-                                            Desconectar
-                                        </Button>
-                                    )}
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="glass border-red-500/30 hover:border-red-500/50 text-red-500"
-                                        onClick={() => {
-                                            if (confirm("Tem certeza que deseja remover a instância? As moedas não serão reembolsadas.")) {
-                                                deleteMutation.mutate();
-                                            }
-                                        }}
-                                        disabled={deleteMutation.isPending}
-                                    >
-                                        {deleteMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                                        Remover Instância
-                                    </Button>
-                                </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -758,9 +772,7 @@ export default function WhatsApp() {
 
                         {/* Template textarea */}
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                                Mensagem
-                            </label>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Mensagem</label>
                             <Textarea
                                 value={msgTemplate}
                                 onChange={(e) => setMsgTemplate(e.target.value)}
@@ -771,35 +783,17 @@ export default function WhatsApp() {
 
                         {/* Button text */}
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                                Texto do Botão de Rastreio
-                            </label>
-                            <Input
-                                value={btnText}
-                                onChange={(e) => setBtnText(e.target.value)}
-                                className="bg-transparent border-border/50"
-                                placeholder="📦 Rastrear Pedido"
-                            />
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Texto do Botão de Rastreio</label>
+                            <Input value={btnText} onChange={(e) => setBtnText(e.target.value)} className="bg-transparent border-border/50" placeholder="📦 Rastrear Pedido" />
                         </div>
 
                         {/* Footer */}
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                                Texto do Rodapé (opcional)
-                            </label>
-                            <Input
-                                value={footerText}
-                                onChange={(e) => setFooterText(e.target.value)}
-                                className="bg-transparent border-border/50"
-                                placeholder="Obrigado pela sua compra!"
-                            />
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Texto do Rodapé (opcional)</label>
+                            <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} className="bg-transparent border-border/50" placeholder="Obrigado pela sua compra!" />
                         </div>
 
-                        <Button
-                            className="shimmer-btn w-full"
-                            onClick={() => saveTemplateMutation.mutate()}
-                            disabled={saveTemplateMutation.isPending}
-                        >
+                        <Button className="shimmer-btn w-full" onClick={() => saveTemplateMutation.mutate()} disabled={saveTemplateMutation.isPending}>
                             {saveTemplateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                             Salvar Template
                         </Button>
@@ -813,15 +807,11 @@ export default function WhatsApp() {
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-foreground">Pré-visualização</h2>
-                                <p className="text-xs text-muted-foreground">
-                                    Veja como a mensagem será exibida no WhatsApp.
-                                </p>
+                                <p className="text-xs text-muted-foreground">Veja como a mensagem será exibida no WhatsApp.</p>
                             </div>
                         </div>
 
-                        {/* WhatsApp-style preview */}
                         <div className="rounded-xl bg-[#0b141a] p-4 space-y-3 min-h-[300px]">
-                            {/* Chat bubble */}
                             <div className="max-w-[85%] ml-auto">
                                 <div className="bg-[#005c4b] rounded-xl rounded-tr-sm p-3 shadow-lg">
                                     <p className="text-sm text-white whitespace-pre-wrap leading-relaxed">
@@ -843,46 +833,25 @@ export default function WhatsApp() {
                                                 cliente_telefone: "11999999999",
                                             })}
                                     </p>
-
-                                    {/* Button preview */}
                                     <div className="mt-3 pt-2 border-t border-white/10">
                                         <div className="text-center py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                                            <span className="text-[#53bdeb] text-sm font-medium">
-                                                🔗 {btnText}
-                                            </span>
+                                            <span className="text-[#53bdeb] text-sm font-medium">🔗 {btnText}</span>
                                         </div>
                                     </div>
-
-                                    {/* Footer */}
-                                    {footerText && (
-                                        <p className="text-[10px] text-white/40 mt-2">{footerText}</p>
-                                    )}
+                                    {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
                                 </div>
                                 <p className="text-[10px] text-white/30 text-right mt-1">10:07</p>
                             </div>
                         </div>
 
-                        {/* Select envio for preview */}
                         {envios.length > 0 && (
                             <div>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                                    Selecione um envio para visualizar com dados reais
-                                </label>
-                                <Select
-                                    value={previewEnvio?.id || ""}
-                                    onValueChange={(val) => {
-                                        const envio = envios.find((e) => e.id === val);
-                                        if (envio) setPreviewEnvio(envio);
-                                    }}
-                                >
-                                    <SelectTrigger className="bg-transparent border-border/50">
-                                        <SelectValue placeholder="Escolher envio..." />
-                                    </SelectTrigger>
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Selecione um envio para visualizar com dados reais</label>
+                                <Select value={previewEnvio?.id || ""} onValueChange={(val) => { const envio = envios.find((e) => e.id === val); if (envio) setPreviewEnvio(envio); }}>
+                                    <SelectTrigger className="bg-transparent border-border/50"><SelectValue placeholder="Escolher envio..." /></SelectTrigger>
                                     <SelectContent>
                                         {envios.slice(0, 20).map((e) => (
-                                            <SelectItem key={e.id} value={e.id}>
-                                                {e.cliente_nome} — {formatProduto(e.produto)}
-                                            </SelectItem>
+                                            <SelectItem key={e.id} value={e.id}>{e.cliente_nome} — {formatProduto(e.produto)}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -896,35 +865,74 @@ export default function WhatsApp() {
             {activeTab === "send" && (
                 <div className="space-y-4 animate-stagger-in">
                     {/* Warning if not connected */}
-                    {instance?.status !== "connected" && (
+                    {connectedInstances.length === 0 && (
                         <div className="glass rounded-xl p-4 flex items-center gap-3 border border-yellow-500/30">
                             <AlertCircle className="h-5 w-5 text-yellow-500 shrink-0" />
                             <p className="text-sm text-yellow-500">
-                                Sua instância WhatsApp não está conectada. Vá para a aba "Instância" para conectar antes de enviar mensagens.
+                                Nenhuma instância WhatsApp conectada. Vá para a aba "Instância" para conectar.
                             </p>
                         </div>
                     )}
 
-                    {/* Warning if subscription expired */}
-                    {instance && isExpired && (
+                    {/* Warning if all subscriptions expired */}
+                    {instances.length > 0 && connectedInstances.length === 0 && instances.some((i) => i.status === "connected") && (
                         <div className="glass rounded-xl p-4 flex items-center justify-between gap-3 border border-red-500/30 flex-wrap">
                             <div className="flex items-center gap-3">
                                 <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
-                                <p className="text-sm text-red-400">
-                                    Assinatura expirada. Renove para enviar mensagens.
-                                </p>
+                                <p className="text-sm text-red-400">Assinaturas expiradas. Renove para enviar mensagens.</p>
                             </div>
-                            <Button
-                                size="sm"
-                                className="shimmer-btn"
-                                onClick={() => renewMutation.mutate()}
-                                disabled={renewMutation.isPending || !canAfford}
-                            >
-                                {renewMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                                Renovar ({whatsappPrice} moedas)
-                            </Button>
                         </div>
                     )}
+
+                    {/* Auto-send config */}
+                    <div className="glass glow-border rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-primary/10">
+                                    <Zap className="h-4 w-4 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Envio Automático</p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Novos leads receberão a mensagem automaticamente.
+                                    </p>
+                                </div>
+                            </div>
+                            <Switch
+                                checked={autoSend}
+                                onCheckedChange={(checked) => {
+                                    setAutoSend(checked);
+                                    saveAutoSendMutation.mutate({ auto: checked, delay: delayMinutes });
+                                }}
+                            />
+                        </div>
+
+                        {autoSend && (
+                            <div className="flex items-center gap-3 pl-11">
+                                <label className="text-xs text-muted-foreground whitespace-nowrap">Delay entre envios:</label>
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={60}
+                                    value={delayMinutes}
+                                    onChange={(e) => setDelayMinutes(Number(e.target.value) || 5)}
+                                    onBlur={() => saveAutoSendMutation.mutate({ auto: autoSend, delay: delayMinutes })}
+                                    className="w-20 h-7 text-xs bg-transparent border-border/50 text-center"
+                                />
+                                <span className="text-xs text-muted-foreground">minutos</span>
+                                <span className="text-[10px] text-muted-foreground/60">(recomendado: 5 min)</span>
+                            </div>
+                        )}
+
+                        {connectedInstances.length > 1 && (
+                            <div className="flex items-center gap-2 pl-11">
+                                <RotateCcw className="h-3 w-3 text-primary" />
+                                <span className="text-[10px] text-muted-foreground">
+                                    Rotação ativa: {connectedInstances.length} instâncias alternando envios.
+                                </span>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Action bar */}
                     <div className="glass-strong glow-border rounded-xl p-3">
@@ -944,7 +952,7 @@ export default function WhatsApp() {
                                         size="sm"
                                         className="shimmer-btn h-8 text-xs"
                                         onClick={handleSendSelected}
-                                        disabled={instance?.status !== "connected" || sendingIds.size > 0 || isExpired}
+                                        disabled={connectedInstances.length === 0 || sendingIds.size > 0}
                                     >
                                         {sendingIds.size > 0 ? (
                                             <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -952,6 +960,9 @@ export default function WhatsApp() {
                                             <Send className="h-3.5 w-3.5 mr-1" />
                                         )}
                                         Enviar ({selectedIds.size})
+                                        {connectedInstances.length > 1 && (
+                                            <span className="ml-1 text-[9px] opacity-70">🔄 rotação</span>
+                                        )}
                                     </Button>
                                 )}
                             </div>
@@ -967,16 +978,13 @@ export default function WhatsApp() {
                                     />
                                 </div>
                                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                    <SelectTrigger className="w-[120px] h-8 text-xs bg-transparent border-border/50">
+                                    <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/50">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="todos">Todos Status</SelectItem>
-                                        <SelectItem value="pendente">Pendente</SelectItem>
-                                        <SelectItem value="coletado">Coletado</SelectItem>
-                                        <SelectItem value="em_transito">Em Trânsito</SelectItem>
-                                        <SelectItem value="saiu_para_entrega">Saiu p/ Entrega</SelectItem>
-                                        <SelectItem value="entregue">Entregue</SelectItem>
+                                        <SelectItem value="todos">Todos</SelectItem>
+                                        <SelectItem value="enviado">✅ Enviado</SelectItem>
+                                        <SelectItem value="nao_enviado">⏳ Não Enviado</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -998,9 +1006,10 @@ export default function WhatsApp() {
                         <div className="flex flex-col gap-1.5">
                             {filteredEnvios.map((envio, idx) => {
                                 const isSending = sendingIds.has(envio.id);
-                                const isSent = sentIds.has(envio.id);
-                                const isFailed = failedIds.has(envio.id);
+                                const isSent = sentEnvioIds.has(envio.id) || failedIds.has(envio.id) === false && sendingIds.has(envio.id) === false && sentEnvioIds.has(envio.id);
+                                const isFailed = failedEnvioIds.has(envio.id) || failedIds.has(envio.id);
                                 const hasPhone = !!envio.cliente_telefone;
+                                const anyInstanceReady = connectedInstances.length > 0;
 
                                 return (
                                     <div
@@ -1043,12 +1052,12 @@ export default function WhatsApp() {
 
                                             {/* Status indicator */}
                                             <div className="flex items-center gap-2 ml-auto shrink-0">
-                                                {isSent && (
+                                                {sentEnvioIds.has(envio.id) && (
                                                     <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
                                                         <Check className="h-3 w-3 mr-0.5" /> Enviado
                                                     </Badge>
                                                 )}
-                                                {isFailed && (
+                                                {(failedEnvioIds.has(envio.id) || failedIds.has(envio.id)) && !sentEnvioIds.has(envio.id) && (
                                                     <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5">
                                                         <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
                                                     </Badge>
@@ -1059,8 +1068,8 @@ export default function WhatsApp() {
                                                     size="icon"
                                                     className="h-7 w-7 hover:bg-green-500/10"
                                                     onClick={() => sendMessage(envio)}
-                                                    disabled={isSending || instance?.status !== "connected" || isExpired}
-                                                    title={isExpired ? "Assinatura expirada" : "Enviar mensagem"}
+                                                    disabled={isSending || !anyInstanceReady}
+                                                    title={!anyInstanceReady ? "Nenhuma instância ativa" : "Enviar mensagem"}
                                                 >
                                                     {isSending ? (
                                                         <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />
