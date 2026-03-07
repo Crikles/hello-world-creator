@@ -638,6 +638,100 @@ async function advanceShipment(
       }
     }
 
+    // WhatsApp auto-send with round-robin instance rotation
+    if (
+      config.whatsapp_auto_send &&
+      shipment.cliente_telefone &&
+      !nextEvent.enviar_nfe_pdf
+    ) {
+      try {
+        const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN");
+        if (ADMIN_TOKEN) {
+          // Fetch connected instances with active subscriptions
+          const { data: waInstances } = await supabase
+            .from("whatsapp_instances")
+            .select("*")
+            .eq("loja_id", lojaId)
+            .eq("status", "connected");
+
+          const activeWaInstances = (waInstances || []).filter(
+            (i: any) => i.expires_at && new Date(i.expires_at) > new Date()
+          );
+
+          if (activeWaInstances.length > 0) {
+            // Round-robin rotation per loja
+            if (!whatsappCounters[lojaId]) whatsappCounters[lojaId] = 0;
+            const inst = activeWaInstances[whatsappCounters[lojaId] % activeWaInstances.length];
+            whatsappCounters[lojaId]++;
+
+            // Build message from template
+            let produtoNome = shipment.produto;
+            try {
+              const parsed = JSON.parse(shipment.produto);
+              if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
+            } catch { /* not JSON */ }
+
+            const msgTemplate = config.whatsapp_msg_template || "Olá {{nome}}! Seu pedido foi atualizado.";
+            let text = msgTemplate
+              .replace(/\{\{nome\}\}/g, shipment.cliente_nome || "")
+              .replace(/\{\{produto\}\}/g, produtoNome)
+              .replace(/\{\{valor\}\}/g, Number(shipment.valor || 0).toFixed(2))
+              .replace(/\{\{codigo_rastreio\}\}/g, shipment.codigo_rastreio || "");
+
+            const number = shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
+              ? shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
+              : "55" + shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
+
+            const btnText = config.whatsapp_btn_text || "📦 Rastrear Pedido";
+            const trackingUrl = `https://rastreio.logisticajltransportes.com/r/${shipment.codigo_rastreio || ""}`;
+            const footerText = config.whatsapp_footer || "";
+            const imageUrl = config.whatsapp_image_url || null;
+            const replyText = config.whatsapp_reply_text || null;
+            const btn2Text = config.whatsapp_btn2_text || null;
+            const btn2Url = config.whatsapp_btn2_url || null;
+
+            const choices: string[] = [];
+            if (btnText && trackingUrl) choices.push(`${btnText}|${trackingUrl}`);
+            if (btn2Text && btn2Url) choices.push(`${btn2Text}|${btn2Url}`);
+            if (replyText) choices.push(replyText);
+
+            const sendBody: Record<string, unknown> = {
+              number,
+              type: "button",
+              text: imageUrl ? `\n${text}` : text,
+              choices,
+            };
+            if (imageUrl) sendBody.imageButton = imageUrl;
+            if (footerText) sendBody.footerText = footerText;
+
+            const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                token: inst.instance_token,
+              },
+              body: JSON.stringify(sendBody),
+            });
+
+            const waStatus = res.ok ? "sent" : "failed";
+
+            // Log message
+            await supabase.from("whatsapp_message_log").insert({
+              envio_id: envioId,
+              loja_id: lojaId,
+              instance_id: inst.id,
+              status: waStatus,
+            });
+
+            console.log(`WhatsApp ${waStatus} for envio ${envioId} via instance ${inst.instance_name}`);
+          }
+        }
+      } catch (waErr) {
+        console.error(`WhatsApp auto-send failed for envio ${envioId}:`, waErr);
+      }
+    }
+
     console.log(`Advanced envio ${envioId} -> ${nextEvent.status_label} (${newStatus})`);
     return true;
   } catch (err) {
