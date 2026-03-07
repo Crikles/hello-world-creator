@@ -912,28 +912,28 @@ export default function WhatsApp() {
                                                         ),
                                                     }}
                                                 />
-                                                {/* Link button */}
-                                                <div className="mt-3 pt-2 border-t border-white/10">
-                                                    <div className="text-center py-2 px-3 rounded-lg bg-white/5">
-                                                        <span className="text-[#53bdeb] text-sm font-medium">🔗 {btnText}</span>
+                                                {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
+                                                <p className="text-[10px] text-white/30 text-right mt-1">
+                                                    {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                                </p>
+                                            </div>
+                                            {/* Buttons area - inside bubble */}
+                                            <div className="border-t border-white/10">
+                                                <div className="flex items-center justify-center gap-1.5 py-2 cursor-pointer hover:bg-white/5">
+                                                    <span className="text-[#53bdeb] text-sm">🔗</span>
+                                                    <span className="text-[#53bdeb] text-sm font-medium">{btnText}</span>
+                                                </div>
+                                            </div>
+                                            {replyText && (
+                                                <div className="border-t border-white/10">
+                                                    <div className="flex items-center justify-center gap-1.5 py-2 cursor-pointer hover:bg-white/5">
+                                                        <Reply className="h-3.5 w-3.5 text-[#53bdeb]" />
+                                                        <span className="text-[#53bdeb] text-sm font-medium">{replyText}</span>
                                                     </div>
                                                 </div>
-                                                {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
-                                            </div>
+                                            )}
                                         </div>
-                                        <p className="text-[10px] text-white/30 text-right mt-1">
-                                            {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                                        </p>
                                     </div>
-
-                                    {/* Reply button */}
-                                    {replyText && (
-                                        <div className="max-w-[92%] ml-auto mt-2">
-                                            <div className="bg-[#1f2c34] rounded-xl py-2.5 px-4 text-center border border-zinc-700/50">
-                                                <span className="text-[#53bdeb] text-sm font-medium">{replyText}</span>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
 
                                 {/* Phone bottom bar */}
