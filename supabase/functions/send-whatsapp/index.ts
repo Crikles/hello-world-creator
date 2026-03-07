@@ -461,31 +461,9 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "number and text are required" }, 400);
             }
 
-            if (image_url) {
-                try {
-                    await fetch(`${UAZAPI_BASE}/send/image`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            token: instanceToken,
-                        },
-                        body: JSON.stringify({ number, url: image_url, caption: "" }),
-                    });
-                } catch (e) {
-                    console.error("Image send error:", e);
-                }
-            }
-
             const choices: string[] = [];
-            if (btn_text && btn_url) {
-                choices.push(`${btn_text}|${btn_url}`);
-            }
-
-            const buttons: string[] = [];
-            if (reply_text) {
-                buttons.push(reply_text);
-            }
+            if (reply_text) choices.push(reply_text);
+            if (btn_text && btn_url) choices.push(`${btn_text}|${btn_url}`);
 
             const sendBody: Record<string, unknown> = {
                 number,
@@ -493,8 +471,7 @@ Deno.serve(async (req) => {
                 text,
                 choices,
             };
-
-            if (buttons.length > 0) sendBody.buttons = buttons;
+            if (image_url) sendBody.imageButton = image_url;
             if (footer) sendBody.footerText = footer;
 
             const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
@@ -584,11 +561,13 @@ Deno.serve(async (req) => {
 
             const { data: configData } = await supabaseAdmin
                 .from("postagem_config")
-                .select("whatsapp_delay_seconds")
+                .select("whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text")
                 .eq("loja_id", loja_id)
                 .maybeSingle();
 
             const delayMs = ((configData?.whatsapp_delay_seconds) || 300) * 1000;
+            const queueImageUrl = configData?.whatsapp_image_url || null;
+            const queueReplyText = configData?.whatsapp_reply_text || null;
 
             const results: { envio_id: string; status: string; instance_name: string }[] = [];
 
@@ -608,6 +587,7 @@ Deno.serve(async (req) => {
                     : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
 
                 const choices: string[] = [];
+                if (queueReplyText) choices.push(queueReplyText);
                 if (btn_text && btn_url_template) {
                     choices.push(`${btn_text}|${btn_url_template.replace("{{codigo_rastreio}}", envio.codigo_rastreio || "")}`);
                 }
@@ -618,6 +598,7 @@ Deno.serve(async (req) => {
                     text,
                     choices,
                 };
+                if (queueImageUrl) sendBody.imageButton = queueImageUrl;
                 if (footer) sendBody.footerText = footer;
 
                 try {
