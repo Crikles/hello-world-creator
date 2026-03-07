@@ -562,7 +562,7 @@ Deno.serve(async (req) => {
 
             const { data: configData } = await supabaseAdmin
                 .from("postagem_config")
-                .select("whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text")
+                .select("whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url")
                 .eq("loja_id", loja_id)
                 .maybeSingle();
 
