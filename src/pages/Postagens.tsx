@@ -726,17 +726,17 @@ export default function Postagens() {
                           <p className="text-[11px] text-muted-foreground truncate">{evento.descricao}</p>
                           <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
                             {evento.enviar_email && (
-                              <span className="flex items-center gap-0.5 text-primary">
+                              <span className={`flex items-center gap-0.5 ${ativo ? "text-emerald-400" : "text-destructive/70"}`}>
                                 <Mail className="h-2.5 w-2.5" /> Email
                               </span>
                             )}
                             {evento.enviar_nfe_pdf && (
-                              <span className="flex items-center gap-0.5 text-primary">
+                              <span className={`flex items-center gap-0.5 ${ativo ? "text-emerald-400" : "text-destructive/70"}`}>
                                 <FileText className="h-2.5 w-2.5" /> NFe
                               </span>
                             )}
                             {!evento.enviar_nfe_pdf && localConfig?.ativar_site_rastreio && (
-                              <span className="flex items-center gap-0.5 text-primary">
+                              <span className={`flex items-center gap-0.5 ${ativo ? "text-emerald-400" : "text-destructive/70"}`}>
                                 <MessageSquare className="h-2.5 w-2.5" /> SMS
                               </span>
                             )}
