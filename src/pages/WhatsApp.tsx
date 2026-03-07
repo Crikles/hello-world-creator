@@ -595,14 +595,31 @@ export default function WhatsApp() {
                                     size="sm"
                                     className="shimmer-btn"
                                     onClick={() => createInstanceMutation.mutate()}
-                                    disabled={createInstanceMutation.isPending || !canAfford}
+                                    disabled={createInstanceMutation.isPending || (freeSlots === 0 && !canAfford)}
                                 >
                                     {createInstanceMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                                     <Plug className="h-3.5 w-3.5 mr-1.5" />
-                                    Nova Instância
+                                    {freeSlots > 0 ? "Usar Slot Disponível" : `Nova Instância (${whatsappPrice})`}
                                 </Button>
                             )}
                         </div>
+
+                        {/* Slots info banner */}
+                        {totalActiveSubs > 0 && (
+                            <div className="glass rounded-xl p-3 flex items-center justify-between mb-4 border border-primary/20">
+                                <div className="flex items-center gap-2">
+                                    <Coins className="h-4 w-4 text-amber-500 shrink-0" />
+                                    <p className="text-xs text-muted-foreground">
+                                        <span className="font-semibold text-foreground">{totalActiveSubs} assinatura{totalActiveSubs > 1 ? "s" : ""} ativa{totalActiveSubs > 1 ? "s" : ""}</span>
+                                        {" · "}
+                                        <span className="font-semibold text-foreground">{instances.length} instância{instances.length !== 1 ? "s" : ""}</span>
+                                        {freeSlots > 0 && (
+                                            <span className="text-green-400 font-semibold"> · {freeSlots} slot{freeSlots > 1 ? "s" : ""} livre{freeSlots > 1 ? "s" : ""}</span>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         {instances.length === 0 ? (
                             /* No instance yet */
@@ -612,18 +629,22 @@ export default function WhatsApp() {
                                 </div>
                                 <p className="text-foreground font-medium">Nenhuma instância configurada</p>
                                 <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                                    Crie sua instância do WhatsApp para começar a enviar mensagens de rastreio.
+                                    {freeSlots > 0
+                                        ? "Você tem um slot de assinatura disponível! Crie uma instância sem custo."
+                                        : "Crie sua instância do WhatsApp para começar a enviar mensagens de rastreio."}
                                 </p>
 
-                                <div className="glass rounded-xl px-5 py-3 mt-4 flex items-center gap-3">
-                                    <Coins className="h-5 w-5 text-amber-500" />
-                                    <div className="text-left">
-                                        <p className="text-sm font-semibold text-foreground">{whatsappPrice} moedas/mês</p>
-                                        <p className="text-[10px] text-muted-foreground">Será debitado ao criar a instância. Sem reembolso.</p>
+                                {freeSlots === 0 && (
+                                    <div className="glass rounded-xl px-5 py-3 mt-4 flex items-center gap-3">
+                                        <Coins className="h-5 w-5 text-amber-500" />
+                                        <div className="text-left">
+                                            <p className="text-sm font-semibold text-foreground">{whatsappPrice} moedas/mês</p>
+                                            <p className="text-[10px] text-muted-foreground">Será debitado ao criar a instância.</p>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
-                                {!canAfford && (
+                                {freeSlots === 0 && !canAfford && (
                                     <p className="text-xs text-red-400 mt-3 flex items-center gap-1">
                                         <AlertCircle className="h-3 w-3" />
                                         Saldo insuficiente. Você tem {Number(creditos ?? 0).toFixed(2)} moedas.
@@ -633,11 +654,11 @@ export default function WhatsApp() {
                                 <Button
                                     className="shimmer-btn mt-5"
                                     onClick={() => createInstanceMutation.mutate()}
-                                    disabled={createInstanceMutation.isPending || !canAfford}
+                                    disabled={createInstanceMutation.isPending || (freeSlots === 0 && !canAfford)}
                                 >
                                     {createInstanceMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                     <Plug className="h-4 w-4 mr-1.5" />
-                                    Criar Instância ({whatsappPrice} moedas)
+                                    {freeSlots > 0 ? "Criar Instância (Slot Disponível)" : `Criar Instância (${whatsappPrice} moedas)`}
                                 </Button>
                             </div>
                         ) : (
