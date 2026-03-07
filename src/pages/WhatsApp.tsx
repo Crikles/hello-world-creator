@@ -353,7 +353,9 @@ export default function WhatsApp() {
                     whatsapp_msg_template: msgTemplate,
                     whatsapp_btn_text: btnText,
                     whatsapp_footer: footerText,
-                })
+                    whatsapp_image_url: imageUrl || null,
+                    whatsapp_reply_text: replyText || null,
+                } as any)
                 .eq("loja_id", loja!.id);
             if (error) throw error;
         },
