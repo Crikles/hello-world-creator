@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.falha-info]
 verify_jwt = false
+
+[functions.send-whatsapp]
+verify_jwt = false
