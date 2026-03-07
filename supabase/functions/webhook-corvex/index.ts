@@ -145,7 +145,10 @@ Deno.serve(async (req) => {
 
     // 4. If paid and no envio linked yet, create envio
     if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
-      const firstProduct = normalizedProducts[0] || {};
+      const produtoJson = JSON.stringify(
+        normalizedProducts.map((p: any) => ({ nome: p.title, quantidade: p.quantity || 1 }))
+      );
+      const totalQuantidade = normalizedProducts.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
 
       // Buscar empresa da loja
       const { data: empresaData } = await supabase
