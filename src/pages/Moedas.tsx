@@ -40,7 +40,7 @@ interface PixPaymentData {
 }
 
 export default function Moedas() {
-    const { user, session } = useAuth();
+    const { user, session, isImpersonating } = useAuth();
     const queryClient = useQueryClient();
     const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(null);
     const [loading, setLoading] = useState(false);
