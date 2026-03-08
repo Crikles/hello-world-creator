@@ -481,6 +481,13 @@ async function advanceShipment(
 
     if (sErr || !shipment) return false;
 
+    // Fallback: fetch empresa by loja_id if empresa_id was not set
+    if (!shipment.empresas && shipment.loja_id) {
+      const { data: fallbackEmpresa } = await supabase
+        .from("empresas").select("*").eq("loja_id", shipment.loja_id).maybeSingle();
+      if (fallbackEmpresa) (shipment as any).empresas = fallbackEmpresa;
+    }
+
     const currentOrdem = shipment.ultimo_evento_ordem ?? 0;
     // deno-lint-ignore no-explicit-any
     const nextEvent = allEvents.find((e: any) => e.ordem > currentOrdem);

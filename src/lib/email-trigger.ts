@@ -28,6 +28,13 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             return null;
         }
 
+        // Fallback: fetch empresa by loja_id if empresa_id was not set
+        if (!shipment.empresas && shipment.loja_id) {
+            const { data: fallbackEmpresa } = await supabase
+                .from("empresas").select("*").eq("loja_id", shipment.loja_id).maybeSingle();
+            if (fallbackEmpresa) (shipment as any).empresas = fallbackEmpresa;
+        }
+
         // 1.5. Check delay constraint — block if proximo_avanco_em is in the future
         const proximoAvanco = (shipment as any).proximo_avanco_em;
         if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
