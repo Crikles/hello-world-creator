@@ -1,41 +1,58 @@
 
 
-# Correção: NF-e não anexada ao email
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-## Problema Identificado
+### Root cause
 
-A NF-e não está sendo anexada porque muitos envios (450 de 800) têm `empresa_id = NULL`. O código atual busca os dados da empresa via `select("*, empresas(*)")` que depende do FK `empresa_id`. Quando esse campo é nulo, `shipment.empresas` retorna `null` e a geração do PDF é silenciosamente pulada — o email é enviado, mas sem o anexo.
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-Existe uma empresa cadastrada para cada loja, mas o vínculo no envio não foi preenchido.
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-## Solução
+### Fix
 
-Adicionar um fallback em **3 arquivos** para buscar a empresa pela `loja_id` quando `empresa_id` for nulo:
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-### 1. `src/lib/email-trigger.ts` (client-side trigger)
-Após buscar o shipment, se `shipment.empresas` for null, fazer uma query adicional:
+### Changes
+
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
+
 ```typescript
-if (!shipment.empresas && shipment.loja_id) {
-  const { data: fallbackEmpresa } = await supabase
-    .from("empresas").select("*").eq("loja_id", shipment.loja_id).maybeSingle();
-  if (fallbackEmpresa) shipment.empresas = fallbackEmpresa;
-}
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-### 2. `supabase/functions/advance-shipments/index.ts` (cron server-side)
-Mesmo fallback na função `advanceShipment` após o `select("*, empresas(*)")`.
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-### 3. `supabase/functions/send-email/index.ts`
-Verificar se a mesma lógica de busca do evento NF-e é impactada (provável que não, pois o send-email recebe o `nfe_storage_path` pronto).
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
 
-### 4. Migration: preencher `empresa_id` nos envios existentes
-```sql
-UPDATE envios e
-SET empresa_id = emp.id
-FROM empresas emp
-WHERE e.empresa_id IS NULL
-  AND emp.loja_id = e.loja_id;
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-Isso corrige os 450 envios sem vínculo e garante que envios futuros que cheguem sem `empresa_id` ainda consigam gerar a NF-e.
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
