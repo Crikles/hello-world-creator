@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
             },
             postbackUrl: webhookUrl,
             externalRef: pixPayment.id,
-            metadata: `Recarga ${moedas} moedas - User ${user.id}`,
+            metadata: `Recarga ${moedas} moedas - User ${effectiveUserId}`,
         };
 
         const blackcatResponse = await fetch(
