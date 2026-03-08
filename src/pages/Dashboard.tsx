@@ -327,7 +327,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex-1 -mt-0.5">
                   <p className="text-sm font-medium text-foreground">
-                    {envio.cliente_nome} — <span className="font-normal text-muted-foreground">{envio.produto}</span>
+                    {envio.cliente_nome} — <span className="font-normal text-muted-foreground">{formatProduto(envio.produto)}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {statusLabels[envio.status]} • {format(new Date(envio.created_at), "dd/MM/yyyy HH:mm")}
