@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatProduto } from "@/lib/format-produto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2 } from "lucide-react";
