@@ -83,15 +83,15 @@ Deno.serve(async (req) => {
             .eq("id", effectiveUserId)
             .maybeSingle();
 
-        const customerName = profile?.full_name || user.email?.split("@")[0] || "Cliente";
-        const customerEmail = profile?.email || user.email || "cliente@email.com";
+        const customerName = profile?.full_name || profile?.email?.split("@")[0] || "Cliente";
+        const customerEmail = profile?.email || "cliente@email.com";
         const customerPhone = profile?.whatsapp?.replace(/\D/g, "") || "00000000000";
 
         // Insert payment record first to get the ID for externalRef
         const { data: pixPayment, error: insertError } = await supabase
             .from("pix_payments")
             .insert({
-                user_id: user.id,
+                user_id: effectiveUserId,
                 amount_cents,
                 moedas,
                 status: "PENDING",
