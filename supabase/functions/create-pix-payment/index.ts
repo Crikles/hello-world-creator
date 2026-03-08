@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
         const supabase = createClient(supabaseUrl, serviceRoleKey);
 
         const body = await req.json();
-        const { amount_cents, moedas } = body;
+        const { amount_cents, moedas, target_user_id } = body;
 
         if (!amount_cents || !moedas || amount_cents < 100) {
             return new Response(
@@ -55,11 +55,32 @@ Deno.serve(async (req) => {
             );
         }
 
+        // Determine effective user: allow admin to create PIX on behalf of another user
+        let effectiveUserId = user.id;
+        if (target_user_id && target_user_id !== user.id) {
+            const { data: adminRole } = await supabase
+                .from("user_roles")
+                .select("role")
+                .eq("user_id", user.id)
+                .eq("role", "admin")
+                .maybeSingle();
+            if (!adminRole) {
+                return new Response(
+                    JSON.stringify({ error: "Sem permissão para criar PIX em nome de outro usuário" }),
+                    {
+                        status: 403,
+                        headers: { ...corsHeaders, "Content-Type": "application/json" },
+                    }
+                );
+            }
+            effectiveUserId = target_user_id;
+        }
+
         // Get user profile for customer info
         const { data: profile } = await supabase
             .from("profiles")
             .select("full_name, email, whatsapp")
-            .eq("id", user.id)
+            .eq("id", effectiveUserId)
             .maybeSingle();
 
         const customerName = profile?.full_name || user.email?.split("@")[0] || "Cliente";

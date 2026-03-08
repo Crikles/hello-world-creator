@@ -131,6 +131,7 @@ export default function Moedas() {
                 body: JSON.stringify({
                     amount_cents: pkg.price_cents,
                     moedas: pkg.moedas + calcBonus(pkg.moedas),
+                    ...(isImpersonating && user?.id ? { target_user_id: user.id } : {}),
                 }),
             });
 
