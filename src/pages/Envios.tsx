@@ -773,7 +773,7 @@ export default function Envios() {
         ) : (
           /* Envio Rows */
           <div className="flex flex-col gap-1.5">
-            {filteredEnvios.map((envio, idx) => (
+            {paginatedEnvios.map((envio, idx) => (
               <div
                 key={envio.id}
                 className="glass glow-border-hover rounded-lg px-3 py-2 transition-all duration-200 hover:bg-primary/5 animate-stagger-in group"
