@@ -771,7 +771,8 @@ export default function Envios() {
             </Button>
           </div>
         ) : (
-          /* Envio Rows */
+          <>
+          {/* Envio Rows */}
           <div className="flex flex-col gap-1.5">
             {paginatedEnvios.map((envio, idx) => (
               <div
