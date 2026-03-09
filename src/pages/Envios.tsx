@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX, ChevronLeft, ChevronRight } from "lucide-react";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,8 @@ import { generateDanfePdfBase64 } from "@/lib/nfe-utils";
 import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
 import { formatProduto } from "@/lib/format-produto";
+
+const ITEMS_PER_PAGE = 20;
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
@@ -73,6 +75,7 @@ export default function Envios() {
   const queryClient = useQueryClient();
   const { loja } = useLoja();
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Batch advance state
   const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
@@ -465,12 +468,39 @@ export default function Envios() {
     return matchSearch && matchStatus && matchDate;
   });
 
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus, dateRange.from, dateRange.to]);
+
+  const totalPages = Math.ceil(filteredEnvios.length / ITEMS_PER_PAGE);
+  const paginatedEnvios = filteredEnvios.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(filteredEnvios.map((e) => e.id)));
+      setSelectedIds(new Set(paginatedEnvios.map((e) => e.id)));
     } else {
       setSelectedIds(new Set());
     }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
   };
 
   const toggleSelect = (id: string) => {
@@ -561,7 +591,7 @@ export default function Envios() {
               <div className="flex items-center gap-3 glass rounded-lg px-3 py-1.5">
                 <div className="flex items-center gap-2 border-r border-border/50 pr-2">
                   <Checkbox
-                    checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
+                    checked={paginatedEnvios.length > 0 && paginatedEnvios.every(e => selectedIds.has(e.id))}
                     onCheckedChange={(checked) => handleSelectAll(!!checked)}
                     className="h-4 w-4 border-primary/30"
                   />
@@ -741,9 +771,10 @@ export default function Envios() {
             </Button>
           </div>
         ) : (
-          /* Envio Rows */
+          <>
+          {/* Envio Rows */}
           <div className="flex flex-col gap-1.5">
-            {filteredEnvios.map((envio, idx) => (
+            {paginatedEnvios.map((envio, idx) => (
               <div
                 key={envio.id}
                 className="glass glow-border-hover rounded-lg px-3 py-2 transition-all duration-200 hover:bg-primary/5 animate-stagger-in group"
@@ -884,6 +915,51 @@ export default function Envios() {
               </div>
             ))}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between glass glow-border rounded-xl px-4 py-3 mt-2">
+              <span className="text-xs text-muted-foreground">
+                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredEnvios.length)} de {filteredEnvios.length} envios
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {getPageNumbers().map((pg, i) =>
+                  pg === "..." ? (
+                    <span key={`ellipsis-${i}`} className="text-xs text-muted-foreground px-1">...</span>
+                  ) : (
+                    <Button
+                      key={pg}
+                      variant={currentPage === pg ? "default" : "outline"}
+                      size="sm"
+                      className="h-8 w-8 p-0 text-xs"
+                      onClick={() => setCurrentPage(pg as number)}
+                    >
+                      {pg}
+                    </Button>
+                  )
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
