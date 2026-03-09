@@ -75,6 +75,7 @@ export default function Envios() {
   const queryClient = useQueryClient();
   const { loja } = useLoja();
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Batch advance state
   const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
