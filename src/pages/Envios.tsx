@@ -914,6 +914,50 @@ export default function Envios() {
               </div>
             ))}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between glass glow-border rounded-xl px-4 py-3 mt-2">
+              <span className="text-xs text-muted-foreground">
+                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredEnvios.length)} de {filteredEnvios.length} envios
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {getPageNumbers().map((pg, i) =>
+                  pg === "..." ? (
+                    <span key={`ellipsis-${i}`} className="text-xs text-muted-foreground px-1">...</span>
+                  ) : (
+                    <Button
+                      key={pg}
+                      variant={currentPage === pg ? "default" : "outline"}
+                      size="sm"
+                      className="h-8 w-8 p-0 text-xs"
+                      onClick={() => setCurrentPage(pg as number)}
+                    >
+                      {pg}
+                    </Button>
+                  )
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         )}
 
         <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
