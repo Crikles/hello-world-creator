@@ -468,12 +468,39 @@ export default function Envios() {
     return matchSearch && matchStatus && matchDate;
   });
 
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus, dateRange.from, dateRange.to]);
+
+  const totalPages = Math.ceil(filteredEnvios.length / ITEMS_PER_PAGE);
+  const paginatedEnvios = filteredEnvios.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(filteredEnvios.map((e) => e.id)));
+      setSelectedIds(new Set(paginatedEnvios.map((e) => e.id)));
     } else {
       setSelectedIds(new Set());
     }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
   };
 
   const toggleSelect = (id: string) => {
