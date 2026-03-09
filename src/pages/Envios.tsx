@@ -959,6 +959,7 @@ export default function Envios() {
               </div>
             </div>
           )}
+          </>
         )}
 
         <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
