@@ -591,7 +591,7 @@ export default function Envios() {
               <div className="flex items-center gap-3 glass rounded-lg px-3 py-1.5">
                 <div className="flex items-center gap-2 border-r border-border/50 pr-2">
                   <Checkbox
-                    checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
+                    checked={paginatedEnvios.length > 0 && paginatedEnvios.every(e => selectedIds.has(e.id))}
                     onCheckedChange={(checked) => handleSelectAll(!!checked)}
                     className="h-4 w-4 border-primary/30"
                   />
