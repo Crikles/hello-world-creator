@@ -71,6 +71,8 @@ interface PostagemConfig {
   origem_cidade: string | null;
   origem_estado: string | null;
   whatsapp_vendedor: string | null;
+  cor_primaria: string | null;
+  cor_botao_cta: string | null;
 }
 
 const ESTADOS_BR = [
@@ -278,7 +280,9 @@ export default function Postagens() {
       config.ativar_falha_entrega !== localConfig.ativar_falha_entrega ||
       (config as any).origem_cidade !== localConfig.origem_cidade ||
       (config as any).origem_estado !== localConfig.origem_estado ||
-      (config as any).whatsapp_vendedor !== localConfig.whatsapp_vendedor;
+      (config as any).whatsapp_vendedor !== localConfig.whatsapp_vendedor ||
+      (config as any).cor_primaria !== localConfig.cor_primaria ||
+      (config as any).cor_botao_cta !== localConfig.cor_botao_cta;
     const delaysChanged = activeEventos?.some(
       e => localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas
     );
@@ -383,6 +387,8 @@ export default function Postagens() {
           origem_cidade: localConfig.origem_cidade,
           origem_estado: localConfig.origem_estado,
           whatsapp_vendedor: localConfig.whatsapp_vendedor || null,
+          cor_primaria: localConfig.cor_primaria || '#6366f1',
+          cor_botao_cta: localConfig.cor_botao_cta || '#1a1a1a',
         })
         .eq("loja_id", loja.id);
       if (configErr) throw configErr;
@@ -558,6 +564,72 @@ export default function Postagens() {
                   />
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Personalização Visual */}
+          {localConfig && (
+            <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.23s" }}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Settings2 className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Personalização Visual</p>
+                  <p className="text-xs text-muted-foreground">Cores aplicadas nos e-mails e site de rastreio</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Cor Primária (destaques, rastreio)</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={localConfig.cor_primaria || "#6366f1"}
+                      onChange={(e) => setLocalConfig(prev => prev ? { ...prev, cor_primaria: e.target.value } : prev)}
+                      className="h-10 w-12 rounded-md border border-input cursor-pointer"
+                    />
+                    <Input
+                      value={localConfig.cor_primaria || "#6366f1"}
+                      onChange={(e) => setLocalConfig(prev => prev ? { ...prev, cor_primaria: e.target.value } : prev)}
+                      placeholder="#6366f1"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Cor do Botão CTA (e-mails)</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={localConfig.cor_botao_cta || "#1a1a1a"}
+                      onChange={(e) => setLocalConfig(prev => prev ? { ...prev, cor_botao_cta: e.target.value } : prev)}
+                      className="h-10 w-12 rounded-md border border-input cursor-pointer"
+                    />
+                    <Input
+                      value={localConfig.cor_botao_cta || "#1a1a1a"}
+                      onChange={(e) => setLocalConfig(prev => prev ? { ...prev, cor_botao_cta: e.target.value } : prev)}
+                      placeholder="#1a1a1a"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* Preview */}
+              <div className="mt-4 p-4 rounded-lg border border-border/30 bg-muted/30">
+                <p className="text-xs text-muted-foreground mb-2">Preview</p>
+                <div className="flex items-center gap-3">
+                  <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: localConfig.cor_primaria || "#6366f1" }} />
+                  <span className="text-xs font-mono font-bold" style={{ color: localConfig.cor_primaria || "#6366f1" }}>BR547454312HF</span>
+                  <button
+                    type="button"
+                    className="px-4 py-1.5 rounded-full text-xs font-bold text-white"
+                    style={{ backgroundColor: localConfig.cor_botao_cta || "#1a1a1a" }}
+                  >
+                    Rastrear Pedido
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

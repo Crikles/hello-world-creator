@@ -175,7 +175,8 @@ function buildEmailHtml(
   envio: Record<string, unknown>,
   extras: Record<string, string>,
   primaryColor = "#6366f1",
-  appBaseUrl = "https://rastreio.logisticajltransportes.com"
+  appBaseUrl = "https://rastreio.logisticajltransportes.com",
+  ctaColor = "#1a1a1a"
 ): string {
   // --- Check for Taxação-specific settings ---
   const statusLabel = (evento.status_label as string) || "";
@@ -334,10 +335,10 @@ function buildEmailHtml(
       </table>`
     : "";
 
-  // CTA button with accent color
+  // CTA button with custom color
   const ctaBlock = mostrarBotaoCta && textoBotaoCta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 0;">
-        <tr><td style="background-color:${colors.accent};border-radius:50px;box-shadow:0 4px 16px ${colors.accent}44;">
+        <tr><td style="background-color:${ctaColor};border-radius:50px;box-shadow:0 4px 16px ${ctaColor}44;">
           <a href="${urlBotaoCta}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 44px;font-size:14px;font-weight:700;letter-spacing:0.3px;">${textoBotaoCta}</a>
         </td></tr>
       </table>`
@@ -845,9 +846,12 @@ Deno.serve(async (req) => {
       emailRemetente = "noreply@centrojadlog.com"; // default jadlog email
     }
 
+    let corPrimaria = "#6366f1";
+    let corBotaoCta = "#1a1a1a";
+
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor")
+      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
@@ -856,6 +860,12 @@ Deno.serve(async (req) => {
     }
     if (config?.whatsapp_vendedor) {
       whatsappVendedor = config.whatsapp_vendedor;
+    }
+    if (config?.cor_primaria) {
+      corPrimaria = config.cor_primaria;
+    }
+    if (config?.cor_botao_cta) {
+      corBotaoCta = config.cor_botao_cta;
     }
 
     // Fetch empresa data
@@ -909,8 +919,8 @@ Deno.serve(async (req) => {
       ? "https://rastreio.centrojadlog.com"
       : (Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com");
 
-    const primaryColor = isJadlog ? "#e10526" : "#6366f1";
-    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl);
+    const primaryColor = isJadlog ? "#e10526" : corPrimaria;
+    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta);
 
     // Resolve PDF attachment: prefer storage path, fallback to inline base64
     let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;

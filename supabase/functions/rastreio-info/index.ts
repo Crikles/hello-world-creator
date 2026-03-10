@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         if (envio.loja_id) {
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao, ativar_falha_entrega, origem_cidade, origem_estado")
+                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao, ativar_falha_entrega, origem_cidade, origem_estado, cor_primaria")
                 .eq("loja_id", envio.loja_id)
                 .maybeSingle();
 
@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
                             cidade: config?.origem_cidade || null,
                             estado: config?.origem_estado || null,
                         },
+                        cor_primaria: config?.cor_primaria || null,
                     }),
                     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                 );

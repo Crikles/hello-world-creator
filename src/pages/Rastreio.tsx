@@ -88,6 +88,7 @@ export default function Rastreio() {
     const [searched, setSearched] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [origem, setOrigem] = useState<OrigemData>({ cidade: null, estado: null });
+    const [customPrimaryColor, setCustomPrimaryColor] = useState<string | null>(null);
 
     const fetchData = useCallback(async (trackingCode: string) => {
         if (!trackingCode || trackingCode.trim().length < 3) return;
@@ -115,6 +116,7 @@ export default function Rastreio() {
                 setEventos(result.eventos || []);
                 setTotalEventos(result.totalEventos || 0);
                 setOrigem(result.origem || { cidade: null, estado: null });
+                if (result.cor_primaria) setCustomPrimaryColor(result.cor_primaria);
                 if (!result.envio) setError("Certifique-se de que o código está correto");
             }
         } catch {
@@ -146,7 +148,7 @@ export default function Rastreio() {
 
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
     const logoUrl = isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
-    const primaryColor = isJadlog ? "#D71920" : "#6366f1";
+    const primaryColor = isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
 
     const progress = totalEventos > 0 && envio
         ? Math.min(100, Math.round((envio.ultimo_evento_ordem / totalEventos) * 100))

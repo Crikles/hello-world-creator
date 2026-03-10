@@ -547,6 +547,8 @@ export type Database = {
           ativar_taxacao: boolean
           auto_envio: boolean | null
           checkout_url_falha: string | null
+          cor_botao_cta: string | null
+          cor_primaria: string | null
           created_at: string
           email_remetente: string | null
           enviar_emails: boolean
@@ -576,6 +578,8 @@ export type Database = {
           ativar_taxacao?: boolean
           auto_envio?: boolean | null
           checkout_url_falha?: string | null
+          cor_botao_cta?: string | null
+          cor_primaria?: string | null
           created_at?: string
           email_remetente?: string | null
           enviar_emails?: boolean
@@ -605,6 +609,8 @@ export type Database = {
           ativar_taxacao?: boolean
           auto_envio?: boolean | null
           checkout_url_falha?: string | null
+          cor_botao_cta?: string | null
+          cor_primaria?: string | null
           created_at?: string
           email_remetente?: string | null
           enviar_emails?: boolean
