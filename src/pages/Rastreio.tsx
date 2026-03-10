@@ -423,9 +423,8 @@ export default function Rastreio() {
                                                     <div key={ev.ordem} className="journey-point-correios">
                                                         <div className="point-indicator-correios">
                                                             <div className="indicator-line-correios" />
-                                                            <div className="indicator-node-correios" style={{ background: '#e2e8f0' }}>
-                                                                {/* Simple package icon for typical Correios, or map to status */}
-                                                                <Icon size={16} color="#005a96" />
+                            <div className="indicator-node-correios" style={{ background: '#e2e8f0' }}>
+                                                                 <Icon size={16} color={primaryColor} />
                                                             </div>
                                                         </div>
                                                         <div className="point-content-correios">
