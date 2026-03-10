@@ -844,6 +844,19 @@ export default function Envios() {
                     <span className="inline-block h-1 w-1 rounded-full bg-current mr-1" />
                     {getDisplayStatus(envio)}
                   </Badge>
+                  {/* Transportadora tag */}
+                  {envio.transportadora && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${
+                        envio.transportadora.toUpperCase().includes('JADLOG')
+                          ? 'bg-destructive/10 text-destructive border-destructive/30'
+                          : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                      }`}
+                    >
+                      {envio.transportadora.toUpperCase().includes('JADLOG') ? 'JADLOG' : 'JL'}
+                    </Badge>
+                  )}
 
                   {/* Quick links */}
                   <div className="flex items-center gap-0.5 ml-auto shrink-0">
