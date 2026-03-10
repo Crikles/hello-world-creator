@@ -41,6 +41,7 @@ interface TaxacaoSettings {
     forma_pagamento: string;
     cor_botao: string;
     cor_header: string;
+    cor_destaque: string;
     mostrar_valor: boolean;
     mostrar_prazo: boolean;
 }
@@ -54,6 +55,7 @@ const DEFAULT_SETTINGS: TaxacaoSettings = {
     forma_pagamento: "Todos",
     cor_botao: "#2563eb",
     cor_header: "#f59e0b",
+    cor_destaque: "#6366f1",
     mostrar_valor: true,
     mostrar_prazo: true,
 };
@@ -164,7 +166,7 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
             <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
               <tr><td style="padding:14px 16px;text-align:center;">
                 <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🔍 Rastreio</p>
-                <p style="margin:0;font-size:16px;font-weight:800;color:${settings.cor_botao};letter-spacing:1px;font-family:'Courier New',Courier,monospace;">BR547454312HF</p>
+                <p style="margin:0;font-size:16px;font-weight:800;color:${settings.cor_destaque};letter-spacing:1px;font-family:'Courier New',Courier,monospace;">BR547454312HF</p>
               </td></tr>
             </table>
         </td></tr>
@@ -210,8 +212,8 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                 <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#10b981]">
                     <CheckCircle2 size={10} /> Pedido
                 </div>
-                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#6366f1]">
-                    <div className="w-1.5 h-1.5 bg-[#6366f1] rounded-full" /> Taxação
+                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider" style={{ color: settings.cor_destaque }}>
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: settings.cor_destaque }} /> Taxação
                 </div>
                 <div className="text-[8px] font-extrabold uppercase tracking-wider text-slate-300">Liberação</div>
                 <div className="text-[8px] font-extrabold uppercase tracking-wider text-slate-300">Entrega</div>
@@ -225,11 +227,11 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                     </div>
                     <div className="space-y-2 text-[10px]">
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Cliente</span><span className="font-bold text-[#020617]">Maria Silva</span></div>
-                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">CPF</span><span className="font-mono text-[10px] font-semibold text-[#6366f1]">123.456.789-00</span></div>
+                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">CPF</span><span className="font-mono text-[10px] font-semibold" style={{ color: settings.cor_destaque }}>123.456.789-00</span></div>
                         <div className="flex justify-between items-start"><span className="font-bold text-slate-500 uppercase">Endereço</span><span className="font-bold text-[#020617] text-right text-[9px] max-w-[55%]">Rua Exemplo, 123 - Centro<br />São Paulo/SP — CEP 01000-000</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Produto</span><span className="font-bold text-[#020617]">Camiseta Polo Premium</span></div>
-                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Referência</span><span className="font-mono text-[10px] font-semibold text-[#6366f1]">BR547454312HF</span></div>
+                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Referência</span><span className="font-mono text-[10px] font-semibold" style={{ color: settings.cor_destaque }}>BR547454312HF</span></div>
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Transportadora</span><span className="font-bold text-[#020617]">JL Transportes</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         {settings.mostrar_valor && (
@@ -249,14 +251,14 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
 
                 <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
                     <div className="text-center mb-3">
-                        <span className="text-[8px] font-extrabold tracking-widest uppercase text-[#6366f1] bg-[#6366f1]/10 px-2 py-0.5 rounded-full">AÇÃO REQUERIDA</span>
+                        <span className="text-[8px] font-extrabold tracking-widest uppercase px-2 py-0.5 rounded-full" style={{ color: settings.cor_destaque, backgroundColor: `${settings.cor_destaque}1a` }}>AÇÃO REQUERIDA</span>
                         <h2 className="text-sm font-extrabold text-[#020617] mt-2">Efetuar Pagamento</h2>
                         <p className="text-[9px] text-slate-500 mt-1">Selecione o método de pagamento para liberar sua encomenda.</p>
                     </div>
-                    <div className="flex items-center gap-2 p-2 rounded-xl border-2 border-[#6366f1] bg-[#6366f1]/5 mb-3">
-                        <QrCode size={14} className="text-[#6366f1]" />
+                    <div className="flex items-center gap-2 p-2 rounded-xl border-2 mb-3" style={{ borderColor: settings.cor_destaque, backgroundColor: `${settings.cor_destaque}0d` }}>
+                        <QrCode size={14} style={{ color: settings.cor_destaque }} />
                         <span className="text-[10px] font-bold text-[#020617]">PIX</span>
-                        <CheckCircle2 size={12} className="text-[#6366f1] ml-auto" />
+                        <CheckCircle2 size={12} className="ml-auto" style={{ color: settings.cor_destaque }} />
                     </div>
                     <div className="w-full py-2.5 rounded-xl text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-md" style={{ backgroundColor: settings.cor_botao }}>
                         <span>{settings.texto_botao}</span>
@@ -379,7 +381,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
         mutationFn: async () => {
             saveSettings(lojaId, settings);
             if (taxacaoEvento) {
-                const corpoEmail = `${settings.mensagem_taxa}\n\n{{taxacao_valor:${settings.valor_exemplo}}}{{taxacao_url:${settings.url_pagamento}}}{{taxacao_botao:${settings.texto_botao}}}{{taxacao_cor:${settings.cor_botao}}}{{taxacao_cor_header:${settings.cor_header}}}{{taxacao_prazo:${settings.prazo_dias}}}{{taxacao_forma:${settings.forma_pagamento}}}{{taxacao_mostrar_valor:${settings.mostrar_valor}}}{{taxacao_mostrar_prazo:${settings.mostrar_prazo}}}`;
+                const corpoEmail = `${settings.mensagem_taxa}\n\n{{taxacao_valor:${settings.valor_exemplo}}}{{taxacao_url:${settings.url_pagamento}}}{{taxacao_botao:${settings.texto_botao}}}{{taxacao_cor:${settings.cor_botao}}}{{taxacao_cor_header:${settings.cor_header}}}{{taxacao_cor_destaque:${settings.cor_destaque}}}{{taxacao_prazo:${settings.prazo_dias}}}{{taxacao_forma:${settings.forma_pagamento}}}{{taxacao_mostrar_valor:${settings.mostrar_valor}}}{{taxacao_mostrar_prazo:${settings.mostrar_prazo}}}`;
                 const { error } = await supabase
                     .from("postagem_eventos")
                     .update({ corpo_email: corpoEmail })
@@ -406,6 +408,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                 const valorMatch = corpo.match(/\{\{taxacao_valor:([^}]*)\}\}/);
                 const corMatch = corpo.match(/\{\{taxacao_cor:([^}]*)\}\}/);
                 const corHeaderMatch = corpo.match(/\{\{taxacao_cor_header:([^}]*)\}\}/);
+                const corDestaqueMatch = corpo.match(/\{\{taxacao_cor_destaque:([^}]*)\}\}/);
                 const prazoMatch = corpo.match(/\{\{taxacao_prazo:([^}]*)\}\}/);
                 const formaMatch = corpo.match(/\{\{taxacao_forma:([^}]*)\}\}/);
                 const mostrarValorMatch = corpo.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
@@ -422,6 +425,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                     valor_exemplo: valorMatch?.[1] || DEFAULT_SETTINGS.valor_exemplo,
                     cor_botao: corMatch?.[1] || DEFAULT_SETTINGS.cor_botao,
                     cor_header: corHeaderMatch?.[1] || DEFAULT_SETTINGS.cor_header,
+                    cor_destaque: corDestaqueMatch?.[1] || DEFAULT_SETTINGS.cor_destaque,
                     prazo_dias: prazoMatch?.[1] || DEFAULT_SETTINGS.prazo_dias,
                     forma_pagamento: formaMatch?.[1] || DEFAULT_SETTINGS.forma_pagamento,
                     mostrar_valor: mostrarValorMatch ? mostrarValorMatch[1] === "true" : true,
@@ -540,11 +544,20 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                                 <Switch checked={settings.mostrar_prazo} onCheckedChange={(v) => set("mostrar_prazo", v)} />
                             </div>
 
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
-                                <div className="flex items-center gap-2">
-                                    <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
-                                    <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
+                                        <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">Cor de Destaque</Label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
+                                        <Input value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                                    </div>
                                 </div>
                             </div>
                         </div>

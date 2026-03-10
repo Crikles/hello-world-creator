@@ -35,6 +35,7 @@ interface FalhaEntregaSettings {
     checkout_url_falha: string;
     valor_taxa_falha: string;
     cor_botao: string;
+    cor_destaque: string;
 }
 
 const DEFAULT_SETTINGS: FalhaEntregaSettings = {
@@ -42,6 +43,7 @@ const DEFAULT_SETTINGS: FalhaEntregaSettings = {
     checkout_url_falha: "",
     valor_taxa_falha: "0.00",
     cor_botao: "#ea580c",
+    cor_destaque: "#ea580c",
 };
 
 const STORAGE_KEY = "falha_entrega_config_";
@@ -87,7 +89,7 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
                 <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#10b981]">
                     <CheckCircle2 size={10} /> Pedido
                 </div>
-                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#ea580c]">
+                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider" style={{ color: settings.cor_destaque }}>
                     <PackageX size={10} /> Falha na Entrega
                 </div>
                 <div className="text-[8px] font-extrabold uppercase tracking-wider text-slate-300">Retentativa</div>
@@ -103,8 +105,8 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Cliente</span><span className="font-bold text-[#020617]">Maria Silva</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Produto</span><span className="font-bold text-[#020617]">Camiseta Polo Premium</span></div>
-                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Referência</span><span className="font-mono text-[10px] font-semibold text-[#ea580c]">BR547454312HF</span></div>
-                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Status</span><span className="font-bold text-[#ea580c]">Tentativa Frustrada</span></div>
+                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Referência</span><span className="font-mono text-[10px] font-semibold" style={{ color: settings.cor_destaque }}>BR547454312HF</span></div>
+                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Status</span><span className="font-bold" style={{ color: settings.cor_destaque }}>Tentativa Frustrada</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         <div className="flex justify-between items-baseline">
                             <span className="text-[11px] font-extrabold uppercase">Taxa de Reenvio</span>
@@ -121,7 +123,7 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
 
                 <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
                     <div className="text-center mb-3">
-                        <span className="text-[8px] font-extrabold tracking-widest uppercase text-[#ea580c] bg-[#ea580c]/10 px-2 py-0.5 rounded-full">AÇÃO REQUERIDA</span>
+                        <span className="text-[8px] font-extrabold tracking-widest uppercase px-2 py-0.5 rounded-full" style={{ color: settings.cor_destaque, backgroundColor: `${settings.cor_destaque}1a` }}>AÇÃO REQUERIDA</span>
                         <h2 className="text-sm font-extrabold text-[#020617] mt-2">Pagar Novo Frete</h2>
                         <p className="text-[9px] text-slate-500 mt-1">Realize o pagamento para reenviarmos seu pedido.</p>
                     </div>
@@ -159,7 +161,7 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
               <td width="48"><div style="width:48px;height:48px;background-color:#fff7ed;border-radius:16px;text-align:center;line-height:48px;font-size:24px;">📦</div></td>
               <td style="padding-left:16px;">
                 <h1 style="margin:0;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Falha na Entrega</h1>
-                <p style="margin:4px 0 0;font-size:14px;color:#ea580c;font-weight:600;">Ação Necessária</p>
+                <p style="margin:4px 0 0;font-size:14px;color:${settings.cor_destaque};font-weight:600;">Ação Necessária</p>
               </td>
             </tr></table>
         </td></tr>
@@ -318,6 +320,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                 checkout_url_falha: (config as any).checkout_url_falha || "",
                 valor_taxa_falha: ((config as any).valor_taxa_falha || 0).toString(),
                 cor_botao: DEFAULT_SETTINGS.cor_botao,
+                cor_destaque: DEFAULT_SETTINGS.cor_destaque,
             };
             setSettings(loaded);
             setSavedSettings(loaded);
@@ -401,11 +404,20 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                                 <p className="text-[10px] text-muted-foreground">Link exibido no botão para o cliente pagar a retentativa</p>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
-                                <div className="flex items-center gap-2">
-                                    <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
-                                    <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
+                                        <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">Cor de Destaque</Label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
+                                        <Input value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
