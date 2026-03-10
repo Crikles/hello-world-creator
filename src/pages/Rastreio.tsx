@@ -88,6 +88,7 @@ export default function Rastreio() {
     const [searched, setSearched] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [origem, setOrigem] = useState<OrigemData>({ cidade: null, estado: null });
+    const [customPrimaryColor, setCustomPrimaryColor] = useState<string | null>(null);
 
     const fetchData = useCallback(async (trackingCode: string) => {
         if (!trackingCode || trackingCode.trim().length < 3) return;
