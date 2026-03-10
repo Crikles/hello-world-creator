@@ -872,7 +872,7 @@ export default function Envios() {
                         size="icon"
                         className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
                         title="Rastreio"
-                        onClick={() => window.open(`https://${envio.transportadora?.toUpperCase().includes('JADLOG') ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com'}/r/${envio.codigo_rastreio}`, '_blank')}
+                        onClick={() => window.open(`https://${getTrackingDomain(envio)}/r/${envio.codigo_rastreio}`, '_blank')}
                       >
                         <ExternalLink className="h-3 w-3" />
                       </Button>
