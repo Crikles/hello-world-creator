@@ -972,7 +972,7 @@ const styles = `
 }
 /* ─── CORREIOS STYLE TIMELINE ─── */
 .correios-table-header {
-    background: #005a96;
+    background: var(--timeline-header, #005a96);
     color: white;
     display: grid;
     grid-template-columns: 80px 1fr 150px;
