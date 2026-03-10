@@ -47,6 +47,13 @@ interface TaxSettings {
     url_pagamento: string;
     cor_botao: string;
     cor_header: string;
+    cor_destaque: string;
+    cor_titulo_resumo: string;
+    cor_label_taxa: string;
+    cor_descricao: string;
+    cor_fundo_descricao: string;
+    cor_borda_descricao: string;
+    mensagem_site: string;
     mostrar_valor: boolean;
     mostrar_prazo: boolean;
 }
@@ -59,6 +66,13 @@ const DEFAULT_TAX: TaxSettings = {
     url_pagamento: "",
     cor_botao: "#ea580c",
     cor_header: "#ea580c",
+    cor_destaque: "#ea580c",
+    cor_titulo_resumo: "#020617",
+    cor_label_taxa: "#020617",
+    cor_descricao: "#9a3412",
+    cor_fundo_descricao: "#fff7ed",
+    cor_borda_descricao: "#fed7aa80",
+    mensagem_site: "A transportadora não conseguiu concluir a entrega do seu pedido. O pacote retornou ao nosso centro de distribuição. Para realizarmos uma nova tentativa de envio, é necessário o pagamento da taxa de reenvio.",
     mostrar_valor: true,
     mostrar_prazo: true,
 };
@@ -121,7 +135,14 @@ export default function PagamentoFalha() {
     const isJadlog = envio?.transportadora?.toUpperCase().includes("JADLOG");
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
     const logoUrl = isJadlog ? "/logojadlog.png" : (empresa?.logo_url || "/logojltransportes.png");
-    const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#6366f1");
+    const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#ea580c");
+    const destaqueColor = isJadlog ? "#e10526" : (tax.cor_destaque || "#ea580c");
+    const tituloResumoColor = tax.cor_titulo_resumo || "#020617";
+    const labelTaxaColor = tax.cor_label_taxa || "#020617";
+    const descricaoColor = tax.cor_descricao || "#9a3412";
+    const fundoDescricaoColor = tax.cor_fundo_descricao || "#fff7ed";
+    const bordaDescricaoColor = tax.cor_borda_descricao || "#fed7aa80";
+    const mensagemSite = tax.mensagem_site || "A transportadora não conseguiu concluir a entrega do seu pedido. O pacote retornou ao nosso centro de distribuição. Para realizarmos uma nova tentativa de envio, é necessário o pagamento da taxa de reenvio.";
 
     if (loading) {
         return (
@@ -182,7 +203,7 @@ export default function PagamentoFalha() {
                     {/* Progress Step Indicator */}
                     <div className="mag-steps">
                         <div className="mag-step done"><CheckCircle2 size={14} /><span>Pedido</span></div>
-                        <div className="mag-step active"><div className="mag-dot" /><span>Falha na Entrega</span></div>
+                        <div className="mag-step active" style={{ color: destaqueColor }}><div className="mag-dot" style={{ background: destaqueColor }} /><span>Falha na Entrega</span></div>
                         <div className="mag-step disabled"><span>Liberação</span></div>
                         <div className="mag-step disabled"><span>Entrega</span></div>
                     </div>
@@ -193,7 +214,7 @@ export default function PagamentoFalha() {
                             <div className="mag-card mag-invoice-card">
                                 <div className="mag-card-h">
                                     <FileText size={20} />
-                                    <h3>Resumo da Cobrança</h3>
+                                    <h3 style={{ color: tituloResumoColor }}>Resumo da Cobrança</h3>
                                 </div>
 
                                 <div className="mag-invoice-body">
@@ -204,7 +225,7 @@ export default function PagamentoFalha() {
                                     {envio.cliente_cpf && (
                                         <div className="mag-inv-row">
                                             <span className="mag-inv-label">CPF</span>
-                                            <span className="mag-inv-mono">{formatCPF(envio.cliente_cpf)}</span>
+                                            <span className="mag-inv-mono" style={{ color: destaqueColor }}>{formatCPF(envio.cliente_cpf)}</span>
                                         </div>
                                     )}
                                     {(envio.cliente_endereco || envio.cliente_cidade) && (
@@ -226,7 +247,7 @@ export default function PagamentoFalha() {
                                     </div>
                                     <div className="mag-inv-row">
                                         <span className="mag-inv-label">Referência</span>
-                                        <span className="mag-inv-mono">{envio.codigo_rastreio}</span>
+                                        <span className="mag-inv-mono" style={{ color: destaqueColor }}>{envio.codigo_rastreio}</span>
                                     </div>
                                     <div className="mag-inv-row">
                                         <span className="mag-inv-label">Transportadora</span>
@@ -234,16 +255,16 @@ export default function PagamentoFalha() {
                                     </div>
                                     <div className="mag-inv-divider" />
                                     <div className="mag-inv-row mag-total">
-                                        <span>Total a pagar</span>
-                                        <div className="mag-total-price">
+                                        <span style={{ color: labelTaxaColor }}>Total a pagar</span>
+                                        <div className="mag-total-price" style={{ color: labelTaxaColor }}>
                                             <span className="mag-curr">R$</span>
                                             <span className="mag-amt">{valorFormatted}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mag-msg-box">
-                                    <p>{tax.mensagem_taxa}</p>
+                                <div className="mag-msg-box" style={{ background: fundoDescricaoColor, border: `1px solid ${bordaDescricaoColor}`, color: descricaoColor }}>
+                                    <p>{mensagemSite}</p>
                                 </div>
                             </div>
 
@@ -259,15 +280,15 @@ export default function PagamentoFalha() {
                         {/* Right: Payment Action */}
                         <div className="mag-action-side">
                             <div className="mag-card mag-payment-card">
-                                <div className="mag-pay-badge">AÇÃO REQUERIDA</div>
+                                <div className="mag-pay-badge" style={{ background: `${destaqueColor}1a`, color: destaqueColor }}>AÇÃO REQUERIDA</div>
                                 <h1>Efetuar Pagamento</h1>
                                 <p className="mag-pay-desc">Selecione o método de pagamento para liberar o fluxo de entrega da sua encomenda.</p>
 
                                 <div className="mag-payment-methods">
-                                    <div className="mag-method-tile active">
+                                    <div className="mag-method-tile active" style={{ borderColor: destaqueColor, background: `${destaqueColor}08` }}>
                                         <QrCode size={20} />
                                         <span>PIX</span>
-                                        <div className="mag-method-check"><CheckCircle2 size={14} /></div>
+                                        <div className="mag-method-check" style={{ background: destaqueColor }}><CheckCircle2 size={14} /></div>
                                     </div>
                                 </div>
 
