@@ -833,7 +833,7 @@ export default function Envios() {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Progress value={getProgress(envio)} className="h-1 w-16" />
                     <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-                      {getCurrentStep(envio)}/{envio.status === "entregue" ? Math.max(getCurrentStep(envio), 1) : totalEventos}
+                      {getCurrentStep(envio)}/{envio.status === "entregue" ? Math.max(getCurrentStep(envio), 1) : getTotalEventos(envio)}
                     </span>
                   </div>
 
