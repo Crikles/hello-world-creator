@@ -304,6 +304,20 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
         enabled: !!lojaId,
     });
 
+    const { data: falhaEvento } = useQuery({
+        queryKey: ["falha-evento", config?.template_ativo_id],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from("postagem_eventos")
+                .select("*")
+                .eq("template_id", config!.template_ativo_id!)
+                .eq("status_label", "Falha Entrega")
+                .maybeSingle();
+            return data;
+        },
+        enabled: !!config?.template_ativo_id,
+    });
+
     const set = (key: keyof FalhaEntregaSettings, val: any) =>
         setSettings((prev) => ({ ...prev, [key]: val }));
 
@@ -323,10 +337,20 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                 })
                 .eq("loja_id", lojaId);
             if (error) throw error;
+
+            // Also persist color settings to the Falha Entrega evento corpo_email
+            if (falhaEvento) {
+                const corpoEmail = `${settings.msg_falha_entrega}\n\n{{falha_cor_botao:${settings.cor_botao}}}{{falha_cor_destaque:${settings.cor_destaque}}}{{falha_cor_titulo_resumo:${settings.cor_titulo_resumo}}}{{falha_cor_label_taxa:${settings.cor_label_taxa}}}{{falha_cor_descricao:${settings.cor_descricao}}}{{falha_cor_fundo_descricao:${settings.cor_fundo_descricao}}}{{falha_cor_borda_descricao:${settings.cor_borda_descricao}}}{{falha_mensagem_site:${settings.mensagem_site}}}`;
+                await supabase
+                    .from("postagem_eventos")
+                    .update({ corpo_email: corpoEmail })
+                    .eq("id", falhaEvento.id);
+            }
         },
         onSuccess: () => {
             setSavedSettings({ ...settings });
             queryClient.invalidateQueries({ queryKey: ["postagem-config"] });
+            queryClient.invalidateQueries({ queryKey: ["falha-evento"] });
             toast({ title: "Configurações de Falha na Entrega salvas!" });
         },
         onError: () => {
