@@ -135,7 +135,14 @@ export default function PagamentoFalha() {
     const isJadlog = envio?.transportadora?.toUpperCase().includes("JADLOG");
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
     const logoUrl = isJadlog ? "/logojadlog.png" : (empresa?.logo_url || "/logojltransportes.png");
-    const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#6366f1");
+    const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#ea580c");
+    const destaqueColor = isJadlog ? "#e10526" : (tax.cor_destaque || "#ea580c");
+    const tituloResumoColor = tax.cor_titulo_resumo || "#020617";
+    const labelTaxaColor = tax.cor_label_taxa || "#020617";
+    const descricaoColor = tax.cor_descricao || "#9a3412";
+    const fundoDescricaoColor = tax.cor_fundo_descricao || "#fff7ed";
+    const bordaDescricaoColor = tax.cor_borda_descricao || "#fed7aa80";
+    const mensagemSite = tax.mensagem_site || "A transportadora não conseguiu concluir a entrega do seu pedido. O pacote retornou ao nosso centro de distribuição. Para realizarmos uma nova tentativa de envio, é necessário o pagamento da taxa de reenvio.";
 
     if (loading) {
         return (
