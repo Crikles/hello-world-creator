@@ -1,48 +1,58 @@
 
 
-# Personalização Completa de Cores — Taxação e Falha na Entrega
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-## Objetivo
-Dar liberdade total ao usuário para customizar as cores de todos os elementos visuais das páginas de Taxação e Falha na Entrega, incluindo títulos de seção, labels, descrições e backgrounds.
+### Root cause
 
-## Novos campos de cor (ambos os componentes)
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-| Campo | Default Taxação | Default Falha | Controla |
-|---|---|---|---|
-| `cor_titulo_resumo` | `#020617` | `#020617` | Título "Resumo da Cobrança" / "Resumo do Reenvio" |
-| `cor_label_taxa` | `#020617` | `#020617` | "Total a pagar" / "Taxa de Reenvio" |
-| `cor_descricao` | `#92400e` (amber-900) | `#9a3412` (orange-900) | Texto da descrição fixa |
-| `cor_fundo_descricao` | `#fffbeb` (amber-50) | `#fff7ed` (orange-50) | Background do box da descrição |
-| `cor_borda_descricao` | `#fde68a80` | `#fed7aa80` | Borda do box da descrição |
-| `mensagem_site` | (const fixa atual) | (const fixa atual) | Texto da descrição — agora editável |
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-Total: 5 novas cores + 1 campo de texto editável por componente.
+### Fix
 
-## Alterações
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-### `src/components/postagens/TaxacaoConfig.tsx`
-1. Adicionar os 5 novos campos de cor + `mensagem_site` ao `TaxacaoSettings` e `DEFAULT_SETTINGS`
-2. Substituir `MENSAGEM_FIXA_SITE` por `settings.mensagem_site` no preview
-3. Aplicar as cores dinâmicas no `TaxacaoTrackingPreview` e `buildTaxacaoPreviewHtml`:
-   - `cor_titulo_resumo` no h3 "Resumo da Cobrança"
-   - `cor_label_taxa` no "Total a pagar"
-   - `cor_descricao` no texto da mensagem
-   - `cor_fundo_descricao` e `cor_borda_descricao` no container
-4. Adicionar grid de color pickers na seção de configuração (expandir o grid existente de 2 para ~4 colunas)
-5. Adicionar textarea para `mensagem_site`
-6. Incluir na serialização `corpo_email` (tags `{{taxacao_cor_titulo_resumo:...}}` etc.)
+### Changes
 
-### `src/components/postagens/FailedDeliveryConfig.tsx`
-1. Mesmos 5 campos + `mensagem_site` ao `FalhaEntregaSettings`
-2. Aplicar cores no `FalhaEntregaTrackingPreview` e `FalhaEntregaEmailPreview`
-3. Adicionar color pickers + textarea para mensagem do site
-4. Incluir na serialização do `localStorage` (e no save para `postagem_config`)
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
 
-### Persistência
-- Taxação: serializado nas tags `{{taxacao_*}}` dentro do `corpo_email` (padrão existente)
-- Falha: serializado no `localStorage` + campos existentes no `postagem_config` (padrão existente)
-- Sem migration necessária
+Extend the existing filter to also remove NF-e events when disabled:
 
-### Layout dos color pickers
-Organizar em um card "Personalização de Cores" com grid 2x3 ou 3x2 para não poluir a UI existente. Cada picker = input color + campo hex.
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 

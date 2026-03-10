@@ -22,7 +22,8 @@ import {
     ArrowRight,
     Globe,
     Mail,
-    AlertTriangle
+    AlertTriangle,
+    Palette,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +37,12 @@ interface FalhaEntregaSettings {
     valor_taxa_falha: string;
     cor_botao: string;
     cor_destaque: string;
+    cor_titulo_resumo: string;
+    cor_label_taxa: string;
+    cor_descricao: string;
+    cor_fundo_descricao: string;
+    cor_borda_descricao: string;
+    mensagem_site: string;
 }
 
 const DEFAULT_SETTINGS: FalhaEntregaSettings = {
@@ -44,6 +51,12 @@ const DEFAULT_SETTINGS: FalhaEntregaSettings = {
     valor_taxa_falha: "0.00",
     cor_botao: "#ea580c",
     cor_destaque: "#ea580c",
+    cor_titulo_resumo: "#020617",
+    cor_label_taxa: "#020617",
+    cor_descricao: "#9a3412",
+    cor_fundo_descricao: "#fff7ed",
+    cor_borda_descricao: "#fed7aa80",
+    mensagem_site: "A transportadora não conseguiu concluir a entrega do seu pedido. O pacote retornou ao nosso centro de distribuição. Para realizarmos uma nova tentativa de envio, é necessário o pagamento da taxa de reenvio.",
 };
 
 const STORAGE_KEY = "falha_entrega_config_";
@@ -60,9 +73,19 @@ function saveSettings(lojaId: string, settings: FalhaEntregaSettings) {
     localStorage.setItem(STORAGE_KEY + lojaId, JSON.stringify(settings));
 }
 
-/* ─────────────────────── Fixed message ─────────────────────── */
+/* ─────────────────────── Color Picker Helper ─────────────────────── */
 
-const MENSAGEM_FIXA_SITE = "A transportadora não conseguiu concluir a entrega do seu pedido. O pacote retornou ao nosso centro de distribuição. Para realizarmos uma nova tentativa de envio, é necessário o pagamento da taxa de reenvio.";
+function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+    return (
+        <div className="space-y-1">
+            <Label className="text-[10px] font-medium text-muted-foreground">{label}</Label>
+            <div className="flex items-center gap-1.5">
+                <input type="color" value={value.replace(/[0-9a-f]{2}$/i, '') || value} onChange={(e) => onChange(e.target.value)} className="w-7 h-7 rounded cursor-pointer border border-border/50" />
+                <Input value={value} onChange={(e) => onChange(e.target.value)} className="text-[10px] font-mono flex-1 bg-transparent border-border/50 h-7 px-1.5" />
+            </div>
+        </div>
+    );
+}
 
 /* ─────────────────────── Tracking Site Preview ─────────────────────── */
 
@@ -99,7 +122,7 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
                 <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-3 pb-2 border-b border-dashed border-slate-200">
                         <FileText size={14} className="text-slate-600" />
-                        <h3 className="text-[10px] font-extrabold tracking-wide uppercase">Resumo do Reenvio</h3>
+                        <h3 className="text-[10px] font-extrabold tracking-wide uppercase" style={{ color: settings.cor_titulo_resumo }}>Resumo do Reenvio</h3>
                     </div>
                     <div className="space-y-2 text-[10px]">
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Cliente</span><span className="font-bold text-[#020617]">Maria Silva</span></div>
@@ -109,15 +132,15 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Status</span><span className="font-bold" style={{ color: settings.cor_destaque }}>Tentativa Frustrada</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         <div className="flex justify-between items-baseline">
-                            <span className="text-[11px] font-extrabold uppercase">Taxa de Reenvio</span>
+                            <span className="text-[11px] font-extrabold uppercase" style={{ color: settings.cor_label_taxa }}>Taxa de Reenvio</span>
                             <div className="flex items-baseline gap-0.5">
                                 <span className="text-[9px] font-bold text-slate-500">R$</span>
-                                <span className="text-lg font-extrabold text-[#020617]">{valorFormatted}</span>
+                                <span className="text-lg font-extrabold" style={{ color: settings.cor_label_taxa }}>{valorFormatted}</span>
                             </div>
                         </div>
                     </div>
-                    <div className="mt-3 p-2.5 bg-orange-50 border border-orange-200/50 rounded-xl">
-                        <p className="text-[9px] text-orange-900 leading-relaxed font-medium">{MENSAGEM_FIXA_SITE}</p>
+                    <div className="mt-3 p-2.5 rounded-xl" style={{ backgroundColor: settings.cor_fundo_descricao, borderWidth: 1, borderStyle: 'solid', borderColor: settings.cor_borda_descricao }}>
+                        <p className="text-[9px] leading-relaxed font-medium" style={{ color: settings.cor_descricao }}>{settings.mensagem_site}</p>
                     </div>
                 </div>
 
@@ -158,9 +181,9 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
         <tr><td style="padding:40px 40px 0;">
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
-              <td width="48"><div style="width:48px;height:48px;background-color:#fff7ed;border-radius:16px;text-align:center;line-height:48px;font-size:24px;">📦</div></td>
+              <td width="48"><div style="width:48px;height:48px;background-color:${settings.cor_fundo_descricao};border-radius:16px;text-align:center;line-height:48px;font-size:24px;">📦</div></td>
               <td style="padding-left:16px;">
-                <h1 style="margin:0;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Falha na Entrega</h1>
+                <h1 style="margin:0;font-size:20px;font-weight:800;color:${settings.cor_titulo_resumo};letter-spacing:-0.5px;">Falha na Entrega</h1>
                 <p style="margin:4px 0 0;font-size:14px;color:${settings.cor_destaque};font-weight:600;">Ação Necessária</p>
               </td>
             </tr></table>
@@ -170,16 +193,16 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
             <p style="margin:0;font-size:15px;line-height:1.6;color:#334155;">Tivemos um problema ao entregar o seu pedido <strong style="color:#0f172a;">Camiseta Polo Premium</strong>.</p>
         </td></tr>
         <tr><td style="padding:0 40px 24px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff7ed;border-radius:16px;border:1px solid #ffedd5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:${settings.cor_fundo_descricao};border-radius:16px;border:1px solid ${settings.cor_borda_descricao};">
               <tr><td style="padding:24px;">
-                <p style="margin:0 0 16px;font-size:15px;color:#c2410c;line-height:1.6;font-weight:500;">
+                <p style="margin:0 0 16px;font-size:15px;color:${settings.cor_descricao};line-height:1.6;font-weight:500;">
                   ${settings.msg_falha_entrega}
                 </p>
-                <div style="background-color:#ffffff;border-radius:12px;padding:16px;margin:16px 0;border:1px solid #ffedd5;">
+                <div style="background-color:#ffffff;border-radius:12px;padding:16px;margin:16px 0;border:1px solid ${settings.cor_borda_descricao};">
                   <table width="100%" cellpadding="0" cellspacing="0">
                     <tr>
                       <td><p style="margin:0;font-size:13px;color:#64748b;font-weight:600;text-transform:uppercase;">Taxa de Reenvio</p></td>
-                      <td align="right"><p style="margin:0;font-size:20px;color:#0f172a;font-weight:800;">R$ ${valorFormatted}</p></td>
+                      <td align="right"><p style="margin:0;font-size:20px;color:${settings.cor_label_taxa};font-weight:800;">R$ ${valorFormatted}</p></td>
                     </tr>
                   </table>
                 </div>
@@ -207,7 +230,6 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
 
     return (
         <div className="bg-[#f1f5f9] rounded-2xl border-2 border-border/50 shadow-xl overflow-hidden w-full h-[500px] flex flex-col">
-            {/* Header for Email Window */}
             <div className="bg-white border-b border-black/5 px-4 py-3 flex items-center justify-between shadow-sm z-10">
                 <div className="flex items-center gap-3">
                     <div className="flex gap-1.5">
@@ -224,7 +246,6 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
                 </div>
             </div>
 
-            {/* Scale Container */}
             <div className="flex-1 relative overflow-auto custom-scrollbar bg-slate-100/50 flex">
                 <div className="absolute inset-0 origin-top flex items-start justify-center p-4">
                     <div className="w-full max-w-[600px] shadow-sm transform scale-90 sm:scale-100 origin-top">
@@ -315,12 +336,19 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
 
     useEffect(() => {
         if (config) {
+            const localStored = loadSettings(lojaId);
             const loaded: FalhaEntregaSettings = {
                 msg_falha_entrega: (config as any).msg_falha_entrega || DEFAULT_SETTINGS.msg_falha_entrega,
                 checkout_url_falha: (config as any).checkout_url_falha || "",
                 valor_taxa_falha: ((config as any).valor_taxa_falha || 0).toString(),
-                cor_botao: DEFAULT_SETTINGS.cor_botao,
-                cor_destaque: DEFAULT_SETTINGS.cor_destaque,
+                cor_botao: localStored.cor_botao || DEFAULT_SETTINGS.cor_botao,
+                cor_destaque: localStored.cor_destaque || DEFAULT_SETTINGS.cor_destaque,
+                cor_titulo_resumo: localStored.cor_titulo_resumo || DEFAULT_SETTINGS.cor_titulo_resumo,
+                cor_label_taxa: localStored.cor_label_taxa || DEFAULT_SETTINGS.cor_label_taxa,
+                cor_descricao: localStored.cor_descricao || DEFAULT_SETTINGS.cor_descricao,
+                cor_fundo_descricao: localStored.cor_fundo_descricao || DEFAULT_SETTINGS.cor_fundo_descricao,
+                cor_borda_descricao: localStored.cor_borda_descricao || DEFAULT_SETTINGS.cor_borda_descricao,
+                mensagem_site: localStored.mensagem_site || DEFAULT_SETTINGS.mensagem_site,
             };
             setSettings(loaded);
             setSavedSettings(loaded);
@@ -403,23 +431,49 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                                 <Input type="url" value={settings.checkout_url_falha} onChange={(e) => set("checkout_url_falha", e.target.value)} placeholder="https://seusite.com/checkout-frete" className="text-sm bg-transparent border-border/50" />
                                 <p className="text-[10px] text-muted-foreground">Link exibido no botão para o cliente pagar a retentativa</p>
                             </div>
+                        </div>
+                    </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
-                                    <div className="flex items-center gap-2">
-                                        <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
-                                        <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
-                                    </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-medium text-muted-foreground">Cor de Destaque</Label>
-                                    <div className="flex items-center gap-2">
-                                        <input type="color" value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
-                                        <Input value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
-                                    </div>
-                                </div>
+                    {/* Mensagem do Site */}
+                    <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.05s" }}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <MessageSquare className="h-3.5 w-3.5 text-primary" />
                             </div>
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">Mensagem do Site</p>
+                                <p className="text-[10px] text-muted-foreground">Texto exibido no box de descrição da página</p>
+                            </div>
+                        </div>
+                        <Textarea
+                            value={settings.mensagem_site}
+                            onChange={(e) => set("mensagem_site", e.target.value)}
+                            maxLength={500}
+                            className="text-sm resize-none bg-transparent border-border/50"
+                            rows={4}
+                        />
+                        <p className="text-[10px] text-muted-foreground text-right mt-1">{settings.mensagem_site.length}/500</p>
+                    </div>
+
+                    {/* Personalização de Cores */}
+                    <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.06s" }}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <Palette className="h-3.5 w-3.5 text-primary" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">Personalização de Cores</p>
+                                <p className="text-[10px] text-muted-foreground">Customize cada elemento visual</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <ColorPicker label="Cor do Botão" value={settings.cor_botao} onChange={(v) => set("cor_botao", v)} />
+                            <ColorPicker label="Cor de Destaque" value={settings.cor_destaque} onChange={(v) => set("cor_destaque", v)} />
+                            <ColorPicker label="Título (Resumo)" value={settings.cor_titulo_resumo} onChange={(v) => set("cor_titulo_resumo", v)} />
+                            <ColorPicker label="Label (Taxa)" value={settings.cor_label_taxa} onChange={(v) => set("cor_label_taxa", v)} />
+                            <ColorPicker label="Texto Descrição" value={settings.cor_descricao} onChange={(v) => set("cor_descricao", v)} />
+                            <ColorPicker label="Fundo Descrição" value={settings.cor_fundo_descricao} onChange={(v) => set("cor_fundo_descricao", v)} />
+                            <ColorPicker label="Borda Descrição" value={settings.cor_borda_descricao} onChange={(v) => set("cor_borda_descricao", v)} />
                         </div>
                     </div>
 
@@ -472,7 +526,6 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                         </div>
 
                         <div className="flex-1 w-full flex flex-col">
-                            {/* Visualizar as 3 abas */}
                             <div className="flex gap-2 p-1 bg-muted/30 rounded-lg mb-4 text-xs font-semibold w-full">
                                 <button onClick={() => setPreviewTab("site")} className={`flex-1 py-1.5 rounded-md transition-colors flex justify-center items-center gap-1.5 ${previewTab === "site" ? "text-slate-800 bg-white shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}><Eye size={14} /> Site</button>
                                 <button onClick={() => setPreviewTab("email")} className={`flex-1 py-1.5 rounded-md transition-colors flex justify-center items-center gap-1.5 ${previewTab === "email" ? "text-slate-800 bg-white shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}><Mail size={14} /> E-mail</button>
