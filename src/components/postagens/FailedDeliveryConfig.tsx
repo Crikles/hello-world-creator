@@ -35,6 +35,7 @@ interface FalhaEntregaSettings {
     checkout_url_falha: string;
     valor_taxa_falha: string;
     cor_botao: string;
+    cor_destaque: string;
 }
 
 const DEFAULT_SETTINGS: FalhaEntregaSettings = {
@@ -42,6 +43,7 @@ const DEFAULT_SETTINGS: FalhaEntregaSettings = {
     checkout_url_falha: "",
     valor_taxa_falha: "0.00",
     cor_botao: "#ea580c",
+    cor_destaque: "#ea580c",
 };
 
 const STORAGE_KEY = "falha_entrega_config_";
