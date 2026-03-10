@@ -853,21 +853,16 @@ export default function Envios() {
                     {getDisplayStatus(envio)}
                   </Badge>
                   {/* Transportadora tag */}
-                  {(() => {
-                    const isJadlog = envio.transportadora?.toUpperCase().includes('JADLOG') || (!envio.transportadora && loja?.logistica_provider === 'jadlog');
-                    return (
-                      <Badge
-                        variant="outline"
-                        className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${
-                          isJadlog
-                            ? 'bg-destructive/10 text-destructive border-destructive/30'
-                            : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
-                        }`}
-                      >
-                        {isJadlog ? 'JADLOG' : 'JL'}
-                      </Badge>
-                    );
-                  })()}
+                  <Badge
+                    variant="outline"
+                    className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${
+                      isJadlog(envio)
+                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                        : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                    }`}
+                  >
+                    {isJadlog(envio) ? 'JADLOG' : 'JL'}
+                  </Badge>
 
                   {/* Quick links */}
                   <div className="flex items-center gap-0.5 ml-auto shrink-0">
