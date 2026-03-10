@@ -212,8 +212,8 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                 <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#10b981]">
                     <CheckCircle2 size={10} /> Pedido
                 </div>
-                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#6366f1]">
-                    <div className="w-1.5 h-1.5 bg-[#6366f1] rounded-full" /> Taxação
+                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider" style={{ color: settings.cor_destaque }}>
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: settings.cor_destaque }} /> Taxação
                 </div>
                 <div className="text-[8px] font-extrabold uppercase tracking-wider text-slate-300">Liberação</div>
                 <div className="text-[8px] font-extrabold uppercase tracking-wider text-slate-300">Entrega</div>
