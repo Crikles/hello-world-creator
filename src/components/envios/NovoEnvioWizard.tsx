@@ -118,12 +118,6 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         .eq("loja_id", loja.id)
         .maybeSingle();
 
-      const { data: lojaData } = await supabase
-        .from("lojas")
-        .select("logistica_provider")
-        .eq("id", loja.id)
-        .single();
-
       const { data: configData } = await supabase
         .from("postagem_config")
         .select("template_ativo_id")
