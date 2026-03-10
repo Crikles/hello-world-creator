@@ -717,7 +717,7 @@ const styles = `
 /* ─── HERO ─── */
 .hero-section {
   padding: 120px 40px 80px;
-  background: #020617;
+  background: var(--hero-bg, #020617);
   color: white;
   position: relative;
   overflow: hidden;
