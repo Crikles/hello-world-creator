@@ -123,7 +123,7 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
 
                 <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
                     <div className="text-center mb-3">
-                        <span className="text-[8px] font-extrabold tracking-widest uppercase text-[#ea580c] bg-[#ea580c]/10 px-2 py-0.5 rounded-full">AÇÃO REQUERIDA</span>
+                        <span className="text-[8px] font-extrabold tracking-widest uppercase px-2 py-0.5 rounded-full" style={{ color: settings.cor_destaque, backgroundColor: `${settings.cor_destaque}1a` }}>AÇÃO REQUERIDA</span>
                         <h2 className="text-sm font-extrabold text-[#020617] mt-2">Pagar Novo Frete</h2>
                         <p className="text-[9px] text-slate-500 mt-1">Realize o pagamento para reenviarmos seu pedido.</p>
                     </div>
