@@ -1,72 +1,58 @@
 
 
-# Bug: Webhooks criam envios sem transportadora e sem sufixo correto
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-## Causa raiz
+### Root cause
 
-Quando um pedido entra via **webhook** (Shopify, Vega, Zedy, Luna, Corvex), o envio é inserido **sem** `transportadora` e **sem** `codigo_rastreio`. O trigger de banco `generate_tracking_code()` gera o código como `BR` + 10 chars aleatórios — **sem o sufixo `JD` ou `JL`** e sem preencher `transportadora`.
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-Já no frontend (NovoEnvioWizard e ImportarPlanilha), o código é gerado manualmente com o sufixo correto e a transportadora é definida. Mas os webhooks não fazem isso.
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-**Resultado**: envios via webhook ficam com `transportadora = null` e código sem sufixo, quebrando a lógica de identificação da transportadora.
+### Fix
 
-## Solução
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-Atualizar o trigger `generate_tracking_code()` para:
-1. Consultar `lojas.logistica_provider` usando `NEW.loja_id`
-2. Definir o sufixo (`JD` para jadlog, `JL` para os demais)
-3. Preencher `NEW.transportadora` automaticamente se estiver null
+### Changes
 
-### Migration SQL
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
 
-```sql
-CREATE OR REPLACE FUNCTION public.generate_tracking_code()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path TO 'public'
-AS $$
-DECLARE
-  new_code TEXT;
-  code_exists BOOLEAN;
-  provider TEXT;
-  suffix TEXT;
-BEGIN
-  -- Determine provider from loja
-  IF NEW.loja_id IS NOT NULL THEN
-    SELECT logistica_provider INTO provider
-    FROM lojas WHERE id = NEW.loja_id;
-  END IF;
+Extend the existing filter to also remove NF-e events when disabled:
 
-  suffix := CASE WHEN provider = 'jadlog' THEN 'JD' ELSE 'JL' END;
-
-  -- Generate tracking code with correct suffix
-  IF NEW.codigo_rastreio IS NULL OR NEW.codigo_rastreio = '' THEN
-    LOOP
-      new_code := 'BR' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 10)) || suffix;
-      SELECT EXISTS(SELECT 1 FROM envios WHERE codigo_rastreio = new_code) INTO code_exists;
-      EXIT WHEN NOT code_exists;
-    END LOOP;
-    NEW.codigo_rastreio := new_code;
-  END IF;
-
-  -- Set transportadora if not provided
-  IF NEW.transportadora IS NULL OR NEW.transportadora = '' THEN
-    NEW.transportadora := CASE WHEN provider = 'jadlog' 
-      THEN 'JADLOG Logística' 
-      ELSE 'JL RASTREIOS' 
-    END;
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-### Frontend cleanup
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-Remover a geração manual de `codigo_rastreio` e `transportadora` de:
-- `NovoEnvioWizard.tsx` — deixar o trigger gerar automaticamente
-- `ImportarPlanilha.tsx` — idem
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
 
-Isso centraliza a lógica em um único lugar (trigger) e garante consistência entre webhooks e criação manual.
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
