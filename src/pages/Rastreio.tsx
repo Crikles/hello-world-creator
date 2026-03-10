@@ -783,8 +783,8 @@ const styles = `
   margin: 0 auto 56px;
 }
 .search-input-wrapper {
-  background: rgba(255,255,255,0.07);
-  border: 1.5px solid rgba(255,255,255,0.18);
+  background: var(--hero-search-bg, rgba(255,255,255,0.07));
+  border: 1.5px solid var(--hero-search-border, rgba(255,255,255,0.18));
   border-radius: 16px;
   display: flex;
   align-items: center;
