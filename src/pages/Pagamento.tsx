@@ -203,7 +203,7 @@ export default function Pagamento() {
                     {/* Progress Step Indicator */}
                     <div className="mag-steps">
                         <div className="mag-step done"><CheckCircle2 size={14} /><span>Pedido</span></div>
-                        <div className="mag-step active"><div className="mag-dot" /><span>Taxação</span></div>
+                        <div className="mag-step active" style={{ color: destaqueColor }}><div className="mag-dot" style={{ background: destaqueColor }} /><span>Taxação</span></div>
                         <div className="mag-step disabled"><span>Liberação</span></div>
                         <div className="mag-step disabled"><span>Entrega</span></div>
                     </div>
@@ -214,7 +214,7 @@ export default function Pagamento() {
                             <div className="mag-card mag-invoice-card">
                                 <div className="mag-card-h">
                                     <FileText size={20} />
-                                    <h3>Resumo da Cobrança</h3>
+                                    <h3 style={{ color: tituloResumoColor }}>Resumo da Cobrança</h3>
                                 </div>
 
                                 <div className="mag-invoice-body">
@@ -225,7 +225,7 @@ export default function Pagamento() {
                                     {envio.cliente_cpf && (
                                         <div className="mag-inv-row">
                                             <span className="mag-inv-label">CPF</span>
-                                            <span className="mag-inv-mono">{formatCPF(envio.cliente_cpf)}</span>
+                                            <span className="mag-inv-mono" style={{ color: destaqueColor }}>{formatCPF(envio.cliente_cpf)}</span>
                                         </div>
                                     )}
                                     {(envio.cliente_endereco || envio.cliente_cidade) && (
@@ -247,7 +247,7 @@ export default function Pagamento() {
                                     </div>
                                     <div className="mag-inv-row">
                                         <span className="mag-inv-label">Referência</span>
-                                        <span className="mag-inv-mono">{envio.codigo_rastreio}</span>
+                                        <span className="mag-inv-mono" style={{ color: destaqueColor }}>{envio.codigo_rastreio}</span>
                                     </div>
                                     <div className="mag-inv-row">
                                         <span className="mag-inv-label">Transportadora</span>
@@ -255,16 +255,16 @@ export default function Pagamento() {
                                     </div>
                                     <div className="mag-inv-divider" />
                                     <div className="mag-inv-row mag-total">
-                                        <span>Total a pagar</span>
-                                        <div className="mag-total-price">
+                                        <span style={{ color: labelTaxaColor }}>Total a pagar</span>
+                                        <div className="mag-total-price" style={{ color: labelTaxaColor }}>
                                             <span className="mag-curr">R$</span>
                                             <span className="mag-amt">{valorFormatted}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mag-msg-box">
-                                    <p>Sua encomenda foi retida pela fiscalização aduaneira e aguarda a quitação da taxa de liberação. O pagamento é indispensável para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente.</p>
+                                <div className="mag-msg-box" style={{ background: fundoDescricaoColor, border: `1px solid ${bordaDescricaoColor}`, color: descricaoColor }}>
+                                    <p>{mensagemSite}</p>
                                 </div>
                             </div>
 
