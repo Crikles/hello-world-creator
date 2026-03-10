@@ -174,33 +174,6 @@ export default function Envios() {
     return `${m}m ${s.toString().padStart(2, "0")}s`;
   };
 
-  // Fetch total events count for progress calculation (filtered by active config)
-  const { data: totalEventos = 0 } = useQuery({
-    queryKey: ["total-eventos", loja?.id],
-    queryFn: async () => {
-      if (!loja) return 0;
-      const { data: config } = await supabase
-        .from("postagem_config")
-        .select("template_ativo_id, ativar_falha_entrega, enviar_nfe_email")
-        .eq("loja_id", loja.id)
-        .maybeSingle();
-      if (!config?.template_ativo_id) return 0;
-      const { data: eventos } = await supabase
-        .from("postagem_eventos")
-        .select("status_label, enviar_nfe_pdf")
-        .eq("template_id", config.template_ativo_id);
-      if (!eventos) return 0;
-      const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
-      const filtered = eventos.filter(e => {
-        if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
-        if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-        return true;
-      });
-      return filtered.length;
-    },
-    enabled: !!loja,
-  });
-
   const { data: envios = [] } = useQuery({
     queryKey: ["envios", loja?.id],
     queryFn: async () => {
@@ -215,6 +188,49 @@ export default function Envios() {
       return data;
     },
     enabled: !!loja,
+  });
+
+  // Fetch event counts per template_id for progress calculation
+  const templateIdsKey = envios.map(e => e.postagem_template_id).filter(Boolean).join(",");
+  const { data: eventCountMap = {} } = useQuery<Record<string, number>>({
+    queryKey: ["event-count-map", loja?.id, templateIdsKey],
+    queryFn: async () => {
+      if (!loja) return {};
+      const { data: config } = await supabase
+        .from("postagem_config")
+        .select("template_ativo_id, ativar_falha_entrega, enviar_nfe_email")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      if (!config) return {};
+
+      const templateIds = [...new Set(
+        envios.map(e => e.postagem_template_id).filter(Boolean) as string[]
+      )];
+      if (config.template_ativo_id && !templateIds.includes(config.template_ativo_id)) {
+        templateIds.push(config.template_ativo_id);
+      }
+      if (templateIds.length === 0) return {};
+
+      const { data: eventos } = await supabase
+        .from("postagem_eventos")
+        .select("template_id, status_label, enviar_nfe_pdf")
+        .in("template_id", templateIds);
+      if (!eventos) return {};
+
+      const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+      const map: Record<string, number> = {};
+      for (const tid of templateIds) {
+        const filtered = eventos.filter(e => {
+          if (e.template_id !== tid) return false;
+          if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
+          if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+          return true;
+        });
+        map[tid] = filtered.length;
+      }
+      return map;
+    },
+    enabled: !!loja && envios.length > 0,
   });
 
   // Realtime listener for envios updates
@@ -515,11 +531,20 @@ export default function Envios() {
     });
   };
 
+  const getTotalEventos = (envio: any) => {
+    const tid = envio.postagem_template_id;
+    if (tid && eventCountMap[tid] !== undefined) return eventCountMap[tid];
+    // Fallback: try any available count
+    const values = Object.values(eventCountMap);
+    return values.length > 0 ? values[0] : 0;
+  };
+
   const getProgress = (envio: any) => {
     if (envio.status === "entregue") return 100;
-    if (totalEventos === 0) return 0;
+    const total = getTotalEventos(envio);
+    if (total === 0) return 0;
     const ordem = envio.ultimo_evento_ordem ?? 0;
-    return Math.min(Math.round((ordem / totalEventos) * 100), 100);
+    return Math.min(Math.round((ordem / total) * 100), 100);
   };
 
   const getCurrentStep = (envio: any) => {
@@ -529,7 +554,8 @@ export default function Envios() {
   const canAdvance = (envio: any) => {
     if (envio.status === "entregue") return false;
     const ordem = envio.ultimo_evento_ordem ?? 0;
-    return totalEventos > 0 && ordem < totalEventos;
+    const total = getTotalEventos(envio);
+    return total > 0 && ordem < total;
   };
 
   const getDisplayStatus = (envio: any) => {
@@ -806,7 +832,7 @@ export default function Envios() {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Progress value={getProgress(envio)} className="h-1 w-16" />
                     <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-                      {getCurrentStep(envio)}/{envio.status === "entregue" ? Math.max(getCurrentStep(envio), 1) : totalEventos}
+                      {getCurrentStep(envio)}/{envio.status === "entregue" ? Math.max(getCurrentStep(envio), 1) : getTotalEventos(envio)}
                     </span>
                   </div>
 
