@@ -918,8 +918,8 @@ Deno.serve(async (req) => {
       ? "https://rastreio.centrojadlog.com"
       : (Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com");
 
-    const primaryColor = isJadlog ? "#e10526" : "#6366f1";
-    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl);
+    const primaryColor = isJadlog ? "#e10526" : corPrimaria;
+    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta);
 
     // Resolve PDF attachment: prefer storage path, fallback to inline base64
     let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;
