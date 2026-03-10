@@ -154,7 +154,7 @@ export default function Rastreio() {
     const cardLogoUrl = empresa?.logo_url || logoUrl;
     const primaryColor = isJadlog ? "#e10526" : "#6366f1";
     const bgGradient = isJadlog
-        ? "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
+        ? "linear-gradient(135deg, #c2021a 0%, #8b0000 100%)"
         : "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)";
 
     const progress = totalEventos > 0 && envio
