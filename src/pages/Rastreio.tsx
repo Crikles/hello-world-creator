@@ -166,15 +166,43 @@ export default function Rastreio() {
                 __html: `
                 .theme-jadlog {
                     --primary: 351 96% 45%;
+                    --primary-rgb: 225, 5, 38;
                     --primary-hover: #b0021b;
                     --accent: #475569;
                     --hero-bg: ${bgGradient};
+                    --glow-color: rgba(225, 5, 38, 0.12);
+                    --badge-bg: rgba(225, 5, 38, 0.08);
+                    --badge-border: rgba(225, 5, 38, 0.18);
+                    --badge-text: #f87171;
+                    --highlight-from: #f87171;
+                    --highlight-to: #fb923c;
+                    --btn-gradient: linear-gradient(135deg, #e10526, #b91c1c);
+                    --btn-shadow: rgba(225, 5, 38, 0.3);
+                    --focus-ring: rgba(225, 5, 38, 0.12);
+                    --focus-border: rgba(225, 5, 38, 0.6);
+                    --mobile-link-hover: rgba(225, 5, 38, 0.08);
+                    --timeline-header: #991b1b;
+                    --timeline-title: #991b1b;
                 }
                 .theme-jl {
                     --primary: 239 84% 67%;
+                    --primary-rgb: 99, 102, 241;
                     --primary-hover: #4f46e5;
                     --accent: #8b5cf6;
                     --hero-bg: ${bgGradient};
+                    --glow-color: rgba(99, 102, 241, 0.12);
+                    --badge-bg: rgba(99, 102, 241, 0.08);
+                    --badge-border: rgba(99, 102, 241, 0.18);
+                    --badge-text: #818cf8;
+                    --highlight-from: #818cf8;
+                    --highlight-to: #c084fc;
+                    --btn-gradient: linear-gradient(135deg, #6366f1, #7c3aed);
+                    --btn-shadow: rgba(99, 102, 241, 0.3);
+                    --focus-ring: rgba(99, 102, 241, 0.12);
+                    --focus-border: rgba(129, 140, 248, 0.6);
+                    --mobile-link-hover: rgba(99, 102, 241, 0.08);
+                    --timeline-header: #005a96;
+                    --timeline-title: #005a96;
                 }
             `}} />
             <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -502,14 +530,23 @@ export default function Rastreio() {
                 <div className="footer-content">
                     <div className="footer-top">
                         <div className="f-brand">
-                            <img src={logoUrl} alt={empresaNome} style={{ width: 220, filter: isJadlog ? 'drop-shadow(0px 0px 4px rgba(255,255,255,0.8)) object-fit-contain' : 'none' }} />
-                            <p>Soluções completas em logística<br />e transporte de encomendas.</p>
+                            <img src={logoUrl} alt={empresaNome} style={{ width: 220 }} />
+                            <p>{isJadlog ? 'Logística expressa com rastreamento em tempo real.' : 'Soluções completas em logística e transporte de encomendas.'}</p>
                         </div>
                         <div className="f-links">
                             <div className="f-col">
                                 <h5>CONTATO</h5>
-                                <a href="mailto:contato@logisticajltransportes.com">contato@logisticajltransportes.com</a>
-                                <a href="tel:08006589589">0800 658 9589</a>
+                                {isJadlog ? (
+                                    <>
+                                        <a href="mailto:contato@centrojadlog.com">contato@centrojadlog.com</a>
+                                        <a href="tel:08007251560">0800 725 1560</a>
+                                    </>
+                                ) : (
+                                    <>
+                                        <a href="mailto:contato@logisticajltransportes.com">contato@logisticajltransportes.com</a>
+                                        <a href="tel:08006589589">0800 658 9589</a>
+                                    </>
+                                )}
                             </div>
                             <div className="f-col">
                                 <h5>INFORMAÇÕES</h5>
@@ -668,7 +705,7 @@ const styles = `
 }
 .nav-mobile-link:hover {
     color: #0f172a;
-    background: rgba(99,102,241,0.08);
+    background: var(--mobile-link-hover, rgba(99,102,241,0.08));
 }
 
 /* ─── HERO ─── */
@@ -690,7 +727,7 @@ const styles = `
   position: absolute;
   top: -100px; right: -100px;
   width: 600px; height: 600px;
-  background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--glow-color, rgba(99,102,241,0.12)) 0%, transparent 70%);
   filter: blur(80px);
 }
 
@@ -704,14 +741,14 @@ const styles = `
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(99,102,241,0.08);
-  border: 1px solid rgba(99,102,241,0.18);
+  background: var(--badge-bg, rgba(99,102,241,0.08));
+  border: 1px solid var(--badge-border, rgba(99,102,241,0.18));
   padding: 6px 14px;
   border-radius: 100px;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 1.8px;
-  color: #818cf8;
+  color: var(--badge-text, #818cf8);
   margin-bottom: 28px;
 }
 .main-title {
@@ -722,7 +759,7 @@ const styles = `
   margin-bottom: 20px;
 }
 .main-title .highlight {
-  background: linear-gradient(135deg, #818cf8, #c084fc);
+  background: linear-gradient(135deg, var(--highlight-from, #818cf8), var(--highlight-to, #c084fc));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -751,8 +788,8 @@ const styles = `
 }
 .search-input-wrapper:focus-within {
   background: rgba(255,255,255,0.1);
-  border-color: rgba(129,140,248,0.6);
-  box-shadow: 0 0 0 4px rgba(99,102,241,0.12), 0 8px 32px rgba(0,0,0,0.3);
+  border-color: var(--focus-border, rgba(129,140,248,0.6));
+  box-shadow: 0 0 0 4px var(--focus-ring, rgba(99,102,241,0.12)), 0 8px 32px rgba(0,0,0,0.3);
 }
 .search-icon { color: #64748b; }
 .main-input {
@@ -772,7 +809,7 @@ const styles = `
 .search-submit {
   height: 50px;
   padding: 0 28px;
-  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  background: var(--btn-gradient, linear-gradient(135deg, #6366f1, #7c3aed));
   color: white;
   border: none;
   border-radius: 12px;
@@ -784,11 +821,11 @@ const styles = `
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+  box-shadow: 0 4px 12px var(--btn-shadow, rgba(99,102,241,0.3));
 }
 .search-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+  box-shadow: 0 6px 20px var(--btn-shadow, rgba(99,102,241,0.4));
 }
 .search-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -935,7 +972,7 @@ const styles = `
 }
 /* ─── CORREIOS STYLE TIMELINE ─── */
 .correios-table-header {
-    background: #005a96;
+    background: var(--timeline-header, #005a96);
     color: white;
     display: grid;
     grid-template-columns: 80px 1fr 150px;
@@ -1004,7 +1041,7 @@ const styles = `
 .point-title-correios {
     font-size: 15px;
     font-weight: 800;
-    color: #005a96;
+    color: var(--timeline-title, #005a96);
     margin: 0 0 2px;
 }
 .point-desc-correios {
