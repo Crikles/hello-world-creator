@@ -155,8 +155,10 @@ Deno.serve(async (req) => {
         cliente_cidade: shippingAddress.city || null,
         cliente_estado: shippingAddress.province_code || null,
         cliente_complemento: shippingAddress.address2 || null,
-        produto: produtoJson || "Produto Shopify",
-        quantidade: totalQuantidade || 1,
+        produto: normalizedProducts.length > 0
+          ? JSON.stringify(normalizedProducts.map((p: any) => ({ nome: p.title, quantidade: p.quantity })))
+          : "Produto Shopify",
+        quantidade: normalizedProducts.reduce((sum: number, p: any) => sum + p.quantity, 0) || 1,
         valor: totalPrice / 100,
         status: "pendente",
         loja_id: lojaId,
