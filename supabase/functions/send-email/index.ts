@@ -845,9 +845,12 @@ Deno.serve(async (req) => {
       emailRemetente = "noreply@centrojadlog.com"; // default jadlog email
     }
 
+    let corPrimaria = "#6366f1";
+    let corBotaoCta = "#1a1a1a";
+
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor")
+      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
@@ -856,6 +859,12 @@ Deno.serve(async (req) => {
     }
     if (config?.whatsapp_vendedor) {
       whatsappVendedor = config.whatsapp_vendedor;
+    }
+    if (config?.cor_primaria) {
+      corPrimaria = config.cor_primaria;
+    }
+    if (config?.cor_botao_cta) {
+      corBotaoCta = config.cor_botao_cta;
     }
 
     // Fetch empresa data
