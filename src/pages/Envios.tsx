@@ -848,7 +848,7 @@ export default function Envios() {
                       size="icon"
                       className="h-6 w-6 hover:bg-orange-500/10 hover:text-orange-500"
                       title="Falha na Entrega"
-                      onClick={() => window.open(`https://rastreio.logisticajltransportes.com/f/${envio.id}`, '_blank')}
+                      onClick={() => window.open(`https://${envio.transportadora?.toUpperCase().includes('JADLOG') ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com'}/f/${envio.id}`, '_blank')}
                     >
                       <PackageX className="h-3 w-3" />
                     </Button>
