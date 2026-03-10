@@ -71,6 +71,8 @@ interface PostagemConfig {
   origem_cidade: string | null;
   origem_estado: string | null;
   whatsapp_vendedor: string | null;
+  cor_primaria: string | null;
+  cor_botao_cta: string | null;
 }
 
 const ESTADOS_BR = [
