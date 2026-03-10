@@ -880,6 +880,8 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
     },
   });
 
+  const activeLabel = logisticaProvider === "jadlog" ? "JADLOG" : "JL Transportes";
+
   return (
     <Card>
       <CardHeader>
@@ -889,7 +891,13 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
         </CardTitle>
         <CardDescription>Escolha a transportadora padrão para os novos pedidos desta loja.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm text-foreground">
+            Transportadora ativa: <strong className="text-primary">{activeLabel}</strong>
+          </span>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => mutation.mutate("jl")}
