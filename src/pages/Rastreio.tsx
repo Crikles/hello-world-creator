@@ -809,7 +809,7 @@ const styles = `
 .search-submit {
   height: 50px;
   padding: 0 28px;
-  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  background: var(--btn-gradient, linear-gradient(135deg, #6366f1, #7c3aed));
   color: white;
   border: none;
   border-radius: 12px;
@@ -821,11 +821,11 @@ const styles = `
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+  box-shadow: 0 4px 12px var(--btn-shadow, rgba(99,102,241,0.3));
 }
 .search-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+  box-shadow: 0 6px 20px var(--btn-shadow, rgba(99,102,241,0.4));
 }
 .search-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
