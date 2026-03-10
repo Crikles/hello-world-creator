@@ -126,7 +126,7 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
                         <p className="text-[9px] text-slate-500 mt-1">Realize o pagamento para reenviarmos seu pedido.</p>
                     </div>
 
-                    <div className="w-full py-2.5 rounded-xl text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-md bg-[#ea580c]">
+                    <div className="w-full py-2.5 rounded-xl text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-md" style={{ backgroundColor: settings.cor_botao }}>
                         <span>PAGAR REENVIO</span>
                         <ArrowRight size={12} />
                     </div>
