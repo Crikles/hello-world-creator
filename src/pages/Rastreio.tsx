@@ -197,8 +197,13 @@ export default function Rastreio() {
 
                 {/* ── Hero ── */}
                 <section className="jd-hero" id="rastrear">
+                    <div className="jd-hero-bg-decor" />
                     <div className="jd-hero-content">
-                        <h1>Acompanhe sua entrega em tempo real</h1>
+                        <div className="jd-hero-badge">
+                            <Truck size={14} />
+                            <span>Rastreamento inteligente</span>
+                        </div>
+                        <h1>Acompanhe sua entrega<br />em tempo real</h1>
                         <p className="jd-hero-sub">
                             Rastreamento inteligente com atualização automática em cada etapa da entrega.
                         </p>
@@ -208,7 +213,7 @@ export default function Rastreio() {
 
                         <form onSubmit={handleSearch} className="jd-search-form">
                             <div className="jd-search-wrapper">
-                                <Search size={18} className="jd-search-icon" />
+                                <Search size={20} className="jd-search-icon" />
                                 <input
                                     type="text"
                                     value={searchInput}
@@ -216,9 +221,12 @@ export default function Rastreio() {
                                     placeholder="Digite seu código de rastreio"
                                     className="jd-search-input"
                                 />
+                                <button type="submit" disabled={loading} className="jd-search-btn-inline">
+                                    {loading ? <div className="jd-spinner" /> : (<><Search size={16} /><span>Rastrear</span></>)}
+                                </button>
                             </div>
-                            <button type="submit" disabled={loading} className="jd-search-btn">
-                                {loading ? <div className="jd-spinner" /> : "Rastrear encomenda"}
+                            <button type="submit" disabled={loading} className="jd-search-btn-mobile">
+                                {loading ? <div className="jd-spinner" /> : (<><Package size={16} /><span>Rastrear encomenda</span><ArrowRight size={16} /></>)}
                             </button>
                         </form>
                     </div>
