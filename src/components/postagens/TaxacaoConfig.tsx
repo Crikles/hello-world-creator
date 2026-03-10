@@ -24,6 +24,7 @@ import {
     Globe,
     Mail,
     Package,
+    Palette,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -42,6 +43,12 @@ interface TaxacaoSettings {
     cor_botao: string;
     cor_header: string;
     cor_destaque: string;
+    cor_titulo_resumo: string;
+    cor_label_taxa: string;
+    cor_descricao: string;
+    cor_fundo_descricao: string;
+    cor_borda_descricao: string;
+    mensagem_site: string;
     mostrar_valor: boolean;
     mostrar_prazo: boolean;
 }
@@ -56,6 +63,12 @@ const DEFAULT_SETTINGS: TaxacaoSettings = {
     cor_botao: "#2563eb",
     cor_header: "#f59e0b",
     cor_destaque: "#6366f1",
+    cor_titulo_resumo: "#020617",
+    cor_label_taxa: "#020617",
+    cor_descricao: "#92400e",
+    cor_fundo_descricao: "#fffbeb",
+    cor_borda_descricao: "#fde68a80",
+    mensagem_site: "Sua encomenda foi retida pela fiscalização aduaneira e aguarda a quitação da taxa de liberação. O pagamento é indispensável para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente.",
     mostrar_valor: true,
     mostrar_prazo: true,
 };
@@ -73,10 +86,6 @@ function loadSettings(lojaId: string): TaxacaoSettings {
 function saveSettings(lojaId: string, settings: TaxacaoSettings) {
     localStorage.setItem(STORAGE_KEY + lojaId, JSON.stringify(settings));
 }
-
-/* ─────────────────────── Fixed message ─────────────────────── */
-
-const MENSAGEM_FIXA_SITE = "Sua encomenda foi retida pela fiscalização aduaneira e aguarda a quitação da taxa de liberação. O pagamento é indispensável para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente.";
 
 /* ─────────────────────── Email Preview HTML ─────────────────────── */
 
@@ -99,7 +108,7 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
 
     const valorHtml = settings.mostrar_valor
         ? `<p style="margin:0 0 2px;font-size:11px;color:#78716c;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Valor da taxa</p>
-           <p style="margin:0 0 20px;font-size:32px;font-weight:800;color:#0f172a;letter-spacing:-1px;">R$ ${valorFormatted}</p>`
+           <p style="margin:0 0 20px;font-size:32px;font-weight:800;color:${settings.cor_label_taxa};letter-spacing:-1px;">R$ ${valorFormatted}</p>`
         : "";
 
     return `<!DOCTYPE html>
@@ -118,11 +127,11 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
         </td></tr>
         <tr><td style="padding:28px 40px 0;text-align:center;">
             <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-              <tr><td style="background-color:#fef3c7;color:#92400e;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:6px 20px;border-radius:20px;">
+              <tr><td style="background-color:${settings.cor_fundo_descricao};color:${settings.cor_descricao};font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:6px 20px;border-radius:20px;">
                 ⚠️ Taxa de Importação
               </td></tr>
             </table>
-            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Pagamento Pendente</p>
+            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:${settings.cor_titulo_resumo};letter-spacing:-0.5px;">Pagamento Pendente</p>
         </td></tr>
         <tr><td style="padding:24px 40px 0;">
             <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;"><tr><td style="border-top:1px solid #f1f5f9;"></td></tr></table>
@@ -131,7 +140,7 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
         </td></tr>
         <tr><td style="padding:24px 40px;">
             <table width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${settings.cor_botao};border-radius:16px;overflow:hidden;">
-              <tr><td style="background-color:#fffbeb;padding:28px 24px;text-align:center;">
+              <tr><td style="background-color:${settings.cor_fundo_descricao};padding:28px 24px;text-align:center;">
                   ${valorHtml}
                   <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
                     <tr><td style="background-color:${settings.cor_botao};border-radius:50px;box-shadow:0 4px 16px ${settings.cor_botao}44;">
@@ -223,7 +232,7 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                 <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-3 pb-2 border-b border-dashed border-slate-200">
                         <FileText size={14} className="text-slate-600" />
-                        <h3 className="text-[10px] font-extrabold tracking-wide uppercase">Resumo da Cobrança</h3>
+                        <h3 className="text-[10px] font-extrabold tracking-wide uppercase" style={{ color: settings.cor_titulo_resumo }}>Resumo da Cobrança</h3>
                     </div>
                     <div className="space-y-2 text-[10px]">
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Cliente</span><span className="font-bold text-[#020617]">Maria Silva</span></div>
@@ -236,16 +245,16 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                         <div className="h-px bg-slate-100 my-1" />
                         {settings.mostrar_valor && (
                             <div className="flex justify-between items-baseline">
-                                <span className="text-[11px] font-extrabold uppercase">Total a pagar</span>
+                                <span className="text-[11px] font-extrabold uppercase" style={{ color: settings.cor_label_taxa }}>Total a pagar</span>
                                 <div className="flex items-baseline gap-0.5">
                                     <span className="text-[9px] font-bold text-slate-500">R$</span>
-                                    <span className="text-lg font-extrabold text-[#020617]">{valorFormatted}</span>
+                                    <span className="text-lg font-extrabold" style={{ color: settings.cor_label_taxa }}>{valorFormatted}</span>
                                 </div>
                             </div>
                         )}
                     </div>
-                    <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200/50 rounded-xl">
-                        <p className="text-[9px] text-amber-900 leading-relaxed font-medium">{MENSAGEM_FIXA_SITE}</p>
+                    <div className="mt-3 p-2.5 rounded-xl" style={{ backgroundColor: settings.cor_fundo_descricao, borderWidth: 1, borderStyle: 'solid', borderColor: settings.cor_borda_descricao }}>
+                        <p className="text-[9px] leading-relaxed font-medium" style={{ color: settings.cor_descricao }}>{settings.mensagem_site}</p>
                     </div>
                 </div>
 
@@ -309,6 +318,20 @@ function HowItWorks() {
                         <p className="text-[10px] text-muted-foreground mt-0.5">{s.desc}</p>
                     </div>
                 ))}
+            </div>
+        </div>
+    );
+}
+
+/* ─────────────────────── Color Picker Helper ─────────────────────── */
+
+function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+    return (
+        <div className="space-y-1">
+            <Label className="text-[10px] font-medium text-muted-foreground">{label}</Label>
+            <div className="flex items-center gap-1.5">
+                <input type="color" value={value.replace(/[0-9a-f]{2}$/i, '') || value} onChange={(e) => onChange(e.target.value)} className="w-7 h-7 rounded cursor-pointer border border-border/50" />
+                <Input value={value} onChange={(e) => onChange(e.target.value)} className="text-[10px] font-mono flex-1 bg-transparent border-border/50 h-7 px-1.5" />
             </div>
         </div>
     );
@@ -381,7 +404,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
         mutationFn: async () => {
             saveSettings(lojaId, settings);
             if (taxacaoEvento) {
-                const corpoEmail = `${settings.mensagem_taxa}\n\n{{taxacao_valor:${settings.valor_exemplo}}}{{taxacao_url:${settings.url_pagamento}}}{{taxacao_botao:${settings.texto_botao}}}{{taxacao_cor:${settings.cor_botao}}}{{taxacao_cor_header:${settings.cor_header}}}{{taxacao_cor_destaque:${settings.cor_destaque}}}{{taxacao_prazo:${settings.prazo_dias}}}{{taxacao_forma:${settings.forma_pagamento}}}{{taxacao_mostrar_valor:${settings.mostrar_valor}}}{{taxacao_mostrar_prazo:${settings.mostrar_prazo}}}`;
+                const corpoEmail = `${settings.mensagem_taxa}\n\n{{taxacao_valor:${settings.valor_exemplo}}}{{taxacao_url:${settings.url_pagamento}}}{{taxacao_botao:${settings.texto_botao}}}{{taxacao_cor:${settings.cor_botao}}}{{taxacao_cor_header:${settings.cor_header}}}{{taxacao_cor_destaque:${settings.cor_destaque}}}{{taxacao_prazo:${settings.prazo_dias}}}{{taxacao_forma:${settings.forma_pagamento}}}{{taxacao_mostrar_valor:${settings.mostrar_valor}}}{{taxacao_mostrar_prazo:${settings.mostrar_prazo}}}{{taxacao_cor_titulo_resumo:${settings.cor_titulo_resumo}}}{{taxacao_cor_label_taxa:${settings.cor_label_taxa}}}{{taxacao_cor_descricao:${settings.cor_descricao}}}{{taxacao_cor_fundo_descricao:${settings.cor_fundo_descricao}}}{{taxacao_cor_borda_descricao:${settings.cor_borda_descricao}}}{{taxacao_mensagem_site:${settings.mensagem_site}}}`;
                 const { error } = await supabase
                     .from("postagem_eventos")
                     .update({ corpo_email: corpoEmail })
@@ -413,6 +436,12 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                 const formaMatch = corpo.match(/\{\{taxacao_forma:([^}]*)\}\}/);
                 const mostrarValorMatch = corpo.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
                 const mostrarPrazoMatch = corpo.match(/\{\{taxacao_mostrar_prazo:([^}]*)\}\}/);
+                const corTituloResumoMatch = corpo.match(/\{\{taxacao_cor_titulo_resumo:([^}]*)\}\}/);
+                const corLabelTaxaMatch = corpo.match(/\{\{taxacao_cor_label_taxa:([^}]*)\}\}/);
+                const corDescricaoMatch = corpo.match(/\{\{taxacao_cor_descricao:([^}]*)\}\}/);
+                const corFundoDescricaoMatch = corpo.match(/\{\{taxacao_cor_fundo_descricao:([^}]*)\}\}/);
+                const corBordaDescricaoMatch = corpo.match(/\{\{taxacao_cor_borda_descricao:([^}]*)\}\}/);
+                const mensagemSiteMatch = corpo.match(/\{\{taxacao_mensagem_site:([^}]*)\}\}/);
 
                 const msgEnd = corpo.indexOf("{{taxacao_");
                 const plainMessage = msgEnd > 0 ? corpo.substring(0, msgEnd).trim() : corpo;
@@ -430,6 +459,12 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                     forma_pagamento: formaMatch?.[1] || DEFAULT_SETTINGS.forma_pagamento,
                     mostrar_valor: mostrarValorMatch ? mostrarValorMatch[1] === "true" : true,
                     mostrar_prazo: mostrarPrazoMatch ? mostrarPrazoMatch[1] === "true" : true,
+                    cor_titulo_resumo: corTituloResumoMatch?.[1] || DEFAULT_SETTINGS.cor_titulo_resumo,
+                    cor_label_taxa: corLabelTaxaMatch?.[1] || DEFAULT_SETTINGS.cor_label_taxa,
+                    cor_descricao: corDescricaoMatch?.[1] || DEFAULT_SETTINGS.cor_descricao,
+                    cor_fundo_descricao: corFundoDescricaoMatch?.[1] || DEFAULT_SETTINGS.cor_fundo_descricao,
+                    cor_borda_descricao: corBordaDescricaoMatch?.[1] || DEFAULT_SETTINGS.cor_borda_descricao,
+                    mensagem_site: mensagemSiteMatch?.[1] || DEFAULT_SETTINGS.mensagem_site,
                 };
 
                 setSettings(loaded);
@@ -543,23 +578,49 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                                 <Label className="text-xs text-muted-foreground">Mostrar prazo de pagamento</Label>
                                 <Switch checked={settings.mostrar_prazo} onCheckedChange={(v) => set("mostrar_prazo", v)} />
                             </div>
+                        </div>
+                    </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
-                                    <div className="flex items-center gap-2">
-                                        <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
-                                        <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
-                                    </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-medium text-muted-foreground">Cor de Destaque</Label>
-                                    <div className="flex items-center gap-2">
-                                        <input type="color" value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
-                                        <Input value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
-                                    </div>
-                                </div>
+                    {/* Mensagem do Site */}
+                    <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.05s" }}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <MessageSquare className="h-3.5 w-3.5 text-primary" />
                             </div>
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">Mensagem do Site</p>
+                                <p className="text-[10px] text-muted-foreground">Texto exibido no box de descrição da página</p>
+                            </div>
+                        </div>
+                        <Textarea
+                            value={settings.mensagem_site}
+                            onChange={(e) => set("mensagem_site", e.target.value)}
+                            maxLength={500}
+                            className="text-sm resize-none bg-transparent border-border/50"
+                            rows={4}
+                        />
+                        <p className="text-[10px] text-muted-foreground text-right mt-1">{settings.mensagem_site.length}/500</p>
+                    </div>
+
+                    {/* Personalização de Cores */}
+                    <div className="glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.06s" }}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <Palette className="h-3.5 w-3.5 text-primary" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">Personalização de Cores</p>
+                                <p className="text-[10px] text-muted-foreground">Customize cada elemento visual</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <ColorPicker label="Cor do Botão" value={settings.cor_botao} onChange={(v) => set("cor_botao", v)} />
+                            <ColorPicker label="Cor de Destaque" value={settings.cor_destaque} onChange={(v) => set("cor_destaque", v)} />
+                            <ColorPicker label="Título (Resumo)" value={settings.cor_titulo_resumo} onChange={(v) => set("cor_titulo_resumo", v)} />
+                            <ColorPicker label="Label (Total)" value={settings.cor_label_taxa} onChange={(v) => set("cor_label_taxa", v)} />
+                            <ColorPicker label="Texto Descrição" value={settings.cor_descricao} onChange={(v) => set("cor_descricao", v)} />
+                            <ColorPicker label="Fundo Descrição" value={settings.cor_fundo_descricao} onChange={(v) => set("cor_fundo_descricao", v)} />
+                            <ColorPicker label="Borda Descrição" value={settings.cor_borda_descricao} onChange={(v) => set("cor_borda_descricao", v)} />
                         </div>
                     </div>
 
@@ -589,7 +650,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                         </div>
                         <div className="p-2.5 bg-primary/5 border border-primary/10 rounded-lg mt-2">
                             <p className="text-[10px] text-primary font-medium">
-                                💡 O site de pagamento usa uma mensagem profissional fixa. Esta mensagem personalizada aparece somente no corpo do email.
+                                💡 O site de pagamento usa a mensagem configurada acima. Esta mensagem personalizada aparece somente no corpo do email.
                             </p>
                         </div>
                     </div>
