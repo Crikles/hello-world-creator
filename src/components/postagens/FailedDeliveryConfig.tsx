@@ -105,8 +105,8 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Cliente</span><span className="font-bold text-[#020617]">Maria Silva</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Produto</span><span className="font-bold text-[#020617]">Camiseta Polo Premium</span></div>
-                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Referência</span><span className="font-mono text-[10px] font-semibold text-[#ea580c]">BR547454312HF</span></div>
-                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Status</span><span className="font-bold text-[#ea580c]">Tentativa Frustrada</span></div>
+                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Referência</span><span className="font-mono text-[10px] font-semibold" style={{ color: settings.cor_destaque }}>BR547454312HF</span></div>
+                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Status</span><span className="font-bold" style={{ color: settings.cor_destaque }}>Tentativa Frustrada</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         <div className="flex justify-between items-baseline">
                             <span className="text-[11px] font-extrabold uppercase">Taxa de Reenvio</span>
