@@ -280,15 +280,15 @@ export default function PagamentoFalha() {
                         {/* Right: Payment Action */}
                         <div className="mag-action-side">
                             <div className="mag-card mag-payment-card">
-                                <div className="mag-pay-badge">AÇÃO REQUERIDA</div>
+                                <div className="mag-pay-badge" style={{ background: `${destaqueColor}1a`, color: destaqueColor }}>AÇÃO REQUERIDA</div>
                                 <h1>Efetuar Pagamento</h1>
                                 <p className="mag-pay-desc">Selecione o método de pagamento para liberar o fluxo de entrega da sua encomenda.</p>
 
                                 <div className="mag-payment-methods">
-                                    <div className="mag-method-tile active">
+                                    <div className="mag-method-tile active" style={{ borderColor: destaqueColor, background: `${destaqueColor}08` }}>
                                         <QrCode size={20} />
                                         <span>PIX</span>
-                                        <div className="mag-method-check"><CheckCircle2 size={14} /></div>
+                                        <div className="mag-method-check" style={{ background: destaqueColor }}><CheckCircle2 size={14} /></div>
                                     </div>
                                 </div>
 
