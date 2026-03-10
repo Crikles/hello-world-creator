@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
         const normalizedProducts = items.map((p: any) => ({
             code: String(p.source_reference || ""),
-            title: p.name || "Produto Adoorei",
+            title: p.name || (p.source_reference ? `Produto #${p.source_reference}` : "Produto Adoorei"),
             quantity: Number(p.quantity || 1),
             amount: Math.round(Number(p.price || 0) * 100),
         }));
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
                 cliente_endereco: address.street || null,
                 cliente_numero: address.number || null,
                 cliente_bairro: address.neighborhood || null,
-                cliente_cep: address.zipcode || null,
+                cliente_cep: address.zipcode ? address.zipcode.replace(/\D/g, '') : null,
                 cliente_cidade: address.city || null,
                 cliente_estado: address.uf || null,
                 cliente_complemento: address.complement || null,

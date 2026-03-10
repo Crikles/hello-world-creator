@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.send-whatsapp]
 verify_jwt = false
+
+[functions.webhook-adoorei]
+verify_jwt = false
