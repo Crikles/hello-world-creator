@@ -788,8 +788,8 @@ const styles = `
 }
 .search-input-wrapper:focus-within {
   background: rgba(255,255,255,0.1);
-  border-color: rgba(129,140,248,0.6);
-  box-shadow: 0 0 0 4px rgba(99,102,241,0.12), 0 8px 32px rgba(0,0,0,0.3);
+  border-color: var(--focus-border, rgba(129,140,248,0.6));
+  box-shadow: 0 0 0 4px var(--focus-ring, rgba(99,102,241,0.12)), 0 8px 32px rgba(0,0,0,0.3);
 }
 .search-icon { color: #64748b; }
 .main-input {
