@@ -11,6 +11,7 @@ interface Loja {
   webhook_token: string;
   created_at: string;
   updated_at: string;
+  logistica_provider: string | null;
 }
 
 interface LojaContextType {
