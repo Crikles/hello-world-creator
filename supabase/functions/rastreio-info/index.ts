@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
                             cidade: config?.origem_cidade || null,
                             estado: config?.origem_estado || null,
                         },
+                        cor_primaria: config?.cor_primaria || null,
                     }),
                     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                 );

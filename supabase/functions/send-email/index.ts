@@ -335,10 +335,10 @@ function buildEmailHtml(
       </table>`
     : "";
 
-  // CTA button with accent color
+  // CTA button with custom color
   const ctaBlock = mostrarBotaoCta && textoBotaoCta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 0;">
-        <tr><td style="background-color:${colors.accent};border-radius:50px;box-shadow:0 4px 16px ${colors.accent}44;">
+        <tr><td style="background-color:${ctaColor};border-radius:50px;box-shadow:0 4px 16px ${ctaColor}44;">
           <a href="${urlBotaoCta}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 44px;font-size:14px;font-weight:700;letter-spacing:0.3px;">${textoBotaoCta}</a>
         </td></tr>
       </table>`

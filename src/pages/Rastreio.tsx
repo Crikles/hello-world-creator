@@ -148,7 +148,7 @@ export default function Rastreio() {
 
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
     const logoUrl = isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
-    const primaryColor = isJadlog ? "#D71920" : "#6366f1";
+    const primaryColor = isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
 
     const progress = totalEventos > 0 && envio
         ? Math.min(100, Math.round((envio.ultimo_evento_ordem / totalEventos) * 100))
