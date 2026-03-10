@@ -1,0 +1,1 @@
+ALTER TABLE lojas ADD COLUMN IF NOT EXISTS logistica_provider TEXT DEFAULT 'jl';
