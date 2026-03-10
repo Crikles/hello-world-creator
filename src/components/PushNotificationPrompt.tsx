@@ -24,7 +24,6 @@ export function PushNotificationPrompt({ codigoRastreio }: PushNotificationPromp
   const [visible, setVisible] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const jadlog = isJadlogDomain();
-  const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
     // Don't show if already prompted, or API not available, or permission already decided
