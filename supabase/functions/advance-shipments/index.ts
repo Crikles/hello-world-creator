@@ -343,27 +343,12 @@ Deno.serve(async (req) => {
       const lojaUserId = (config as any).lojas?.user_id;
       if (!lojaUserId) continue;
 
-      // Fetch template events
-      const { data: allEvents } = await supabase
-        .from("postagem_eventos")
-        .select("*")
-        .eq("template_id", config.template_ativo_id)
-        .order("ordem", { ascending: true });
-
-      if (!allEvents || allEvents.length === 0) continue;
+      // Initialize a cache for template events for this cron run
+      const templateEventsCache: Record<string, any[]> = {};
 
       // Filter out disabled events (match client-side logic)
       const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
       const taxLabels = ["Taxação", "Taxacao", "Pago"];
-      const filteredEvents = allEvents.filter((e: any) => {
-        // Remove Falha Entrega + Reenvio events when disabled
-        if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
-        // Remove Taxação/Pago events when ativar_taxacao is disabled
-        if (!config.ativar_taxacao && taxLabels.includes(e.status_label || "")) return false;
-        // Remove NF-e events when enviar_nfe_email is disabled
-        if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-        return true;
-      });
 
       // Fetch global costs
       const { data: costs } = await supabase
@@ -405,7 +390,7 @@ Deno.serve(async (req) => {
           for (const envio of pending) {
             if (totalProcessed >= MAX_PER_RUN) break;
             try {
-              const success = await advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap);
+              const success = await advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, costMap, templateEventsCache);
               if (success) totalProcessed++;
             } catch (e) {
               console.error(`Error advancing pending ${envio.id}:`, e);
@@ -435,7 +420,7 @@ Deno.serve(async (req) => {
         for (const envio of eligible) {
           if (totalProcessed >= MAX_PER_RUN) break;
           try {
-            const success = await advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, filteredEvents, costMap);
+            const success = await advanceShipment(supabase, envio.id, lojaId, lojaUserId, config, costMap, templateEventsCache);
             if (success) totalProcessed++;
           } catch (e) {
             console.error(`Error advancing eligible ${envio.id}:`, e);
@@ -468,9 +453,8 @@ async function advanceShipment(
   lojaUserId: string,
   // deno-lint-ignore no-explicit-any
   config: any,
-  // deno-lint-ignore no-explicit-any
-  allEvents: any[],
-  costMap: Record<string, number>
+  costMap: Record<string, number>,
+  templateEventsCache: Record<string, any[]>
 ): Promise<boolean> {
   try {
     const { data: shipment, error: sErr } = await supabase
@@ -481,6 +465,33 @@ async function advanceShipment(
 
     if (sErr || !shipment) return false;
 
+    // Determine which template this shipment should use
+    const templateIdToUse = shipment.postagem_template_id || config.template_ativo_id;
+    if (!templateIdToUse) return false;
+
+    // Fetch from cache or DB
+    if (!templateEventsCache[templateIdToUse]) {
+      const { data: fetchedEvents } = await supabase
+        .from("postagem_eventos")
+        .select("*")
+        .eq("template_id", templateIdToUse)
+        .order("ordem", { ascending: true });
+      templateEventsCache[templateIdToUse] = fetchedEvents || [];
+    }
+
+    const allEvents = templateEventsCache[templateIdToUse];
+    if (allEvents.length === 0) return false;
+
+    // Filter events based on config
+    const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+    const taxLabels = ["Taxação", "Taxacao", "Pago"];
+    const filteredEvents = allEvents.filter((e: any) => {
+      if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
+      if (!config.ativar_taxacao && taxLabels.includes(e.status_label || "")) return false;
+      if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+      return true;
+    });
+
     // Fallback: fetch empresa by loja_id if empresa_id was not set
     if (!shipment.empresas && shipment.loja_id) {
       const { data: fallbackEmpresa } = await supabase
@@ -490,7 +501,7 @@ async function advanceShipment(
 
     const currentOrdem = shipment.ultimo_evento_ordem ?? 0;
     // deno-lint-ignore no-explicit-any
-    const nextEvent = allEvents.find((e: any) => e.ordem > currentOrdem);
+    const nextEvent = filteredEvents.find((e: any) => e.ordem > currentOrdem);
     if (!nextEvent) return false;
 
     // Debit credits on first event
@@ -532,8 +543,8 @@ async function advanceShipment(
     }
 
     // Determine new status
-    const totalEvents = allEvents.length;
-    const eventIndex = allEvents.indexOf(nextEvent);
+    const totalEvents = filteredEvents.length;
+    const eventIndex = filteredEvents.indexOf(nextEvent);
     let newStatus: string;
 
     if (eventIndex === totalEvents - 1) {
@@ -546,7 +557,7 @@ async function advanceShipment(
 
     // Calculate next advance time
     // deno-lint-ignore no-explicit-any
-    const followingEvent = allEvents.find((e: any) => e.ordem > nextEvent.ordem);
+    const followingEvent = filteredEvents.find((e: any) => e.ordem > nextEvent.ordem);
     const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
       ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
       : null;

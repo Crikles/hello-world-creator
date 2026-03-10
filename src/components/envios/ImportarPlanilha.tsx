@@ -328,6 +328,12 @@ export function ImportarPlanilha({ lojaId }: Props) {
         .eq("id", lojaId)
         .single();
 
+      const { data: configData } = await supabase
+        .from("postagem_config")
+        .select("template_ativo_id")
+        .eq("loja_id", lojaId)
+        .maybeSingle();
+
       const provider = lojaData?.logistica_provider || "jl";
       const trackingSuffix = provider === "jadlog" ? "JD" : "JL";
       const defaultTransportadora = provider === "jadlog" ? "JADLOG Logística" : "JL RASTREIOS";
@@ -364,7 +370,8 @@ export function ImportarPlanilha({ lojaId }: Props) {
           cst: row.cst || null,
           unidade: row.unidade || "UN",
           codigo_rastreio,
-          transportadora
+          transportadora,
+          postagem_template_id: configData?.template_ativo_id || null
         };
       });
 

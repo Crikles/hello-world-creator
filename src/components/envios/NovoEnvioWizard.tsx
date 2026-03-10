@@ -124,6 +124,12 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         .eq("id", loja.id)
         .single();
 
+      const { data: configData } = await supabase
+        .from("postagem_config")
+        .select("template_ativo_id")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+
       const provider = lojaData?.logistica_provider || "jl";
       const trackingSuffix = provider === "jadlog" ? "JD" : "JL";
       const randomNumbers = Math.floor(Math.random() * 900000000) + 100000000;
@@ -195,6 +201,7 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         ncm_sh,
         cst,
         unidade,
+        postagem_template_id: configData?.template_ativo_id || null,
         status: "pendente"
       } as any).select().single();
 

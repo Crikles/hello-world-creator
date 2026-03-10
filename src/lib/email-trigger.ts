@@ -49,8 +49,15 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .eq("loja_id", lojaId)
             .maybeSingle();
 
-        if (cErr || !config || !config.template_ativo_id) {
-            console.log("Trigger skip: no active template for loja", lojaId);
+        if (cErr || !config) {
+            console.log("Trigger skip: no config for loja", lojaId);
+            return null;
+        }
+
+        const templateIdToUse = (shipment as any).postagem_template_id || config.template_ativo_id;
+
+        if (!templateIdToUse) {
+            console.log("Trigger skip: no template defined for envio", envioId);
             return null;
         }
 
@@ -58,7 +65,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         const { data: allEvents, error: eErr } = await supabase
             .from("postagem_eventos")
             .select("*")
-            .eq("template_id", config.template_ativo_id)
+            .eq("template_id", templateIdToUse)
             .order("ordem", { ascending: true });
 
         if (eErr || !allEvents || allEvents.length === 0) {
