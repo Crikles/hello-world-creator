@@ -174,9 +174,26 @@ export default function Envios() {
     return `${m}m ${s.toString().padStart(2, "0")}s`;
   };
 
+  const { data: envios = [] } = useQuery({
+    queryKey: ["envios", loja?.id],
+    queryFn: async () => {
+      if (!loja) return [];
+      const { data, error } = await supabase
+        .from("envios")
+        .select("*")
+        .eq("loja_id", loja.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!loja,
+  });
+
   // Fetch event counts per template_id for progress calculation
+  const templateIdsKey = envios.map(e => e.postagem_template_id).filter(Boolean).join(",");
   const { data: eventCountMap = {} } = useQuery<Record<string, number>>({
-    queryKey: ["event-count-map", loja?.id, envios.map(e => e.postagem_template_id).filter(Boolean).join(",")],
+    queryKey: ["event-count-map", loja?.id, templateIdsKey],
     queryFn: async () => {
       if (!loja) return {};
       const { data: config } = await supabase
@@ -186,11 +203,9 @@ export default function Envios() {
         .maybeSingle();
       if (!config) return {};
 
-      // Collect unique template IDs from envios
       const templateIds = [...new Set(
         envios.map(e => e.postagem_template_id).filter(Boolean) as string[]
       )];
-      // Also include the current active template as fallback
       if (config.template_ativo_id && !templateIds.includes(config.template_ativo_id)) {
         templateIds.push(config.template_ativo_id);
       }
@@ -216,22 +231,6 @@ export default function Envios() {
       return map;
     },
     enabled: !!loja && envios.length > 0,
-  });
-
-  const { data: envios = [] } = useQuery({
-    queryKey: ["envios", loja?.id],
-    queryFn: async () => {
-      if (!loja) return [];
-      const { data, error } = await supabase
-        .from("envios")
-        .select("*")
-        .eq("loja_id", loja.id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!loja,
   });
 
   // Realtime listener for envios updates
