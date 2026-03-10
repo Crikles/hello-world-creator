@@ -3,11 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Eye, EyeOff, Truck, User, Phone, Mail, Save } from "lucide-react";
+import { Lock, Eye, EyeOff, User, Phone, Mail, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLoja } from "@/contexts/LojaContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Configuracoes() {
@@ -21,11 +20,9 @@ export default function Configuracoes() {
   const [whatsapp, setWhatsapp] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
-  const { loja } = useLoja();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch profile
   const { data: profile } = useQuery({
     queryKey: ["profile-settings", user?.id],
     queryFn: async () => {
@@ -64,41 +61,6 @@ export default function Configuracoes() {
     }
   };
 
-  // Logistica
-  const { data: logisticaProvider = "jl" } = useQuery({
-    queryKey: ["loja-logistica", loja?.id],
-    queryFn: async () => {
-      if (!loja?.id) return "jl";
-      const { data, error } = await supabase
-        .from("lojas")
-        .select("logistica_provider")
-        .eq("id", loja.id)
-        .single();
-      if (error) throw error;
-      return data?.logistica_provider || "jl";
-    },
-    enabled: !!loja?.id,
-  });
-
-  const logisticaMutation = useMutation({
-    mutationFn: async (provider: "jl" | "jadlog") => {
-      if (!loja?.id) return;
-      const { error } = await supabase
-        .from("lojas")
-        .update({ logistica_provider: provider })
-        .eq("id", loja.id);
-      if (error) throw error;
-      return provider;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["loja-logistica", loja?.id] });
-      toast.success("Logística padrão atualizada!");
-    },
-    onError: (err: any) => {
-      toast.error("Erro ao atualizar: " + err.message);
-    },
-  });
-
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword) {
       toast.error("Preencha todos os campos.");
@@ -127,7 +89,7 @@ export default function Configuracoes() {
   return (
     <>
       <h1 className="text-lg font-semibold text-foreground mb-4">Configurações</h1>
-      <div className="space-y-4 max-w-2xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-4xl">
 
         {/* ── Perfil ── */}
         <Card>
@@ -236,50 +198,11 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <Button onClick={handleChangePassword} disabled={loadingPw} className="w-full">
+            <Button onClick={handleChangePassword} disabled={loadingPw} className="w-full mt-auto">
               {loadingPw ? "Salvando..." : "Alterar Senha"}
             </Button>
           </CardContent>
         </Card>
-
-        {/* ── Logística ── */}
-        {loja && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Truck className="h-4 w-4" />
-                Logística de Envios
-              </CardTitle>
-              <CardDescription>Escolha a transportadora padrão para os novos pedidos desta loja.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => logisticaMutation.mutate("jl")}
-                  disabled={logisticaMutation.isPending}
-                  className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "jl"
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/50"
-                    }`}
-                >
-                  <img src="/logojltransportes.png" alt="JL Transportes" className="h-16 mb-3 object-contain" />
-                  <span className={`font-semibold text-sm ${logisticaProvider === "jl" ? "text-primary" : "text-slate-600"}`}>JL Transportes</span>
-                </button>
-                <button
-                  onClick={() => logisticaMutation.mutate("jadlog")}
-                  disabled={logisticaMutation.isPending}
-                  className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "jadlog"
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/50"
-                    }`}
-                >
-                  <img src="/logojadlog.png" alt="JADLOG" className="h-16 mb-3 object-contain" />
-                  <span className={`font-semibold text-sm ${logisticaProvider === "jadlog" ? "text-primary" : "text-slate-600"}`}>JADLOG</span>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </>
   );
