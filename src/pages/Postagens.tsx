@@ -387,6 +387,8 @@ export default function Postagens() {
           origem_cidade: localConfig.origem_cidade,
           origem_estado: localConfig.origem_estado,
           whatsapp_vendedor: localConfig.whatsapp_vendedor || null,
+          cor_primaria: localConfig.cor_primaria || '#6366f1',
+          cor_botao_cta: localConfig.cor_botao_cta || '#1a1a1a',
         })
         .eq("loja_id", loja.id);
       if (configErr) throw configErr;
