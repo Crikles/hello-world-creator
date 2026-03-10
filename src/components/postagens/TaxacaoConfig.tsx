@@ -227,7 +227,7 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                     </div>
                     <div className="space-y-2 text-[10px]">
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Cliente</span><span className="font-bold text-[#020617]">Maria Silva</span></div>
-                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">CPF</span><span className="font-mono text-[10px] font-semibold text-[#6366f1]">123.456.789-00</span></div>
+                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">CPF</span><span className="font-mono text-[10px] font-semibold" style={{ color: settings.cor_destaque }}>123.456.789-00</span></div>
                         <div className="flex justify-between items-start"><span className="font-bold text-slate-500 uppercase">Endereço</span><span className="font-bold text-[#020617] text-right text-[9px] max-w-[55%]">Rua Exemplo, 123 - Centro<br />São Paulo/SP — CEP 01000-000</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Produto</span><span className="font-bold text-[#020617]">Camiseta Polo Premium</span></div>
