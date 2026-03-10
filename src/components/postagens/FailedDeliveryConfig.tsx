@@ -182,7 +182,7 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
                   </table>
                 </div>
                 <div style="text-align:center;margin-top:24px;">
-                  <span style="display:inline-block;padding:14px 32px;background-color:#ea580c;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;border-radius:12px;">PAGAR REENVIO AGORA</span>
+                  <span style="display:inline-block;padding:14px 32px;background-color:${settings.cor_botao};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;border-radius:12px;">PAGAR REENVIO AGORA</span>
                 </div>
               </td></tr>
             </table>
