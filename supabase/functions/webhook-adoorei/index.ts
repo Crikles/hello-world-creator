@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
                 cliente_endereco: address.street || null,
                 cliente_numero: address.number || null,
                 cliente_bairro: address.neighborhood || null,
-                cliente_cep: address.zipcode || null,
+                cliente_cep: address.zipcode ? address.zipcode.replace(/\D/g, '') : null,
                 cliente_cidade: address.city || null,
                 cliente_estado: address.uf || null,
                 cliente_complemento: address.complement || null,
