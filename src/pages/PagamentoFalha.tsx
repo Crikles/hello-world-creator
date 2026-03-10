@@ -47,6 +47,13 @@ interface TaxSettings {
     url_pagamento: string;
     cor_botao: string;
     cor_header: string;
+    cor_destaque: string;
+    cor_titulo_resumo: string;
+    cor_label_taxa: string;
+    cor_descricao: string;
+    cor_fundo_descricao: string;
+    cor_borda_descricao: string;
+    mensagem_site: string;
     mostrar_valor: boolean;
     mostrar_prazo: boolean;
 }
@@ -59,6 +66,13 @@ const DEFAULT_TAX: TaxSettings = {
     url_pagamento: "",
     cor_botao: "#ea580c",
     cor_header: "#ea580c",
+    cor_destaque: "#ea580c",
+    cor_titulo_resumo: "#020617",
+    cor_label_taxa: "#020617",
+    cor_descricao: "#9a3412",
+    cor_fundo_descricao: "#fff7ed",
+    cor_borda_descricao: "#fed7aa80",
+    mensagem_site: "A transportadora não conseguiu concluir a entrega do seu pedido. O pacote retornou ao nosso centro de distribuição. Para realizarmos uma nova tentativa de envio, é necessário o pagamento da taxa de reenvio.",
     mostrar_valor: true,
     mostrar_prazo: true,
 };

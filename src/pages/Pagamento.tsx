@@ -47,6 +47,13 @@ interface TaxSettings {
     url_pagamento: string;
     cor_botao: string;
     cor_header: string;
+    cor_destaque: string;
+    cor_titulo_resumo: string;
+    cor_label_taxa: string;
+    cor_descricao: string;
+    cor_fundo_descricao: string;
+    cor_borda_descricao: string;
+    mensagem_site: string;
     mostrar_valor: boolean;
     mostrar_prazo: boolean;
 }
@@ -59,6 +66,13 @@ const DEFAULT_TAX: TaxSettings = {
     url_pagamento: "",
     cor_botao: "#6366f1",
     cor_header: "#fbbf24",
+    cor_destaque: "#6366f1",
+    cor_titulo_resumo: "#020617",
+    cor_label_taxa: "#020617",
+    cor_descricao: "#92400e",
+    cor_fundo_descricao: "#fffbeb",
+    cor_borda_descricao: "#fde68a80",
+    mensagem_site: "Sua encomenda foi retida pela fiscalização aduaneira e aguarda a quitação da taxa de liberação. O pagamento é indispensável para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente.",
     mostrar_valor: true,
     mostrar_prazo: true,
 };
