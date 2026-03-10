@@ -490,6 +490,10 @@ export default function Postagens() {
               <span className="ml-1 w-2 h-2 rounded-full bg-orange-500 animate-pulse-dot" />
             )}
           </TabsTrigger>
+          <TabsTrigger value="logistica" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Truck className="h-3.5 w-3.5" />
+            Logística
+          </TabsTrigger>
         </TabsList>
 
         {/* ─── Configuração Tab ─── */}
