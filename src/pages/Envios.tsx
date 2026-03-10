@@ -174,31 +174,48 @@ export default function Envios() {
     return `${m}m ${s.toString().padStart(2, "0")}s`;
   };
 
-  // Fetch total events count for progress calculation (filtered by active config)
-  const { data: totalEventos = 0 } = useQuery({
-    queryKey: ["total-eventos", loja?.id],
+  // Fetch event counts per template_id for progress calculation
+  const { data: eventCountMap = {} } = useQuery<Record<string, number>>({
+    queryKey: ["event-count-map", loja?.id, envios.map(e => e.postagem_template_id).filter(Boolean).join(",")],
     queryFn: async () => {
-      if (!loja) return 0;
+      if (!loja) return {};
       const { data: config } = await supabase
         .from("postagem_config")
         .select("template_ativo_id, ativar_falha_entrega, enviar_nfe_email")
         .eq("loja_id", loja.id)
         .maybeSingle();
-      if (!config?.template_ativo_id) return 0;
+      if (!config) return {};
+
+      // Collect unique template IDs from envios
+      const templateIds = [...new Set(
+        envios.map(e => e.postagem_template_id).filter(Boolean) as string[]
+      )];
+      // Also include the current active template as fallback
+      if (config.template_ativo_id && !templateIds.includes(config.template_ativo_id)) {
+        templateIds.push(config.template_ativo_id);
+      }
+      if (templateIds.length === 0) return {};
+
       const { data: eventos } = await supabase
         .from("postagem_eventos")
-        .select("status_label, enviar_nfe_pdf")
-        .eq("template_id", config.template_ativo_id);
-      if (!eventos) return 0;
+        .select("template_id, status_label, enviar_nfe_pdf")
+        .in("template_id", templateIds);
+      if (!eventos) return {};
+
       const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
-      const filtered = eventos.filter(e => {
-        if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
-        if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-        return true;
-      });
-      return filtered.length;
+      const map: Record<string, number> = {};
+      for (const tid of templateIds) {
+        const filtered = eventos.filter(e => {
+          if (e.template_id !== tid) return false;
+          if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
+          if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+          return true;
+        });
+        map[tid] = filtered.length;
+      }
+      return map;
     },
-    enabled: !!loja,
+    enabled: !!loja && envios.length > 0,
   });
 
   const { data: envios = [] } = useQuery({
