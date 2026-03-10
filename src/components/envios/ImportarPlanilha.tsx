@@ -322,12 +322,6 @@ export function ImportarPlanilha({ lojaId }: Props) {
   const handleImport = async () => {
     setImporting(true);
     try {
-      const { data: lojaData } = await supabase
-        .from("lojas")
-        .select("logistica_provider")
-        .eq("id", lojaId)
-        .single();
-
       const { data: configData } = await supabase
         .from("postagem_config")
         .select("template_ativo_id")
