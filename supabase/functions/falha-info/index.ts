@@ -27,6 +27,29 @@ function formatProduto(raw: string): string {
   return decodeHtmlEntities(raw);
 }
 
+/** Parse falha settings from corpo_email tags */
+function parseFalhaSettings(corpo: string) {
+    const corBotaoMatch = corpo.match(/\{\{falha_cor_botao:([^}]*)\}\}/);
+    const corDestaqueMatch = corpo.match(/\{\{falha_cor_destaque:([^}]*)\}\}/);
+    const corTituloResumoMatch = corpo.match(/\{\{falha_cor_titulo_resumo:([^}]*)\}\}/);
+    const corLabelTaxaMatch = corpo.match(/\{\{falha_cor_label_taxa:([^}]*)\}\}/);
+    const corDescricaoMatch = corpo.match(/\{\{falha_cor_descricao:([^}]*)\}\}/);
+    const corFundoDescricaoMatch = corpo.match(/\{\{falha_cor_fundo_descricao:([^}]*)\}\}/);
+    const corBordaDescricaoMatch = corpo.match(/\{\{falha_cor_borda_descricao:([^}]*)\}\}/);
+    const mensagemSiteMatch = corpo.match(/\{\{falha_mensagem_site:([^}]*)\}\}/);
+
+    return {
+        cor_botao: corBotaoMatch?.[1] || null,
+        cor_destaque: corDestaqueMatch?.[1] || null,
+        cor_titulo_resumo: corTituloResumoMatch?.[1] || null,
+        cor_label_taxa: corLabelTaxaMatch?.[1] || null,
+        cor_descricao: corDescricaoMatch?.[1] || null,
+        cor_fundo_descricao: corFundoDescricaoMatch?.[1] || null,
+        cor_borda_descricao: corBordaDescricaoMatch?.[1] || null,
+        mensagem_site: mensagemSiteMatch?.[1] || null,
+    };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders })
@@ -83,19 +106,41 @@ Deno.serve(async (req: Request) => {
     if (envio.loja_id) {
       const { data: config } = await supabase
         .from("postagem_config")
-        .select("valor_taxa_falha, checkout_url_falha, ativar_falha_entrega")
+        .select("valor_taxa_falha, checkout_url_falha, ativar_falha_entrega, template_ativo_id")
         .eq("loja_id", envio.loja_id)
         .maybeSingle()
 
       if (config?.ativar_falha_entrega) {
+        // Try to read color settings from the Falha Entrega evento corpo_email
+        let falhaColors: Record<string, string | null> = {};
+        if (config.template_ativo_id) {
+          const { data: falhaEvento } = await supabase
+            .from("postagem_eventos")
+            .select("corpo_email")
+            .eq("template_id", config.template_ativo_id)
+            .eq("status_label", "Falha Entrega")
+            .maybeSingle();
+
+          if (falhaEvento?.corpo_email) {
+            falhaColors = parseFalhaSettings(falhaEvento.corpo_email);
+          }
+        }
+
         tax = {
           mensagem_taxa: "Houve uma falha na tentativa de entrega do seu pedido. Para reenviarmos, precisamos que você pague a taxa de retentativa.",
           texto_botao: "PAGAR REENVIO",
           valor_exemplo: String(config.valor_taxa_falha || 0),
           prazo_dias: "5",
           url_pagamento: config.checkout_url_falha || "",
-          cor_botao: "#ea580c",
+          cor_botao: falhaColors.cor_botao || "#ea580c",
           cor_header: "#ea580c",
+          cor_destaque: falhaColors.cor_destaque || "#ea580c",
+          cor_titulo_resumo: falhaColors.cor_titulo_resumo || "#020617",
+          cor_label_taxa: falhaColors.cor_label_taxa || "#020617",
+          cor_descricao: falhaColors.cor_descricao || "#9a3412",
+          cor_fundo_descricao: falhaColors.cor_fundo_descricao || "#fff7ed",
+          cor_borda_descricao: falhaColors.cor_borda_descricao || "#fed7aa80",
+          mensagem_site: falhaColors.mensagem_site || "A transportadora não conseguiu concluir a entrega do seu pedido. O pacote retornou ao nosso centro de distribuição. Para realizarmos uma nova tentativa de envio, é necessário o pagamento da taxa de reenvio.",
           mostrar_valor: true,
           mostrar_prazo: true,
         }
