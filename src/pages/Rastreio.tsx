@@ -530,14 +530,23 @@ export default function Rastreio() {
                 <div className="footer-content">
                     <div className="footer-top">
                         <div className="f-brand">
-                            <img src={logoUrl} alt={empresaNome} style={{ width: 220, filter: isJadlog ? 'drop-shadow(0px 0px 4px rgba(255,255,255,0.8)) object-fit-contain' : 'none' }} />
-                            <p>Soluções completas em logística<br />e transporte de encomendas.</p>
+                            <img src={logoUrl} alt={empresaNome} style={{ width: 220 }} />
+                            <p>{isJadlog ? 'Logística expressa com rastreamento em tempo real.' : 'Soluções completas em logística e transporte de encomendas.'}</p>
                         </div>
                         <div className="f-links">
                             <div className="f-col">
                                 <h5>CONTATO</h5>
-                                <a href="mailto:contato@logisticajltransportes.com">contato@logisticajltransportes.com</a>
-                                <a href="tel:08006589589">0800 658 9589</a>
+                                {isJadlog ? (
+                                    <>
+                                        <a href="mailto:contato@centrojadlog.com">contato@centrojadlog.com</a>
+                                        <a href="tel:08007251560">0800 725 1560</a>
+                                    </>
+                                ) : (
+                                    <>
+                                        <a href="mailto:contato@logisticajltransportes.com">contato@logisticajltransportes.com</a>
+                                        <a href="tel:08006589589">0800 658 9589</a>
+                                    </>
+                                )}
                             </div>
                             <div className="f-col">
                                 <h5>INFORMAÇÕES</h5>
