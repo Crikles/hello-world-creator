@@ -166,15 +166,43 @@ export default function Rastreio() {
                 __html: `
                 .theme-jadlog {
                     --primary: 351 96% 45%;
+                    --primary-rgb: 225, 5, 38;
                     --primary-hover: #b0021b;
                     --accent: #475569;
                     --hero-bg: ${bgGradient};
+                    --glow-color: rgba(225, 5, 38, 0.12);
+                    --badge-bg: rgba(225, 5, 38, 0.08);
+                    --badge-border: rgba(225, 5, 38, 0.18);
+                    --badge-text: #f87171;
+                    --highlight-from: #f87171;
+                    --highlight-to: #fb923c;
+                    --btn-gradient: linear-gradient(135deg, #e10526, #b91c1c);
+                    --btn-shadow: rgba(225, 5, 38, 0.3);
+                    --focus-ring: rgba(225, 5, 38, 0.12);
+                    --focus-border: rgba(225, 5, 38, 0.6);
+                    --mobile-link-hover: rgba(225, 5, 38, 0.08);
+                    --timeline-header: #991b1b;
+                    --timeline-title: #991b1b;
                 }
                 .theme-jl {
                     --primary: 239 84% 67%;
+                    --primary-rgb: 99, 102, 241;
                     --primary-hover: #4f46e5;
                     --accent: #8b5cf6;
                     --hero-bg: ${bgGradient};
+                    --glow-color: rgba(99, 102, 241, 0.12);
+                    --badge-bg: rgba(99, 102, 241, 0.08);
+                    --badge-border: rgba(99, 102, 241, 0.18);
+                    --badge-text: #818cf8;
+                    --highlight-from: #818cf8;
+                    --highlight-to: #c084fc;
+                    --btn-gradient: linear-gradient(135deg, #6366f1, #7c3aed);
+                    --btn-shadow: rgba(99, 102, 241, 0.3);
+                    --focus-ring: rgba(99, 102, 241, 0.12);
+                    --focus-border: rgba(129, 140, 248, 0.6);
+                    --mobile-link-hover: rgba(99, 102, 241, 0.08);
+                    --timeline-header: #005a96;
+                    --timeline-title: #005a96;
                 }
             `}} />
             <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
