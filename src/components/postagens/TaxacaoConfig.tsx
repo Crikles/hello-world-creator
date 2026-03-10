@@ -544,11 +544,20 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                                 <Switch checked={settings.mostrar_prazo} onCheckedChange={(v) => set("mostrar_prazo", v)} />
                             </div>
 
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
-                                <div className="flex items-center gap-2">
-                                    <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
-                                    <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
+                                        <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-muted-foreground">Cor de Destaque</Label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
+                                        <Input value={settings.cor_destaque} onChange={(e) => set("cor_destaque", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
