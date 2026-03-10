@@ -77,6 +77,14 @@ export default function Envios() {
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const isJadlog = useCallback((envio: { transportadora?: string | null }) => {
+    return envio.transportadora?.toUpperCase().includes('JADLOG') || (!envio.transportadora && loja?.logistica_provider === 'jadlog');
+  }, [loja?.logistica_provider]);
+
+  const getTrackingDomain = useCallback((envio: { transportadora?: string | null }) => {
+    return isJadlog(envio) ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com';
+  }, [isJadlog]);
+
   // Batch advance state
   const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
   const batchCancelRef = useRef(false);
