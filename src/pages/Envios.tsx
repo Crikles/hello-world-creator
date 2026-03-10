@@ -77,6 +77,14 @@ export default function Envios() {
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const isJadlog = useCallback((envio: { transportadora?: string | null }) => {
+    return envio.transportadora?.toUpperCase().includes('JADLOG') || (!envio.transportadora && loja?.logistica_provider === 'jadlog');
+  }, [loja?.logistica_provider]);
+
+  const getTrackingDomain = useCallback((envio: { transportadora?: string | null }) => {
+    return isJadlog(envio) ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com';
+  }, [isJadlog]);
+
   // Batch advance state
   const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
   const batchCancelRef = useRef(false);
@@ -845,18 +853,16 @@ export default function Envios() {
                     {getDisplayStatus(envio)}
                   </Badge>
                   {/* Transportadora tag */}
-                  {envio.transportadora && (
-                    <Badge
-                      variant="outline"
-                      className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${
-                        envio.transportadora.toUpperCase().includes('JADLOG')
-                          ? 'bg-destructive/10 text-destructive border-destructive/30'
-                          : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
-                      }`}
-                    >
-                      {envio.transportadora.toUpperCase().includes('JADLOG') ? 'JADLOG' : 'JL'}
-                    </Badge>
-                  )}
+                  <Badge
+                    variant="outline"
+                    className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${
+                      isJadlog(envio)
+                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                        : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                    }`}
+                  >
+                    {isJadlog(envio) ? 'JADLOG' : 'JL'}
+                  </Badge>
 
                   {/* Quick links */}
                   <div className="flex items-center gap-0.5 ml-auto shrink-0">
@@ -866,7 +872,7 @@ export default function Envios() {
                         size="icon"
                         className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
                         title="Rastreio"
-                        onClick={() => window.open(`https://${envio.transportadora?.toUpperCase().includes('JADLOG') ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com'}/r/${envio.codigo_rastreio}`, '_blank')}
+                        onClick={() => window.open(`https://${getTrackingDomain(envio)}/r/${envio.codigo_rastreio}`, '_blank')}
                       >
                         <ExternalLink className="h-3 w-3" />
                       </Button>
@@ -877,7 +883,7 @@ export default function Envios() {
                         size="icon"
                         className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
                         title="Taxação"
-                        onClick={() => window.open(`https://${envio.transportadora?.toUpperCase().includes('JADLOG') ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com'}/p/${envio.id}`, '_blank')}
+                        onClick={() => window.open(`https://${getTrackingDomain(envio)}/p/${envio.id}`, '_blank')}
                       >
                         <CreditCard className="h-3 w-3" />
                       </Button>
@@ -887,7 +893,7 @@ export default function Envios() {
                       size="icon"
                       className="h-6 w-6 hover:bg-orange-500/10 hover:text-orange-500"
                       title="Falha na Entrega"
-                      onClick={() => window.open(`https://${envio.transportadora?.toUpperCase().includes('JADLOG') ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com'}/f/${envio.id}`, '_blank')}
+                      onClick={() => window.open(`https://${getTrackingDomain(envio)}/f/${envio.id}`, '_blank')}
                     >
                       <PackageX className="h-3 w-3" />
                     </Button>
