@@ -872,7 +872,7 @@ const styles = `
 
 /* Sidebar Card (Label style) */
 .package-label-card {
-    background: #0f172a;
+    background: var(--package-card-bg, #0f172a);
     color: white;
     border-radius: 24px;
     padding: 32px;
