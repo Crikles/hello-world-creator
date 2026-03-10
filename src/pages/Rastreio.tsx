@@ -771,7 +771,7 @@ const styles = `
 }
 .hero-desc {
   font-size: 16px;
-  color: #64748b;
+  color: var(--hero-text-muted, #64748b);
   max-width: 520px;
   margin: 0 auto 40px;
   line-height: 1.7;
