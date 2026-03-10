@@ -136,6 +136,13 @@ export default function Pagamento() {
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
     const logoUrl = isJadlog ? "/logojadlog.png" : (empresa?.logo_url || "/logojltransportes.png");
     const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#6366f1");
+    const destaqueColor = isJadlog ? "#e10526" : (tax.cor_destaque || "#6366f1");
+    const tituloResumoColor = tax.cor_titulo_resumo || "#020617";
+    const labelTaxaColor = tax.cor_label_taxa || "#020617";
+    const descricaoColor = tax.cor_descricao || "#92400e";
+    const fundoDescricaoColor = tax.cor_fundo_descricao || "#fffbeb";
+    const bordaDescricaoColor = tax.cor_borda_descricao || "#fde68a80";
+    const mensagemSite = tax.mensagem_site || "Sua encomenda foi retida pela fiscalização aduaneira e aguarda a quitação da taxa de liberação. O pagamento é indispensável para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente.";
 
     if (loading) {
         return (
