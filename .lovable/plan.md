@@ -1,58 +1,53 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Personalização de Cores do E-mail e Site de Rastreio
 
-### Root cause
+## O que será feito
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+Adicionar na aba **Configuração** do Postagens um card de personalização de cores, similar ao que já existe na Taxação (`cor_botao`, `cor_header`). O usuário poderá customizar:
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+- **Cor Primária** (usada nos e-mails de rastreio e no site de rastreio — links, rastreio highlight, barra de progresso)
+- **Cor do Botão CTA** (botão "Rastrear Pedido" nos e-mails)
 
-### Fix
+## Alterações
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
-
-### Changes
-
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+### 1. Banco de Dados — Migration
+Adicionar 2 colunas na tabela `postagem_config`:
+```sql
+ALTER TABLE public.postagem_config
+  ADD COLUMN cor_primaria text DEFAULT '#6366f1',
+  ADD COLUMN cor_botao_cta text DEFAULT '#1a1a1a';
 ```
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+### 2. Frontend — `src/pages/Postagens.tsx`
+- Adicionar `cor_primaria` e `cor_botao_cta` ao `PostagemConfig` interface
+- Adicionar card de "Personalização Visual" na aba Configuração (após WhatsApp Vendedor), com:
+  - Input tipo `color` + campo hex para cor primária
+  - Input tipo `color` + campo hex para cor do botão CTA
+  - Preview inline mostrando as cores aplicadas
+- Incluir as novas colunas no `saveAll` mutation e no `hasChanges` check
 
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+### 3. Backend — `supabase/functions/send-email/index.ts`
+- Na função `buildEmailHtml`, ler `cor_primaria` e `cor_botao_cta` da `postagem_config` da loja
+- Aplicar `cor_primaria` nos destaques do e-mail (código de rastreio, barra decorativa)
+- Aplicar `cor_botao_cta` no botão CTA do e-mail (atualmente fixo em `#1a1a1a`)
 
-Apply the same NF-e filter to the client-side trigger:
+### 4. Backend — `supabase/functions/rastreio-info/index.ts`
+- Retornar `cor_primaria` na resposta da API para que o site de rastreio JL possa usá-la
 
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+### 5. Frontend — `src/pages/Rastreio.tsx`
+- Ler `cor_primaria` da resposta da API (com fallback para `#6366f1` ou `#D71920` conforme domínio)
+- Aplicar na barra de progresso, ícones da timeline e destaques
+
+### 6. Preview no EmailEditor — `src/components/postagens/emailTemplates.ts`
+- Passar `primaryColor` do config para o `buildEmailHtml` do preview
+
+## Fluxo de dados
+```text
+postagem_config.cor_primaria / cor_botao_cta
+   ↓
+send-email (edge function) → lê do DB → aplica no HTML do email
+rastreio-info (edge function) → retorna na API → site de rastreio usa
+Postagens UI → salva no DB + preview local
 ```
-
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
