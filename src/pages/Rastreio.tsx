@@ -845,7 +845,7 @@ const styles = `
     align-items: center;
     gap: 16px;
 }
-.q-icon { color: #334155; }
+.q-icon { color: var(--hero-q-icon, #334155); }
 .q-text { display: flex; flex-direction: column; text-align: left; }
 .q-val { font-size: 20px; font-weight: 800; color: white; line-height: 1; }
 .q-lab { font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; margin-top: 4px; }
