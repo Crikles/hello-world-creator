@@ -330,7 +330,7 @@ function ColorPicker({ label, value, onChange }: { label: string; value: string;
         <div className="space-y-1">
             <Label className="text-[10px] font-medium text-muted-foreground">{label}</Label>
             <div className="flex items-center gap-1.5">
-                <input type="color" value={value.replace(/[0-9a-f]{2}$/i, '') || value} onChange={(e) => onChange(e.target.value)} className="w-7 h-7 rounded cursor-pointer border border-border/50" />
+                <input type="color" value={value.length === 9 ? value.slice(0, 7) : (value.length === 7 ? value : "#000000")} onChange={(e) => onChange(e.target.value)} className="w-7 h-7 rounded cursor-pointer border border-border/50" />
                 <Input value={value} onChange={(e) => onChange(e.target.value)} className="text-[10px] font-mono flex-1 bg-transparent border-border/50 h-7 px-1.5" />
             </div>
         </div>
