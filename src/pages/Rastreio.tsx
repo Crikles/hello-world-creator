@@ -30,6 +30,7 @@ interface EnvioData {
     cliente_nome: string;
     transportadora: string;
     status: string;
+    status_label: string | null;
     ultimo_evento_ordem: number;
     created_at: string;
     updated_at: string;
