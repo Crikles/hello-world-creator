@@ -1,58 +1,42 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Fix: Envios existentes não devem ser afetados por mudança de template
 
-### Root cause
+## Problema
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+Quando o usuário muda o template ativo em Postagens, os envios que já estão em progresso (ex: etapa 8/9) são afetados porque:
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+1. **Progresso visual (Envios.tsx)**: O cálculo de `totalEventos` sempre usa `config.template_ativo_id` — o template ATUAL da loja. Se o template muda de 9 para 12 eventos, o envio que estava em 8/9 passa a mostrar 8/12.
 
-### Fix
+2. **Avanço automático (advance-shipments + email-trigger)**: Usam `shipment.postagem_template_id || config.template_ativo_id`. Envios que já têm `postagem_template_id` gravado estão protegidos, mas envios antigos (antes dessa coluna existir) caem no fallback e pegam o template novo.
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+## Solução
 
-### Changes
+### 1. Backfill: Gravar `postagem_template_id` nos envios antigos
+Criar uma migração SQL que preencha `postagem_template_id` em todos os envios que ainda não têm, usando o `template_ativo_id` atual da loja. Isso "congela" o template para envios existentes.
 
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+```sql
+UPDATE envios e
+SET postagem_template_id = pc.template_ativo_id
+FROM postagem_config pc
+WHERE e.loja_id = pc.loja_id
+  AND e.postagem_template_id IS NULL
+  AND pc.template_ativo_id IS NOT NULL;
 ```
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+### 2. Corrigir cálculo de progresso em Envios.tsx (linhas ~177-202)
+Em vez de usar `config.template_ativo_id` para TODOS os envios, calcular o total de eventos **por envio** usando o `postagem_template_id` de cada um. Approach: buscar os eventos do template do envio individualmente, ou agrupar envios por template_id.
 
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+Simplificação prática: como cada envio já tem `postagem_template_id`, fazer o cálculo de progresso inline por envio em vez de usar um único `totalEventos` global.
 
-Apply the same NF-e filter to the client-side trigger:
+### 3. Garantir que nunca mais um envio fique sem template
+Verificar que `NovoEnvioWizard.tsx` e `ImportarPlanilha.tsx` já gravam `postagem_template_id` (já fazem — confirmado no código).
 
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
+## Arquivos a alterar
 
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+| Arquivo | Mudança |
+|---------|---------|
+| Migração SQL | Backfill `postagem_template_id` nos envios existentes |
+| `src/pages/Envios.tsx` | Calcular progresso por envio usando seu próprio `postagem_template_id` em vez do template ativo global |
+| `src/pages/Taxacao.tsx` | Mesmo ajuste — usar template do envio quando aplicável |
 
