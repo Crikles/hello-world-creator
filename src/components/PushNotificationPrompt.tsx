@@ -23,6 +23,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function PushNotificationPrompt({ codigoRastreio }: PushNotificationPromptProps) {
   const [visible, setVisible] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const jadlog = isJadlogDomain();
+  const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
     // Don't show if already prompted, or API not available, or permission already decided
