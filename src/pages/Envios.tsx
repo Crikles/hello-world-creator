@@ -914,7 +914,7 @@ export default function Envios() {
                       <FileText className="h-3 w-3" />
                     </Button>
                     <span className="text-[10px] text-muted-foreground mx-1 hidden sm:inline">
-                      {format(new Date(envio.created_at), "dd/MM")}
+                      {format(new Date(envio.created_at), "dd/MM HH:mm")}
                     </span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       {canAdvance(envio) && (
