@@ -77,9 +77,15 @@ export default function Envios() {
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const isJadlog = useCallback((envio: { transportadora?: string | null }) => {
-    return envio.transportadora?.toUpperCase().includes('JADLOG') || (!envio.transportadora && loja?.logistica_provider === 'jadlog');
-  }, [loja?.logistica_provider]);
+  const isJadlog = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
+    if (envio.transportadora) {
+      return envio.transportadora.toUpperCase().includes('JADLOG');
+    }
+    if (envio.codigo_rastreio) {
+      return envio.codigo_rastreio.toUpperCase().endsWith('JD');
+    }
+    return false;
+  }, []);
 
   const getTrackingDomain = useCallback((envio: { transportadora?: string | null }) => {
     return isJadlog(envio) ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com';

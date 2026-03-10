@@ -1,48 +1,58 @@
 
 
-# Bug: Envios antigos mudam de JL para JADLOG
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-## Causa raiz
+### Root cause
 
-Linha 80-81 de `Envios.tsx`:
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+
+### Fix
+
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+
+### Changes
+
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
+
 ```typescript
-const isJadlog = useCallback((envio) => {
-  return envio.transportadora?.toUpperCase().includes('JADLOG') 
-    || (!envio.transportadora && loja?.logistica_provider === 'jadlog');
-}, [loja?.logistica_provider]);
-```
-
-Quando o envio **não tem** `transportadora` preenchida (campo null — comum em envios antigos ou criados por webhooks), o sistema usa o `logistica_provider` **atual** da loja como fallback. Quando o usuário muda de JL para JADLOG nas configurações, **todos** os envios antigos sem transportadora passam a mostrar badge JADLOG e links para o domínio errado.
-
-## Solução
-
-Alterar o fallback para usar o **sufixo do código de rastreio** ao invés do provider atual da loja. Envios JL terminam em `JL`, envios JADLOG terminam em `JD`. Isso é imutável e gravado no momento da criação.
-
-### `src/pages/Envios.tsx` — linha 80-82
-
-Antes:
-```typescript
-const isJadlog = useCallback((envio) => {
-  return envio.transportadora?.toUpperCase().includes('JADLOG') 
-    || (!envio.transportadora && loja?.logistica_provider === 'jadlog');
-}, [loja?.logistica_provider]);
-```
-
-Depois:
-```typescript
-const isJadlog = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
-  if (envio.transportadora) {
-    return envio.transportadora.toUpperCase().includes('JADLOG');
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
   }
-  // Fallback: check tracking code suffix (JD = JADLOG, JL = JL Transportes)
-  if (envio.codigo_rastreio) {
-    return envio.codigo_rastreio.toUpperCase().endsWith('JD');
-  }
-  return false;
-}, []);
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-Remove a dependência de `loja?.logistica_provider`, fazendo com que o badge e o domínio de rastreio reflitam a transportadora **real** usada na criação do envio, não a configuração atual da loja.
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-Mesma lógica deve ser verificada em outros locais que usam `isJadlog` ou fallback similar (edge functions `send-email`, `advance-shipments`, `rastreio-info`). As edge functions já usam `envio.transportadora` diretamente, então estão corretas. A correção é apenas no frontend.
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
