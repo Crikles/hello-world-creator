@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Megaphone, AlertTriangle } from "lucide-react";
+import { Megaphone, AlertTriangle, MessageCircle } from "lucide-react";
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -74,6 +74,18 @@ export function AppLayout() {
               <Megaphone className="h-4 w-4" />
               <span className="text-sm font-medium tracking-wide">
                 Está escalando? Entre em contato com o suporte para um plano personalizado de custos!
+              </span>
+            </div>
+          )}
+
+          {!isImpersonating && (
+            <div
+              onClick={() => window.open("https://chat.whatsapp.com/L2SKQrtAFu8C0WKJropR1F", "_blank")}
+              className="bg-[hsl(142,70%,35%)] hover:bg-[hsl(142,70%,30%)] text-white py-2 px-4 flex items-center justify-center gap-2 cursor-pointer transition-colors z-50"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span className="text-sm font-medium tracking-wide">
+                Entre na Comunidade do WhatsApp para ficar por dentro de todas as atualizações
               </span>
             </div>
           )}
