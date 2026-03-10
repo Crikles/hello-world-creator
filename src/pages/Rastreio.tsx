@@ -759,7 +759,7 @@ const styles = `
   margin-bottom: 20px;
 }
 .main-title .highlight {
-  background: linear-gradient(135deg, #818cf8, #c084fc);
+  background: linear-gradient(135deg, var(--highlight-from, #818cf8), var(--highlight-to, #c084fc));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
