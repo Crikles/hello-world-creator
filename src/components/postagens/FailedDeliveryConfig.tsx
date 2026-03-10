@@ -320,6 +320,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                 checkout_url_falha: (config as any).checkout_url_falha || "",
                 valor_taxa_falha: ((config as any).valor_taxa_falha || 0).toString(),
                 cor_botao: DEFAULT_SETTINGS.cor_botao,
+                cor_destaque: DEFAULT_SETTINGS.cor_destaque,
             };
             setSettings(loaded);
             setSavedSettings(loaded);
