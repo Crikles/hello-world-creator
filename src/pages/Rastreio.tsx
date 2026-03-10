@@ -197,8 +197,13 @@ export default function Rastreio() {
 
                 {/* ── Hero ── */}
                 <section className="jd-hero" id="rastrear">
+                    <div className="jd-hero-bg-decor" />
                     <div className="jd-hero-content">
-                        <h1>Acompanhe sua entrega em tempo real</h1>
+                        <div className="jd-hero-badge">
+                            <Truck size={14} />
+                            <span>Rastreamento inteligente</span>
+                        </div>
+                        <h1>Acompanhe sua entrega<br />em tempo real</h1>
                         <p className="jd-hero-sub">
                             Rastreamento inteligente com atualização automática em cada etapa da entrega.
                         </p>
@@ -208,7 +213,7 @@ export default function Rastreio() {
 
                         <form onSubmit={handleSearch} className="jd-search-form">
                             <div className="jd-search-wrapper">
-                                <Search size={18} className="jd-search-icon" />
+                                <Search size={20} className="jd-search-icon" />
                                 <input
                                     type="text"
                                     value={searchInput}
@@ -216,9 +221,12 @@ export default function Rastreio() {
                                     placeholder="Digite seu código de rastreio"
                                     className="jd-search-input"
                                 />
+                                <button type="submit" disabled={loading} className="jd-search-btn-inline">
+                                    {loading ? <div className="jd-spinner" /> : (<><Search size={16} /><span>Rastrear</span></>)}
+                                </button>
                             </div>
-                            <button type="submit" disabled={loading} className="jd-search-btn">
-                                {loading ? <div className="jd-spinner" /> : "Rastrear encomenda"}
+                            <button type="submit" disabled={loading} className="jd-search-btn-mobile">
+                                {loading ? <div className="jd-spinner" /> : (<><Package size={16} /><span>Rastrear encomenda</span><ArrowRight size={16} /></>)}
                             </button>
                         </form>
                     </div>
@@ -729,48 +737,89 @@ const jadlogStyles = `
 
 /* ── Hero ── */
 .jd-hero {
-  padding: 120px 32px 80px; background: #D71920;
+  padding: 130px 32px 90px; 
+  background: linear-gradient(135deg, #D71920 0%, #a51117 50%, #8B0F14 100%);
   color: white; text-align: center; position: relative;
+  overflow: hidden;
 }
-.jd-hero-content { max-width: 700px; margin: 0 auto; position: relative; z-index: 2; }
+.jd-hero-bg-decor {
+  position: absolute; inset: 0; z-index: 0;
+  background: 
+    radial-gradient(ellipse 800px 400px at 20% 80%, rgba(255,255,255,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 600px 300px at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 70%);
+}
+.jd-hero-content { 
+  max-width: 680px; margin: 0 auto; position: relative; z-index: 2; 
+}
+.jd-hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 16px; border-radius: 100px;
+  background: rgba(255,255,255,0.15); backdrop-filter: blur(4px);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+  text-transform: uppercase; margin-bottom: 24px;
+  border: 1px solid rgba(255,255,255,0.2);
+}
 .jd-hero h1 {
-  font-size: 36px; font-weight: 700; line-height: 1.2;
-  margin-bottom: 16px; letter-spacing: -0.5px;
+  font-size: 40px; font-weight: 800; line-height: 1.15;
+  margin-bottom: 18px; letter-spacing: -0.5px;
 }
 .jd-hero-sub {
-  font-size: 18px; font-weight: 400; opacity: 0.92;
-  margin-bottom: 8px; line-height: 1.5;
+  font-size: 17px; font-weight: 400; opacity: 0.92;
+  margin-bottom: 8px; line-height: 1.6;
 }
 .jd-hero-desc {
-  font-size: 14px; font-weight: 400; opacity: 0.75;
-  margin-bottom: 40px; line-height: 1.6;
+  font-size: 14px; font-weight: 400; opacity: 0.7;
+  margin-bottom: 44px; line-height: 1.6;
 }
 
 /* ── Search ── */
 .jd-search-form {
-  max-width: 520px; margin: 0 auto;
-  display: flex; flex-direction: column; gap: 12px;
+  max-width: 540px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 0;
 }
 .jd-search-wrapper {
   display: flex; align-items: center; gap: 12px;
-  background: #ffffff; border: 1px solid #E5E7EB;
-  border-radius: 12px; padding: 4px 4px 4px 16px;
+  background: #ffffff; border-radius: 16px;
+  padding: 6px 6px 6px 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1);
+  transition: box-shadow 0.3s;
 }
-.jd-search-icon { color: #6B7280; flex-shrink: 0; }
+.jd-search-wrapper:focus-within {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2), 0 0 0 3px rgba(255,255,255,0.3);
+}
+.jd-search-icon { color: #9CA3AF; flex-shrink: 0; }
 .jd-search-input {
   flex: 1; border: none; background: transparent;
-  height: 48px; font-size: 15px; font-weight: 500;
+  height: 52px; font-size: 15px; font-weight: 500;
   color: #2B2B2B; outline: none; font-family: inherit;
 }
-.jd-search-input::placeholder { color: #9CA3AF; }
-.jd-search-btn {
-  height: 48px; padding: 0 28px; background: #D71920;
-  color: white; border: none; border-radius: 10px;
-  font-weight: 600; font-size: 14px; cursor: pointer;
-  transition: background 0.2s; white-space: nowrap;
+.jd-search-input::placeholder { color: #BFBFBF; }
+.jd-search-btn-inline {
+  display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 24px; background: #D71920;
+  color: white; border: none; border-radius: 12px;
+  font-weight: 700; font-size: 14px; cursor: pointer;
+  transition: all 0.2s; white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(215,25,32,0.4);
 }
-.jd-search-btn:hover:not(:disabled) { background: #B7151B; }
-.jd-search-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.jd-search-btn-inline:hover:not(:disabled) { 
+  background: #B7151B; transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(215,25,32,0.5);
+}
+.jd-search-btn-inline:active:not(:disabled) { transform: translateY(0); }
+.jd-search-btn-inline:disabled { opacity: 0.6; cursor: not-allowed; }
+.jd-search-btn-mobile {
+  display: none; align-items: center; justify-content: center; gap: 8px;
+  height: 52px; width: 100%; margin-top: 12px;
+  background: rgba(255,255,255,0.15); backdrop-filter: blur(4px);
+  color: white; border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 14px; font-weight: 700; font-size: 15px;
+  cursor: pointer; transition: all 0.2s;
+}
+.jd-search-btn-mobile:hover:not(:disabled) {
+  background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5);
+}
+.jd-search-btn-mobile:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ── Benefits ── */
 .jd-benefits {
@@ -782,19 +831,27 @@ const jadlogStyles = `
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
 }
 .jd-benefit-card {
-  text-align: center; padding: 32px 24px;
+  text-align: center; padding: 40px 28px;
+  border-radius: 16px; border: 1px solid #F0F0F0;
+  transition: all 0.3s;
+}
+.jd-benefit-card:hover {
+  border-color: rgba(215,25,32,0.15);
+  box-shadow: 0 8px 24px rgba(215,25,32,0.06);
+  transform: translateY(-2px);
 }
 .jd-benefit-icon {
-  width: 56px; height: 56px; border-radius: 14px;
-  background: rgba(215,25,32,0.08); color: #D71920;
+  width: 60px; height: 60px; border-radius: 16px;
+  background: linear-gradient(135deg, rgba(215,25,32,0.08), rgba(215,25,32,0.04));
+  color: #D71920;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 20px;
 }
 .jd-benefit-card h3 {
-  font-size: 16px; font-weight: 600; color: #2B2B2B; margin-bottom: 8px;
+  font-size: 16px; font-weight: 700; color: #2B2B2B; margin-bottom: 10px;
 }
 .jd-benefit-card p {
-  font-size: 14px; color: #6B7280; line-height: 1.6;
+  font-size: 14px; color: #6B7280; line-height: 1.7;
 }
 
 /* ── Results ── */
@@ -974,13 +1031,15 @@ const jadlogStyles = `
 @media (max-width: 768px) {
   .jd-nav-links { display: none; }
   .jd-nav-mobile { display: block; }
-  .jd-hero { padding: 90px 20px 60px; }
-  .jd-hero h1 { font-size: 26px; }
+  .jd-hero { padding: 100px 20px 60px; }
+  .jd-hero h1 { font-size: 28px; }
   .jd-hero-sub { font-size: 15px; }
-  .jd-hero-desc { font-size: 13px; }
-  .jd-search-wrapper { flex-direction: column; padding: 12px; }
-  .jd-search-input { text-align: center; }
-  .jd-search-btn { width: 100%; }
+  .jd-hero-desc { font-size: 13px; margin-bottom: 32px; }
+  .jd-search-wrapper { padding: 12px 16px; }
+  .jd-search-btn-inline { display: none; }
+  .jd-search-btn-mobile { display: flex; }
+  .jd-search-input { height: 44px; text-align: center; }
+  .jd-search-icon { display: none; }
   .jd-benefits-grid { grid-template-columns: 1fr; gap: 16px; }
   .jd-data-grid { grid-template-columns: 1fr; }
   .jd-results { padding: 24px 16px 60px; }
