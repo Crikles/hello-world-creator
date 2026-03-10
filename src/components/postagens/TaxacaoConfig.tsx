@@ -166,7 +166,7 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
             <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
               <tr><td style="padding:14px 16px;text-align:center;">
                 <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🔍 Rastreio</p>
-                <p style="margin:0;font-size:16px;font-weight:800;color:${settings.cor_botao};letter-spacing:1px;font-family:'Courier New',Courier,monospace;">BR547454312HF</p>
+                <p style="margin:0;font-size:16px;font-weight:800;color:${settings.cor_destaque};letter-spacing:1px;font-family:'Courier New',Courier,monospace;">BR547454312HF</p>
               </td></tr>
             </table>
         </td></tr>
