@@ -34,12 +34,14 @@ interface FalhaEntregaSettings {
     msg_falha_entrega: string;
     checkout_url_falha: string;
     valor_taxa_falha: string;
+    cor_botao: string;
 }
 
 const DEFAULT_SETTINGS: FalhaEntregaSettings = {
     msg_falha_entrega: "Houve uma falha na tentativa de entrega do seu pedido. Para reenviarmos, por favor pague a taxa de retentativa.",
     checkout_url_falha: "",
     valor_taxa_falha: "0.00",
+    cor_botao: "#ea580c",
 };
 
 const STORAGE_KEY = "falha_entrega_config_";
