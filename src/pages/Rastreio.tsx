@@ -1041,7 +1041,7 @@ const styles = `
 .point-title-correios {
     font-size: 15px;
     font-weight: 800;
-    color: #005a96;
+    color: var(--timeline-title, #005a96);
     margin: 0 0 2px;
 }
 .point-desc-correios {
