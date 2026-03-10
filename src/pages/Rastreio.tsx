@@ -1,5 +1,6 @@
 import { formatProduto } from "@/lib/format-produto";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { isJadlogDomain } from "@/lib/domain-config";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import {
@@ -144,21 +145,45 @@ export default function Rastreio() {
         window.history.replaceState(null, "", `/r/${cleaned}`);
     };
 
-    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes";
-    const logoUrl = empresa?.logo_url || "/logojltransportes.png";
+    const isJadlog = useMemo(() => {
+        return isJadlogDomain() || codigoFromUrl.toUpperCase().trim().endsWith("JD");
+    }, [codigoFromUrl]);
+
+    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || (isJadlog ? "JADLOG Logística" : "Logística JL Transportes");
+    const logoUrl = empresa?.logo_url || (isJadlog ? "/logojadlog.png" : "/logojltransportes.png");
+    const primaryColor = isJadlog ? "#e10526" : "#6366f1";
+    const bgGradient = isJadlog
+        ? "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
+        : "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)";
+
     const progress = totalEventos > 0 && envio
         ? Math.min(100, Math.round((envio.ultimo_evento_ordem / totalEventos) * 100))
         : 0;
 
     return (
-        <div className="rastreio-container">
+        <div className={`rastreio-container ${isJadlog ? 'theme-jadlog' : 'theme-jl'}`}>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .theme-jadlog {
+                    --primary: #e10526;
+                    --primary-hover: #b0021b;
+                    --accent: #475569;
+                    --hero-bg: ${bgGradient};
+                }
+                .theme-jl {
+                    --primary: #6366f1;
+                    --primary-hover: #4f46e5;
+                    --accent: #8b5cf6;
+                    --hero-bg: ${bgGradient};
+                }
+            `}} />
             <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
             {/* ═══════════ NAVIGATION ═══════════ */}
             <nav className="main-nav">
                 <div className="nav-inner">
                     <div className="nav-brand">
-                        <img src="/logojltransportes.png" alt="Logística JL Transportes" className="nav-logo" />
+                        <img src={logoUrl} alt={empresaNome} className="nav-logo" />
                     </div>
                     <div className="nav-links">
                         <a href="#" className="nav-link">Início</a>
@@ -176,7 +201,7 @@ export default function Rastreio() {
                     <div className="nav-mobile-overlay" onClick={() => setMobileMenuOpen(false)} />
                     <div className="nav-mobile-drawer">
                         <div className="nav-mobile-drawer-header">
-                            <img src="/logojltransportes.png" alt="Logística JL Transportes" style={{ width: 120 }} />
+                            <img src={logoUrl} alt={empresaNome} style={{ width: 120 }} />
                             <button className="nav-mobile-close" onClick={() => setMobileMenuOpen(false)} aria-label="Fechar">
                                 <X size={24} />
                             </button>
@@ -1015,7 +1040,7 @@ const styles = `
     justify-content: space-between;
     margin-bottom: 60px;
 }
-.f-brand img { height: auto; width: 220px; margin-bottom: 20px; }
+.f-brand img { height: auto; width: 220px; margin-bottom: 20px; object-fit: contain; }
 .f-brand p { font-size: 14px; color: #64748b; line-height: 1.6; }
 
 .f-links { display: flex; gap: 80px; }

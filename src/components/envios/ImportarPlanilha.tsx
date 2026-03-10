@@ -322,29 +322,51 @@ export function ImportarPlanilha({ lojaId }: Props) {
   const handleImport = async () => {
     setImporting(true);
     try {
-      const records = parsed.map((row) => ({
-        loja_id: lojaId,
-        status: "pendente" as const,
-        cliente_nome: row.cliente_nome,
-        cliente_email: row.cliente_email || null,
-        cliente_cpf: row.cliente_cpf || null,
-        cliente_telefone: row.cliente_telefone || null,
-        cliente_cep: row.cliente_cep || null,
-        cliente_endereco: row.cliente_endereco || null,
-        cliente_numero: row.cliente_numero || null,
-        cliente_bairro: row.cliente_bairro || null,
-        cliente_cidade: row.cliente_cidade || null,
-        cliente_estado: row.cliente_estado || null,
-        cliente_complemento: row.cliente_complemento || null,
-        produto: row.produto,
-        quantidade: typeof row.quantidade === "number" ? row.quantidade : parseInt(row.quantidade) || 1,
-        valor: typeof row.valor === "number" ? row.valor : parseFloat(row.valor) || 0,
-        cfop: row.cfop || null,
-        ncm_sh: row.ncm_sh || null,
-        cst: row.cst || null,
-        unidade: row.unidade || "UN",
-        codigo_rastreio: row.codigo_rastreio || null,
-      }));
+      const { data: lojaData } = await supabase
+        .from("lojas")
+        .select("logistica_provider")
+        .eq("id", lojaId)
+        .single();
+
+      const provider = lojaData?.logistica_provider || "jl";
+      const trackingSuffix = provider === "jadlog" ? "JD" : "JL";
+      const defaultTransportadora = provider === "jadlog" ? "JADLOG Logística" : "JL RASTREIOS";
+
+      const records = parsed.map((row) => {
+        let codigo_rastreio = row.codigo_rastreio || null;
+        let transportadora = row.transportadora || null;
+
+        if (!codigo_rastreio) {
+          const randomNumbers = Math.floor(Math.random() * 900000000) + 100000000;
+          codigo_rastreio = `BR${randomNumbers}${trackingSuffix}`;
+          transportadora = defaultTransportadora;
+        }
+
+        return {
+          loja_id: lojaId,
+          status: "pendente" as const,
+          cliente_nome: row.cliente_nome,
+          cliente_email: row.cliente_email || null,
+          cliente_cpf: row.cliente_cpf || null,
+          cliente_telefone: row.cliente_telefone || null,
+          cliente_cep: row.cliente_cep || null,
+          cliente_endereco: row.cliente_endereco || null,
+          cliente_numero: row.cliente_numero || null,
+          cliente_bairro: row.cliente_bairro || null,
+          cliente_cidade: row.cliente_cidade || null,
+          cliente_estado: row.cliente_estado || null,
+          cliente_complemento: row.cliente_complemento || null,
+          produto: row.produto,
+          quantidade: typeof row.quantidade === "number" ? row.quantidade : parseInt(row.quantidade) || 1,
+          valor: typeof row.valor === "number" ? row.valor : parseFloat(row.valor) || 0,
+          cfop: row.cfop || null,
+          ncm_sh: row.ncm_sh || null,
+          cst: row.cst || null,
+          unidade: row.unidade || "UN",
+          codigo_rastreio,
+          transportadora
+        };
+      });
 
       const { error } = await supabase.from("envios").insert(records as any);
       if (error) throw error;

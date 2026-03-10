@@ -35,7 +35,7 @@ const emojiMap: Record<string, string> = {
 };
 
 function decodeHtmlEntities(str: string): string {
-    return str.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
+  return str.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
 }
 
 function formatProdutoName(raw: string): string {
@@ -840,6 +840,11 @@ Deno.serve(async (req) => {
     // Fetch postagem_config for sender email + whatsapp
     let emailRemetente = "noreply@jltransportes.pro";
     let whatsappVendedor = "";
+    const isJadlog = envio.transportadora?.toUpperCase().includes("JADLOG");
+    if (isJadlog) {
+      emailRemetente = "noreply@centrojadlog.com"; // default jadlog email
+    }
+
     const { data: config } = await supabase
       .from("postagem_config")
       .select("email_remetente, whatsapp_vendedor")
@@ -900,8 +905,12 @@ Deno.serve(async (req) => {
       extras
     );
     // Determine app base URL for payment page links
-    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com";
-    const htmlBody = buildEmailHtml(evento, envio, extras, "#6366f1", appBaseUrl);
+    const appBaseUrl = isJadlog
+      ? "https://rastreio.centrojadlog.com"
+      : (Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com");
+
+    const primaryColor = isJadlog ? "#e10526" : "#6366f1";
+    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl);
 
     // Resolve PDF attachment: prefer storage path, fallback to inline base64
     let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;

@@ -118,9 +118,10 @@ export default function PagamentoFalha() {
         })();
     }, [envioId]);
 
-    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes";
-    const logoUrl = empresa?.logo_url || "/logojltransportes.png";
-    const accentColor = tax.cor_botao || "#6366f1";
+    const isJadlog = envio?.transportadora?.toUpperCase().includes("JADLOG");
+    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || (isJadlog ? "JADLOG Logística" : "Logística JL Transportes");
+    const logoUrl = empresa?.logo_url || (isJadlog ? "/logojadlog.png" : "/logojltransportes.png");
+    const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#6366f1");
 
     if (loading) {
         return (

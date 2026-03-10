@@ -118,6 +118,18 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         .eq("loja_id", loja.id)
         .maybeSingle();
 
+      const { data: lojaData } = await supabase
+        .from("lojas")
+        .select("logistica_provider")
+        .eq("id", loja.id)
+        .single();
+
+      const provider = lojaData?.logistica_provider || "jl";
+      const trackingSuffix = provider === "jadlog" ? "JD" : "JL";
+      const randomNumbers = Math.floor(Math.random() * 900000000) + 100000000;
+      const codigoRastreio = `BR${randomNumbers}${trackingSuffix}`;
+      const transportadora = provider === "jadlog" ? "JADLOG Logística" : "JL RASTREIOS";
+
       // Build product data
       // If single product, store as plain string (backwards compatible)
       // If multiple products, store as JSON array in the produto field
@@ -174,6 +186,8 @@ export function NovoEnvioWizard({ open, onOpenChange }: Props) {
         cliente_cidade: form.cliente_cidade || null,
         cliente_estado: form.cliente_estado || null,
         cliente_complemento: form.cliente_complemento || null,
+        codigo_rastreio: codigoRastreio,
+        transportadora: transportadora,
         produto: produtoField,
         valor,
         quantidade,

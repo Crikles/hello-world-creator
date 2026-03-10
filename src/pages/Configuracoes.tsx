@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import { Lock, Eye, EyeOff, Truck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLoja } from "@/contexts/LojaContext";
 
 export default function Configuracoes() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -15,6 +17,43 @@ export default function Configuracoes() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  const { loja } = useLoja();
+  const queryClient = useQueryClient();
+
+  const { data: logisticaProvider = "jl" } = useQuery({
+    queryKey: ["loja-logistica", loja?.id],
+    queryFn: async () => {
+      if (!loja?.id) return "jl";
+      const { data, error } = await supabase
+        .from("lojas")
+        .select("logistica_provider")
+        .eq("id", loja.id)
+        .single();
+      if (error) throw error;
+      return data?.logistica_provider || "jl";
+    },
+    enabled: !!loja?.id,
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (provider: "jl" | "jadlog") => {
+      if (!loja?.id) return;
+      const { error } = await supabase
+        .from("lojas")
+        .update({ logistica_provider: provider })
+        .eq("id", loja.id);
+      if (error) throw error;
+      return provider;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loja-logistica", loja?.id] });
+      toast.success("Logística padrão atualizada!");
+    },
+    onError: (err: any) => {
+      toast.error("Erro ao atualizar: " + err.message);
+    },
+  });
 
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword) {
@@ -104,6 +143,44 @@ export default function Configuracoes() {
             </Button>
           </CardContent>
         </Card>
+
+        {loja && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Truck className="h-4 w-4" />
+                Logística de Envios
+              </CardTitle>
+              <CardDescription>Escolha a transportadora padrão para os novos pedidos desta loja.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => mutation.mutate("jl")}
+                  disabled={mutation.isPending}
+                  className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all ${logisticaProvider === "jl"
+                      ? "border-primary bg-primary/5"
+                      : "border-muted hover:border-primary/50"
+                    }`}
+                >
+                  <img src="/logojltransportes.png" alt="JL Transportes" className="max-h-12 mb-3 object-contain" />
+                  <span className={`font-semibold text-sm ${logisticaProvider === "jl" ? "text-primary" : "text-muted-foreground"}`}>JL Transportes</span>
+                </button>
+                <button
+                  onClick={() => mutation.mutate("jadlog")}
+                  disabled={mutation.isPending}
+                  className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all ${logisticaProvider === "jadlog"
+                      ? "border-primary bg-primary/5"
+                      : "border-muted hover:border-primary/50"
+                    }`}
+                >
+                  <img src="/logojadlog.png" alt="JADLOG" className="max-h-12 mb-3 object-contain" />
+                  <span className={`font-semibold text-sm ${logisticaProvider === "jadlog" ? "text-primary" : "text-muted-foreground"}`}>JADLOG</span>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </>
   );
