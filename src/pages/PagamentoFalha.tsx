@@ -121,7 +121,7 @@ export default function PagamentoFalha() {
     const isJadlog = envio?.transportadora?.toUpperCase().includes("JADLOG");
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
     const logoUrl = isJadlog ? "/logojadlog.png" : (empresa?.logo_url || "/logojltransportes.png");
-    const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#eea580c");
+    const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#6366f1");
 
     if (loading) {
         return (
