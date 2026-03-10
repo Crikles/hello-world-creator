@@ -851,7 +851,7 @@ Deno.serve(async (req) => {
       .eq("loja_id", loja_id)
       .maybeSingle();
 
-    if (config?.email_remetente) {
+    if (config?.email_remetente && !isJadlog) {
       emailRemetente = config.email_remetente;
     }
     if (config?.whatsapp_vendedor) {
