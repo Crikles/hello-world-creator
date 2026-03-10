@@ -171,19 +171,25 @@ export default function Rastreio() {
                     --primary-hover: #b0021b;
                     --accent: #475569;
                     --hero-bg: ${bgGradient};
-                    --glow-color: rgba(225, 5, 38, 0.12);
-                    --badge-bg: rgba(225, 5, 38, 0.08);
-                    --badge-border: rgba(225, 5, 38, 0.18);
-                    --badge-text: #f87171;
-                    --highlight-from: #f87171;
-                    --highlight-to: #fb923c;
-                    --btn-gradient: linear-gradient(135deg, #e10526, #b91c1c);
-                    --btn-shadow: rgba(225, 5, 38, 0.3);
-                    --focus-ring: rgba(225, 5, 38, 0.12);
-                    --focus-border: rgba(225, 5, 38, 0.6);
+                    --glow-color: rgba(225, 5, 38, 0.15);
+                    --badge-bg: rgba(255, 255, 255, 0.15);
+                    --badge-border: rgba(255, 255, 255, 0.3);
+                    --badge-text: #ffffff;
+                    --highlight-from: #fca5a5;
+                    --highlight-to: #fecdd3;
+                    --btn-gradient: linear-gradient(135deg, #0f172a, #1e293b);
+                    --btn-shadow: rgba(0, 0, 0, 0.3);
+                    --focus-ring: rgba(255, 255, 255, 0.15);
+                    --focus-border: rgba(255, 255, 255, 0.5);
                     --mobile-link-hover: rgba(225, 5, 38, 0.08);
-                    --timeline-header: #991b1b;
-                    --timeline-title: #991b1b;
+                    --timeline-header: #e10526;
+                    --timeline-title: #e10526;
+                    --hero-text-muted: rgba(255, 255, 255, 0.7);
+                    --hero-search-bg: rgba(255, 255, 255, 0.12);
+                    --hero-search-border: rgba(255, 255, 255, 0.25);
+                    --hero-q-icon: rgba(255, 255, 255, 0.6);
+                    --hero-q-lab: rgba(255, 255, 255, 0.6);
+                    --package-card-bg: #e10526;
                 }
                 .theme-jl {
                     --primary: 239 84% 67%;
