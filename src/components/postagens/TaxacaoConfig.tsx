@@ -251,7 +251,7 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
 
                 <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
                     <div className="text-center mb-3">
-                        <span className="text-[8px] font-extrabold tracking-widest uppercase text-[#6366f1] bg-[#6366f1]/10 px-2 py-0.5 rounded-full">AÇÃO REQUERIDA</span>
+                        <span className="text-[8px] font-extrabold tracking-widest uppercase px-2 py-0.5 rounded-full" style={{ color: settings.cor_destaque, backgroundColor: `${settings.cor_destaque}1a` }}>AÇÃO REQUERIDA</span>
                         <h2 className="text-sm font-extrabold text-[#020617] mt-2">Efetuar Pagamento</h2>
                         <p className="text-[9px] text-slate-500 mt-1">Selecione o método de pagamento para liberar sua encomenda.</p>
                     </div>
