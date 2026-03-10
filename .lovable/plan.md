@@ -1,58 +1,52 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Fix: Always show company branding on payment and failed delivery pages
 
-### Root cause
+## Problem
+The `pagamento-info` and `falha-info` edge functions only fetch company data when `envio.empresa_id` is present on the shipment record. Many shipments (created via webhooks or imports) don't have `empresa_id` set, so `empresa` returns `null` and the pages fall back to generic "Logística JL Transportes" branding instead of showing the user's registered company.
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
-
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
-
-### Fix
-
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
-
-### Changes
-
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
+## Root Cause
+Both edge functions have this pattern:
 ```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+if (envio.empresa_id) {
+    // fetch empresa by empresa_id
+}
+// NO fallback when empresa_id is null
 ```
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+The `empresas` table has a `loja_id` column, so we can always look up the company by `loja_id` as a fallback.
 
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+## Fix
 
-Apply the same NF-e filter to the client-side trigger:
+### 1. Update `supabase/functions/pagamento-info/index.ts`
+Add fallback: if `empresa_id` is null or returns no data, query `empresas` table by `envio.loja_id`.
 
+### 2. Update `supabase/functions/falha-info/index.ts`
+Same fallback logic: try `empresa_id` first, then fall back to `loja_id`.
+
+### 3. Deploy both edge functions
+
+The change in each function is approximately:
 ```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+let empresa = null;
+if (envio.empresa_id) {
+    const { data } = await supabase
+        .from("empresas")
+        .select("nome_fantasia, razao_social, logo_url")
+        .eq("id", envio.empresa_id)
+        .maybeSingle();
+    empresa = data;
+}
+// Fallback: fetch by loja_id
+if (!empresa && envio.loja_id) {
+    const { data } = await supabase
+        .from("empresas")
+        .select("nome_fantasia, razao_social, logo_url")
+        .eq("loja_id", envio.loja_id)
+        .maybeSingle();
+    empresa = data;
+}
 ```
 
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+No database changes needed. Two edge function edits + deploy.
 
