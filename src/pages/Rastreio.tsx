@@ -115,6 +115,7 @@ export default function Rastreio() {
                 setEventos(result.eventos || []);
                 setTotalEventos(result.totalEventos || 0);
                 setOrigem(result.origem || { cidade: null, estado: null });
+                if (result.cor_primaria) setCustomPrimaryColor(result.cor_primaria);
                 if (!result.envio) setError("Certifique-se de que o código está correto");
             }
         } catch {
