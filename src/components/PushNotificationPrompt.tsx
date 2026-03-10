@@ -295,4 +295,34 @@ const pushPromptStyles = `
     text-align: center;
   }
 }
+
+/* JADLOG red branding */
+.push-prompt-banner.jadlog {
+  border-color: rgba(215,25,32,0.3);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.4),
+    0 0 40px rgba(215,25,32,0.15);
+}
+
+.push-prompt-banner.jadlog .push-prompt-icon-wrapper {
+  background: linear-gradient(135deg, #D71920, #8B0F14);
+}
+
+.push-prompt-banner.jadlog .push-prompt-btn-accept {
+  background: linear-gradient(135deg, #D71920, #B7151B);
+}
+
+.push-prompt-banner.jadlog .push-prompt-btn-accept:hover:not(:disabled) {
+  box-shadow: 0 4px 20px rgba(215,25,32,0.4);
+}
+
+@keyframes pushPulseJadlog {
+  0% { box-shadow: 0 0 0 0 rgba(215,25,32,0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(215,25,32,0); }
+  100% { box-shadow: 0 0 0 0 rgba(215,25,32,0); }
+}
+
+.push-prompt-banner.jadlog .push-prompt-icon-wrapper {
+  animation: pushPulseJadlog 2s infinite;
+}
 `;
