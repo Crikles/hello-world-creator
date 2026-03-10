@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Bell, X } from "lucide-react";
+import { isJadlogDomain } from "@/lib/domain-config";
 
 interface PushNotificationPromptProps {
   codigoRastreio?: string;
@@ -22,6 +23,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function PushNotificationPrompt({ codigoRastreio }: PushNotificationPromptProps) {
   const [visible, setVisible] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const jadlog = isJadlogDomain();
 
   useEffect(() => {
     // Don't show if already prompted, or API not available, or permission already decided
@@ -93,7 +95,7 @@ export function PushNotificationPrompt({ codigoRastreio }: PushNotificationPromp
   return (
     <>
       <div className="push-prompt-overlay" onClick={handleDismiss} />
-      <div className="push-prompt-banner">
+      <div className={`push-prompt-banner ${jadlog ? 'jadlog' : ''}`}>
         <div className="push-prompt-icon-wrapper">
           <Bell size={24} className="push-prompt-bell" />
         </div>
@@ -292,5 +294,35 @@ const pushPromptStyles = `
     flex: 1;
     text-align: center;
   }
+}
+
+/* JADLOG red branding */
+.push-prompt-banner.jadlog {
+  border-color: rgba(215,25,32,0.3);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.4),
+    0 0 40px rgba(215,25,32,0.15);
+}
+
+.push-prompt-banner.jadlog .push-prompt-icon-wrapper {
+  background: linear-gradient(135deg, #D71920, #8B0F14);
+}
+
+.push-prompt-banner.jadlog .push-prompt-btn-accept {
+  background: linear-gradient(135deg, #D71920, #B7151B);
+}
+
+.push-prompt-banner.jadlog .push-prompt-btn-accept:hover:not(:disabled) {
+  box-shadow: 0 4px 20px rgba(215,25,32,0.4);
+}
+
+@keyframes pushPulseJadlog {
+  0% { box-shadow: 0 0 0 0 rgba(215,25,32,0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(215,25,32,0); }
+  100% { box-shadow: 0 0 0 0 rgba(215,25,32,0); }
+}
+
+.push-prompt-banner.jadlog .push-prompt-icon-wrapper {
+  animation: pushPulseJadlog 2s infinite;
 }
 `;
