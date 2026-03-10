@@ -255,10 +255,10 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                         <h2 className="text-sm font-extrabold text-[#020617] mt-2">Efetuar Pagamento</h2>
                         <p className="text-[9px] text-slate-500 mt-1">Selecione o método de pagamento para liberar sua encomenda.</p>
                     </div>
-                    <div className="flex items-center gap-2 p-2 rounded-xl border-2 border-[#6366f1] bg-[#6366f1]/5 mb-3">
-                        <QrCode size={14} className="text-[#6366f1]" />
+                    <div className="flex items-center gap-2 p-2 rounded-xl border-2 mb-3" style={{ borderColor: settings.cor_destaque, backgroundColor: `${settings.cor_destaque}0d` }}>
+                        <QrCode size={14} style={{ color: settings.cor_destaque }} />
                         <span className="text-[10px] font-bold text-[#020617]">PIX</span>
-                        <CheckCircle2 size={12} className="text-[#6366f1] ml-auto" />
+                        <CheckCircle2 size={12} className="ml-auto" style={{ color: settings.cor_destaque }} />
                     </div>
                     <div className="w-full py-2.5 rounded-xl text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-md" style={{ backgroundColor: settings.cor_botao }}>
                         <span>{settings.texto_botao}</span>
