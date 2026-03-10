@@ -34,12 +34,14 @@ interface FalhaEntregaSettings {
     msg_falha_entrega: string;
     checkout_url_falha: string;
     valor_taxa_falha: string;
+    cor_botao: string;
 }
 
 const DEFAULT_SETTINGS: FalhaEntregaSettings = {
     msg_falha_entrega: "Houve uma falha na tentativa de entrega do seu pedido. Para reenviarmos, por favor pague a taxa de retentativa.",
     checkout_url_falha: "",
     valor_taxa_falha: "0.00",
+    cor_botao: "#ea580c",
 };
 
 const STORAGE_KEY = "falha_entrega_config_";
@@ -124,7 +126,7 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
                         <p className="text-[9px] text-slate-500 mt-1">Realize o pagamento para reenviarmos seu pedido.</p>
                     </div>
 
-                    <div className="w-full py-2.5 rounded-xl text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-md bg-[#ea580c]">
+                    <div className="w-full py-2.5 rounded-xl text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-md" style={{ backgroundColor: settings.cor_botao }}>
                         <span>PAGAR REENVIO</span>
                         <ArrowRight size={12} />
                     </div>
@@ -180,7 +182,7 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
                   </table>
                 </div>
                 <div style="text-align:center;margin-top:24px;">
-                  <span style="display:inline-block;padding:14px 32px;background-color:#ea580c;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;border-radius:12px;">PAGAR REENVIO AGORA</span>
+                  <span style="display:inline-block;padding:14px 32px;background-color:${settings.cor_botao};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;border-radius:12px;">PAGAR REENVIO AGORA</span>
                 </div>
               </td></tr>
             </table>
@@ -315,6 +317,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                 msg_falha_entrega: (config as any).msg_falha_entrega || DEFAULT_SETTINGS.msg_falha_entrega,
                 checkout_url_falha: (config as any).checkout_url_falha || "",
                 valor_taxa_falha: ((config as any).valor_taxa_falha || 0).toString(),
+                cor_botao: DEFAULT_SETTINGS.cor_botao,
             };
             setSettings(loaded);
             setSavedSettings(loaded);
@@ -396,6 +399,14 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                                 </Label>
                                 <Input type="url" value={settings.checkout_url_falha} onChange={(e) => set("checkout_url_falha", e.target.value)} placeholder="https://seusite.com/checkout-frete" className="text-sm bg-transparent border-border/50" />
                                 <p className="text-[10px] text-muted-foreground">Link exibido no botão para o cliente pagar a retentativa</p>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-medium text-muted-foreground">Cor do Botão</Label>
+                                <div className="flex items-center gap-2">
+                                    <input type="color" value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-border/50" />
+                                    <Input value={settings.cor_botao} onChange={(e) => set("cor_botao", e.target.value)} className="text-xs font-mono flex-1 bg-transparent border-border/50" />
+                                </div>
                             </div>
                         </div>
                     </div>
