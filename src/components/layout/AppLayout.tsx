@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Megaphone, AlertTriangle } from "lucide-react";
+import { Megaphone, AlertTriangle, MessageCircle } from "lucide-react";
 
 export function AppLayout() {
   const navigate = useNavigate();
