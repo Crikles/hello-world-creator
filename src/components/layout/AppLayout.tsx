@@ -78,6 +78,18 @@ export function AppLayout() {
             </div>
           )}
 
+          {!isImpersonating && (
+            <div
+              onClick={() => window.open("https://chat.whatsapp.com/L2SKQrtAFu8C0WKJropR1F", "_blank")}
+              className="bg-[hsl(142,70%,35%)] hover:bg-[hsl(142,70%,30%)] text-white py-2 px-4 flex items-center justify-center gap-2 cursor-pointer transition-colors z-50"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span className="text-sm font-medium tracking-wide">
+                Entre na Comunidade do WhatsApp para ficar por dentro de todas as atualizações
+              </span>
+            </div>
+          )}
+
           <header className="sticky top-0 z-40 h-12 glass-strong flex items-center px-4 gap-4">
             <SidebarTrigger className="text-muted-foreground hover:text-primary transition-colors" />
           </header>
