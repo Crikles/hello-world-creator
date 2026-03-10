@@ -532,11 +532,20 @@ export default function Envios() {
     });
   };
 
+  const getTotalEventos = (envio: any) => {
+    const tid = envio.postagem_template_id;
+    if (tid && eventCountMap[tid] !== undefined) return eventCountMap[tid];
+    // Fallback: try any available count
+    const values = Object.values(eventCountMap);
+    return values.length > 0 ? values[0] : 0;
+  };
+
   const getProgress = (envio: any) => {
     if (envio.status === "entregue") return 100;
-    if (totalEventos === 0) return 0;
+    const total = getTotalEventos(envio);
+    if (total === 0) return 0;
     const ordem = envio.ultimo_evento_ordem ?? 0;
-    return Math.min(Math.round((ordem / totalEventos) * 100), 100);
+    return Math.min(Math.round((ordem / total) * 100), 100);
   };
 
   const getCurrentStep = (envio: any) => {
@@ -546,7 +555,8 @@ export default function Envios() {
   const canAdvance = (envio: any) => {
     if (envio.status === "entregue") return false;
     const ordem = envio.ultimo_evento_ordem ?? 0;
-    return totalEventos > 0 && ordem < totalEventos;
+    const total = getTotalEventos(envio);
+    return total > 0 && ordem < total;
   };
 
   const getDisplayStatus = (envio: any) => {
