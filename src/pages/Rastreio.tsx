@@ -741,14 +741,14 @@ const styles = `
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(99,102,241,0.08);
-  border: 1px solid rgba(99,102,241,0.18);
+  background: var(--badge-bg, rgba(99,102,241,0.08));
+  border: 1px solid var(--badge-border, rgba(99,102,241,0.18));
   padding: 6px 14px;
   border-radius: 100px;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 1.8px;
-  color: #818cf8;
+  color: var(--badge-text, #818cf8);
   margin-bottom: 28px;
 }
 .main-title {
