@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
         const normalizedProducts = items.map((p: any) => ({
             code: String(p.source_reference || ""),
-            title: p.name || "Produto Adoorei",
+            title: p.name || (p.source_reference ? `Produto #${p.source_reference}` : "Produto Adoorei"),
             quantity: Number(p.quantity || 1),
             amount: Math.round(Number(p.price || 0) * 100),
         }));
