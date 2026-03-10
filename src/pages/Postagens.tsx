@@ -280,7 +280,9 @@ export default function Postagens() {
       config.ativar_falha_entrega !== localConfig.ativar_falha_entrega ||
       (config as any).origem_cidade !== localConfig.origem_cidade ||
       (config as any).origem_estado !== localConfig.origem_estado ||
-      (config as any).whatsapp_vendedor !== localConfig.whatsapp_vendedor;
+      (config as any).whatsapp_vendedor !== localConfig.whatsapp_vendedor ||
+      (config as any).cor_primaria !== localConfig.cor_primaria ||
+      (config as any).cor_botao_cta !== localConfig.cor_botao_cta;
     const delaysChanged = activeEventos?.some(
       e => localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas
     );
