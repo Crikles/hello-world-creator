@@ -832,7 +832,89 @@ export default function Postagens() {
             />
           )}
         </TabsContent>
+
+        {/* ─── Logística Tab ─── */}
+        <TabsContent value="logistica" className="mt-5">
+          <LogisticaTab lojaId={loja?.id} />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+/* ─── Logística Sub-component ─── */
+function LogisticaTab({ lojaId }: { lojaId?: string }) {
+  const queryClient = useQueryClient();
+
+  const { data: logisticaProvider = "jl" } = useQuery({
+    queryKey: ["loja-logistica", lojaId],
+    queryFn: async () => {
+      if (!lojaId) return "jl";
+      const { data, error } = await supabase
+        .from("lojas")
+        .select("logistica_provider")
+        .eq("id", lojaId)
+        .single();
+      if (error) throw error;
+      return data?.logistica_provider || "jl";
+    },
+    enabled: !!lojaId,
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (provider: "jl" | "jadlog") => {
+      if (!lojaId) return;
+      const { error } = await supabase
+        .from("lojas")
+        .update({ logistica_provider: provider })
+        .eq("id", lojaId);
+      if (error) throw error;
+      return provider;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loja-logistica", lojaId] });
+      toast({ title: "Logística padrão atualizada!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao atualizar: " + err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Truck className="h-4 w-4" />
+          Logística de Envios
+        </CardTitle>
+        <CardDescription>Escolha a transportadora padrão para os novos pedidos desta loja.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => mutation.mutate("jl")}
+            disabled={mutation.isPending}
+            className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "jl"
+                ? "border-primary ring-2 ring-primary/20"
+                : "border-border hover:border-primary/50"
+              }`}
+          >
+            <img src="/logojltransportes.png" alt="JL Transportes" className="h-16 mb-3 object-contain" />
+            <span className={`font-semibold text-sm ${logisticaProvider === "jl" ? "text-primary" : "text-slate-600"}`}>JL Transportes</span>
+          </button>
+          <button
+            onClick={() => mutation.mutate("jadlog")}
+            disabled={mutation.isPending}
+            className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "jadlog"
+                ? "border-primary ring-2 ring-primary/20"
+                : "border-border hover:border-primary/50"
+              }`}
+          >
+            <img src="/logojadlog.png" alt="JADLOG" className="h-16 mb-3 object-contain" />
+            <span className={`font-semibold text-sm ${logisticaProvider === "jadlog" ? "text-primary" : "text-slate-600"}`}>JADLOG</span>
+          </button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
