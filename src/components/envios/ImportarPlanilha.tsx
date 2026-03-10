@@ -358,8 +358,8 @@ export function ImportarPlanilha({ lojaId }: Props) {
           ncm_sh: row.ncm_sh || null,
           cst: row.cst || null,
           unidade: row.unidade || "UN",
-          codigo_rastreio,
-          transportadora,
+          codigo_rastreio: row.codigo_rastreio || null,
+          transportadora: row.transportadora || null,
           postagem_template_id: configData?.template_ativo_id || null
         };
       });
