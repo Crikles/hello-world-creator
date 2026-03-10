@@ -41,6 +41,7 @@ interface TaxacaoSettings {
     forma_pagamento: string;
     cor_botao: string;
     cor_header: string;
+    cor_destaque: string;
     mostrar_valor: boolean;
     mostrar_prazo: boolean;
 }
@@ -54,6 +55,7 @@ const DEFAULT_SETTINGS: TaxacaoSettings = {
     forma_pagamento: "Todos",
     cor_botao: "#2563eb",
     cor_header: "#f59e0b",
+    cor_destaque: "#6366f1",
     mostrar_valor: true,
     mostrar_prazo: true,
 };
