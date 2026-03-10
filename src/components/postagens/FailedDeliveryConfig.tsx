@@ -89,7 +89,7 @@ function FalhaEntregaTrackingPreview({ settings, empresaNome, logoUrl }: { setti
                 <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#10b981]">
                     <CheckCircle2 size={10} /> Pedido
                 </div>
-                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-[#ea580c]">
+                <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider" style={{ color: settings.cor_destaque }}>
                     <PackageX size={10} /> Falha na Entrega
                 </div>
                 <div className="text-[8px] font-extrabold uppercase tracking-wider text-slate-300">Retentativa</div>
