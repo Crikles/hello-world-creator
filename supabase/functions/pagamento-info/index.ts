@@ -84,6 +84,14 @@ Deno.serve(async (req) => {
                 .maybeSingle();
             empresa = data;
         }
+        if (!empresa && envio.loja_id) {
+            const { data } = await supabase
+                .from("empresas")
+                .select("nome_fantasia, razao_social, logo_url")
+                .eq("loja_id", envio.loja_id)
+                .maybeSingle();
+            empresa = data;
+        }
 
         // 3. Fetch tax settings from postagem_eventos via postagem_config
         let tax = null;
