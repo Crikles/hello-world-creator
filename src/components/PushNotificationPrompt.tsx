@@ -95,7 +95,7 @@ export function PushNotificationPrompt({ codigoRastreio }: PushNotificationPromp
   return (
     <>
       <div className="push-prompt-overlay" onClick={handleDismiss} />
-      <div className="push-prompt-banner">
+      <div className={`push-prompt-banner ${jadlog ? 'jadlog' : ''}`}>
         <div className="push-prompt-icon-wrapper">
           <Bell size={24} className="push-prompt-bell" />
         </div>
