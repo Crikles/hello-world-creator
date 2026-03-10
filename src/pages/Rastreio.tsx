@@ -705,7 +705,7 @@ const styles = `
 }
 .nav-mobile-link:hover {
     color: #0f172a;
-    background: rgba(99,102,241,0.08);
+    background: var(--mobile-link-hover, rgba(99,102,241,0.08));
 }
 
 /* ─── HERO ─── */
