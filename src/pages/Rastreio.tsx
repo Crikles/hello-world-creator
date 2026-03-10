@@ -1031,13 +1031,15 @@ const jadlogStyles = `
 @media (max-width: 768px) {
   .jd-nav-links { display: none; }
   .jd-nav-mobile { display: block; }
-  .jd-hero { padding: 90px 20px 60px; }
-  .jd-hero h1 { font-size: 26px; }
+  .jd-hero { padding: 100px 20px 60px; }
+  .jd-hero h1 { font-size: 28px; }
   .jd-hero-sub { font-size: 15px; }
-  .jd-hero-desc { font-size: 13px; }
-  .jd-search-wrapper { flex-direction: column; padding: 12px; }
-  .jd-search-input { text-align: center; }
-  .jd-search-btn { width: 100%; }
+  .jd-hero-desc { font-size: 13px; margin-bottom: 32px; }
+  .jd-search-wrapper { padding: 12px 16px; }
+  .jd-search-btn-inline { display: none; }
+  .jd-search-btn-mobile { display: flex; }
+  .jd-search-input { height: 44px; text-align: center; }
+  .jd-search-icon { display: none; }
   .jd-benefits-grid { grid-template-columns: 1fr; gap: 16px; }
   .jd-data-grid { grid-template-columns: 1fr; }
   .jd-results { padding: 24px 16px 60px; }
