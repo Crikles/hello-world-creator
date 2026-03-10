@@ -727,7 +727,7 @@ const styles = `
   position: absolute;
   top: -100px; right: -100px;
   width: 600px; height: 600px;
-  background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--glow-color, rgba(99,102,241,0.12)) 0%, transparent 70%);
   filter: blur(80px);
 }
 
