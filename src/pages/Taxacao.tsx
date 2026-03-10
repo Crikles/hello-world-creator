@@ -172,8 +172,7 @@ export default function Taxacao() {
         { label: "Valor Pendente", value: `R$ ${totalValorPendente.toFixed(2)}`, icon: DollarSign, delay: 0.16 },
     ];
 
-    // No tax events configured
-    if (!isLoading && !taxEventos?.taxacao_ordem) {
+    if (!isLoading && !isLoadingTax && !hasTaxConfig) {
         return (
             <div className="space-y-6">
                 <div>
