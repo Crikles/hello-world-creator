@@ -1,58 +1,43 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Personalização de Cor de Destaque — Taxação e Falha na Entrega
 
-### Root cause
+## Problema atual
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+Ambos os componentes possuem apenas **cor do botão** customizável. Os demais elementos de destaque (referência, status, badge "AÇÃO REQUERIDA", seletor PIX, aba ativa na timeline) usam cores fixas hardcoded (`#6366f1` na Taxação, `#ea580c` na Falha).
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+## O que será feito
 
-### Fix
+Adicionar um campo **"Cor de Destaque"** (`cor_destaque`) em ambos os configs, que controla todos os elementos de acento:
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+| Elemento afetado | Taxação | Falha na Entrega |
+|---|---|---|
+| Código de referência (font color) | ✅ | ✅ |
+| Status / CPF text | ✅ | ✅ |
+| Badge "AÇÃO REQUERIDA" (text + bg) | ✅ | ✅ |
+| Tab ativa na timeline (dot + text) | ✅ | ✅ |
+| Seletor PIX (border + icon) | ✅ | — |
+| Barra decorativa no email | ✅ | — |
+| "Ação Necessária" no email | — | ✅ |
 
-### Changes
+O botão CTA continua usando `cor_botao` separadamente.
 
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+## Alterações por arquivo
 
-Extend the existing filter to also remove NF-e events when disabled:
+### `src/components/postagens/TaxacaoConfig.tsx`
+1. Adicionar `cor_destaque` ao `TaxacaoSettings` (default: `#6366f1`)
+2. Substituir todos os `#6366f1` hardcoded no `TaxacaoTrackingPreview` por `settings.cor_destaque`
+3. Substituir `#6366f1` no `buildTaxacaoPreviewHtml` (email) por `settings.cor_destaque`
+4. Adicionar color picker "Cor de Destaque" ao lado do "Cor do Botão"
+5. Incluir `cor_destaque` na serialização/parsing do `corpo_email` (tag `{{taxacao_cor_destaque:...}}`)
 
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
+### `src/components/postagens/FailedDeliveryConfig.tsx`
+1. Adicionar `cor_destaque` ao `FalhaEntregaSettings` (default: `#ea580c`)
+2. Substituir todos os `#ea580c` hardcoded no `FalhaEntregaTrackingPreview` por `settings.cor_destaque`
+3. Substituir `#ea580c` no `FalhaEntregaEmailPreview` por `settings.cor_destaque`
+4. Adicionar color picker "Cor de Destaque" ao lado do "Cor do Botão"
+5. Incluir `cor_destaque` na serialização/parsing (tag `{{falha_cor_destaque:...}}`)
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
-
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
-
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+### Persistência
+Os dados já são salvos via `localStorage` + `corpo_email` no banco. Apenas adicionamos mais uma tag de metadata ao `corpo_email`, seguindo o padrão existente. Sem migration necessária.
 
