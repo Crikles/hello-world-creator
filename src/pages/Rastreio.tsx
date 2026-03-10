@@ -149,8 +149,8 @@ export default function Rastreio() {
         return isJadlogDomain() || codigoFromUrl.toUpperCase().trim().endsWith("JD");
     }, [codigoFromUrl]);
 
-    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || (isJadlog ? "JADLOG Logística" : "Logística JL Transportes");
-    const logoUrl = empresa?.logo_url || (isJadlog ? "/logojadlog.png" : "/logojltransportes.png");
+    const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
+    const logoUrl = isJadlog ? "/logojadlog.png" : (empresa?.logo_url || "/logojltransportes.png");
     const primaryColor = isJadlog ? "#e10526" : "#6366f1";
     const bgGradient = isJadlog
         ? "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
@@ -165,13 +165,13 @@ export default function Rastreio() {
             <style dangerouslySetInnerHTML={{
                 __html: `
                 .theme-jadlog {
-                    --primary: #e10526;
+                    --primary: 351 96% 45%;
                     --primary-hover: #b0021b;
                     --accent: #475569;
                     --hero-bg: ${bgGradient};
                 }
                 .theme-jl {
-                    --primary: #6366f1;
+                    --primary: 239 84% 67%;
                     --primary-hover: #4f46e5;
                     --accent: #8b5cf6;
                     --hero-bg: ${bgGradient};
@@ -502,7 +502,7 @@ export default function Rastreio() {
                 <div className="footer-content">
                     <div className="footer-top">
                         <div className="f-brand">
-                            <img src="/logojltransportes.png" alt="Logística JL Transportes" style={{ width: 220 }} />
+                            <img src={logoUrl} alt={empresaNome} style={{ width: 220, filter: isJadlog ? 'drop-shadow(0px 0px 4px rgba(255,255,255,0.8)) object-fit-contain' : 'none' }} />
                             <p>Soluções completas em logística<br />e transporte de encomendas.</p>
                         </div>
                         <div className="f-links">
@@ -903,7 +903,7 @@ const styles = `
 }
 .progress-fill {
     height: 100%;
-    background: var(--primary);
+    background: hsl(var(--primary));
     border-radius: 4px;
     transition: width 1s ease-out;
 }
@@ -1046,7 +1046,7 @@ const styles = `
 .f-links { display: flex; gap: 80px; }
 .f-col h5 { font-size: 12px; font-weight: 800; color: #1e293b; letter-spacing: 1px; margin-bottom: 20px; }
 .f-col a { display: block; font-size: 14px; color: #64748b; text-decoration: none; margin-bottom: 12px; }
-.f-col a:hover { color: var(--primary); }
+.f-col a:hover { color: hsl(var(--primary)); }
 
 .footer-bottom {
     display: flex;
