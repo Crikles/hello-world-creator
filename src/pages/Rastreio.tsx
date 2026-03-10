@@ -150,7 +150,8 @@ export default function Rastreio() {
     }, [codigoFromUrl]);
 
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
-    const logoUrl = isJadlog ? "/logojadlog.png" : (empresa?.logo_url || "/logojltransportes.png");
+    const logoUrl = isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
+    const cardLogoUrl = empresa?.logo_url || logoUrl;
     const primaryColor = isJadlog ? "#e10526" : "#6366f1";
     const bgGradient = isJadlog
         ? "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
