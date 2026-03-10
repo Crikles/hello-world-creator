@@ -64,12 +64,22 @@ export default function AdminLeads() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-leads"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*, lojas(nome, user_id)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as unknown as LeadRow[];
+      const allLeads: LeadRow[] = [];
+      const PAGE = 1000;
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: batch, error } = await supabase
+          .from("leads")
+          .select("*, lojas(nome, user_id)")
+          .order("created_at", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        allLeads.push(...(batch as unknown as LeadRow[]));
+        hasMore = batch.length === PAGE;
+        from += PAGE;
+      }
+      return allLeads;
     },
   });
 
