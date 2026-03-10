@@ -425,6 +425,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                     valor_exemplo: valorMatch?.[1] || DEFAULT_SETTINGS.valor_exemplo,
                     cor_botao: corMatch?.[1] || DEFAULT_SETTINGS.cor_botao,
                     cor_header: corHeaderMatch?.[1] || DEFAULT_SETTINGS.cor_header,
+                    cor_destaque: corDestaqueMatch?.[1] || DEFAULT_SETTINGS.cor_destaque,
                     prazo_dias: prazoMatch?.[1] || DEFAULT_SETTINGS.prazo_dias,
                     forma_pagamento: formaMatch?.[1] || DEFAULT_SETTINGS.forma_pagamento,
                     mostrar_valor: mostrarValorMatch ? mostrarValorMatch[1] === "true" : true,
