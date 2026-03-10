@@ -161,7 +161,7 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
               <td width="48"><div style="width:48px;height:48px;background-color:#fff7ed;border-radius:16px;text-align:center;line-height:48px;font-size:24px;">📦</div></td>
               <td style="padding-left:16px;">
                 <h1 style="margin:0;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Falha na Entrega</h1>
-                <p style="margin:4px 0 0;font-size:14px;color:#ea580c;font-weight:600;">Ação Necessária</p>
+                <p style="margin:4px 0 0;font-size:14px;color:${settings.cor_destaque};font-weight:600;">Ação Necessária</p>
               </td>
             </tr></table>
         </td></tr>
