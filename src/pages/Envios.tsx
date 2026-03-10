@@ -838,7 +838,7 @@ export default function Envios() {
                         size="icon"
                         className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
                         title="Taxação"
-                        onClick={() => window.open(`https://rastreio.logisticajltransportes.com/p/${envio.id}`, '_blank')}
+                        onClick={() => window.open(`https://${envio.transportadora?.toUpperCase().includes('JADLOG') ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com'}/p/${envio.id}`, '_blank')}
                       >
                         <CreditCard className="h-3 w-3" />
                       </Button>
