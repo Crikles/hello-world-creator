@@ -360,25 +360,41 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
 
     useEffect(() => {
         if (config) {
+            // Try to load colors from falhaEvento corpo_email first, then localStorage
+            let colorSettings: Partial<FalhaEntregaSettings> = {};
+            if (falhaEvento?.corpo_email) {
+                const corpo = falhaEvento.corpo_email as string;
+                const match = (tag: string) => corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1];
+                colorSettings = {
+                    cor_botao: match("falha_cor_botao") || undefined,
+                    cor_destaque: match("falha_cor_destaque") || undefined,
+                    cor_titulo_resumo: match("falha_cor_titulo_resumo") || undefined,
+                    cor_label_taxa: match("falha_cor_label_taxa") || undefined,
+                    cor_descricao: match("falha_cor_descricao") || undefined,
+                    cor_fundo_descricao: match("falha_cor_fundo_descricao") || undefined,
+                    cor_borda_descricao: match("falha_cor_borda_descricao") || undefined,
+                    mensagem_site: match("falha_mensagem_site") || undefined,
+                };
+            }
             const localStored = loadSettings(lojaId);
             const loaded: FalhaEntregaSettings = {
                 msg_falha_entrega: (config as any).msg_falha_entrega || DEFAULT_SETTINGS.msg_falha_entrega,
                 checkout_url_falha: (config as any).checkout_url_falha || "",
                 valor_taxa_falha: ((config as any).valor_taxa_falha || 0).toString(),
-                cor_botao: localStored.cor_botao || DEFAULT_SETTINGS.cor_botao,
-                cor_destaque: localStored.cor_destaque || DEFAULT_SETTINGS.cor_destaque,
-                cor_titulo_resumo: localStored.cor_titulo_resumo || DEFAULT_SETTINGS.cor_titulo_resumo,
-                cor_label_taxa: localStored.cor_label_taxa || DEFAULT_SETTINGS.cor_label_taxa,
-                cor_descricao: localStored.cor_descricao || DEFAULT_SETTINGS.cor_descricao,
-                cor_fundo_descricao: localStored.cor_fundo_descricao || DEFAULT_SETTINGS.cor_fundo_descricao,
-                cor_borda_descricao: localStored.cor_borda_descricao || DEFAULT_SETTINGS.cor_borda_descricao,
-                mensagem_site: localStored.mensagem_site || DEFAULT_SETTINGS.mensagem_site,
+                cor_botao: colorSettings.cor_botao || localStored.cor_botao || DEFAULT_SETTINGS.cor_botao,
+                cor_destaque: colorSettings.cor_destaque || localStored.cor_destaque || DEFAULT_SETTINGS.cor_destaque,
+                cor_titulo_resumo: colorSettings.cor_titulo_resumo || localStored.cor_titulo_resumo || DEFAULT_SETTINGS.cor_titulo_resumo,
+                cor_label_taxa: colorSettings.cor_label_taxa || localStored.cor_label_taxa || DEFAULT_SETTINGS.cor_label_taxa,
+                cor_descricao: colorSettings.cor_descricao || localStored.cor_descricao || DEFAULT_SETTINGS.cor_descricao,
+                cor_fundo_descricao: colorSettings.cor_fundo_descricao || localStored.cor_fundo_descricao || DEFAULT_SETTINGS.cor_fundo_descricao,
+                cor_borda_descricao: colorSettings.cor_borda_descricao || localStored.cor_borda_descricao || DEFAULT_SETTINGS.cor_borda_descricao,
+                mensagem_site: colorSettings.mensagem_site || localStored.mensagem_site || DEFAULT_SETTINGS.mensagem_site,
             };
             setSettings(loaded);
             setSavedSettings(loaded);
             saveSettings(lojaId, loaded);
         }
-    }, [config, lojaId]);
+    }, [config, falhaEvento, lojaId]);
 
     if (!falhaEntregaAtivo) {
         return (
