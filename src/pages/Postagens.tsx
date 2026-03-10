@@ -899,7 +899,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
                 : "border-border hover:border-primary/50"
               }`}
           >
-            <img src="/logojltransportes.png" alt="JL Transportes" className="h-16 mb-3 object-contain" />
+            <img src="/logojltransportes.png" alt="JL Transportes" className="h-28 mb-3 object-contain" />
             <span className={`font-semibold text-sm ${logisticaProvider === "jl" ? "text-primary" : "text-slate-600"}`}>JL Transportes</span>
           </button>
           <button
