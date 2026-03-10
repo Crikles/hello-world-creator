@@ -317,6 +317,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                 msg_falha_entrega: (config as any).msg_falha_entrega || DEFAULT_SETTINGS.msg_falha_entrega,
                 checkout_url_falha: (config as any).checkout_url_falha || "",
                 valor_taxa_falha: ((config as any).valor_taxa_falha || 0).toString(),
+                cor_botao: DEFAULT_SETTINGS.cor_botao,
             };
             setSettings(loaded);
             setSavedSettings(loaded);
