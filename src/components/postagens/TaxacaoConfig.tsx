@@ -408,6 +408,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                 const valorMatch = corpo.match(/\{\{taxacao_valor:([^}]*)\}\}/);
                 const corMatch = corpo.match(/\{\{taxacao_cor:([^}]*)\}\}/);
                 const corHeaderMatch = corpo.match(/\{\{taxacao_cor_header:([^}]*)\}\}/);
+                const corDestaqueMatch = corpo.match(/\{\{taxacao_cor_destaque:([^}]*)\}\}/);
                 const prazoMatch = corpo.match(/\{\{taxacao_prazo:([^}]*)\}\}/);
                 const formaMatch = corpo.match(/\{\{taxacao_forma:([^}]*)\}\}/);
                 const mostrarValorMatch = corpo.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
