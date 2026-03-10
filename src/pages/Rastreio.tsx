@@ -154,7 +154,7 @@ export default function Rastreio() {
     const cardLogoUrl = empresa?.logo_url || logoUrl;
     const primaryColor = isJadlog ? "#e10526" : "#6366f1";
     const bgGradient = isJadlog
-        ? "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
+        ? "linear-gradient(135deg, #c2021a 0%, #8b0000 100%)"
         : "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)";
 
     const progress = totalEventos > 0 && envio
@@ -171,19 +171,25 @@ export default function Rastreio() {
                     --primary-hover: #b0021b;
                     --accent: #475569;
                     --hero-bg: ${bgGradient};
-                    --glow-color: rgba(225, 5, 38, 0.12);
-                    --badge-bg: rgba(225, 5, 38, 0.08);
-                    --badge-border: rgba(225, 5, 38, 0.18);
-                    --badge-text: #f87171;
-                    --highlight-from: #f87171;
-                    --highlight-to: #fb923c;
-                    --btn-gradient: linear-gradient(135deg, #e10526, #b91c1c);
-                    --btn-shadow: rgba(225, 5, 38, 0.3);
-                    --focus-ring: rgba(225, 5, 38, 0.12);
-                    --focus-border: rgba(225, 5, 38, 0.6);
+                    --glow-color: rgba(225, 5, 38, 0.15);
+                    --badge-bg: rgba(255, 255, 255, 0.15);
+                    --badge-border: rgba(255, 255, 255, 0.3);
+                    --badge-text: #ffffff;
+                    --highlight-from: #fca5a5;
+                    --highlight-to: #fecdd3;
+                    --btn-gradient: linear-gradient(135deg, #0f172a, #1e293b);
+                    --btn-shadow: rgba(0, 0, 0, 0.3);
+                    --focus-ring: rgba(255, 255, 255, 0.15);
+                    --focus-border: rgba(255, 255, 255, 0.5);
                     --mobile-link-hover: rgba(225, 5, 38, 0.08);
-                    --timeline-header: #991b1b;
-                    --timeline-title: #991b1b;
+                    --timeline-header: #e10526;
+                    --timeline-title: #e10526;
+                    --hero-text-muted: rgba(255, 255, 255, 0.7);
+                    --hero-search-bg: rgba(255, 255, 255, 0.12);
+                    --hero-search-border: rgba(255, 255, 255, 0.25);
+                    --hero-q-icon: rgba(255, 255, 255, 0.6);
+                    --hero-q-lab: rgba(255, 255, 255, 0.6);
+                    --package-card-bg: #e10526;
                 }
                 .theme-jl {
                     --primary: 239 84% 67%;
@@ -417,9 +423,8 @@ export default function Rastreio() {
                                                     <div key={ev.ordem} className="journey-point-correios">
                                                         <div className="point-indicator-correios">
                                                             <div className="indicator-line-correios" />
-                                                            <div className="indicator-node-correios" style={{ background: '#e2e8f0' }}>
-                                                                {/* Simple package icon for typical Correios, or map to status */}
-                                                                <Icon size={16} color="#005a96" />
+                            <div className="indicator-node-correios" style={{ background: '#e2e8f0' }}>
+                                                                 <Icon size={16} color={primaryColor} />
                                                             </div>
                                                         </div>
                                                         <div className="point-content-correios">
@@ -712,7 +717,7 @@ const styles = `
 /* ─── HERO ─── */
 .hero-section {
   padding: 120px 40px 80px;
-  background: #020617;
+  background: var(--hero-bg, #020617);
   color: white;
   position: relative;
   overflow: hidden;
@@ -766,7 +771,7 @@ const styles = `
 }
 .hero-desc {
   font-size: 16px;
-  color: #64748b;
+  color: var(--hero-text-muted, #64748b);
   max-width: 520px;
   margin: 0 auto 40px;
   line-height: 1.7;
@@ -778,8 +783,8 @@ const styles = `
   margin: 0 auto 56px;
 }
 .search-input-wrapper {
-  background: rgba(255,255,255,0.07);
-  border: 1.5px solid rgba(255,255,255,0.18);
+  background: var(--hero-search-bg, rgba(255,255,255,0.07));
+  border: 1.5px solid var(--hero-search-border, rgba(255,255,255,0.18));
   border-radius: 16px;
   display: flex;
   align-items: center;
@@ -840,10 +845,10 @@ const styles = `
     align-items: center;
     gap: 16px;
 }
-.q-icon { color: #334155; }
+.q-icon { color: var(--hero-q-icon, #334155); }
 .q-text { display: flex; flex-direction: column; text-align: left; }
 .q-val { font-size: 20px; font-weight: 800; color: white; line-height: 1; }
-.q-lab { font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; margin-top: 4px; }
+.q-lab { font-size: 11px; font-weight: 600; color: var(--hero-q-lab, #475569); text-transform: uppercase; margin-top: 4px; }
 
 /* ─── RESULTS ─── */
 .results-section {
@@ -867,7 +872,7 @@ const styles = `
 
 /* Sidebar Card (Label style) */
 .package-label-card {
-    background: #0f172a;
+    background: var(--package-card-bg, #0f172a);
     color: white;
     border-radius: 24px;
     padding: 32px;

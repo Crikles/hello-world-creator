@@ -1,42 +1,58 @@
 
 
-## Plan: JADLOG Branding Color Overhaul
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-### Problem
-The JADLOG tracking page still uses dark blue/navy backgrounds and purple accents from the JL theme. The JADLOG brand uses **red (#e10526)** and **light gray (#f1f5f9)** — no blue at all.
+### Root cause
 
-### Changes in `src/pages/Rastreio.tsx`
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-**1. Theme CSS variables (`.theme-jadlog` block, lines 168-187)**
-- Update `--hero-bg` from dark navy gradient to **red gradient**: `linear-gradient(135deg, #c2021a 0%, #8b0000 100%)`
-- Update `--timeline-header` and `--timeline-title` from `#991b1b` to `#e10526`
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-**2. Hero section background (line 716)**
-- Currently hardcoded `background: #020617` — make it use `var(--hero-bg)` so JADLOG gets the red background
+### Fix
 
-**3. Navigation bar for JADLOG**
-- Make nav background lighter gray: `rgba(255,255,255,0.95)` (already close, just ensure it's very light)
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-**4. Package label card (line 870)**
-- Currently hardcoded `background: #0f172a` (dark navy) — for JADLOG, change to **red** (`#c2021a` or `#e10526`)
+### Changes
 
-**5. Search box on red background**
-- Adjust search input wrapper border/background for contrast on red hero
-- Text colors in hero (`hero-desc`, `q-val`, `q-lab`, `q-icon`) need to be visible on red
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
 
-**6. Timeline icon colors (line 422)**
-- Currently hardcoded `color="#005a96"` (blue) — use the `primaryColor` variable so JADLOG gets red icons
+Extend the existing filter to also remove NF-e events when disabled:
 
-**7. Conditional inline styles**
-- Use `isJadlog` to conditionally set `package-label-card` background, timeline icon color, and hero background via CSS variables or inline styles
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
 
-### Files Modified
-- `src/pages/Rastreio.tsx` — all changes in this single file (CSS variables + conditional styles)
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-### Summary of Color Mapping for JADLOG
-- Dark blue backgrounds → **Red (#e10526 / #c2021a)**
-- Purple accents → **Red (#e10526)**
-- Blue text/icons → **Red (#e10526)**
-- Nav/footer gray → **Lighter gray (#f8fafc)**
-- White text stays white (visible on red)
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
