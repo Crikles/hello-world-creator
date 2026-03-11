@@ -366,11 +366,16 @@ export default function Envios() {
 
   const batchDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from("envios")
-        .update({ deleted_at: new Date().toISOString() })
-        .in("id", ids);
-      if (error) throw error;
+      const chunkSize = 50;
+      const deletedAt = new Date().toISOString();
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const { error } = await supabase
+          .from("envios")
+          .update({ deleted_at: deletedAt })
+          .in("id", chunk);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
