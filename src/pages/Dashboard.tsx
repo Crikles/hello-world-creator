@@ -313,7 +313,8 @@ export default function Dashboard() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 18%)" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                <YAxis yAxisId="left" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} stroke="hsl(200, 70%, 55%)" />
                 <Tooltip
                   contentStyle={{
                     borderRadius: "12px",
@@ -323,7 +324,19 @@ export default function Dashboard() {
                     color: "hsl(45, 30%, 92%)",
                     fontSize: "12px",
                   }}
-                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Receita"]}
+                  formatter={(value: number, name: string) => {
+                    if (name === "pedidos") return [value, "Pedidos"];
+                    return [`R$ ${value.toFixed(2)}`, "Receita"];
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="pedidos"
+                  stroke="hsl(200, 70%, 55%)"
+                  strokeWidth={2}
+                  fill="none"
+                  strokeDasharray="5 5"
+                  yAxisId="right"
                 />
                 <Area
                   type="monotone"
@@ -331,6 +344,7 @@ export default function Dashboard() {
                   stroke="hsl(43, 74%, 49%)"
                   strokeWidth={2}
                   fill="url(#colorReceita)"
+                  yAxisId="left"
                 />
               </AreaChart>
             </ResponsiveContainer>
