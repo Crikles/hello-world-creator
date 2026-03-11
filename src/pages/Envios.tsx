@@ -77,6 +77,7 @@ export default function Envios() {
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [batchCooldown, setBatchCooldown] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
