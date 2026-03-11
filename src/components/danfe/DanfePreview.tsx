@@ -56,7 +56,28 @@ function parseProductItems(envio: EnvioData): ProductItem[] {
   if (raw.startsWith("[")) {
     try {
       const items = JSON.parse(raw) as ProductItem[];
-      if (Array.isArray(items) && items.length > 0) return items;
+      if (Array.isArray(items) && items.length > 0) {
+        // Webhooks store only { nome, quantidade } without valor per item.
+        // If no item has a valor, distribute the envio total evenly across items.
+        const hasAnyValor = items.some(i => i.valor && i.valor > 0);
+        if (!hasAnyValor && envio.valor && envio.valor > 0) {
+          const totalQty = items.reduce((s, i) => s + (i.quantidade || 1), 0);
+          items.forEach(i => {
+            i.valor = envio.valor! / totalQty;
+          });
+        }
+        // Inherit fiscal fields from envio when not set per item
+        return items.map((item, idx) => ({
+          codigo: item.codigo || idx + 1,
+          nome: item.nome || "Produto",
+          quantidade: item.quantidade || 1,
+          valor: item.valor || 0,
+          cfop: item.cfop || envio.cfop,
+          ncm_sh: item.ncm_sh || envio.ncm_sh,
+          cst: item.cst || envio.cst,
+          unidade: item.unidade || envio.unidade,
+        }));
+      }
     } catch { /* fallthrough */ }
   }
   // Single product (backward compatible)
