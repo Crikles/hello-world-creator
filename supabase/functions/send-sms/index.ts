@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
     const { data: envio, error: envioErr } = await supabase
       .from("envios")
-      .select("cliente_nome, cliente_telefone, codigo_rastreio")
+      .select("cliente_nome, cliente_telefone, codigo_rastreio, transportadora")
       .eq("id", envio_id)
       .single();
 
@@ -97,7 +97,11 @@ Deno.serve(async (req) => {
 
     const firstName = (envio.cliente_nome || "").split(" ")[0];
     const code = envio.codigo_rastreio || "";
-    const link = `https://rastreio.logisticajltransportes.com/r/${code}`;
+    const isJadlog = envio.transportadora?.toUpperCase().includes("JADLOG");
+    const baseUrl = isJadlog
+      ? "https://rastreio.centrojadlog.com"
+      : "https://rastreio.logisticajltransportes.com";
+    const link = `${baseUrl}/r/${code}`;
 
     const message = removeAccents(
       await getMessageFromDB(supabase, status_label, firstName, link)
