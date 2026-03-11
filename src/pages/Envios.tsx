@@ -203,14 +203,23 @@ export default function Envios() {
     queryKey: ["envios", loja?.id],
     queryFn: async () => {
       if (!loja) return [];
-      const { data, error } = await supabase
-        .from("envios")
-        .select("*")
-        .eq("loja_id", loja.id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const all: any[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("envios")
+          .select("*")
+          .eq("loja_id", loja.id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        all.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
     },
     enabled: !!loja,
   });
