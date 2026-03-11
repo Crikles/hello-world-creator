@@ -39,8 +39,77 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const { data: envios = [] } = useQuery({
-    queryKey: ["envios-dashboard", loja?.id],
+  // Server-side counts for cards (no 1000 limit)
+  const { data: counts } = useQuery({
+    queryKey: ["envios-counts", loja?.id],
+    queryFn: async () => {
+      if (!loja) return { total: 0, pendentes: 0, emTransito: 0, entregues: 0 };
+      const [totalQ, pendentesQ, emTransitoQ, saiuQ, entreguesQ] = await Promise.all([
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null),
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null).eq("status", "pendente"),
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null).eq("status", "em_transito"),
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null).eq("status", "saiu_para_entrega"),
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null).eq("status", "entregue"),
+      ]);
+      return {
+        total: totalQ.count || 0,
+        pendentes: pendentesQ.count || 0,
+        emTransito: (emTransitoQ.count || 0) + (saiuQ.count || 0),
+        entregues: entreguesQ.count || 0,
+      };
+    },
+    enabled: !!loja,
+  });
+
+  // Faturamento: fetch all valores recursively
+  const { data: faturamento = 0 } = useQuery({
+    queryKey: ["envios-faturamento", loja?.id],
+    queryFn: async () => {
+      if (!loja) return 0;
+      let total = 0;
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("envios")
+          .select("valor")
+          .eq("loja_id", loja.id)
+          .is("deleted_at", null)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        total += (data || []).reduce((sum, e) => sum + Number(e.valor || 0), 0);
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return total;
+    },
+    enabled: !!loja,
+  });
+
+  // Chart data: last 7 days only (well under 1000)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const { data: chartEnvios = [] } = useQuery({
+    queryKey: ["envios-chart", loja?.id],
+    queryFn: async () => {
+      if (!loja) return [];
+      const { data, error } = await supabase
+        .from("envios")
+        .select("valor, created_at")
+        .eq("loja_id", loja.id)
+        .is("deleted_at", null)
+        .gte("created_at", sevenDaysAgo.toISOString())
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!loja,
+  });
+
+  // Recent updates: only 6
+  const { data: recentUpdates = [] } = useQuery({
+    queryKey: ["envios-recent", loja?.id],
     queryFn: async () => {
       if (!loja) return [];
       const { data, error } = await supabase
@@ -48,7 +117,8 @@ export default function Dashboard() {
         .select("*")
         .eq("loja_id", loja.id)
         .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(6);
       if (error) throw error;
       return data;
     },
@@ -111,7 +181,10 @@ export default function Dashboard() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios-dashboard", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-counts", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-faturamento", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-chart", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-recent", loja?.id] });
       queryClient.invalidateQueries({ queryKey: ["envios", loja?.id] });
       toast.success("Todos os registros de envios foram limpos.");
       setConfirmOpen(false);
@@ -123,14 +196,13 @@ export default function Dashboard() {
   const emailAtivo = postagemConfig?.enviar_emails ?? false;
   const webhookAtivo = (!!shopifyConfig && (shopifyConfig as any).ativo === true && !!(shopifyConfig as any).access_token) || checkoutIntegrations.length > 0;
 
-  const total = envios.length;
-  const pendentes = envios.filter((e) => e.status === "pendente").length;
-  const emTransito = envios.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega").length;
-  const entregues = envios.filter((e) => e.status === "entregue").length;
-  const faturamento = envios.reduce((acc, e) => acc + Number(e.valor || 0), 0);
+  const total = counts?.total ?? 0;
+  const pendentes = counts?.pendentes ?? 0;
+  const emTransito = counts?.emTransito ?? 0;
+  const entregues = counts?.entregues ?? 0;
 
   const chartDataMap = new Map<string, { receita: number; pedidos: number }>();
-  envios.forEach((e) => {
+  chartEnvios.forEach((e) => {
     const day = format(new Date(e.created_at), "dd/MM");
     const existing = chartDataMap.get(day) || { receita: 0, pedidos: 0 };
     existing.receita += Number(e.valor || 0);
@@ -141,8 +213,6 @@ export default function Dashboard() {
     .map(([name, vals]) => ({ name, ...vals }))
     .reverse()
     .slice(-7);
-
-  const recentUpdates = envios.slice(0, 6);
 
   const cards = [
     { title: "Total de Pedidos", value: total, icon: Package },

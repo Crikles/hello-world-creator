@@ -1,52 +1,58 @@
 
 
-# Corrigir limite de 1000 registros no Dashboard e Envios
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-## Problema
-As queries do Dashboard e Envios usam `.select("*")` sem paginação recursiva, limitadas a 1000 rows pelo default do Supabase. O screenshot mostra exatamente 1000 pedidos quando há mais.
+### Root cause
 
-## Solução
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-### 1. Dashboard — usar contagem server-side
-Em vez de buscar todos os registros para contar, usar `select("id", { count: "exact", head: true })` para os cards de contagem, e uma query separada apenas para o chart e últimas atualizações (que precisam de dados reais, mas limitados).
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-**Cards (Total, Pendentes, Em Trânsito, Entregues):**
-- 4 queries com `count: "exact", head: true` e filtros por status
-- Faturamento: `select("valor")` com fetch recursivo em lotes de 1000
+### Fix
 
-**Chart (últimos 7 dias):** query filtrada por data (últimos 7 dias) — nunca excede 1000.
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-**Últimas Atualizações:** já limita a 6, basta adicionar `.limit(6)`.
+### Changes
 
-### 2. Envios — fetch recursivo
-A listagem de Envios precisa de todos os registros para filtro client-side e seleção. Implementar fetch recursivo em lotes de 1000:
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+
+Extend the existing filter to also remove NF-e events when disabled:
 
 ```typescript
-async function fetchAllEnvios(lojaId: string) {
-  const all = [];
-  const pageSize = 1000;
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from("envios")
-      .select("*")
-      .eq("loja_id", lojaId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .range(from, from + pageSize - 1);
-    if (error) throw error;
-    all.push(...(data || []));
-    if (!data || data.length < pageSize) break;
-    from += pageSize;
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
   }
-  return all;
-}
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-### Arquivos alterados
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-| Arquivo | Mudança |
-|---|---|
-| `src/pages/Dashboard.tsx` | Cards usam count queries; faturamento com fetch recursivo; chart filtrado por 7 dias; últimas atualizações com `.limit(6)` |
-| `src/pages/Envios.tsx` | Query principal usa fetch recursivo em lotes de 1000 |
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 
