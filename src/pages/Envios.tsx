@@ -1026,6 +1026,26 @@ export default function Envios() {
         )}
 
         <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir envios selecionados</AlertDialogTitle>
+              <AlertDialogDescription>
+                Realmente deseja apagar todos os seus Clientes? Pedidos irão parar de ser enviados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => batchDeleteMutation.mutate(Array.from(selectedIds))}
+              >
+                Confirmar exclusão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );
