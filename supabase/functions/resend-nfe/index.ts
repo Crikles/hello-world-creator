@@ -228,7 +228,8 @@ Deno.serve(async (req) => {
       .eq("loja_id", loja_id)
       .gte("ultimo_evento_ordem", nfeEvent.ordem)
       .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true })
+      .range(offset, offset + batch_size - 1);
 
     if (date_from) {
       query = query.gte("created_at", date_from);
@@ -240,12 +241,12 @@ Deno.serve(async (req) => {
     const { data: envios, error: enviosErr } = await query;
 
     if (enviosErr || !envios || envios.length === 0) {
-      return new Response(JSON.stringify({ error: "No envios found to resend", details: enviosErr }), {
+      return new Response(JSON.stringify({ error: "No envios found to resend", details: enviosErr }),  {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`Found ${envios.length} envios to resend NF-e for loja ${loja_id}`);
+    console.log(`Processing batch: offset=${offset}, batch_size=${batch_size}, found=${envios.length} envios`);
 
     const results: Array<{ envio_id: string; status: string; error?: string }> = [];
 
