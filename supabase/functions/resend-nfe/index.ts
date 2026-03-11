@@ -298,11 +298,14 @@ Deno.serve(async (req) => {
     const sent = results.filter(r => r.status === "sent").length;
     const failed = results.filter(r => r.status === "error").length;
 
+    const hasMore = envios.length === batch_size;
     return new Response(JSON.stringify({
       message: `Resent ${sent} NF-e emails, ${failed} failed`,
-      total: envios.length,
+      batch_processed: envios.length,
       sent,
       failed,
+      has_more: hasMore,
+      next_offset: hasMore ? offset + batch_size : null,
       results,
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
