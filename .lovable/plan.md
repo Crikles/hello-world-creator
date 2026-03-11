@@ -1,58 +1,28 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Confirmação de exclusão em massa com AlertDialog
 
-### Root cause
+## Problema
+1. O botão "Excluir" usa `confirm()` nativo do navegador — fora do padrão visual do sistema
+2. Delay perceptível ao apagar muitos envios (a query `.in("id", ids)` com muitos IDs é lenta)
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+## Solução
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+### 1. Substituir `confirm()` por AlertDialog (Radix)
+Adicionar um estado `deleteConfirmOpen` e usar `AlertDialog` com mensagem customizada:
+- Título: "Excluir envios selecionados"
+- Descrição: "Realmente deseja apagar todos os seus Clientes? Pedidos irão parar de ser enviados."
+- Botões: "Cancelar" e "Confirmar exclusão"
 
-### Fix
+### 2. Otimizar a exclusão em lote
+Quando há muitos IDs (ex: >50), dividir em chunks de 50 para evitar queries muito pesadas, ou usar uma abordagem mais direta. Na prática o delay vem do `.in("id", ids)` com centenas de IDs — chunking ajuda.
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+### Mudanças em `src/pages/Envios.tsx`
 
-### Changes
-
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
-
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
-
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+| O quê | Como |
+|---|---|
+| Estado `deleteConfirmOpen` | `useState(false)` |
+| Botão "Excluir" `onClick` | Abre o AlertDialog em vez de `confirm()` |
+| AlertDialog | Mensagem "Realmente deseja apagar todos os seus Clientes? Pedidos irão parar de ser enviados" com botões Cancelar/Confirmar |
+| `batchDeleteMutation` | Chunking de 50 IDs por request para reduzir delay |
 
