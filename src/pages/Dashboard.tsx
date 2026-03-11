@@ -344,6 +344,7 @@ export default function Dashboard() {
                   stroke="hsl(43, 74%, 49%)"
                   strokeWidth={2}
                   fill="url(#colorReceita)"
+                  yAxisId="left"
                 />
               </AreaChart>
             </ResponsiveContainer>
