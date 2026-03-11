@@ -1,4 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +77,7 @@ export default function Envios() {
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [batchCooldown, setBatchCooldown] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
@@ -355,11 +366,16 @@ export default function Envios() {
 
   const batchDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from("envios")
-        .update({ deleted_at: new Date().toISOString() })
-        .in("id", ids);
-      if (error) throw error;
+      const chunkSize = 50;
+      const deletedAt = new Date().toISOString();
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const { error } = await supabase
+          .from("envios")
+          .update({ deleted_at: deletedAt })
+          .in("id", chunk);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
@@ -694,11 +710,7 @@ export default function Envios() {
                   variant="destructive"
                   size="sm"
                   className="h-8 text-xs"
-                  onClick={() => {
-                    if (confirm(`Excluir ${selectedIds.size} envios selecionados?`)) {
-                      batchDeleteMutation.mutate(Array.from(selectedIds));
-                    }
-                  }}
+                  onClick={() => setDeleteConfirmOpen(true)}
                   disabled={batchDeleteMutation.isPending}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
@@ -1014,6 +1026,26 @@ export default function Envios() {
         )}
 
         <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir envios selecionados</AlertDialogTitle>
+              <AlertDialogDescription>
+                Realmente deseja apagar todos os seus Clientes? Pedidos irão parar de ser enviados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => batchDeleteMutation.mutate(Array.from(selectedIds))}
+              >
+                Confirmar exclusão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );
