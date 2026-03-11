@@ -323,7 +323,19 @@ export default function Dashboard() {
                     color: "hsl(45, 30%, 92%)",
                     fontSize: "12px",
                   }}
-                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Receita"]}
+                  formatter={(value: number, name: string) => {
+                    if (name === "pedidos") return [value, "Pedidos"];
+                    return [`R$ ${value.toFixed(2)}`, "Receita"];
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="pedidos"
+                  stroke="hsl(200, 70%, 55%)"
+                  strokeWidth={2}
+                  fill="none"
+                  strokeDasharray="5 5"
+                  yAxisId="right"
                 />
                 <Area
                   type="monotone"
