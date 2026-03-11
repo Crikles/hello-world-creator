@@ -291,11 +291,18 @@ export default function Postagens() {
 
   const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
 
-  // Count SMS events (events without enviar_nfe_pdf) in active template
+  // Count SMS events — exclude NF-e and disabled flows (Falha/Taxação)
   const smsEventCount = useMemo(() => {
-    if (!sortedActiveEventos) return 0;
-    return sortedActiveEventos.filter(e => !e.enviar_nfe_pdf).length;
-  }, [sortedActiveEventos]);
+    if (!sortedActiveEventos || !localConfig) return 0;
+    const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+    const taxLabels = ["Taxação", "Pago"];
+    return sortedActiveEventos.filter(e => {
+      if (e.enviar_nfe_pdf) return false;
+      if (falhaLabels.includes(e.status_label || "") && !localConfig.ativar_falha_entrega) return false;
+      if (taxLabels.includes(e.status_label || "") && !localConfig.ativar_taxacao) return false;
+      return true;
+    }).length;
+  }, [sortedActiveEventos, localConfig]);
 
   const smsCostUnit = systemConfigValues?.custo_sms_rastreio ?? 0.25;
   const smsTotalCost = smsEventCount * smsCostUnit;
