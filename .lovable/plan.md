@@ -1,58 +1,63 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Reenviar NF-e corrigidas para clientes afetados
 
-### Root cause
+## Problema
+O `parseProductItems` no servidor (`advance-shipments/index.ts`) tem o mesmo bug que foi corrigido no frontend — itens JSON sem campo `valor` individual resultam em R$ 0,00 na DANFE. Clientes que já receberam a NF-e ficaram com valores zerados.
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+## Solução
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
-
-### Fix
-
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
-
-### Changes
-
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
+### 1. Corrigir `parseProductItems` no servidor (`advance-shipments/index.ts`, linha 28-46)
+Aplicar a mesma lógica de distribuição de `envio.valor` entre itens sem `valor`:
 
 ```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
+function parseProductItems(envio: any): ProductItem[] {
+  const raw = envio.produto || "";
+  if (raw.startsWith("[")) {
+    try {
+      const items = JSON.parse(raw) as ProductItem[];
+      if (Array.isArray(items) && items.length > 0) {
+        // Distribute envio.valor if items lack individual valor
+        const hasAnyValor = items.some(i => i.valor && i.valor > 0);
+        if (!hasAnyValor && envio.valor && envio.valor > 0) {
+          const totalQty = items.reduce((s, i) => s + (i.quantidade || 1), 0);
+          items.forEach(i => { i.valor = envio.valor / totalQty; });
+        }
+        // Inherit fiscal fields
+        items.forEach(i => {
+          if (!i.cfop) i.cfop = envio.cfop;
+          if (!i.ncm_sh) i.ncm_sh = envio.ncm_sh;
+          if (!i.cst) i.cst = envio.cst;
+          if (!i.unidade) i.unidade = envio.unidade;
+        });
+        return items;
+      }
+    } catch { /* fallthrough */ }
   }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+  return [{ codigo: 1, nome: raw || "Produto", quantidade: envio.quantidade || 1,
+    valor: envio.valor || 0, cfop: envio.cfop, ncm_sh: envio.ncm_sh, cst: envio.cst, unidade: envio.unidade }];
+}
 ```
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+### 2. Criar edge function `resend-nfe` (uso único)
+Função que pode ser invocada manualmente para reenviar NF-e corrigidas:
 
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+- Recebe `loja_id` no body
+- Busca todos envios da loja que já passaram por um evento com `enviar_nfe_pdf = true` (via `postagem_email_log` ou checando `ultimo_evento_ordem`)
+- Para cada envio afetado:
+  1. Busca dados da empresa
+  2. Gera PDF corrigido (com `parseProductItems` corrigido)
+  3. Upload no bucket `nfe-pdfs`
+  4. Invoca `send-email` com o evento de NF-e correto
+  5. **Sem cobrança** (sem chamar `debit_user_credits`)
+- Processamento sequencial com delay de 500ms para evitar rate limit
 
-Apply the same NF-e filter to the client-side trigger:
+### Arquivos alterados
 
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
+| Arquivo | Mudança |
+|---|---|
+| `supabase/functions/advance-shipments/index.ts` | Fix `parseProductItems` para distribuir valor (mesma correção do frontend) |
+| `supabase/functions/resend-nfe/index.ts` | Nova edge function para reenvio em massa sem custo |
 
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+Após o reenvio, a função `resend-nfe` pode ser removida.
 
