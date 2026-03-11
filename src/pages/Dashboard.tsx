@@ -196,14 +196,13 @@ export default function Dashboard() {
   const emailAtivo = postagemConfig?.enviar_emails ?? false;
   const webhookAtivo = (!!shopifyConfig && (shopifyConfig as any).ativo === true && !!(shopifyConfig as any).access_token) || checkoutIntegrations.length > 0;
 
-  const total = envios.length;
-  const pendentes = envios.filter((e) => e.status === "pendente").length;
-  const emTransito = envios.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega").length;
-  const entregues = envios.filter((e) => e.status === "entregue").length;
-  const faturamento = envios.reduce((acc, e) => acc + Number(e.valor || 0), 0);
+  const total = counts?.total ?? 0;
+  const pendentes = counts?.pendentes ?? 0;
+  const emTransito = counts?.emTransito ?? 0;
+  const entregues = counts?.entregues ?? 0;
 
   const chartDataMap = new Map<string, { receita: number; pedidos: number }>();
-  envios.forEach((e) => {
+  chartEnvios.forEach((e) => {
     const day = format(new Date(e.created_at), "dd/MM");
     const existing = chartDataMap.get(day) || { receita: 0, pedidos: 0 };
     existing.receita += Number(e.valor || 0);
@@ -214,8 +213,6 @@ export default function Dashboard() {
     .map(([name, vals]) => ({ name, ...vals }))
     .reverse()
     .slice(-7);
-
-  const recentUpdates = envios.slice(0, 6);
 
   const cards = [
     { title: "Total de Pedidos", value: total, icon: Package },
