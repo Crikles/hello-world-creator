@@ -181,7 +181,10 @@ export default function Dashboard() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios-dashboard", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-counts", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-faturamento", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-chart", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-recent", loja?.id] });
       queryClient.invalidateQueries({ queryKey: ["envios", loja?.id] });
       toast.success("Todos os registros de envios foram limpos.");
       setConfirmOpen(false);
