@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.webhook-adoorei]
 verify_jwt = false
+
+[functions.resend-nfe]
+verify_jwt = false
