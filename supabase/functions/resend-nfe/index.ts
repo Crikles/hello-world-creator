@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { loja_id, date_from, date_to } = await req.json();
+    const { loja_id, date_from, date_to, batch_size = 30, offset = 0 } = await req.json();
     if (!loja_id) {
       return new Response(JSON.stringify({ error: "loja_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
