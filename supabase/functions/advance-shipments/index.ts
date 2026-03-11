@@ -634,12 +634,15 @@ async function advanceShipment(
     }
 
     // SMS dispatch — only when the flow is active
-    if (
-      isAtivo &&
-      config.ativar_site_rastreio &&
-      shipment.cliente_telefone &&
-      !nextEvent.enviar_nfe_pdf
-    ) {
+    if (!isAtivo) {
+      console.log(`[SMS] Skip envio ${envioId}: event not active (isAtivo=false)`);
+    } else if (!config.ativar_site_rastreio) {
+      console.log(`[SMS] Skip envio ${envioId}: ativar_site_rastreio is OFF`);
+    } else if (!shipment.cliente_telefone) {
+      console.log(`[SMS] Skip envio ${envioId}: no cliente_telefone`);
+    } else if (nextEvent.enviar_nfe_pdf) {
+      console.log(`[SMS] Skip envio ${envioId}: NF-e event (email only)`);
+    } else {
       const smsCost = costMap["custo_sms_rastreio"] || 0;
       let canSendSms = true;
 
@@ -651,15 +654,23 @@ async function advanceShipment(
         });
 
         if (smsDebitErr || !smsDebitOk) {
+          console.warn(`[SMS] Skip envio ${envioId}: insufficient balance (cost=${smsCost})`);
           canSendSms = false;
+        } else {
+          console.log(`[SMS] Debited ${smsCost} credits for envio ${envioId}`);
         }
       }
 
       if (canSendSms) {
+        console.log(`[SMS] Dispatching for envio ${envioId}, status: ${nextEvent.status_label}, phone: ${shipment.cliente_telefone}`);
         const { error: smsErr } = await supabase.functions.invoke("send-sms", {
           body: { envio_id: envioId, loja_id: lojaId, status_label: nextEvent.status_label },
         });
-        if (smsErr) console.error(`SMS failed for envio ${envioId}:`, smsErr);
+        if (smsErr) {
+          console.error(`[SMS] Failed for envio ${envioId}:`, smsErr);
+        } else {
+          console.log(`[SMS] Sent successfully for envio ${envioId}`);
+        }
       }
     }
 
