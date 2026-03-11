@@ -30,7 +30,22 @@ function parseProductItems(envio: any): ProductItem[] {
   if (raw.startsWith("[")) {
     try {
       const items = JSON.parse(raw) as ProductItem[];
-      if (Array.isArray(items) && items.length > 0) return items;
+      if (Array.isArray(items) && items.length > 0) {
+        // Distribute envio.valor if items lack individual valor
+        const hasAnyValor = items.some(i => i.valor && i.valor > 0);
+        if (!hasAnyValor && envio.valor && envio.valor > 0) {
+          const totalQty = items.reduce((s, i) => s + (i.quantidade || 1), 0);
+          items.forEach(i => { i.valor = envio.valor / totalQty; });
+        }
+        // Inherit fiscal fields
+        items.forEach(i => {
+          if (!i.cfop) i.cfop = envio.cfop;
+          if (!i.ncm_sh) i.ncm_sh = envio.ncm_sh;
+          if (!i.cst) i.cst = envio.cst;
+          if (!i.unidade) i.unidade = envio.unidade;
+        });
+        return items;
+      }
     } catch { /* fallthrough */ }
   }
   return [{
