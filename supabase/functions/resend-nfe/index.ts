@@ -222,13 +222,22 @@ Deno.serve(async (req) => {
     }
 
     // Find all envios that already passed the NF-e event
-    const { data: envios, error: enviosErr } = await supabase
+    let query = supabase
       .from("envios")
       .select("*")
       .eq("loja_id", loja_id)
       .gte("ultimo_evento_ordem", nfeEvent.ordem)
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
+
+    if (date_from) {
+      query = query.gte("created_at", date_from);
+    }
+    if (date_to) {
+      query = query.lte("created_at", date_to);
+    }
+
+    const { data: envios, error: enviosErr } = await query;
 
     if (enviosErr || !envios || envios.length === 0) {
       return new Response(JSON.stringify({ error: "No envios found to resend", details: enviosErr }), {
