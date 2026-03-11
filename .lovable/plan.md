@@ -1,58 +1,43 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Corrigir importação de planilhas Zedy (endereço e mapeamento)
 
-### Root cause
+## Problema identificado
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+A planilha da Zedy tem o endereço em um **campo único** `client_address` no formato:
+`"Rua Marieta de Castro Santos, 160 - Apto 1302, Morada da Colina, Uberlândia - MG, 38411004"`
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+O sistema atual não tem esse campo nos aliases e, mesmo que mapeado, seria jogado em um único campo. Além disso, faltam aliases para campos como `client_document`, `client_phone`, `produtos`.
 
-### Fix
+## Solução
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+### 1. Adicionar aliases faltantes no `ALIAS_MAP`
+- `cliente_cpf` ← `"client_document", "document"`
+- `cliente_telefone` ← `"client_phone"`
+- `produto` ← `"produtos"`
+- `valor` ← `"total"`
 
-### Changes
+### 2. Adicionar campo especial `client_address` (endereço completo)
+Adicionar um novo alias `"__endereco_completo"` que, ao ser detectado no mapeamento, dispara um **parser de endereço brasileiro** que extrai automaticamente:
+- Rua/Logradouro → `cliente_endereco`
+- Número → `cliente_numero`
+- Complemento → `cliente_complemento`
+- Bairro → `cliente_bairro`
+- Cidade → `cliente_cidade`
+- Estado → `cliente_estado`
+- CEP → `cliente_cep`
 
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+O parser usa regex no padrão: `"Rua X, NUMERO - COMPLEMENTO, BAIRRO, CIDADE - UF, CEP"`
 
-Extend the existing filter to also remove NF-e events when disabled:
+### 3. Simplificar SYSTEM_FIELDS
+Remover os campos fiscais desnecessários (CFOP, NCM, CST, Unidade, Código Rastreio) da lista de mapeamento obrigatório, mantendo apenas os campos do dia-a-dia que o usuário mencionou.
 
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
+### 4. Auto-detecção do formato Zedy
+Adicionar detecção automática: se os headers contêm `client_nome` + `client_address` + `produtos`, reconhecer como formato Zedy, fazer parse do endereço automaticamente e ir direto para o preview (sem modal de mapeamento manual).
 
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+## Mudanças
 
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
-
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+| Arquivo | O quê |
+|---|---|
+| `src/components/envios/ImportarPlanilha.tsx` | Adicionar aliases, parser de endereço, detecção Zedy, simplificar campos |
 
