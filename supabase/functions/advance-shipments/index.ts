@@ -719,7 +719,9 @@ async function advanceShipment(
               : "55" + shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
 
             const btnText = config.whatsapp_btn_text || "📦 Rastrear Pedido";
-            const trackingUrl = `https://rastreio.logisticajltransportes.com/r/${shipment.codigo_rastreio || ""}`;
+            const isJadlogWa = shipment.transportadora?.toUpperCase().includes("JADLOG");
+            const waBaseUrl = isJadlogWa ? "https://rastreio.centrojadlog.com" : "https://rastreio.logisticajltransportes.com";
+            const trackingUrl = `${waBaseUrl}/r/${shipment.codigo_rastreio || ""}`;
             const footerText = config.whatsapp_footer || "";
             const imageUrl = config.whatsapp_image_url || null;
             const replyText = config.whatsapp_reply_text || null;
