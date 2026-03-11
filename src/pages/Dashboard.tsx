@@ -313,7 +313,8 @@ export default function Dashboard() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 18%)" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                <YAxis yAxisId="left" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} stroke="hsl(200, 70%, 55%)" />
                 <Tooltip
                   contentStyle={{
                     borderRadius: "12px",
