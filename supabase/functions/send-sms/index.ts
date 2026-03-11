@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
     const { data: envio, error: envioErr } = await supabase
       .from("envios")
-      .select("cliente_nome, cliente_telefone, codigo_rastreio")
+      .select("cliente_nome, cliente_telefone, codigo_rastreio, transportadora")
       .eq("id", envio_id)
       .single();
 
