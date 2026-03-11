@@ -710,11 +710,7 @@ export default function Envios() {
                   variant="destructive"
                   size="sm"
                   className="h-8 text-xs"
-                  onClick={() => {
-                    if (confirm(`Excluir ${selectedIds.size} envios selecionados?`)) {
-                      batchDeleteMutation.mutate(Array.from(selectedIds));
-                    }
-                  }}
+                  onClick={() => setDeleteConfirmOpen(true)}
                   disabled={batchDeleteMutation.isPending}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
