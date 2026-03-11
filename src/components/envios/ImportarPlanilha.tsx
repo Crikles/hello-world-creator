@@ -458,6 +458,68 @@ export function ImportarPlanilha({ lojaId }: Props) {
         setParsed(rows);
         setErrors(errs);
         setDialogOpen(true);
+      } else if (isZedyFormat(headers)) {
+        // Zedy format — auto-map with address parsing
+        setIsShopify(false);
+        setStep("preview");
+        const autoMapped = autoMapColumns(headers);
+        const rows: Record<string, any>[] = [];
+        const errs: string[] = [];
+
+        for (let i = 0; i < dataRows.length; i++) {
+          const dataRow = dataRows[i];
+          const row: Record<string, any> = {};
+
+          for (const field of SYSTEM_FIELDS) {
+            if (field.key === "__endereco_completo") continue;
+            const mappedHeader = autoMapped[field.key];
+            if (mappedHeader) {
+              const colIdx = headers.indexOf(mappedHeader);
+              row[field.key] = colIdx >= 0 ? (dataRow[colIdx] || "").trim() : "";
+            } else {
+              row[field.key] = "";
+            }
+          }
+
+          // Parse full address
+          const addrHeader = autoMapped["__endereco_completo"];
+          if (addrHeader) {
+            const addrIdx = headers.indexOf(addrHeader);
+            const fullAddr = addrIdx >= 0 ? (dataRow[addrIdx] || "").trim() : "";
+            if (fullAddr) {
+              const parsed = parseBrazilianAddress(fullAddr);
+              Object.entries(parsed).forEach(([k, v]) => {
+                if (v && !row[k]) row[k] = v;
+              });
+            }
+          }
+
+          // Clean valor
+          if (row.valor) {
+            const cleaned = String(row.valor).replace(/[R$\s]/g, "").replace(",", ".");
+            row.valor = parseFloat(cleaned) || 0;
+          } else {
+            row.valor = 0;
+          }
+          row.quantidade = row.quantidade ? parseInt(row.quantidade) || 1 : 1;
+
+          const missing: string[] = [];
+          if (!row.cliente_nome) missing.push("Nome");
+          if (!row.cliente_email) missing.push("Email");
+          if (!row.produto) missing.push("Produto");
+          if (!row.valor) missing.push("Valor");
+
+          if (missing.length > 0) {
+            errs.push(`Linha ${i + 2}: faltando ${missing.join(", ")}`);
+          } else {
+            rows.push(row);
+          }
+        }
+
+        setParsed(rows);
+        setErrors(errs);
+        setDialogOpen(true);
+        if (rows.length > 0) toast.success(`📦 Formato Zedy detectado! ${rows.length} pedido(s) mapeados.`);
       } else {
         // Unknown format — open mapping modal
         setIsShopify(false);
