@@ -22,35 +22,31 @@ const CSV_EXAMPLE_ROWS = [
   "Maria Souza,maria@email.com,987.654.321-00,(21)98888-0000,20040-020,Av Teste,200,Botafogo,Rio de Janeiro,RJ,,Tênis 42,1,199.90,5102,64039990,000,PAR,",
 ];
 
-/* ─── System fields for column mapping ─── */
+/* ─── System fields for column mapping (simplified) ─── */
 const SYSTEM_FIELDS = [
   { key: "cliente_nome", label: "Nome do Cliente", required: true },
   { key: "cliente_email", label: "Email", required: true },
-  { key: "cliente_cpf", label: "CPF", required: false },
+  { key: "cliente_cpf", label: "CPF / Documento", required: false },
   { key: "cliente_telefone", label: "Telefone", required: false },
   { key: "cliente_cep", label: "CEP", required: false },
   { key: "cliente_endereco", label: "Endereço", required: false },
   { key: "cliente_numero", label: "Número", required: false },
   { key: "cliente_bairro", label: "Bairro", required: false },
   { key: "cliente_cidade", label: "Cidade", required: false },
-  { key: "cliente_estado", label: "Estado", required: false },
+  { key: "cliente_estado", label: "Estado / UF", required: false },
   { key: "cliente_complemento", label: "Complemento", required: false },
+  { key: "__endereco_completo", label: "Endereço Completo (campo único)", required: false },
   { key: "produto", label: "Produto", required: true },
   { key: "quantidade", label: "Quantidade", required: false },
   { key: "valor", label: "Valor", required: true },
-  { key: "cfop", label: "CFOP", required: false },
-  { key: "ncm_sh", label: "NCM/SH", required: false },
-  { key: "cst", label: "CST", required: false },
-  { key: "unidade", label: "Unidade", required: false },
-  { key: "codigo_rastreio", label: "Código Rastreio", required: false },
 ];
 
 /* ─── Similarity matching for auto-mapping ─── */
 const ALIAS_MAP: Record<string, string[]> = {
   cliente_nome: ["nome", "client_nome", "cliente_nome", "name", "customer_name", "nome_cliente", "nome do cliente", "cliente"],
   cliente_email: ["email", "e-mail", "client_email", "cliente_email", "customer_email", "email_cliente"],
-  cliente_cpf: ["cpf", "documento", "doc", "client_cpf", "cliente_cpf", "customer_document"],
-  cliente_telefone: ["telefone", "phone", "fone", "celular", "tel", "client_telefone", "cliente_telefone", "whatsapp"],
+  cliente_cpf: ["cpf", "documento", "doc", "client_cpf", "cliente_cpf", "customer_document", "client_document", "document"],
+  cliente_telefone: ["telefone", "phone", "fone", "celular", "tel", "client_telefone", "cliente_telefone", "whatsapp", "client_phone"],
   cliente_cep: ["cep", "zipcode", "zip", "zip_code", "codigo_postal", "client_cep", "cliente_cep"],
   cliente_endereco: ["endereco", "address", "rua", "logradouro", "client_endereco", "cliente_endereco", "street"],
   cliente_numero: ["numero", "number", "num", "nro", "client_numero", "cliente_numero"],
@@ -58,15 +54,63 @@ const ALIAS_MAP: Record<string, string[]> = {
   cliente_cidade: ["cidade", "city", "client_cidade", "cliente_cidade"],
   cliente_estado: ["estado", "state", "uf", "client_estado", "cliente_estado"],
   cliente_complemento: ["complemento", "complement", "comp", "client_complemento", "cliente_complemento"],
-  produto: ["produto", "product", "item", "descricao", "nome_produto"],
+  __endereco_completo: ["client_address", "endereco_completo", "full_address", "address_full"],
+  produto: ["produto", "product", "item", "descricao", "nome_produto", "produtos"],
   quantidade: ["quantidade", "qty", "quantity", "qtd", "qtde"],
   valor: ["valor", "value", "price", "preco", "total", "amount"],
-  cfop: ["cfop"],
-  ncm_sh: ["ncm_sh", "ncm", "ncmsh"],
-  cst: ["cst"],
-  unidade: ["unidade", "unit", "un"],
-  codigo_rastreio: ["codigo_rastreio", "rastreio", "tracking", "tracking_code"],
 };
+
+/* ─── Parse a single Brazilian address string into parts ─── */
+function parseBrazilianAddress(full: string): Record<string, string> {
+  const result: Record<string, string> = {
+    cliente_endereco: "", cliente_numero: "", cliente_complemento: "",
+    cliente_bairro: "", cliente_cidade: "", cliente_estado: "", cliente_cep: "",
+  };
+  if (!full || !full.trim()) return result;
+
+  // Pattern: "Rua X, NUM - COMPL, BAIRRO, CIDADE - UF, CEP"
+  const m = full.match(/^(.+?),\s*(\d+)\s*(?:-\s*(.+?))?,\s*(.+?),\s*(.+?)\s*-\s*([A-Z]{2}),\s*(\d{5}-?\d{3})$/i);
+  if (m) {
+    result.cliente_endereco = m[1].trim();
+    result.cliente_numero = m[2].trim();
+    result.cliente_complemento = (m[3] || "").trim();
+    result.cliente_bairro = m[4].trim();
+    result.cliente_cidade = m[5].trim();
+    result.cliente_estado = m[6].trim().toUpperCase();
+    result.cliente_cep = m[7].replace(/\D/g, "");
+    return result;
+  }
+
+  // Fallback: try comma-separated parts
+  const parts = full.split(",").map((p) => p.trim());
+  if (parts.length >= 4) {
+    result.cliente_endereco = parts[0];
+    const numMatch = parts[1]?.match(/^(\d+)\s*(?:-\s*(.+))?$/);
+    if (numMatch) {
+      result.cliente_numero = numMatch[1];
+      result.cliente_complemento = (numMatch[2] || "").trim();
+    }
+    result.cliente_bairro = parts[2] || "";
+    const lastParts = parts.slice(3).join(",").trim();
+    const ufCepMatch = lastParts.match(/(.+?)\s*-\s*([A-Z]{2})\s*,?\s*(\d{5}-?\d{3})?/i);
+    if (ufCepMatch) {
+      result.cliente_cidade = ufCepMatch[1].trim();
+      result.cliente_estado = ufCepMatch[2].trim().toUpperCase();
+      result.cliente_cep = (ufCepMatch[3] || "").replace(/\D/g, "");
+    } else {
+      result.cliente_cidade = lastParts;
+    }
+  } else {
+    result.cliente_endereco = full;
+  }
+  return result;
+}
+
+/* ─── Detect Zedy format ─── */
+function isZedyFormat(headers: string[]): boolean {
+  const lower = headers.map((h) => h.toLowerCase().trim());
+  return lower.includes("client_nome") && lower.includes("client_address") && lower.includes("produtos");
+}
 
 function normalize(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").trim();
@@ -414,6 +458,68 @@ export function ImportarPlanilha({ lojaId }: Props) {
         setParsed(rows);
         setErrors(errs);
         setDialogOpen(true);
+      } else if (isZedyFormat(headers)) {
+        // Zedy format — auto-map with address parsing
+        setIsShopify(false);
+        setStep("preview");
+        const autoMapped = autoMapColumns(headers);
+        const rows: Record<string, any>[] = [];
+        const errs: string[] = [];
+
+        for (let i = 0; i < dataRows.length; i++) {
+          const dataRow = dataRows[i];
+          const row: Record<string, any> = {};
+
+          for (const field of SYSTEM_FIELDS) {
+            if (field.key === "__endereco_completo") continue;
+            const mappedHeader = autoMapped[field.key];
+            if (mappedHeader) {
+              const colIdx = headers.indexOf(mappedHeader);
+              row[field.key] = colIdx >= 0 ? (dataRow[colIdx] || "").trim() : "";
+            } else {
+              row[field.key] = "";
+            }
+          }
+
+          // Parse full address
+          const addrHeader = autoMapped["__endereco_completo"];
+          if (addrHeader) {
+            const addrIdx = headers.indexOf(addrHeader);
+            const fullAddr = addrIdx >= 0 ? (dataRow[addrIdx] || "").trim() : "";
+            if (fullAddr) {
+              const parsed = parseBrazilianAddress(fullAddr);
+              Object.entries(parsed).forEach(([k, v]) => {
+                if (v && !row[k]) row[k] = v;
+              });
+            }
+          }
+
+          // Clean valor
+          if (row.valor) {
+            const cleaned = String(row.valor).replace(/[R$\s]/g, "").replace(",", ".");
+            row.valor = parseFloat(cleaned) || 0;
+          } else {
+            row.valor = 0;
+          }
+          row.quantidade = row.quantidade ? parseInt(row.quantidade) || 1 : 1;
+
+          const missing: string[] = [];
+          if (!row.cliente_nome) missing.push("Nome");
+          if (!row.cliente_email) missing.push("Email");
+          if (!row.produto) missing.push("Produto");
+          if (!row.valor) missing.push("Valor");
+
+          if (missing.length > 0) {
+            errs.push(`Linha ${i + 2}: faltando ${missing.join(", ")}`);
+          } else {
+            rows.push(row);
+          }
+        }
+
+        setParsed(rows);
+        setErrors(errs);
+        setDialogOpen(true);
+        if (rows.length > 0) toast.success(`📦 Formato Zedy detectado! ${rows.length} pedido(s) mapeados.`);
       } else {
         // Unknown format — open mapping modal
         setIsShopify(false);
@@ -450,6 +556,7 @@ export function ImportarPlanilha({ lojaId }: Props) {
       const row: Record<string, any> = {};
 
       for (const field of SYSTEM_FIELDS) {
+        if (field.key === "__endereco_completo") continue;
         const mappedHeader = columnMapping[field.key];
         if (mappedHeader) {
           const colIdx = rawHeaders.indexOf(mappedHeader);
@@ -459,11 +566,23 @@ export function ImportarPlanilha({ lojaId }: Props) {
         }
       }
 
+      // Handle full address field
+      const addrHeader = columnMapping["__endereco_completo"];
+      if (addrHeader) {
+        const addrIdx = rawHeaders.indexOf(addrHeader);
+        const fullAddr = addrIdx >= 0 ? (dataRow[addrIdx] || "").trim() : "";
+        if (fullAddr) {
+          const addrParts = parseBrazilianAddress(fullAddr);
+          Object.entries(addrParts).forEach(([k, v]) => {
+            if (v && !row[k]) row[k] = v;
+          });
+        }
+      }
+
       // Parse numeric fields
       if (row.quantidade) row.quantidade = parseInt(row.quantidade) || 1;
       else row.quantidade = 1;
       if (row.valor) {
-        // Handle "R$ 49,90" or "49.90" or "49,90"
         const cleaned = String(row.valor).replace(/[R$\s]/g, "").replace(",", ".");
         row.valor = parseFloat(cleaned) || 0;
       } else {
