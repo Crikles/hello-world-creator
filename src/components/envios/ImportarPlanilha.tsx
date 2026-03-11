@@ -556,6 +556,7 @@ export function ImportarPlanilha({ lojaId }: Props) {
       const row: Record<string, any> = {};
 
       for (const field of SYSTEM_FIELDS) {
+        if (field.key === "__endereco_completo") continue;
         const mappedHeader = columnMapping[field.key];
         if (mappedHeader) {
           const colIdx = rawHeaders.indexOf(mappedHeader);
@@ -565,11 +566,23 @@ export function ImportarPlanilha({ lojaId }: Props) {
         }
       }
 
+      // Handle full address field
+      const addrHeader = columnMapping["__endereco_completo"];
+      if (addrHeader) {
+        const addrIdx = rawHeaders.indexOf(addrHeader);
+        const fullAddr = addrIdx >= 0 ? (dataRow[addrIdx] || "").trim() : "";
+        if (fullAddr) {
+          const addrParts = parseBrazilianAddress(fullAddr);
+          Object.entries(addrParts).forEach(([k, v]) => {
+            if (v && !row[k]) row[k] = v;
+          });
+        }
+      }
+
       // Parse numeric fields
       if (row.quantidade) row.quantidade = parseInt(row.quantidade) || 1;
       else row.quantidade = 1;
       if (row.valor) {
-        // Handle "R$ 49,90" or "49.90" or "49,90"
         const cleaned = String(row.valor).replace(/[R$\s]/g, "").replace(",", ".");
         row.valor = parseFloat(cleaned) || 0;
       } else {
