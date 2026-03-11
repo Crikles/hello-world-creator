@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { loja_id } = await req.json();
+    const { loja_id, date_from, date_to, batch_size = 30, offset = 0 } = await req.json();
     if (!loja_id) {
       return new Response(JSON.stringify({ error: "loja_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -222,21 +222,31 @@ Deno.serve(async (req) => {
     }
 
     // Find all envios that already passed the NF-e event
-    const { data: envios, error: enviosErr } = await supabase
+    let query = supabase
       .from("envios")
       .select("*")
       .eq("loja_id", loja_id)
       .gte("ultimo_evento_ordem", nfeEvent.ordem)
       .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true })
+      .range(offset, offset + batch_size - 1);
+
+    if (date_from) {
+      query = query.gte("created_at", date_from);
+    }
+    if (date_to) {
+      query = query.lte("created_at", date_to);
+    }
+
+    const { data: envios, error: enviosErr } = await query;
 
     if (enviosErr || !envios || envios.length === 0) {
-      return new Response(JSON.stringify({ error: "No envios found to resend", details: enviosErr }), {
+      return new Response(JSON.stringify({ error: "No envios found to resend", details: enviosErr }),  {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`Found ${envios.length} envios to resend NF-e for loja ${loja_id}`);
+    console.log(`Processing batch: offset=${offset}, batch_size=${batch_size}, found=${envios.length} envios`);
 
     const results: Array<{ envio_id: string; status: string; error?: string }> = [];
 
@@ -288,11 +298,14 @@ Deno.serve(async (req) => {
     const sent = results.filter(r => r.status === "sent").length;
     const failed = results.filter(r => r.status === "error").length;
 
+    const hasMore = envios.length === batch_size;
     return new Response(JSON.stringify({
       message: `Resent ${sent} NF-e emails, ${failed} failed`,
-      total: envios.length,
+      batch_processed: envios.length,
       sent,
       failed,
+      has_more: hasMore,
+      next_offset: hasMore ? offset + batch_size : null,
       results,
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
