@@ -44,6 +44,19 @@ const statusLabels: Record<string, string> = {
   entregue: "Entregue",
   taxacao: "Taxação",
   pagamento_confirmado: "Pgto. Confirmado",
+  // status_label based
+  "Pendente": "Pendente",
+  "Postado": "Postado (NF-e)",
+  "Coletado": "Coletado",
+  "Em Trânsito": "Em Trânsito",
+  "Centro Local": "Centro Local",
+  "Taxação": "Taxação",
+  "Pgto. Confirmado": "Pgto. Confirmado",
+  "Saiu para Entrega": "Saiu p/ Entrega",
+  "Falha Entrega": "Falha Entrega",
+  "Reenvio Pago": "Reenvio Pago",
+  "Reenvio Saiu": "Reenvio Saiu",
+  "Entregue": "Entregue",
 };
 
 const statusColors: Record<string, string> = {
@@ -55,17 +68,34 @@ const statusColors: Record<string, string> = {
   entregue: "bg-primary/15 text-primary",
   taxacao: "bg-destructive/20 text-destructive",
   pagamento_confirmado: "bg-primary/20 text-primary",
+  // status_label based
+  "Pendente": "bg-primary/20 text-primary",
+  "Postado": "bg-accent text-accent-foreground",
+  "Coletado": "bg-accent text-accent-foreground",
+  "Em Trânsito": "bg-accent text-accent-foreground",
+  "Centro Local": "bg-primary/25 text-primary",
+  "Taxação": "bg-destructive/20 text-destructive",
+  "Pgto. Confirmado": "bg-primary/20 text-primary",
+  "Saiu para Entrega": "bg-primary/30 text-primary",
+  "Falha Entrega": "bg-destructive/20 text-destructive",
+  "Reenvio Pago": "bg-primary/20 text-primary",
+  "Reenvio Saiu": "bg-accent text-accent-foreground",
+  "Entregue": "bg-primary/15 text-primary",
 };
 
 const statusOptions = [
-  { value: "pendente", label: "Pendente" },
-  { value: "coletado", label: "Coletado" },
-  { value: "em_transito", label: "Em Trânsito" },
-  { value: "centro_local", label: "Centro Local" },
-  { value: "saiu_para_entrega", label: "Saiu para Entrega" },
-  { value: "entregue", label: "Entregue" },
-  { value: "taxacao", label: "Taxação" },
-  { value: "pagamento_confirmado", label: "Pgto. Confirmado" },
+  { value: "Pendente", label: "Pendente" },
+  { value: "Postado", label: "Postado (NF-e)" },
+  { value: "Coletado", label: "Coletado" },
+  { value: "Em Trânsito", label: "Em Trânsito" },
+  { value: "Centro Local", label: "Centro Local" },
+  { value: "Taxação", label: "Taxação" },
+  { value: "Pgto. Confirmado", label: "Pgto. Confirmado" },
+  { value: "Saiu para Entrega", label: "Saiu para Entrega" },
+  { value: "Falha Entrega", label: "Falha Entrega" },
+  { value: "Reenvio Pago", label: "Reenvio Pago" },
+  { value: "Reenvio Saiu", label: "Reenvio Saiu" },
+  { value: "Entregue", label: "Entregue" },
 ];
 
 export default function Envios() {
