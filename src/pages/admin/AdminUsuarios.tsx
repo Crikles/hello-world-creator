@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
-import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn } from "lucide-react";
+import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -43,6 +43,34 @@ export default function AdminUsuarios() {
 
   const [userToBlock, setUserToBlock] = useState<UserRow | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserRow | null>(null);
+
+  const { data: rankingData = [] } = useQuery({
+    queryKey: ["admin-ranking-recargas"],
+    queryFn: async () => {
+      const { data: payments } = await supabase
+        .from("pix_payments")
+        .select("user_id, moedas")
+        .eq("status", "CONFIRMED");
+
+      const totals: Record<string, number> = {};
+      (payments || []).forEach(p => {
+        totals[p.user_id] = (totals[p.user_id] || 0) + Number(p.moedas);
+      });
+
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, email");
+
+      return Object.entries(totals)
+        .map(([uid, total]) => {
+          const prof = (profiles || []).find(p => p.id === uid);
+          return { user_id: uid, full_name: prof?.full_name, email: prof?.email, total_recargas: total };
+        })
+        .sort((a, b) => b.total_recargas - a.total_recargas);
+    }
+  });
+
+  // Build a lookup map for recargas totals
+  const recargasMap: Record<string, number> = {};
+  rankingData.forEach(r => { recargasMap[r.user_id] = r.total_recargas; });
 
   const { data: systemConfigs } = useQuery({
     queryKey: ["system-config-admin"],
@@ -233,6 +261,46 @@ export default function AdminUsuarios() {
     <AdminLayout>
       <h1 className="text-2xl font-bold text-foreground mb-6">Gestão de Usuários</h1>
 
+      {/* Ranking Card */}
+      {rankingData.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-primary" />
+              Ranking de Recargas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="text-right">Total Recarregado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rankingData.slice(0, 10).map((r, i) => (
+                    <TableRow key={r.user_id}>
+                      <TableCell className="font-bold text-center">
+                        {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}º`}
+                      </TableCell>
+                      <TableCell className="font-medium">{r.full_name || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.email || "—"}</TableCell>
+                      <TableCell className="text-right font-semibold text-primary">
+                        {r.total_recargas.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Todos os Usuários</CardTitle>
@@ -254,6 +322,7 @@ export default function AdminUsuarios() {
                     <TableHead>Role</TableHead>
                     <TableHead>Cadastro</TableHead>
                     <TableHead>Créditos</TableHead>
+                    <TableHead>Recargas</TableHead>
                     <TableHead>Lojas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -281,6 +350,11 @@ export default function AdminUsuarios() {
                         <span className="flex items-center gap-1">
                           <Coins className="h-3.5 w-3.5 text-primary" />
                           {Number(u.saldo).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          {(recargasMap[u.id] || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </TableCell>
                       <TableCell>{u.lojas_count}</TableCell>
