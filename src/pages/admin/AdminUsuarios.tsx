@@ -352,6 +352,11 @@ export default function AdminUsuarios() {
                           {Number(u.saldo).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          {(recargasMap[u.id] || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </TableCell>
                       <TableCell>{u.lojas_count}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5 flex-wrap">
