@@ -515,6 +515,14 @@ async function advanceShipment(
     }
 
     const currentOrdem = shipment.ultimo_evento_ordem ?? 0;
+
+    // Pause: don't auto-advance shipments waiting for manual approval
+    const pauseLabels = ["Falha Entrega", "Taxação", "Taxacao"];
+    if (pauseLabels.includes(shipment.status_label || "")) {
+      console.log(`Skip envio ${envioId}: waiting for manual approval (${shipment.status_label})`);
+      return false;
+    }
+
     // deno-lint-ignore no-explicit-any
     const nextEvent = filteredEvents.find((e: any) => e.ordem > currentOrdem);
     if (!nextEvent) return false;

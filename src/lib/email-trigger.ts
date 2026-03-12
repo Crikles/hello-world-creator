@@ -94,6 +94,15 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
 
         // 4. Find the NEXT event (ordem > ultimo_evento_ordem)
         const currentOrdem = (shipment as any).ultimo_evento_ordem ?? 0;
+
+        // Pause: don't auto-advance shipments waiting for manual approval
+        // unless forceSendEmail (manual approval) or forceAdvance is true
+        const pauseLabels = ["Falha Entrega", "Taxação", "Taxacao"];
+        if (!forceSendEmail && !forceAdvance && pauseLabels.includes((shipment as any).status_label || "")) {
+            console.log("Trigger skip: waiting for manual approval", envioId, (shipment as any).status_label);
+            return null;
+        }
+
         const nextEvent = filteredEvents.find(e => e.ordem > currentOrdem);
 
         if (!nextEvent) {
