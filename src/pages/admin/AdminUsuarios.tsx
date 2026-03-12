@@ -44,6 +44,34 @@ export default function AdminUsuarios() {
   const [userToBlock, setUserToBlock] = useState<UserRow | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserRow | null>(null);
 
+  const { data: rankingData = [] } = useQuery({
+    queryKey: ["admin-ranking-recargas"],
+    queryFn: async () => {
+      const { data: payments } = await supabase
+        .from("pix_payments")
+        .select("user_id, moedas")
+        .eq("status", "CONFIRMED");
+
+      const totals: Record<string, number> = {};
+      (payments || []).forEach(p => {
+        totals[p.user_id] = (totals[p.user_id] || 0) + Number(p.moedas);
+      });
+
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, email");
+
+      return Object.entries(totals)
+        .map(([uid, total]) => {
+          const prof = (profiles || []).find(p => p.id === uid);
+          return { user_id: uid, full_name: prof?.full_name, email: prof?.email, total_recargas: total };
+        })
+        .sort((a, b) => b.total_recargas - a.total_recargas);
+    }
+  });
+
+  // Build a lookup map for recargas totals
+  const recargasMap: Record<string, number> = {};
+  rankingData.forEach(r => { recargasMap[r.user_id] = r.total_recargas; });
+
   const { data: systemConfigs } = useQuery({
     queryKey: ["system-config-admin"],
     queryFn: async () => {
