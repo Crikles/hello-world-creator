@@ -906,7 +906,7 @@ export default function Envios() {
                   {/* Status */}
                   <Badge
                     variant="secondary"
-                    className={`${statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[9px] px-1.5 py-0 h-5 whitespace-nowrap shrink-0`}
+                    className={`${statusColors[envio.status_label || ""] || statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[9px] px-1.5 py-0 h-5 whitespace-nowrap shrink-0`}
                   >
                     <span className="inline-block h-1 w-1 rounded-full bg-current mr-1" />
                     {getDisplayStatus(envio)}
