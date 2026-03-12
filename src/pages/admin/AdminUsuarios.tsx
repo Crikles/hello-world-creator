@@ -261,6 +261,46 @@ export default function AdminUsuarios() {
     <AdminLayout>
       <h1 className="text-2xl font-bold text-foreground mb-6">Gestão de Usuários</h1>
 
+      {/* Ranking Card */}
+      {rankingData.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-primary" />
+              Ranking de Recargas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="text-right">Total Recarregado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rankingData.slice(0, 10).map((r, i) => (
+                    <TableRow key={r.user_id}>
+                      <TableCell className="font-bold text-center">
+                        {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}º`}
+                      </TableCell>
+                      <TableCell className="font-medium">{r.full_name || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.email || "—"}</TableCell>
+                      <TableCell className="text-right font-semibold text-primary">
+                        {r.total_recargas.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Todos os Usuários</CardTitle>
