@@ -1,58 +1,62 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+# Pausar avanço automático em etapas que exigem aprovação manual
 
-### Root cause
+## Problema
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+Atualmente, o cron `advance-shipments` avança **todos** os envios cujo `proximo_avanco_em` já passou, incluindo os que estão parados em "Falha Entrega" e "Taxação". Essas etapas deveriam **pausar** e esperar a aprovação manual do usuário no painel antes de avançar para "Reenvio Pago" / "Pago".
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+O mesmo vale para o `triggerNextEmail` no client-side quando chamado por fluxos automáticos (ex: botão "Avançar Todos").
 
-### Fix
+## Solução
 
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
+Adicionar uma verificação no cron: se o `status_label` atual do envio é "Falha Entrega" ou "Taxação", **pular** o envio (não avançar automaticamente). A aprovação manual continua funcionando normalmente pelas páginas Taxação e Falha na Entrega, que chamam `triggerNextEmail` diretamente.
 
-### Changes
+## Mudanças
 
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
+### 1. `supabase/functions/advance-shipments/index.ts` — função `advanceShipment()` (~linha 517-520)
 
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
-
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
+Após obter o `currentOrdem` e antes de buscar o `nextEvent`, verificar se o envio está pausado:
 
 ```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
+const currentOrdem = shipment.ultimo_evento_ordem ?? 0;
+
+// Pause: don't auto-advance shipments waiting for manual approval
+const pauseLabels = ["Falha Entrega", "Taxação", "Taxacao"];
+if (pauseLabels.includes(shipment.status_label || "")) {
+  console.log(`Skip envio ${envioId}: waiting for manual approval (${shipment.status_label})`);
+  return false;
+}
+
+const nextEvent = filteredEvents.find((e: any) => e.ordem > currentOrdem);
 ```
 
-### Result
+### 2. `src/lib/email-trigger.ts` — função `triggerNextEmail()` (~linha 96-97)
 
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
+Adicionar a mesma verificação, mas **respeitando** o parâmetro `forceAdvance` (usado pelo botão "Forçar Avanço") e `forceSendEmail` (usado pela aprovação manual nas páginas Taxação/Falha):
 
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+```typescript
+const currentOrdem = (shipment as any).ultimo_evento_ordem ?? 0;
+
+// Pause: don't auto-advance shipments waiting for manual approval
+// unless forceSendEmail (manual approval) or forceAdvance is true
+const pauseLabels = ["Falha Entrega", "Taxação", "Taxacao"];
+if (!forceSendEmail && !forceAdvance && pauseLabels.includes((shipment as any).status_label || "")) {
+  console.log("Trigger skip: waiting for manual approval", envioId, (shipment as any).status_label);
+  return null;
+}
+
+const nextEvent = filteredEvents.find(e => e.ordem > currentOrdem);
+```
+
+## Resultado
+
+- Envio chega em "Falha Entrega" → **para**. Só avança para "Reenvio Pago" quando o usuário clica "Aprovar" no painel.
+- Envio chega em "Taxação" → **para**. Só avança para "Pago" quando o usuário aprova no painel de Taxação.
+- O `delay_horas` do próximo evento é **ignorado** nessas etapas — o avanço depende exclusivamente da ação manual.
+- Botão "Forçar Avanço" (⚡) continua funcionando normalmente.
+
+## Arquivos alterados
+- `supabase/functions/advance-shipments/index.ts`
+- `src/lib/email-trigger.ts`
 
