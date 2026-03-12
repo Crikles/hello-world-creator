@@ -540,7 +540,9 @@ export default function Envios() {
       e.cliente_email.toLowerCase().includes(searchLower) ||
       e.valor.toString().includes(searchLower);
 
-    const matchStatus = filterStatus === "todos" || e.status === filterStatus;
+    const matchStatus = filterStatus === "todos"
+      || e.status_label === filterStatus
+      || (filterStatus === "Pendente" && e.status === "pendente" && !e.status_label);
 
     let matchDate = true;
     if (dateRange.from) {
