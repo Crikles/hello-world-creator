@@ -11,12 +11,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Package, Plus, Store, LogOut, Shield, Coins, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Package, Plus, Store, LogOut, Shield, Coins, MoreVertical, Pencil, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function Lojas() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isImpersonating, exitImpersonation } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -149,6 +149,11 @@ export default function Lojas() {
     navigate("/login");
   };
 
+  const handleExitImpersonation = () => {
+    exitImpersonation();
+    navigate("/admin/usuarios");
+  };
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Immersive Background */}
@@ -169,7 +174,13 @@ export default function Lojas() {
               <Coins className="h-3.5 w-3.5 animate-glow-pulse" />
               {saldo ?? 0}
             </div>
-            {isAdmin && (
+            {isImpersonating && (
+              <Button variant="destructive" size="sm" onClick={handleExitImpersonation}>
+                <Eye className="h-4 w-4 mr-1.5" />
+                Encerrar Visualização
+              </Button>
+            )}
+            {isAdmin && !isImpersonating && (
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary transition-colors" onClick={() => navigate("/admin")}>
                 <Shield className="h-4 w-4 mr-1.5" />
                 Admin
