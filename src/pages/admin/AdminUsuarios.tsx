@@ -49,12 +49,12 @@ export default function AdminUsuarios() {
     queryFn: async () => {
       const { data: payments } = await supabase
         .from("pix_payments")
-        .select("user_id, moedas")
+        .select("user_id, amount_cents")
         .eq("status", "PAID");
 
       const totals: Record<string, number> = {};
       (payments || []).forEach(p => {
-        totals[p.user_id] = (totals[p.user_id] || 0) + Number(p.moedas);
+        totals[p.user_id] = (totals[p.user_id] || 0) + Number(p.amount_cents) / 100;
       });
 
       const { data: profiles } = await supabase.from("profiles").select("id, full_name, email");
