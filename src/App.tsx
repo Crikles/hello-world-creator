@@ -21,7 +21,7 @@ import Postagens from "./pages/Postagens";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminCreditos from "./pages/admin/AdminCreditos";
-import AdminEmail from "./pages/admin/AdminEmail";
+
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminValores from "./pages/admin/AdminValores";
 import AdminSMS from "./pages/admin/AdminSMS";
@@ -108,10 +108,6 @@ function PanelRoutes() {
         <Route
           path="/admin/usuarios"
           element={<AdminRoute><AdminUsuarios /></AdminRoute>}
-        />
-        <Route
-          path="/admin/email"
-          element={<AdminRoute><AdminEmail /></AdminRoute>}
         />
         <Route
           path="/admin/creditos"
