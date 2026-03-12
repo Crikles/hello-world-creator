@@ -174,7 +174,13 @@ export default function Lojas() {
               <Coins className="h-3.5 w-3.5 animate-glow-pulse" />
               {saldo ?? 0}
             </div>
-            {isAdmin && (
+            {isImpersonating && (
+              <Button variant="destructive" size="sm" onClick={handleExitImpersonation}>
+                <Eye className="h-4 w-4 mr-1.5" />
+                Encerrar Visualização
+              </Button>
+            )}
+            {isAdmin && !isImpersonating && (
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary transition-colors" onClick={() => navigate("/admin")}>
                 <Shield className="h-4 w-4 mr-1.5" />
                 Admin
