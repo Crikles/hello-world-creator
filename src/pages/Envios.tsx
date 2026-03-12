@@ -818,7 +818,7 @@ export default function Envios() {
               </Popover>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[120px] h-8 text-xs bg-transparent border-border/50">
+                <SelectTrigger className="w-[160px] h-8 text-xs bg-transparent border-border/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
