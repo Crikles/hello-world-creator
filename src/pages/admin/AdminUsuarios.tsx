@@ -322,6 +322,7 @@ export default function AdminUsuarios() {
                     <TableHead>Role</TableHead>
                     <TableHead>Cadastro</TableHead>
                     <TableHead>Créditos</TableHead>
+                    <TableHead>Recargas</TableHead>
                     <TableHead>Lojas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
