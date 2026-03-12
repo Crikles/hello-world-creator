@@ -149,6 +149,11 @@ export default function Lojas() {
     navigate("/login");
   };
 
+  const handleExitImpersonation = () => {
+    exitImpersonation();
+    navigate("/admin/usuarios");
+  };
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Immersive Background */}
