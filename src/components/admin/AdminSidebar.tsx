@@ -21,7 +21,7 @@ const menuItems = [
   { title: "Usuários", url: "/admin/usuarios", icon: Users },
   { title: "Créditos", url: "/admin/creditos", icon: Coins },
   { title: "Templates", url: "/admin/templates", icon: FileText },
-  { title: "Emails", url: "/admin/email", icon: Mail },
+  
   { title: "Valores", url: "/admin/valores", icon: DollarSign },
   { title: "SMS", url: "/admin/sms", icon: MessageSquare },
   { title: "Leads", url: "/admin/leads", icon: Contact },

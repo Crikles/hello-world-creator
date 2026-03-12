@@ -21,7 +21,7 @@ import Postagens from "./pages/Postagens";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminCreditos from "./pages/admin/AdminCreditos";
-import AdminEmail from "./pages/admin/AdminEmail";
+
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminValores from "./pages/admin/AdminValores";
 import AdminSMS from "./pages/admin/AdminSMS";
