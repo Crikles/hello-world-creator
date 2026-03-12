@@ -110,10 +110,6 @@ function PanelRoutes() {
           element={<AdminRoute><AdminUsuarios /></AdminRoute>}
         />
         <Route
-          path="/admin/email"
-          element={<AdminRoute><AdminEmail /></AdminRoute>}
-        />
-        <Route
           path="/admin/creditos"
           element={<AdminRoute><AdminCreditos /></AdminRoute>}
         />
