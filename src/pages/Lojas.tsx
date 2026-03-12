@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function Lojas() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isImpersonating, exitImpersonation } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
