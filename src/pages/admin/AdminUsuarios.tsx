@@ -50,7 +50,7 @@ export default function AdminUsuarios() {
       const { data: payments } = await supabase
         .from("pix_payments")
         .select("user_id, moedas")
-        .eq("status", "CONFIRMED");
+        .eq("status", "PAID");
 
       const totals: Record<string, number> = {};
       (payments || []).forEach(p => {
