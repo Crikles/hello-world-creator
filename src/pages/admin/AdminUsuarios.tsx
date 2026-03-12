@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
-import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn } from "lucide-react";
+import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
