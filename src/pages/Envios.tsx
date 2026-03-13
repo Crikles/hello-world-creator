@@ -118,6 +118,10 @@ export default function Envios() {
   const { loja } = useLoja();
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const saved = localStorage.getItem('envios_per_page');
+    return saved ? Number(saved) : 20;
+  });
 
   const isJadlog = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
     if (envio.transportadora) {
