@@ -171,7 +171,11 @@ export default function Taxacao() {
 
     const totalPendentes = pendentes.length;
     const totalAprovados = aprovados.length;
-    const totalValorPendente = pendentes.reduce((sum, e) => sum + Number(e.valor), 0);
+    // Get valor_taxacao from the first template that has it configured
+    const valorTaxacao = taxEventosMap
+        ? Object.values(taxEventosMap).find(v => v.valor_taxacao > 0)?.valor_taxacao || 0
+        : 0;
+    const totalValorPendente = totalPendentes * valorTaxacao;
 
     const metrics = [
         { label: "Pendentes", value: String(totalPendentes), icon: Clock, delay: 0 },
