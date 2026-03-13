@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { LojaProvider } from "@/contexts/LojaContext";
+import { BatchProgressProvider } from "@/contexts/BatchProgressContext";
 import { isLogisticsDomain, isJadlogDomain } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "./pages/Login";
