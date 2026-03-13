@@ -480,8 +480,9 @@ export default function Envios() {
   };
 
   const handleBatchConfirmed = async () => {
-    if (!batchConfirm) return;
+    if (!batchConfirm || !loja?.id) return;
     const isForce = batchConfirm.type === "forcar";
+    const count = batchConfirm.count;
     setBatchConfirm(null);
 
     const ids = selectedIdsRef.current;
@@ -491,38 +492,28 @@ export default function Envios() {
       : base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return;
 
-    await startBatch(targets.length);
-
-    let count = 0;
-    let canceled = false;
-    for (let i = 0; i < targets.length; i++) {
-      if (await checkCancelled()) { canceled = true; break; }
-      if (!loja?.id) continue;
-      try {
-        const result = await triggerNextEmail(targets[i].id, loja.id, false, isForce);
-        if (result) count++;
-      } catch (err: any) {
-        if (err instanceof InsufficientBalanceError) {
-          toast.error("Saldo insuficiente. Parado.");
-          break;
-        }
+    // Server-side approach: set proximo_avanco_em = now() so the cron picks them up
+    const targetIds = targets.map((e) => e.id);
+    const chunkSize = 50;
+    let updated = 0;
+    for (let i = 0; i < targetIds.length; i += chunkSize) {
+      const chunk = targetIds.slice(i, i + chunkSize);
+      const { error } = await supabase
+        .from("envios")
+        .update({ proximo_avanco_em: new Date().toISOString() })
+        .in("id", chunk);
+      if (error) {
+        console.error("Batch update error:", error);
+        toast.error("Erro ao agendar envios: " + error.message);
+        return;
       }
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
-      if (await checkCancelled()) { canceled = true; break; }
-      await updateProgress(i + 1);
-      if (i < targets.length - 1) {
-        await interruptibleSleep(60000);
-      }
+      updated += chunk.length;
     }
 
-    await finishBatch();
-    if (canceled) return toast.info("Processamento cancelado.");
-    setBatchCooldown(Date.now() + 120000);
-    toast.success(`${count} envio(s) ${isForce ? "forçado(s)" : "avançado(s)"}!`);
-  };
-
-  const handleCancelBatch = () => {
-    cancelBatch();
+    queryClient.invalidateQueries({ queryKey: ["envios"] });
+    toast.success(
+      `${updated} envio(s) agendado(s) para ${isForce ? "avanço forçado" : "avanço"}. O servidor processará automaticamente em até 5 minutos, mesmo com o navegador fechado.`
+    );
   };
 
   const filteredEnvios = envios.filter((e) => {
