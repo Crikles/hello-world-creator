@@ -155,7 +155,7 @@ export default function Moedas() {
         }
     };
 
-    const startPolling = (transactionId: string) => {
+    const startPolling = (paymentId: string) => {
         if (pollingRef.current) clearInterval(pollingRef.current);
 
         let attempts = 0;
@@ -171,11 +171,11 @@ export default function Moedas() {
             }
 
             try {
-                // Check the pix_payments table directly for status
+                // Check the pix_payments table directly by ID (correlationID)
                 const { data } = await supabase
                     .from("pix_payments")
                     .select("status")
-                    .eq("transaction_id", transactionId)
+                    .eq("id", paymentId)
                     .maybeSingle();
 
                 if (data && data.status === "PAID") {
