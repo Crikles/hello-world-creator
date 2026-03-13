@@ -857,7 +857,7 @@ Deno.serve(async (req) => {
 
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta")
+      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
