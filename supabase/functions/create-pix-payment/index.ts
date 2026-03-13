@@ -19,14 +19,13 @@ Deno.serve(async (req) => {
     }
 
     try {
-        // Authenticate the user via Supabase JWT
         const authHeader = req.headers.get("authorization") || "";
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-        const blackcatApiKey = Deno.env.get("BLACKCAT_API_KEY")!;
+        const openPixApiKey = Deno.env.get("OPENPIX_API_KEY")!;
 
-        // Create an anon client to verify the user's JWT
+        // Verify user JWT
         const supabaseAuth = createClient(supabaseUrl, anonKey, {
             global: { headers: { Authorization: authHeader } },
         });
@@ -39,23 +38,18 @@ Deno.serve(async (req) => {
             });
         }
 
-        // Create service role client for DB operations
         const supabase = createClient(supabaseUrl, serviceRoleKey);
-
         const body = await req.json();
         const { amount_cents, moedas, target_user_id } = body;
 
         if (!amount_cents || !moedas || amount_cents < 100) {
             return new Response(
                 JSON.stringify({ error: "Parâmetros inválidos. amount_cents mínimo: 100" }),
-                {
-                    status: 400,
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                }
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // Determine effective user: allow admin to create PIX on behalf of another user
+        // Admin impersonation check
         let effectiveUserId = user.id;
         if (target_user_id && target_user_id !== user.id) {
             const { data: adminRole } = await supabase
@@ -67,16 +61,13 @@ Deno.serve(async (req) => {
             if (!adminRole) {
                 return new Response(
                     JSON.stringify({ error: "Sem permissão para criar PIX em nome de outro usuário" }),
-                    {
-                        status: 403,
-                        headers: { ...corsHeaders, "Content-Type": "application/json" },
-                    }
+                    { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                 );
             }
             effectiveUserId = target_user_id;
         }
 
-        // Get user profile for customer info
+        // Get profile for customer info
         const { data: profile } = await supabase
             .from("profiles")
             .select("full_name, email, whatsapp")
@@ -87,7 +78,7 @@ Deno.serve(async (req) => {
         const customerEmail = profile?.email || "cliente@email.com";
         const customerPhone = profile?.whatsapp?.replace(/\D/g, "") || "00000000000";
 
-        // Insert payment record first to get the ID for externalRef
+        // Insert pix_payment record (use its ID as correlationID)
         const { data: pixPayment, error: insertError } = await supabase
             .from("pix_payments")
             .insert({
@@ -103,84 +94,65 @@ Deno.serve(async (req) => {
             console.error("Insert error:", insertError);
             return new Response(
                 JSON.stringify({ error: "Erro ao criar registro de pagamento" }),
-                {
-                    status: 500,
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                }
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // Build the webhook URL for BlackCat postback
-        const webhookUrl = `${supabaseUrl}/functions/v1/webhook-blackcat`;
-
-        // Call BlackCat API to create sale
-        const blackcatPayload = {
-            amount: amount_cents,
-            currency: "BRL",
-            paymentMethod: "pix",
-            items: [
-                {
-                    title: `Pacote de ${moedas} moedas`,
-                    quantity: 1,
-                    tangible: false,
-                },
-            ],
+        // Call Woovi/OpenPix API to create charge
+        const openPixPayload = {
+            correlationID: pixPayment.id,
+            value: amount_cents,
+            comment: `Recarga ${moedas} moedas`,
             customer: {
                 name: customerName,
                 email: customerEmail,
                 phone: customerPhone,
-                document: {
-                    number: customerPhone,
-                    type: "cpf",
-                },
+                correlationID: effectiveUserId,
             },
-            pix: {
-                expiresInDays: 1,
-            },
-            postbackUrl: webhookUrl,
-            externalRef: pixPayment.id,
-            metadata: `Recarga ${moedas} moedas - User ${effectiveUserId}`,
+            additionalInfo: [
+                { key: "user_id", value: effectiveUserId },
+                { key: "moedas", value: String(moedas) },
+            ],
         };
 
-        const blackcatResponse = await fetch(
-            "https://api.blackcatpagamentos.online/api/sales/create-sale",
+        const openPixResponse = await fetch(
+            "https://api.openpix.com.br/api/v1/charge",
             {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "X-API-Key": blackcatApiKey,
+                    Authorization: openPixApiKey,
                 },
-                body: JSON.stringify(blackcatPayload),
+                body: JSON.stringify(openPixPayload),
             }
         );
 
-        const blackcatData = await blackcatResponse.json();
+        const openPixData = await openPixResponse.json();
 
-        if (!blackcatResponse.ok || !blackcatData.success) {
-            console.error("BlackCat error:", blackcatData);
-            // Clean up the pending record
+        if (!openPixResponse.ok || !openPixData.brCode) {
+            console.error("OpenPix error:", openPixData);
             await supabase.from("pix_payments").delete().eq("id", pixPayment.id);
             return new Response(
                 JSON.stringify({
                     error: "Erro ao gerar PIX",
-                    details: blackcatData.error || blackcatData.message,
+                    details: openPixData.error || openPixData.message,
                 }),
-                {
-                    status: 502,
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                }
+                { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const { transactionId, paymentData } = blackcatData.data;
+        const charge = openPixData.charge;
+        const transactionId = charge?.transactionID || charge?.correlationID || pixPayment.id;
+        const qrCodeImageUrl = charge?.qrCodeImage || "";
+        const brCode = openPixData.brCode || "";
 
         // Update pix_payments with transaction data
         await supabase
             .from("pix_payments")
             .update({
                 transaction_id: transactionId,
-                qr_code_base64: paymentData.qrCodeBase64,
-                copy_paste: paymentData.copyPaste,
+                qr_code_base64: qrCodeImageUrl,
+                copy_paste: brCode,
             })
             .eq("id", pixPayment.id);
 
@@ -190,26 +162,19 @@ Deno.serve(async (req) => {
                 data: {
                     paymentId: pixPayment.id,
                     transactionId,
-                    qrCodeBase64: paymentData.qrCodeBase64,
-                    copyPaste: paymentData.copyPaste,
-                    expiresAt: paymentData.expiresAt,
+                    qrCodeBase64: qrCodeImageUrl,
+                    copyPaste: brCode,
                     amount_cents,
                     moedas,
                 },
             }),
-            {
-                status: 201,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
+            { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     } catch (error) {
         console.error("create-pix-payment error:", error);
         return new Response(
             JSON.stringify({ error: "Erro interno do servidor" }),
-            {
-                status: 500,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
 });
