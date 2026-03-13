@@ -708,7 +708,7 @@ export default function Envios() {
                   variant="ghost"
                   size="sm"
                   className="text-xs hover:bg-destructive/10 hover:text-destructive"
-                  onClick={handleCancelBatch}
+                  onClick={() => cancelBatch()}
                 >
                   <Square className="h-3.5 w-3.5 mr-1 text-destructive" />
                   Avançando {batchProgress.current}/{batchProgress.total}... Cancelar
