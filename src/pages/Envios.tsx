@@ -581,6 +581,15 @@ export default function Envios() {
     currentPage * itemsPerPage
   );
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const ROW_HEIGHT = 52;
+  const rowVirtualizer = useVirtualizer({
+    count: paginatedEnvios.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 15,
+  });
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedIds(new Set(paginatedEnvios.map((e) => e.id)));
