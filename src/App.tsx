@@ -153,6 +153,7 @@ function PanelRoutes() {
         <Route path="/" element={<Navigate to="/lojas" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </BatchProgressProvider>
     </AuthProvider>
   );
 }
