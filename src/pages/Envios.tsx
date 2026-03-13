@@ -1042,10 +1042,10 @@ export default function Envios() {
                   Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredEnvios.length)} de {filteredEnvios.length} envios
                 </span>
                 <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); localStorage.setItem('envios_per_page', v); }}>
-                  <SelectTrigger className="h-7 w-[70px] text-xs">
+                  <SelectTrigger className="h-7 w-[80px] text-xs">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="top">
                     {PAGE_SIZE_OPTIONS.map(n => (
                       <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                     ))}
