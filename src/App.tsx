@@ -71,7 +71,6 @@ function LogisticsRoutes() {
 function PanelRoutes() {
   return (
     <AuthProvider>
-      <BatchProgressProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
