@@ -1058,7 +1058,9 @@ export default function Envios() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
+            </div>
           </div>
 
           {/* Pagination */}
