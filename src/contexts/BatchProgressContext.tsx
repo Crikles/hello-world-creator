@@ -17,6 +17,7 @@ interface BatchProgressContextType {
   finishBatch: () => void;
   cancelBatch: () => void;
   getEstimatedTime: () => string;
+  interruptibleSleep: (ms: number) => Promise<void>;
 }
 
 const BatchProgressContext = createContext<BatchProgressContextType | null>(null);
