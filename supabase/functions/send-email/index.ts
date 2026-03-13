@@ -177,7 +177,8 @@ function buildEmailHtml(
   extras: Record<string, string>,
   primaryColor = "#6366f1",
   appBaseUrl = "https://rastreio.logisticajltransportes.com",
-  ctaColor = "#1a1a1a"
+  ctaColor = "#1a1a1a",
+  postagemConfig?: Record<string, unknown>
 ): string {
   // --- Check for Taxação-specific settings ---
   const statusLabel = (evento.status_label as string) || "";
