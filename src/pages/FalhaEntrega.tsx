@@ -285,7 +285,7 @@ export default function FalhaEntrega() {
                                 </div>
 
                                 <div className="flex items-center justify-between">
-                                    <span className="text-lg font-bold text-primary">R$ {Number(envio.valor).toFixed(2)}</span>
+                                    <span className="text-lg font-bold text-primary">R$ {valorReenvio.toFixed(2)}</span>
                                     {envio.codigo_rastreio && (
                                         <span className="font-mono text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
                                             {envio.codigo_rastreio}
