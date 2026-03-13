@@ -34,7 +34,7 @@ import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
 import { formatProduto } from "@/lib/format-produto";
 
-const ITEMS_PER_PAGE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200, 300, 400, 500, 700, 800];
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
