@@ -17,6 +17,7 @@ interface BatchProgressContextType {
   finishBatch: () => void;
   cancelBatch: () => void;
   getEstimatedTime: () => string;
+  interruptibleSleep: (ms: number) => Promise<void>;
 }
 
 const BatchProgressContext = createContext<BatchProgressContextType | null>(null);
@@ -44,6 +45,7 @@ function persistState(state: BatchProgressState | null) {
 export function BatchProgressProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState<BatchProgressState | null>(loadPersistedState);
   const cancelRef = useRef(false);
+  const sleepResolveRef = useRef<(() => void) | null>(null);
 
   // Persist to localStorage on every change
   useEffect(() => {
@@ -65,6 +67,27 @@ export function BatchProgressProvider({ children }: { children: ReactNode }) {
 
   const cancelBatch = useCallback(() => {
     cancelRef.current = true;
+    // Wake up any sleeping interval immediately
+    if (sleepResolveRef.current) {
+      sleepResolveRef.current();
+      sleepResolveRef.current = null;
+    }
+  }, []);
+
+  const interruptibleSleep = useCallback((ms: number) => {
+    return new Promise<void>((resolve) => {
+      sleepResolveRef.current = resolve;
+      const timer = setTimeout(() => {
+        sleepResolveRef.current = null;
+        resolve();
+      }, ms);
+      // Store cleanup in case cancel fires
+      const originalResolve = sleepResolveRef.current;
+      sleepResolveRef.current = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
   }, []);
 
   const getEstimatedTime = useCallback(() => {
@@ -85,7 +108,7 @@ export function BatchProgressProvider({ children }: { children: ReactNode }) {
   }, [progress]);
 
   return (
-    <BatchProgressContext.Provider value={{ progress, cancelRef, startBatch, updateProgress, finishBatch, cancelBatch, getEstimatedTime }}>
+    <BatchProgressContext.Provider value={{ progress, cancelRef, startBatch, updateProgress, finishBatch, cancelBatch, getEstimatedTime, interruptibleSleep }}>
       {children}
     </BatchProgressContext.Provider>
   );
