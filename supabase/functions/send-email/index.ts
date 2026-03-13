@@ -203,7 +203,7 @@ function buildEmailHtml(
   const emoji = emojiMap[statusLabel] || "📬";
 
   let saudacao = `Olá {{cliente_nome}},`;
-  let mensagem = corpoEmail || `Atualização sobre o seu pedido **{{produto}}**.`;
+  let mensagem = (corpoEmail || `Atualização sobre o seu pedido **{{produto}}**.`).replace(/\{\{(?:falha|taxacao)_[^}]*\}\}/g, "").trim();
   let rodape = `Atenciosamente,\n{{empresa_nome}}`;
   let mostrarInfoPedido = true;
   let mostrarBotaoCta = true;
