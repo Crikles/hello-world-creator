@@ -889,13 +889,30 @@ export default function Envios() {
           </div>
         ) : (
           <>
-          {/* Envio Rows */}
-          <div className="flex flex-col gap-1.5">
-            {paginatedEnvios.map((envio, idx) => (
+          {/* Envio Rows - Virtualized */}
+          <div
+            ref={scrollContainerRef}
+            className="overflow-auto"
+            style={{ maxHeight: 'calc(100vh - 320px)' }}
+          >
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const envio = paginatedEnvios[virtualRow.index];
+              if (!envio) return null;
+              return (
               <div
                 key={envio.id}
-                className="glass glow-border-hover rounded-lg px-3 py-2 transition-all duration-200 hover:bg-primary/5 animate-stagger-in group"
-                style={{ animationDelay: `${idx * 0.02}s` }}
+                className="glass glow-border-hover rounded-lg px-3 py-2 transition-colors duration-200 hover:bg-primary/5 group absolute w-full"
+                style={{
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
               >
                 {/* Single compact row */}
                 <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
