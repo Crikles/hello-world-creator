@@ -91,11 +91,11 @@ export function BatchProgressProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getEstimatedTime = useCallback(() => {
-    if (!progress || progress.current === 0) return "calculando...";
-    const elapsed = Date.now() - progress.startedAt;
-    const msPerItem = elapsed / progress.current;
-    const remainingMs = msPerItem * (progress.total - progress.current);
-    const totalSeconds = Math.ceil(remainingMs / 1000);
+    if (!progress) return "";
+    const remaining = progress.total - progress.current;
+    // Fixed estimate: 60 seconds per item (the interval between each batch step)
+    const totalSeconds = remaining * 60;
+    if (totalSeconds <= 0) return "finalizando...";
     if (totalSeconds < 60) return `~${totalSeconds}s`;
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
@@ -104,7 +104,7 @@ export function BatchProgressProvider({ children }: { children: ReactNode }) {
       const mins = minutes % 60;
       return `~${hours}h ${mins}min`;
     }
-    return `~${minutes}min ${seconds}s`;
+    return seconds > 0 ? `~${minutes}min ${seconds}s` : `~${minutes}min`;
   }, [progress]);
 
   return (
