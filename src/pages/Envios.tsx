@@ -729,20 +729,20 @@ export default function Envios() {
                     size="sm"
                     className="text-xs hover:bg-primary/10 hover:text-primary"
                     disabled={batchCooldown > Date.now()}
-                    onClick={handleAvancarTodos}
+                    onClick={handleAvancarTodosClick}
                   >
                     <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Avançar Todos"}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Avançar Todos (${selectedIds.size > 0 ? selectedIds.size : filteredEnvios.length})`}
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-xs hover:bg-yellow-500/10 hover:text-yellow-500"
                     disabled={batchCooldown > Date.now()}
-                    onClick={handleForcarTodos}
+                    onClick={handleForcarTodosClick}
                   >
                     <Zap className="h-3.5 w-3.5 mr-1 text-yellow-500" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Forçar Todos"}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : filteredEnvios.length})`}
                   </Button>
                 </>
               )}
