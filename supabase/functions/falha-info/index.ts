@@ -5,6 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+function maskCpf(cpf: string | null): string | null {
+  if (!cpf) return null;
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return '***.***.***-**';
+  return `***.${digits.slice(3, 6)}.${digits[6]}**-**`;
+}
+
 function decodeHtmlEntities(str: string): string {
     return str.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
 }
