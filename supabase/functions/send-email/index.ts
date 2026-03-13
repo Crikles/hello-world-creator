@@ -143,19 +143,20 @@ interface FalhaEntregaSettings {
   valor_taxa_falha: string;
 }
 
-function parseFalhaEntregaSettings(corpoEmail: string): FalhaEntregaSettings | null {
-  if (!corpoEmail || !corpoEmail.includes("{{falha_checkout_url:")) return null;
-
-  const urlMatch = corpoEmail.match(/\{\{falha_checkout_url:([^}]*)\}\}/);
-  const valorMatch = corpoEmail.match(/\{\{falha_valor:([^}]*)\}\}/);
+function parseFalhaEntregaSettings(
+  corpoEmail: string,
+  configCheckoutUrl?: string,
+  configValorTaxa?: number | string
+): FalhaEntregaSettings | null {
+  if (!corpoEmail || !corpoEmail.includes("{{falha_")) return null;
 
   const msgEnd = corpoEmail.indexOf("{{falha_");
   const plainMessage = msgEnd > 0 ? corpoEmail.substring(0, msgEnd).trim() : "Houve uma falha na entrega.";
 
   return {
     msg_falha_entrega: plainMessage,
-    checkout_url_falha: urlMatch?.[1] || "",
-    valor_taxa_falha: valorMatch?.[1] || "0.00",
+    checkout_url_falha: configCheckoutUrl || "",
+    valor_taxa_falha: String(configValorTaxa || "0.00"),
   };
 }
 
