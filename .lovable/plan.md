@@ -1,34 +1,58 @@
 
 
-# Fix: Emails de Falha Entrega e Taxação exibindo tags raw
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-## Problema
+### Root cause
 
-O `corpo_email` dos eventos "Falha Entrega" armazena tags de metadados como `{{falha_cor_botao:#hex}}`, mas a função `parseFalhaEntregaSettings` no `send-email` verifica a existência de `{{falha_checkout_url:` — que NÃO existe mais no corpo_email. Resultado: retorna `null`, cai no template genérico, e as tags aparecem como texto visível no email.
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-## Correção em `supabase/functions/send-email/index.ts`
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-### 1. Atualizar `parseFalhaEntregaSettings` (linha 146)
+### Fix
 
-Mudar a condição de entrada para detectar qualquer tag `{{falha_` (não só `{{falha_checkout_url:`). Buscar o checkout_url e valor_taxa da tabela `postagem_config` em vez de tags (já que são salvos lá pelo FailedDeliveryConfig). Extrair a mensagem limpa cortando antes da primeira tag `{{falha_`.
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-### 2. Atualizar a chamada de `buildFalhaEntregaEmailHtml` (linha 192)
+### Changes
 
-Passar o `checkout_url_falha` e `valor_taxa_falha` do `postagem_config` que já é carregado no fluxo do send-email.
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
 
-### 3. Limpar tags de metadados no fallback genérico (linha 200)
-
-Adicionar um regex para remover todas as tags `{{falha_*}}` e `{{taxacao_*}}` do `corpoEmail` antes de usá-lo como mensagem, para que caso algum evento caia no path genérico, as tags nunca apareçam.
+Extend the existing filter to also remove NF-e events when disabled:
 
 ```typescript
-// After line 200, strip any metadata tags from the message
-mensagem = mensagem.replace(/\{\{(?:falha|taxacao)_[^}]*\}\}/g, "").trim();
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
 ```
 
-### 4. Verificar Taxação
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
 
-A Taxação usa `{{taxacao_url:` que É salvo no corpo_email pelo TaxacaoConfig, então provavelmente funciona. Mas por segurança, aplicar o mesmo strip de tags extras no path genérico.
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
 
-## Arquivo alterado
-- `supabase/functions/send-email/index.ts`
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 

@@ -143,19 +143,20 @@ interface FalhaEntregaSettings {
   valor_taxa_falha: string;
 }
 
-function parseFalhaEntregaSettings(corpoEmail: string): FalhaEntregaSettings | null {
-  if (!corpoEmail || !corpoEmail.includes("{{falha_checkout_url:")) return null;
-
-  const urlMatch = corpoEmail.match(/\{\{falha_checkout_url:([^}]*)\}\}/);
-  const valorMatch = corpoEmail.match(/\{\{falha_valor:([^}]*)\}\}/);
+function parseFalhaEntregaSettings(
+  corpoEmail: string,
+  configCheckoutUrl?: string,
+  configValorTaxa?: number | string
+): FalhaEntregaSettings | null {
+  if (!corpoEmail || !corpoEmail.includes("{{falha_")) return null;
 
   const msgEnd = corpoEmail.indexOf("{{falha_");
   const plainMessage = msgEnd > 0 ? corpoEmail.substring(0, msgEnd).trim() : "Houve uma falha na entrega.";
 
   return {
     msg_falha_entrega: plainMessage,
-    checkout_url_falha: urlMatch?.[1] || "",
-    valor_taxa_falha: valorMatch?.[1] || "0.00",
+    checkout_url_falha: configCheckoutUrl || "",
+    valor_taxa_falha: String(configValorTaxa || "0.00"),
   };
 }
 
@@ -176,13 +177,18 @@ function buildEmailHtml(
   extras: Record<string, string>,
   primaryColor = "#6366f1",
   appBaseUrl = "https://rastreio.logisticajltransportes.com",
-  ctaColor = "#1a1a1a"
+  ctaColor = "#1a1a1a",
+  postagemConfig?: Record<string, unknown>
 ): string {
   // --- Check for Taxação-specific settings ---
   const statusLabel = (evento.status_label as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const taxSettings = (statusLabel === "Taxação") ? parseTaxacaoSettings(corpoEmail) : null;
-  const falhaSettings = (statusLabel === "Falha Entrega") ? parseFalhaEntregaSettings(corpoEmail) : null;
+  const falhaSettings = (statusLabel === "Falha Entrega") ? parseFalhaEntregaSettings(
+    corpoEmail,
+    (postagemConfig?.checkout_url_falha as string) || "",
+    postagemConfig?.valor_taxa_falha as number | string | undefined
+  ) : null;
   const envioId = (envio.id as string) || "";
 
   if (taxSettings) {
@@ -197,7 +203,7 @@ function buildEmailHtml(
   const emoji = emojiMap[statusLabel] || "📬";
 
   let saudacao = `Olá {{cliente_nome}},`;
-  let mensagem = corpoEmail || `Atualização sobre o seu pedido **{{produto}}**.`;
+  let mensagem = (corpoEmail || `Atualização sobre o seu pedido **{{produto}}**.`).replace(/\{\{(?:falha|taxacao)_[^}]*\}\}/g, "").trim();
   let rodape = `Atenciosamente,\n{{empresa_nome}}`;
   let mostrarInfoPedido = true;
   let mostrarBotaoCta = true;
@@ -851,7 +857,7 @@ Deno.serve(async (req) => {
 
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta")
+      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
@@ -920,7 +926,7 @@ Deno.serve(async (req) => {
       : (Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com");
 
     const primaryColor = isJadlog ? "#e10526" : corPrimaria;
-    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta);
+    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);
 
     // Resolve PDF attachment: prefer storage path, fallback to inline base64
     let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;
