@@ -48,6 +48,15 @@ Deno.serve(async (req) => {
 
         console.log("Webhook Woovi received:", event, JSON.stringify(payload).slice(0, 500));
 
+        // Handle test/ping webhooks from Woovi
+        if (payload.evento === "teste_webhook" || event === "" || !event) {
+            console.log("Test webhook received, acknowledging with 200");
+            return new Response(
+                JSON.stringify({ success: true, message: "Webhook test OK" }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         const correlationID = charge.correlationID || payload.correlationID;
         const transactionID = charge.transactionID || payload.transactionID;
 
