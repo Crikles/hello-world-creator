@@ -72,21 +72,28 @@ export default function Taxacao() {
 
             const { data: eventos } = await supabase
                 .from("postagem_eventos")
-                .select("id, nome, ordem, status_label, template_id")
+                .select("id, nome, ordem, status_label, template_id, corpo_email")
                 .in("template_id", templateIds)
                 .in("status_label", ["Taxação", "Pago"])
                 .order("ordem", { ascending: true });
             if (!eventos || eventos.length === 0) return null;
 
-            const map: Record<string, { taxacao_ordem: number | null; pago_ordem: number | null }> = {};
+            const map: Record<string, { taxacao_ordem: number | null; pago_ordem: number | null; valor_taxacao: number }> = {};
             for (const tid of templateIds) {
                 const tEvents = eventos.filter(e => e.template_id === tid);
                 const taxEvento = tEvents.find(e => e.status_label === "Taxação");
                 const pagoEvento = tEvents.find(e => e.status_label === "Pago");
                 if (taxEvento) {
+                    // Extract {{taxacao_valor:XX.XX}} from corpo_email
+                    let valorTaxacao = 0;
+                    if (taxEvento.corpo_email) {
+                        const match = taxEvento.corpo_email.match(/\{\{taxacao_valor:([\d.,]+)\}\}/);
+                        if (match) valorTaxacao = parseFloat(match[1].replace(',', '.')) || 0;
+                    }
                     map[tid] = {
                         taxacao_ordem: taxEvento.ordem,
                         pago_ordem: pagoEvento?.ordem ?? null,
+                        valor_taxacao: valorTaxacao,
                     };
                 }
             }
