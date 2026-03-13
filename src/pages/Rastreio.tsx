@@ -619,7 +619,7 @@ export default function Rastreio() {
                                                                     <a href={`/f/${envio.id}`} style={{ display:'inline-block', marginTop:8, padding:'8px 20px', background:'#ea580c', color:'#fff', borderRadius:8, fontSize:13, fontWeight:700, textDecoration:'none' }}>Pagar reenvio / frete</a>
                                                                 )}
                                                                 <span className="point-date-correios">
-                                                                    {eventDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                    {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                 </span>
                                                             </div>
                                                         </div>
