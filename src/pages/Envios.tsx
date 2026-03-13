@@ -133,9 +133,8 @@ export default function Envios() {
     return isJadlog(envio) ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com';
   }, [isJadlog]);
 
-  // Batch advance state
-  const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
-  const batchCancelRef = useRef(false);
+  // Batch advance state (global context)
+  const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch } = useBatchProgress();
 
   const handleDownloadNfe = useCallback(async (envio: any) => {
     if (!loja?.id) return;
