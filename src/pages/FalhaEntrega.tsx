@@ -129,7 +129,8 @@ export default function FalhaEntrega() {
 
     const totalPendentes = pendentes.length;
     const totalAprovados = aprovados.length;
-    const totalValorPendente = pendentes.reduce((sum, e) => sum + Number(e.valor), 0);
+    const valorReenvio = falhaEventos?.valor_reenvio || 0;
+    const totalValorPendente = totalPendentes * valorReenvio;
 
     const metrics = [
         { label: "Pendentes", value: String(totalPendentes), icon: Clock, delay: 0 },
