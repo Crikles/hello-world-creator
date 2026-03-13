@@ -1123,6 +1123,26 @@ export default function Envios() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <AlertDialog open={!!batchConfirm} onOpenChange={(open) => { if (!open) setBatchConfirm(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {batchConfirm?.type === "forcar" ? "Forçar avanço em massa" : "Avançar em massa"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Você está prestes a {batchConfirm?.type === "forcar" ? "forçar" : "avançar"}{" "}
+                <strong>{batchConfirm?.count}</strong> envio(s) {batchConfirm?.label}. Continuar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBatchConfirmed}>
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );
