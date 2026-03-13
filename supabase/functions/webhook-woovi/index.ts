@@ -11,6 +11,14 @@ Deno.serve(async (req) => {
         return new Response(null, { headers: corsHeaders });
     }
 
+    // Accept GET for health-check / webhook registration verification
+    if (req.method === "GET") {
+        return new Response(
+            JSON.stringify({ success: true, message: "Webhook Woovi is active" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+    }
+
     if (req.method !== "POST") {
         return new Response(JSON.stringify({ error: "Method not allowed" }), {
             status: 405,
@@ -19,7 +27,17 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const payload = await req.json();
+        let payload: any;
+        try {
+            payload = await req.json();
+        } catch {
+            // Empty or invalid JSON body (test/ping request)
+            return new Response(
+                JSON.stringify({ success: true, message: "OK" }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         const event = payload.event || "";
         const charge = payload.charge || payload.pix || {};
 
