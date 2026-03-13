@@ -134,7 +134,7 @@ export default function Envios() {
   }, [isJadlog]);
 
   // Batch advance state (global context)
-  const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep } = useBatchProgress();
+  const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep, checkCancelled } = useBatchProgress();
 
   const handleDownloadNfe = useCallback(async (envio: any) => {
     if (!loja?.id) return;
