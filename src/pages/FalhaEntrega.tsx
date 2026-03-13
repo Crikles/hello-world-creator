@@ -52,7 +52,7 @@ export default function FalhaEntrega() {
             if (!loja) return null;
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id")
+                .select("template_ativo_id, valor_taxa_falha")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
             if (!config?.template_ativo_id) return null;
@@ -67,6 +67,7 @@ export default function FalhaEntrega() {
             return {
                 falha_ordem: falhaEvento?.ordem ?? null,
                 template_id: config.template_ativo_id,
+                valor_reenvio: Number(config.valor_taxa_falha) || 0,
             };
         },
         enabled: !!loja,
