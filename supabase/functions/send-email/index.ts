@@ -969,10 +969,31 @@ Deno.serve(async (req) => {
       ? [{ filename: nfe_filename || "NF-e.pdf", content: pdfBase64ForAttachment }]
       : undefined;
 
+    // Validate email before sending
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const recipientEmail = (envio.cliente_email || "").trim();
+
+    if (!recipientEmail || !emailRegex.test(recipientEmail)) {
+      console.warn("Invalid recipient email, skipping send:", recipientEmail);
+      await supabase.from("postagem_email_log").insert({
+        loja_id,
+        envio_id,
+        evento_id,
+        destinatario: recipientEmail || "(vazio)",
+        assunto: subject,
+        status: "failed",
+        custo: 0,
+      });
+      return new Response(
+        JSON.stringify({ success: false, error: `E-mail do destinatário inválido: "${recipientEmail}"` }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Send email via Resend
     const resendBody: Record<string, unknown> = {
       from: `${fromName} <${emailRemetente}>`,
-      to: [envio.cliente_email],
+      to: [recipientEmail],
       subject,
       html: htmlBody,
     };
@@ -980,7 +1001,7 @@ Deno.serve(async (req) => {
       resendBody.attachments = attachments;
     }
 
-    console.log("Sending email from:", resendBody.from, "to:", envio.cliente_email);
+    console.log("Sending email from:", resendBody.from, "to:", recipientEmail);
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
