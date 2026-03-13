@@ -67,6 +67,7 @@ export function BatchProgressProvider({ children }: { children: ReactNode }) {
 
   const cancelBatch = useCallback(() => {
     cancelRef.current = true;
+    setProgress(null);
     // Wake up any sleeping interval immediately
     if (sleepResolveRef.current) {
       sleepResolveRef.current();
@@ -76,15 +77,14 @@ export function BatchProgressProvider({ children }: { children: ReactNode }) {
 
   const interruptibleSleep = useCallback((ms: number) => {
     return new Promise<void>((resolve) => {
-      sleepResolveRef.current = resolve;
       const timer = setTimeout(() => {
         sleepResolveRef.current = null;
         resolve();
       }, ms);
-      // Store cleanup in case cancel fires
-      const originalResolve = sleepResolveRef.current;
+
       sleepResolveRef.current = () => {
         clearTimeout(timer);
+        sleepResolveRef.current = null;
         resolve();
       };
     });
