@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
 import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
 import { generateDanfePdfBase64 } from "@/lib/nfe-utils";
+import { useBatchProgress } from "@/contexts/BatchProgressContext";
 import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
 import { formatProduto } from "@/lib/format-produto";
