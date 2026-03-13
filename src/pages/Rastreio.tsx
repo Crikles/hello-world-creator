@@ -372,7 +372,7 @@ export default function Rastreio() {
                                                                 <h4>{ev.nome}</h4>
                                                                 {locationText && <p className="jd-tl-location">{locationText}</p>}
                                                                 <span className="jd-tl-date">
-                                                                    {eventDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                    {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                 </span>
                                                                 {ev.status_label === "Taxação" && envio && (
                                                                     <a href={`/p/${envio.id}`} className="jd-action-btn">Pagar taxa</a>
