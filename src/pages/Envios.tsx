@@ -462,66 +462,44 @@ export default function Envios() {
     toast.success(`${count} envio(s) iniciado(s)!`);
   };
 
-  // AVANÇAR TODOS: advance 1 at a time with 60s interval
-  const handleAvancarTodos = async () => {
-    const base = selectedIds.size > 0 ? envios.filter((e) => selectedIds.has(e.id)) : filteredEnvios;
+  // Pre-click: show confirmation dialog
+  const handleAvancarTodosClick = () => {
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
-
-    await startBatch(targets.length);
-
-    let count = 0;
-    let canceled = false;
-    for (let i = 0; i < targets.length; i++) {
-      if (await checkCancelled()) {
-        canceled = true;
-        break;
-      }
-      if (!loja?.id) continue;
-      try {
-        const result = await triggerNextEmail(targets[i].id, loja.id);
-        if (result) count++;
-      } catch (err: any) {
-        if (err instanceof InsufficientBalanceError) {
-          toast.error("Saldo insuficiente. Parado.");
-          break;
-        }
-      }
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
-      if (await checkCancelled()) {
-        canceled = true;
-        break;
-      }
-      await updateProgress(i + 1);
-      if (i < targets.length - 1) {
-        await interruptibleSleep(60000);
-      }
-    }
-
-    await finishBatch();
-    if (canceled) return toast.info("Processamento cancelado.");
-    setBatchCooldown(Date.now() + 120000);
-    toast.success(`${count} envio(s) avançado(s)!`);
+    setBatchConfirm({ type: "avancar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "do filtro ativo" });
   };
 
-  // FORÇAR TODOS: force-advance ignoring delays, 1 at a time with 60s interval
-  const handleForcarTodos = async () => {
-    const base = selectedIds.size > 0 ? envios.filter((e) => selectedIds.has(e.id)) : filteredEnvios;
+  const handleForcarTodosClick = () => {
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
     if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
+    setBatchConfirm({ type: "forcar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "do filtro ativo" });
+  };
+
+  const handleBatchConfirmed = async () => {
+    if (!batchConfirm) return;
+    const isForce = batchConfirm.type === "forcar";
+    setBatchConfirm(null);
+
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
+    const targets = isForce
+      ? base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0)
+      : base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
+    if (targets.length === 0) return;
 
     await startBatch(targets.length);
 
     let count = 0;
     let canceled = false;
     for (let i = 0; i < targets.length; i++) {
-      if (await checkCancelled()) {
-        canceled = true;
-        break;
-      }
+      if (await checkCancelled()) { canceled = true; break; }
       if (!loja?.id) continue;
       try {
-        const result = await triggerNextEmail(targets[i].id, loja.id, false, true);
+        const result = await triggerNextEmail(targets[i].id, loja.id, false, isForce);
         if (result) count++;
       } catch (err: any) {
         if (err instanceof InsufficientBalanceError) {
@@ -530,10 +508,7 @@ export default function Envios() {
         }
       }
       queryClient.invalidateQueries({ queryKey: ["envios"] });
-      if (await checkCancelled()) {
-        canceled = true;
-        break;
-      }
+      if (await checkCancelled()) { canceled = true; break; }
       await updateProgress(i + 1);
       if (i < targets.length - 1) {
         await interruptibleSleep(60000);
@@ -543,7 +518,7 @@ export default function Envios() {
     await finishBatch();
     if (canceled) return toast.info("Processamento cancelado.");
     setBatchCooldown(Date.now() + 120000);
-    toast.success(`${count} envio(s) forçado(s)!`);
+    toast.success(`${count} envio(s) ${isForce ? "forçado(s)" : "avançado(s)"}!`);
   };
 
   const handleCancelBatch = () => {
