@@ -108,7 +108,7 @@ export function BatchProgressProvider({ children }: { children: ReactNode }) {
   }, [progress]);
 
   return (
-    <BatchProgressContext.Provider value={{ progress, cancelRef, startBatch, updateProgress, finishBatch, cancelBatch, getEstimatedTime }}>
+    <BatchProgressContext.Provider value={{ progress, cancelRef, startBatch, updateProgress, finishBatch, cancelBatch, getEstimatedTime, interruptibleSleep }}>
       {children}
     </BatchProgressContext.Provider>
   );
