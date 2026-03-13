@@ -461,7 +461,8 @@ export default function Envios() {
 
   // AVANÇAR TODOS: advance 1 at a time with 60s interval
   const handleAvancarTodos = async () => {
-    const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
+    const base = selectedIds.size > 0 ? envios.filter((e) => selectedIds.has(e.id)) : filteredEnvios;
+    const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
 
     await startBatch(targets.length);
