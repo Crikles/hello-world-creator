@@ -109,7 +109,10 @@ export default function Envios() {
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [batchCooldown, setBatchCooldown] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectedIdsRef = useRef<Set<string>>(selectedIds);
+  useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [batchConfirm, setBatchConfirm] = useState<{ type: "avancar" | "forcar"; count: number; label: string } | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
