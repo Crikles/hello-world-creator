@@ -184,7 +184,11 @@ function buildEmailHtml(
   const statusLabel = (evento.status_label as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const taxSettings = (statusLabel === "Taxação") ? parseTaxacaoSettings(corpoEmail) : null;
-  const falhaSettings = (statusLabel === "Falha Entrega") ? parseFalhaEntregaSettings(corpoEmail) : null;
+  const falhaSettings = (statusLabel === "Falha Entrega") ? parseFalhaEntregaSettings(
+    corpoEmail,
+    (postagemConfig?.checkout_url_falha as string) || "",
+    postagemConfig?.valor_taxa_falha as number | string | undefined
+  ) : null;
   const envioId = (envio.id as string) || "";
 
   if (taxSettings) {
