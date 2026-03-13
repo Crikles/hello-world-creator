@@ -459,8 +459,7 @@ export default function Envios() {
     const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
 
-    batchCancelRef.current = false;
-    setBatchProgress({ processing: true, current: 0, total: targets.length });
+    startBatch(targets.length);
 
     let count = 0;
     for (let i = 0; i < targets.length; i++) {
@@ -468,7 +467,7 @@ export default function Envios() {
         toast.info("Processamento cancelado.");
         break;
       }
-      setBatchProgress({ processing: true, current: i + 1, total: targets.length });
+      updateProgress(i + 1);
       if (!loja?.id) continue;
       try {
         const result = await triggerNextEmail(targets[i].id, loja.id);
@@ -486,7 +485,7 @@ export default function Envios() {
       }
     }
 
-    setBatchProgress(null);
+    finishBatch();
     setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) avançado(s)!`);
   };
