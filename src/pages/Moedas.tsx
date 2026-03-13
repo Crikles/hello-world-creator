@@ -144,8 +144,8 @@ export default function Moedas() {
             setPixData(result.data);
             setPaymentStatus("pending");
 
-            // Start polling for payment status
-            startPolling(result.data.transactionId);
+            // Start polling for payment status (use paymentId = correlationID)
+            startPolling(result.data.paymentId);
         } catch (error: any) {
             console.error("Purchase error:", error);
             toast.error(error.message || "Erro ao gerar pagamento PIX");
