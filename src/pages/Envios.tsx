@@ -481,7 +481,7 @@ export default function Envios() {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
       // Wait 60 seconds between each, except after last
       if (i < targets.length - 1 && !batchCancelRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, 60000));
+        await interruptibleSleep(60000);
       }
     }
 
