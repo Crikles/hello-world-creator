@@ -134,7 +134,7 @@ export default function Envios() {
   }, [isJadlog]);
 
   // Batch advance state (global context)
-  const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep } = useBatchProgress();
+  const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep, checkCancelled } = useBatchProgress();
 
   const handleDownloadNfe = useCallback(async (envio: any) => {
     if (!loja?.id) return;
@@ -459,12 +459,12 @@ export default function Envios() {
     const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
 
-    startBatch(targets.length);
+    await startBatch(targets.length);
 
     let count = 0;
     let canceled = false;
     for (let i = 0; i < targets.length; i++) {
-      if (batchCancelRef.current) {
+      if (await checkCancelled()) {
         canceled = true;
         break;
       }
@@ -479,18 +479,17 @@ export default function Envios() {
         }
       }
       queryClient.invalidateQueries({ queryKey: ["envios"] });
-      if (batchCancelRef.current) {
+      if (await checkCancelled()) {
         canceled = true;
         break;
       }
-      updateProgress(i + 1);
-      // Wait 60 seconds between each, except after last
-      if (i < targets.length - 1 && !batchCancelRef.current) {
+      await updateProgress(i + 1);
+      if (i < targets.length - 1) {
         await interruptibleSleep(60000);
       }
     }
 
-    finishBatch();
+    await finishBatch();
     if (canceled) return toast.info("Processamento cancelado.");
     setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) avançado(s)!`);
@@ -502,12 +501,12 @@ export default function Envios() {
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
     if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
 
-    startBatch(targets.length);
+    await startBatch(targets.length);
 
     let count = 0;
     let canceled = false;
     for (let i = 0; i < targets.length; i++) {
-      if (batchCancelRef.current) {
+      if (await checkCancelled()) {
         canceled = true;
         break;
       }
@@ -522,17 +521,17 @@ export default function Envios() {
         }
       }
       queryClient.invalidateQueries({ queryKey: ["envios"] });
-      if (batchCancelRef.current) {
+      if (await checkCancelled()) {
         canceled = true;
         break;
       }
-      updateProgress(i + 1);
-      if (i < targets.length - 1 && !batchCancelRef.current) {
+      await updateProgress(i + 1);
+      if (i < targets.length - 1) {
         await interruptibleSleep(60000);
       }
     }
 
-    finishBatch();
+    await finishBatch();
     if (canceled) return toast.info("Processamento cancelado.");
     setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) forçado(s)!`);

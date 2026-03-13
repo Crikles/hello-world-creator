@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      batch_progress: {
+        Row: {
+          cancelled: boolean
+          current_item: number
+          id: string
+          loja_id: string
+          started_at: string
+          total_items: number
+          updated_at: string
+        }
+        Insert: {
+          cancelled?: boolean
+          current_item?: number
+          id?: string
+          loja_id: string
+          started_at?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Update: {
+          cancelled?: boolean
+          current_item?: number
+          id?: string
+          loja_id?: string
+          started_at?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_progress_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkout_integrations: {
         Row: {
           ativo: boolean
