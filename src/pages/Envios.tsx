@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
 import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
 import { generateDanfePdfBase64 } from "@/lib/nfe-utils";
+import { useBatchProgress } from "@/contexts/BatchProgressContext";
 import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
 import { formatProduto } from "@/lib/format-produto";
@@ -132,9 +133,8 @@ export default function Envios() {
     return isJadlog(envio) ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com';
   }, [isJadlog]);
 
-  // Batch advance state
-  const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
-  const batchCancelRef = useRef(false);
+  // Batch advance state (global context)
+  const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch } = useBatchProgress();
 
   const handleDownloadNfe = useCallback(async (envio: any) => {
     if (!loja?.id) return;
@@ -459,8 +459,7 @@ export default function Envios() {
     const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
 
-    batchCancelRef.current = false;
-    setBatchProgress({ processing: true, current: 0, total: targets.length });
+    startBatch(targets.length);
 
     let count = 0;
     for (let i = 0; i < targets.length; i++) {
@@ -468,7 +467,7 @@ export default function Envios() {
         toast.info("Processamento cancelado.");
         break;
       }
-      setBatchProgress({ processing: true, current: i + 1, total: targets.length });
+      updateProgress(i + 1);
       if (!loja?.id) continue;
       try {
         const result = await triggerNextEmail(targets[i].id, loja.id);
@@ -486,7 +485,7 @@ export default function Envios() {
       }
     }
 
-    setBatchProgress(null);
+    finishBatch();
     setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) avançado(s)!`);
   };
@@ -497,8 +496,7 @@ export default function Envios() {
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
     if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
 
-    batchCancelRef.current = false;
-    setBatchProgress({ processing: true, current: 0, total: targets.length });
+    startBatch(targets.length);
 
     let count = 0;
     for (let i = 0; i < targets.length; i++) {
@@ -506,7 +504,7 @@ export default function Envios() {
         toast.info("Processamento cancelado.");
         break;
       }
-      setBatchProgress({ processing: true, current: i + 1, total: targets.length });
+      updateProgress(i + 1);
       if (!loja?.id) continue;
       try {
         const result = await triggerNextEmail(targets[i].id, loja.id, false, true);
@@ -523,13 +521,13 @@ export default function Envios() {
       }
     }
 
-    setBatchProgress(null);
+    finishBatch();
     setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) forçado(s)!`);
   };
 
   const handleCancelBatch = () => {
-    batchCancelRef.current = true;
+    cancelBatch();
   };
 
   const filteredEnvios = envios.filter((e) => {
