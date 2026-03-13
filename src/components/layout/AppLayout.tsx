@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 export function AppLayout() {
   const navigate = useNavigate();
   const { isImpersonating, exitImpersonation, user } = useAuth();
+  const { progress: batchProgress, cancelBatch, getEstimatedTime } = useBatchProgress();
 
   const { data: whatsappConfig } = useQuery({
     queryKey: ["whatsapp-suporte-global"],
