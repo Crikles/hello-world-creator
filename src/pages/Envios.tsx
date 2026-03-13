@@ -574,10 +574,10 @@ export default function Envios() {
     setCurrentPage(1);
   }, [search, filterStatus, dateRange.from, dateRange.to]);
 
-  const totalPages = Math.ceil(filteredEnvios.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredEnvios.length / itemsPerPage);
   const paginatedEnvios = filteredEnvios.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const handleSelectAll = (checked: boolean) => {
