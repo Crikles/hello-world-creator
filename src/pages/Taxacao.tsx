@@ -72,21 +72,28 @@ export default function Taxacao() {
 
             const { data: eventos } = await supabase
                 .from("postagem_eventos")
-                .select("id, nome, ordem, status_label, template_id")
+                .select("id, nome, ordem, status_label, template_id, corpo_email")
                 .in("template_id", templateIds)
                 .in("status_label", ["Taxação", "Pago"])
                 .order("ordem", { ascending: true });
             if (!eventos || eventos.length === 0) return null;
 
-            const map: Record<string, { taxacao_ordem: number | null; pago_ordem: number | null }> = {};
+            const map: Record<string, { taxacao_ordem: number | null; pago_ordem: number | null; valor_taxacao: number }> = {};
             for (const tid of templateIds) {
                 const tEvents = eventos.filter(e => e.template_id === tid);
                 const taxEvento = tEvents.find(e => e.status_label === "Taxação");
                 const pagoEvento = tEvents.find(e => e.status_label === "Pago");
                 if (taxEvento) {
+                    // Extract {{taxacao_valor:XX.XX}} from corpo_email
+                    let valorTaxacao = 0;
+                    if (taxEvento.corpo_email) {
+                        const match = taxEvento.corpo_email.match(/\{\{taxacao_valor:([\d.,]+)\}\}/);
+                        if (match) valorTaxacao = parseFloat(match[1].replace(',', '.')) || 0;
+                    }
                     map[tid] = {
                         taxacao_ordem: taxEvento.ordem,
                         pago_ordem: pagoEvento?.ordem ?? null,
+                        valor_taxacao: valorTaxacao,
                     };
                 }
             }
@@ -164,7 +171,11 @@ export default function Taxacao() {
 
     const totalPendentes = pendentes.length;
     const totalAprovados = aprovados.length;
-    const totalValorPendente = pendentes.reduce((sum, e) => sum + Number(e.valor), 0);
+    // Get valor_taxacao from the first template that has it configured
+    const valorTaxacao = taxEventosMap
+        ? Object.values(taxEventosMap).find(v => v.valor_taxacao > 0)?.valor_taxacao || 0
+        : 0;
+    const totalValorPendente = totalPendentes * valorTaxacao;
 
     const metrics = [
         { label: "Pendentes", value: String(totalPendentes), icon: Clock, delay: 0 },
@@ -318,7 +329,7 @@ export default function Taxacao() {
                                 </div>
 
                                 <div className="flex items-center justify-between">
-                                    <span className="text-lg font-bold text-primary">R$ {Number(envio.valor).toFixed(2)}</span>
+                                    <span className="text-lg font-bold text-primary">R$ {valorTaxacao.toFixed(2)}</span>
                                     {envio.codigo_rastreio && (
                                         <span className="font-mono text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
                                             {envio.codigo_rastreio}

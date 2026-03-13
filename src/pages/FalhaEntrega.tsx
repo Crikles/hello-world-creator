@@ -52,7 +52,7 @@ export default function FalhaEntrega() {
             if (!loja) return null;
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id")
+                .select("template_ativo_id, valor_taxa_falha")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
             if (!config?.template_ativo_id) return null;
@@ -67,6 +67,7 @@ export default function FalhaEntrega() {
             return {
                 falha_ordem: falhaEvento?.ordem ?? null,
                 template_id: config.template_ativo_id,
+                valor_reenvio: Number(config.valor_taxa_falha) || 0,
             };
         },
         enabled: !!loja,
@@ -128,7 +129,8 @@ export default function FalhaEntrega() {
 
     const totalPendentes = pendentes.length;
     const totalAprovados = aprovados.length;
-    const totalValorPendente = pendentes.reduce((sum, e) => sum + Number(e.valor), 0);
+    const valorReenvio = falhaEventos?.valor_reenvio || 0;
+    const totalValorPendente = totalPendentes * valorReenvio;
 
     const metrics = [
         { label: "Pendentes", value: String(totalPendentes), icon: Clock, delay: 0 },
@@ -283,7 +285,7 @@ export default function FalhaEntrega() {
                                 </div>
 
                                 <div className="flex items-center justify-between">
-                                    <span className="text-lg font-bold text-primary">R$ {Number(envio.valor).toFixed(2)}</span>
+                                    <span className="text-lg font-bold text-primary">R$ {valorReenvio.toFixed(2)}</span>
                                     {envio.codigo_rastreio && (
                                         <span className="font-mono text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
                                             {envio.codigo_rastreio}
