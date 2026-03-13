@@ -109,7 +109,10 @@ export default function Envios() {
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [batchCooldown, setBatchCooldown] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectedIdsRef = useRef<Set<string>>(selectedIds);
+  useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [batchConfirm, setBatchConfirm] = useState<{ type: "avancar" | "forcar"; count: number; label: string } | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
@@ -459,66 +462,44 @@ export default function Envios() {
     toast.success(`${count} envio(s) iniciado(s)!`);
   };
 
-  // AVANÇAR TODOS: advance 1 at a time with 60s interval
-  const handleAvancarTodos = async () => {
-    const base = selectedIds.size > 0 ? envios.filter((e) => selectedIds.has(e.id)) : filteredEnvios;
+  // Pre-click: show confirmation dialog
+  const handleAvancarTodosClick = () => {
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
-
-    await startBatch(targets.length);
-
-    let count = 0;
-    let canceled = false;
-    for (let i = 0; i < targets.length; i++) {
-      if (await checkCancelled()) {
-        canceled = true;
-        break;
-      }
-      if (!loja?.id) continue;
-      try {
-        const result = await triggerNextEmail(targets[i].id, loja.id);
-        if (result) count++;
-      } catch (err: any) {
-        if (err instanceof InsufficientBalanceError) {
-          toast.error("Saldo insuficiente. Parado.");
-          break;
-        }
-      }
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
-      if (await checkCancelled()) {
-        canceled = true;
-        break;
-      }
-      await updateProgress(i + 1);
-      if (i < targets.length - 1) {
-        await interruptibleSleep(60000);
-      }
-    }
-
-    await finishBatch();
-    if (canceled) return toast.info("Processamento cancelado.");
-    setBatchCooldown(Date.now() + 120000);
-    toast.success(`${count} envio(s) avançado(s)!`);
+    setBatchConfirm({ type: "avancar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "do filtro ativo" });
   };
 
-  // FORÇAR TODOS: force-advance ignoring delays, 1 at a time with 60s interval
-  const handleForcarTodos = async () => {
-    const base = selectedIds.size > 0 ? envios.filter((e) => selectedIds.has(e.id)) : filteredEnvios;
+  const handleForcarTodosClick = () => {
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
     if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
+    setBatchConfirm({ type: "forcar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "do filtro ativo" });
+  };
+
+  const handleBatchConfirmed = async () => {
+    if (!batchConfirm) return;
+    const isForce = batchConfirm.type === "forcar";
+    setBatchConfirm(null);
+
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
+    const targets = isForce
+      ? base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0)
+      : base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
+    if (targets.length === 0) return;
 
     await startBatch(targets.length);
 
     let count = 0;
     let canceled = false;
     for (let i = 0; i < targets.length; i++) {
-      if (await checkCancelled()) {
-        canceled = true;
-        break;
-      }
+      if (await checkCancelled()) { canceled = true; break; }
       if (!loja?.id) continue;
       try {
-        const result = await triggerNextEmail(targets[i].id, loja.id, false, true);
+        const result = await triggerNextEmail(targets[i].id, loja.id, false, isForce);
         if (result) count++;
       } catch (err: any) {
         if (err instanceof InsufficientBalanceError) {
@@ -527,10 +508,7 @@ export default function Envios() {
         }
       }
       queryClient.invalidateQueries({ queryKey: ["envios"] });
-      if (await checkCancelled()) {
-        canceled = true;
-        break;
-      }
+      if (await checkCancelled()) { canceled = true; break; }
       await updateProgress(i + 1);
       if (i < targets.length - 1) {
         await interruptibleSleep(60000);
@@ -540,7 +518,7 @@ export default function Envios() {
     await finishBatch();
     if (canceled) return toast.info("Processamento cancelado.");
     setBatchCooldown(Date.now() + 120000);
-    toast.success(`${count} envio(s) forçado(s)!`);
+    toast.success(`${count} envio(s) ${isForce ? "forçado(s)" : "avançado(s)"}!`);
   };
 
   const handleCancelBatch = () => {
@@ -751,20 +729,20 @@ export default function Envios() {
                     size="sm"
                     className="text-xs hover:bg-primary/10 hover:text-primary"
                     disabled={batchCooldown > Date.now()}
-                    onClick={handleAvancarTodos}
+                    onClick={handleAvancarTodosClick}
                   >
                     <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Avançar Todos"}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Avançar Todos (${selectedIds.size > 0 ? selectedIds.size : filteredEnvios.length})`}
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-xs hover:bg-yellow-500/10 hover:text-yellow-500"
                     disabled={batchCooldown > Date.now()}
-                    onClick={handleForcarTodos}
+                    onClick={handleForcarTodosClick}
                   >
                     <Zap className="h-3.5 w-3.5 mr-1 text-yellow-500" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Forçar Todos"}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : filteredEnvios.length})`}
                   </Button>
                 </>
               )}
@@ -1141,6 +1119,26 @@ export default function Envios() {
                 onClick={() => batchDeleteMutation.mutate(Array.from(selectedIds))}
               >
                 Confirmar exclusão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!batchConfirm} onOpenChange={(open) => { if (!open) setBatchConfirm(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {batchConfirm?.type === "forcar" ? "Forçar avanço em massa" : "Avançar em massa"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Você está prestes a {batchConfirm?.type === "forcar" ? "forçar" : "avançar"}{" "}
+                <strong>{batchConfirm?.count}</strong> envio(s) {batchConfirm?.label}. Continuar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBatchConfirmed}>
+                Confirmar
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
