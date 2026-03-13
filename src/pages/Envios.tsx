@@ -34,7 +34,7 @@ import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
 import { formatProduto } from "@/lib/format-produto";
 
-const ITEMS_PER_PAGE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200, 300, 400, 500, 700, 800];
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
@@ -118,6 +118,10 @@ export default function Envios() {
   const { loja } = useLoja();
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const saved = localStorage.getItem('envios_per_page');
+    return saved ? Number(saved) : 20;
+  });
 
   const isJadlog = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
     if (envio.transportadora) {
@@ -570,10 +574,10 @@ export default function Envios() {
     setCurrentPage(1);
   }, [search, filterStatus, dateRange.from, dateRange.to]);
 
-  const totalPages = Math.ceil(filteredEnvios.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredEnvios.length / itemsPerPage);
   const paginatedEnvios = filteredEnvios.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const handleSelectAll = (checked: boolean) => {
@@ -1033,9 +1037,21 @@ export default function Envios() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between glass glow-border rounded-xl px-4 py-3 mt-2">
-              <span className="text-xs text-muted-foreground">
-                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredEnvios.length)} de {filteredEnvios.length} envios
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredEnvios.length)} de {filteredEnvios.length} envios
+                </span>
+                <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); localStorage.setItem('envios_per_page', v); }}>
+                  <SelectTrigger className="h-7 w-[70px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map(n => (
+                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
