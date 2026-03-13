@@ -503,7 +503,7 @@ export default function Envios() {
 
   // FORÇAR TODOS: force-advance ignoring delays, 1 at a time with 60s interval
   const handleForcarTodos = async () => {
-    const base = selectedIds.size > 0 ? envios.filter((e) => selectedIds.has(e.id)) : envios;
+    const base = selectedIds.size > 0 ? envios.filter((e) => selectedIds.has(e.id)) : filteredEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
     if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
 
