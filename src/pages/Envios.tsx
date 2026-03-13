@@ -517,7 +517,7 @@ export default function Envios() {
       }
       queryClient.invalidateQueries({ queryKey: ["envios"] });
       if (i < targets.length - 1 && !batchCancelRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, 60000));
+        await interruptibleSleep(60000);
       }
     }
 
