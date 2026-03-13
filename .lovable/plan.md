@@ -1,54 +1,58 @@
 
 
-## Plano: Migrar pagamento PIX de BlackCat para Woovi (OpenPix)
+## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
 
-### Resumo
-Substituir a integração BlackCat pela API Woovi/OpenPix para criação de cobranças PIX e recebimento de webhooks de confirmação de pagamento.
+### Root cause
 
-### Diferenças principais entre as APIs
+When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
 
-| Aspecto | BlackCat | Woovi/OpenPix |
-|---|---|---|
-| Criar cobrança | `POST /api/sales/create-sale` | `POST /api/v1/charge` |
-| Verificar status | `GET /api/sales/{id}/status` | `GET /api/v1/charge/{id}` |
-| Header de auth | `X-API-Key` | `Authorization: {api_key}` |
-| Valor | `amount` (centavos) | `value` (centavos) |
-| QR Code | `paymentData.qrCodeBase64` | `charge.qrCodeImage` (URL da imagem) |
-| Copia e Cola | `paymentData.copyPaste` | `brCode` |
-| Transaction ID | `transactionId` | `charge.transactionID` |
-| Webhook event | `transaction.paid` | `OPENPIX:CHARGE_COMPLETED` |
+Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
 
-### Alterações
+### Fix
 
-**1. Secret: trocar `BLACKCAT_API_KEY` por `OPENPIX_API_KEY`**
-- Solicitar ao usuário a chave da API Woovi via `add_secret`
+Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
 
-**2. `supabase/functions/create-pix-payment/index.ts`**
-- Trocar `BLACKCAT_API_KEY` por `OPENPIX_API_KEY`
-- Montar payload no formato Woovi: `{ correlationID: pixPayment.id, value: amount_cents, comment, customer: { name, email, phone, taxID } }`
-- Chamar `POST https://api.openpix.com.br/api/v1/charge`
-- Extrair `brCode` (copia e cola), `charge.qrCodeImage` (URL da imagem QR), `charge.transactionID`
-- Salvar no `pix_payments` e retornar ao frontend
+### Changes
 
-**3. `supabase/functions/webhook-blackcat/index.ts` → renomear para `webhook-woovi`**
-- Criar nova Edge Function `webhook-woovi`
-- Webhook da Woovi envia: `{ event: "OPENPIX:CHARGE_COMPLETED", charge: { correlationID, transactionID, status, value } }`
-- Usar `correlationID` (nosso `pixPayment.id`) para localizar o registro
-- Verificar status via `GET /api/v1/charge/{correlationID}` para validação autoritativa
-- Manter toda a lógica de créditos, comissão de indicação e idempotência intacta
-- Atualizar `config.toml` para incluir `webhook-woovi` com `verify_jwt = false`
+#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
 
-**4. `src/pages/Moedas.tsx` (frontend)**
-- Ajustar a interface `PixPaymentData`: o campo `qrCodeBase64` passa a ser uma URL de imagem (não mais base64)
-- No QR Code: usar a URL da imagem retornada pela Woovi OU gerar QR via `brCode` (copia-cola) como já faz com a lib `qrcode`
-- Sem outras mudanças necessárias — o polling por `pix_payments.status` continua igual
+Extend the existing filter to also remove NF-e events when disabled:
 
-**5. Limpeza**
-- Remover/manter `webhook-blackcat` desativado (pode deletar depois)
-- Manter tabela `pix_payments` inalterada (mesma estrutura serve)
+```typescript
+const filteredEvents = allEvents.filter((e: any) => {
+  // Remove Falha Entrega events when disabled
+  if (!config.ativar_falha_entrega) {
+    const label = (e.status_label || "").toLowerCase();
+    if (label.includes("falha") && !label.includes("pago")) return false;
+  }
+  // Remove NF-e events when enviar_nfe_email is disabled
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
 
-### Impacto
-- Nenhuma mudança no banco de dados
-- Frontend praticamente igual (só muda o campo de imagem QR)
-- Toda lógica de créditos/comissões preservada
+Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
+
+#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
+
+Apply the same NF-e filter to the client-side trigger:
+
+```typescript
+// Existing Falha Entrega filter + new NF-e filter
+const filteredEvents = allEvents.filter(e => {
+  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
+  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
+  return true;
+});
+```
+
+### Result
+
+- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
+- NF-e enabled → works as before (generates PDF, sends email with attachment)
+- No billing or status changes needed — filtering happens before any processing
+
+### Files changed
+- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
+- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
 

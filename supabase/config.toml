@@ -27,6 +27,9 @@ verify_jwt = false
 [functions.send-push-notification]
 verify_jwt = false
 
+[functions.webhook-woovi]
+verify_jwt = false
+
 [functions.webhook-blackcat]
 verify_jwt = false
 
