@@ -527,7 +527,7 @@ export default function Envios() {
   };
 
   const handleCancelBatch = () => {
-    batchCancelRef.current = true;
+    cancelBatch();
   };
 
   const filteredEnvios = envios.filter((e) => {

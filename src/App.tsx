@@ -48,7 +48,9 @@ const queryClient = new QueryClient();
 function LojaLayoutWrapper() {
   return (
     <LojaProvider>
-      <AppLayout />
+      <BatchProgressProvider>
+        <AppLayout />
+      </BatchProgressProvider>
     </LojaProvider>
   );
 }
