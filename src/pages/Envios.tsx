@@ -1052,6 +1052,7 @@ export default function Envios() {
                   </SelectContent>
                 </Select>
               </div>
+              {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
@@ -1087,6 +1088,7 @@ export default function Envios() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
+              )}
             </div>
           )}
           </>
