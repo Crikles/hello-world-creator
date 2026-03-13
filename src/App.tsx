@@ -48,9 +48,7 @@ const queryClient = new QueryClient();
 function LojaLayoutWrapper() {
   return (
     <LojaProvider>
-      <BatchProgressProvider>
-        <AppLayout />
-      </BatchProgressProvider>
+      <AppLayout />
     </LojaProvider>
   );
 }
@@ -71,6 +69,7 @@ function LogisticsRoutes() {
 function PanelRoutes() {
   return (
     <AuthProvider>
+      <BatchProgressProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
@@ -154,6 +153,7 @@ function PanelRoutes() {
         <Route path="/" element={<Navigate to="/lojas" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </BatchProgressProvider>
     </AuthProvider>
   );
 }

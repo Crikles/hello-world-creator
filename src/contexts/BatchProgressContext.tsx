@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useRef, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+
+const STORAGE_KEY = "batch_progress_state";
 
 interface BatchProgressState {
   processing: boolean;
@@ -19,9 +21,34 @@ interface BatchProgressContextType {
 
 const BatchProgressContext = createContext<BatchProgressContextType | null>(null);
 
+function loadPersistedState(): BatchProgressState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const state = JSON.parse(raw) as BatchProgressState;
+    if (state.processing) return state;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function persistState(state: BatchProgressState | null) {
+  if (state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } else {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
 export function BatchProgressProvider({ children }: { children: ReactNode }) {
-  const [progress, setProgress] = useState<BatchProgressState | null>(null);
+  const [progress, setProgress] = useState<BatchProgressState | null>(loadPersistedState);
   const cancelRef = useRef(false);
+
+  // Persist to localStorage on every change
+  useEffect(() => {
+    persistState(progress);
+  }, [progress]);
 
   const startBatch = useCallback((total: number) => {
     cancelRef.current = false;
