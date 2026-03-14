@@ -86,23 +86,28 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
-  // Chart data: last 7 days only (well under 1000)
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
+  // Chart data: all time, paginated
   const { data: chartEnvios = [] } = useQuery({
     queryKey: ["envios-chart", loja?.id],
     queryFn: async () => {
       if (!loja) return [];
-      const { data, error } = await supabase
-        .from("envios")
-        .select("valor, created_at")
-        .eq("loja_id", loja.id)
-        .is("deleted_at", null)
-        .gte("created_at", sevenDaysAgo.toISOString())
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const pageSize = 1000;
+      let from = 0;
+      let all: { valor: number; created_at: string }[] = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from("envios")
+          .select("valor, created_at")
+          .eq("loja_id", loja.id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        all = all.concat(data || []);
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
     },
     enabled: !!loja,
   });
