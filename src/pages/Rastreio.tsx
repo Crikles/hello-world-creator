@@ -143,8 +143,10 @@ export default function Rastreio() {
     };
 
     const isJadlog = useMemo(() => {
-        return isJadlogDomain() || codigoFromUrl.toUpperCase().trim().endsWith("JD");
-    }, [codigoFromUrl]);
+        if (envio?.transportadora?.toUpperCase().includes("JADLOG")) return true;
+        const code = envio?.codigo_rastreio || codigoFromUrl || "";
+        return code.toUpperCase().trim().endsWith("JD");
+    }, [codigoFromUrl, envio]);
 
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
     const logoUrl = isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
