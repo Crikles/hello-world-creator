@@ -8,7 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { LojaProvider } from "@/contexts/LojaContext";
 import { BatchProgressProvider } from "@/contexts/BatchProgressContext";
-import { isLogisticsDomain, isJadlogDomain } from "@/lib/domain-config";
+import { isLogisticsDomain } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -162,9 +162,7 @@ const App = () => {
   const logistics = isLogisticsDomain();
 
   if (typeof document !== 'undefined') {
-    if (isJadlogDomain()) {
-      document.title = 'JADLOG Logística';
-    } else if (logistics) {
+    if (logistics) {
       document.title = 'Logística JL Transportes';
     } else {
       document.title = 'Magnus Frete';

@@ -848,9 +848,6 @@ Deno.serve(async (req) => {
     let emailRemetente = "noreply@jltransportes.pro";
     let whatsappVendedor = "";
     const isJadlog = envio.transportadora?.toUpperCase().includes("JADLOG");
-    if (isJadlog) {
-      emailRemetente = "noreply@centrojadlog.com"; // default jadlog email
-    }
 
     let corPrimaria = "#6366f1";
     let corBotaoCta = "#1a1a1a";
@@ -861,7 +858,7 @@ Deno.serve(async (req) => {
       .eq("loja_id", loja_id)
       .maybeSingle();
 
-    if (config?.email_remetente && !isJadlog) {
+    if (config?.email_remetente) {
       emailRemetente = config.email_remetente;
     }
     if (config?.whatsapp_vendedor) {
@@ -921,9 +918,7 @@ Deno.serve(async (req) => {
       extras
     );
     // Determine app base URL for payment page links
-    const appBaseUrl = isJadlog
-      ? "https://rastreio.centrojadlog.com"
-      : (Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com");
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com";
 
     const primaryColor = isJadlog ? "#e10526" : corPrimaria;
     const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);

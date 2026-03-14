@@ -1,6 +1,6 @@
 import { formatProduto } from "@/lib/format-produto";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { isJadlogDomain } from "@/lib/domain-config";
+
 import { useParams, useSearchParams } from "react-router-dom";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import {
@@ -143,8 +143,10 @@ export default function Rastreio() {
     };
 
     const isJadlog = useMemo(() => {
-        return isJadlogDomain() || codigoFromUrl.toUpperCase().trim().endsWith("JD");
-    }, [codigoFromUrl]);
+        if (envio?.transportadora?.toUpperCase().includes("JADLOG")) return true;
+        const code = envio?.codigo_rastreio || codigoFromUrl || "";
+        return code.toUpperCase().trim().endsWith("JD");
+    }, [codigoFromUrl, envio]);
 
     const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
     const logoUrl = isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
@@ -404,7 +406,7 @@ export default function Rastreio() {
                             <div className="jd-footer-cols">
                                 <div>
                                     <h5>Contato</h5>
-                                    <a href="mailto:contato@centrojadlog.com">contato@centrojadlog.com</a>
+                                    <a href="mailto:contato@logisticajltransportes.com">contato@logisticajltransportes.com</a>
                                     <a href="tel:08007251560">0800 725 1560</a>
                                 </div>
                                 <div>
