@@ -1,6 +1,6 @@
 import { formatProduto } from "@/lib/format-produto";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { isJadlogDomain } from "@/lib/domain-config";
+
 import { useParams, useSearchParams } from "react-router-dom";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import {
