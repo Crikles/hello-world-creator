@@ -215,9 +215,7 @@ export default function Dashboard() {
     chartDataMap.set(day, existing);
   });
   const chartData = Array.from(chartDataMap.entries())
-    .map(([name, vals]) => ({ name, ...vals }))
-    .reverse()
-    .slice(-7);
+    .map(([name, vals]) => ({ name, ...vals }));
 
   const cards = [
     { title: "Total de Pedidos", value: total, icon: Package },
