@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Bell, X } from "lucide-react";
-import { isJadlogDomain } from "@/lib/domain-config";
+
 
 interface PushNotificationPromptProps {
   codigoRastreio?: string;
