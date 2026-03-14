@@ -918,9 +918,7 @@ Deno.serve(async (req) => {
       extras
     );
     // Determine app base URL for payment page links
-    const appBaseUrl = isJadlog
-      ? "https://rastreio.centrojadlog.com"
-      : (Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com");
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com";
 
     const primaryColor = isJadlog ? "#e10526" : corPrimaria;
     const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);

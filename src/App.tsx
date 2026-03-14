@@ -162,9 +162,7 @@ const App = () => {
   const logistics = isLogisticsDomain();
 
   if (typeof document !== 'undefined') {
-    if (isJadlogDomain()) {
-      document.title = 'JADLOG Logística';
-    } else if (logistics) {
+    if (logistics) {
       document.title = 'Logística JL Transportes';
     } else {
       document.title = 'Magnus Frete';

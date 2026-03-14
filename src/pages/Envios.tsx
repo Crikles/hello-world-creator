@@ -137,9 +137,9 @@ export default function Envios() {
     return false;
   }, []);
 
-  const getTrackingDomain = useCallback((envio: { transportadora?: string | null }) => {
-    return isJadlog(envio) ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com';
-  }, [isJadlog]);
+  const getTrackingDomain = useCallback((_envio: { transportadora?: string | null }) => {
+    return 'rastreio.logisticajltransportes.com';
+  }, []);
 
   // Batch advance state (global context)
   const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep, checkCancelled } = useBatchProgress();

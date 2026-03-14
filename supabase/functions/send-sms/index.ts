@@ -97,10 +97,7 @@ Deno.serve(async (req) => {
 
     const firstName = (envio.cliente_nome || "").split(" ")[0];
     const code = envio.codigo_rastreio || "";
-    const isJadlog = envio.transportadora?.toUpperCase().includes("JADLOG");
-    const baseUrl = isJadlog
-      ? "https://rastreio.centrojadlog.com"
-      : "https://rastreio.logisticajltransportes.com";
+    const baseUrl = "https://rastreio.logisticajltransportes.com";
     const link = `${baseUrl}/r/${code}`;
 
     const message = removeAccents(
