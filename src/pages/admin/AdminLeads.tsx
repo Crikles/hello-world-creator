@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Contact, Search, ChevronLeft, ChevronRight, Download, CalendarIcon, TrendingUp } from "lucide-react";
+import { Contact, Search, ChevronLeft, ChevronRight, Download, CalendarIcon, TrendingUp, Trophy, Medal } from "lucide-react";
 import { format, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -404,6 +404,40 @@ export default function AdminLeads() {
               )}
             </div>
           </CardHeader>
+
+          {/* Scoreboard: top 5 produtos quando um usuário está filtrado */}
+          {selectedUsers.length === 1 && productRanking.length > 0 && (
+            <div className="px-6 pb-4">
+              <p className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Trophy className="h-4 w-4 text-primary" />
+                Top produtos — {usersWithLeads.get(selectedUsers[0]) || "Usuário"}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                {productRanking.slice(0, 5).map((item, idx) => (
+                  <div
+                    key={item.name}
+                    className={`rounded-lg border p-3 flex flex-col gap-1 ${idx === 0 ? "bg-primary/10 border-primary/30" : "bg-muted/40"}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {idx === 0 ? (
+                        <Medal className="h-5 w-5 text-primary" />
+                      ) : (
+                        <span className="text-xs font-bold text-muted-foreground w-5 text-center">#{idx + 1}</span>
+                      )}
+                      <span className="text-sm font-semibold truncate flex-1">{item.name}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                      <span>{item.qty}x vendido{item.qty !== 1 ? "s" : ""}</span>
+                      <span className="font-medium text-foreground">
+                        {item.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <CardContent className="p-0">
             {isLoading ? (
               <div className="flex justify-center py-16">
