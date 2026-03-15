@@ -47,6 +47,7 @@ export default function AdminLeads() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [datePreset, setDatePreset] = useState<string>("");
+  const [showTopProducts, setShowTopProducts] = useState(false);
 
   // Fetch profiles for the filter
   const { data: profiles } = useQuery({
