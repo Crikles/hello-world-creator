@@ -134,8 +134,28 @@ export default function AdminLeads() {
     );
   });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  // Product ranking aggregation
+  const productRanking = (() => {
+    const map = new Map<string, { name: string; qty: number; total: number }>();
+    filtered.forEach((l) => {
+      const name = formatProduto(l.produto);
+      if (name === "—") return;
+      const existing = map.get(name);
+      if (existing) {
+        existing.qty += 1;
+        existing.total += Number(l.valor || 0);
+      } else {
+        map.set(name, { name, qty: 1, total: Number(l.valor || 0) });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.qty - a.qty);
+  })();
+
+  const totalPages = showTopProducts
+    ? Math.ceil(productRanking.length / PAGE_SIZE)
+    : Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const rankingPaginated = productRanking.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const formatEndereco = (l: LeadRow) => {
     const parts = [l.endereco, l.numero ? `nº ${l.numero}` : null].filter(Boolean).join(", ");
@@ -146,6 +166,24 @@ export default function AdminLeads() {
   };
 
   const downloadCSV = () => {
+    if (showTopProducts) {
+      const header = ["Posição", "Produto", "Quantidade", "Valor Total"];
+      const rows = productRanking.map((p, i) => [
+        i + 1,
+        p.name,
+        p.qty,
+        p.total.toFixed(2).replace(".", ","),
+      ]);
+      const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `produtos_mais_vendidos_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
     const header = ["Nome", "CPF", "Telefone", "Email", "Produto", "Valor", "Endereço", "Data"];
     const rows = filtered.map((l) => [
       l.nome,
@@ -246,9 +284,11 @@ export default function AdminLeads() {
           </h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">
-              {filtered.length} lead{filtered.length !== 1 ? "s" : ""}
+              {showTopProducts
+                ? `${productRanking.length} produto${productRanking.length !== 1 ? "s" : ""}`
+                : `${filtered.length} lead${filtered.length !== 1 ? "s" : ""}`}
             </span>
-            <Button variant="outline" size="sm" onClick={downloadCSV} disabled={filtered.length === 0}>
+            <Button variant="outline" size="sm" onClick={downloadCSV} disabled={showTopProducts ? productRanking.length === 0 : filtered.length === 0}>
               <Download className="h-4 w-4 mr-1" /> Baixar CSV
             </Button>
           </div>
@@ -348,6 +388,15 @@ export default function AdminLeads() {
                   )}
                 </PopoverContent>
               </Popover>
+              <Button
+                variant={showTopProducts ? "default" : "outline"}
+                size="sm"
+                className="gap-1.5"
+                onClick={() => { setShowTopProducts(!showTopProducts); setPage(0); }}
+              >
+                <TrendingUp className="h-4 w-4" />
+                <span className="text-xs">Mais Vendidos</span>
+              </Button>
               {(selectedUsers.length > 0 || dateFrom || dateTo) && (
                 <Button variant="ghost" size="sm" onClick={() => { setSelectedUsers([]); clearDateFilter(); }}>
                   Limpar filtros
@@ -360,6 +409,54 @@ export default function AdminLeads() {
               <div className="flex justify-center py-16">
                 <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
+            ) : showTopProducts ? (
+              rankingPaginated.length === 0 ? (
+                <p className="text-center text-muted-foreground py-12">Nenhum produto encontrado.</p>
+              ) : (
+                <>
+                  <div className="overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16 text-center">#</TableHead>
+                          <TableHead>Produto</TableHead>
+                          <TableHead className="text-right">Qtd. Vendida</TableHead>
+                          <TableHead className="text-right">Valor Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rankingPaginated.map((item, idx) => (
+                          <TableRow key={item.name}>
+                            <TableCell className="text-center font-bold text-muted-foreground">
+                              {page * PAGE_SIZE + idx + 1}
+                            </TableCell>
+                            <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell className="text-right whitespace-nowrap">{item.qty}</TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {item.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t">
+                      <span className="text-sm text-muted-foreground">
+                        Página {page + 1} de {totalPages}
+                      </span>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
             ) : paginated.length === 0 ? (
               <p className="text-center text-muted-foreground py-12">Nenhum lead encontrado.</p>
             ) : (
