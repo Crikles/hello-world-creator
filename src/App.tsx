@@ -17,6 +17,7 @@ import Dashboard from "./pages/Dashboard";
 import Envios from "./pages/Envios";
 import Empresa from "./pages/Empresa";
 import Integracoes from "./pages/Integracoes";
+import ApiDocs from "./pages/ApiDocs";
 import Configuracoes from "./pages/Configuracoes";
 import Postagens from "./pages/Postagens";
 import AdminDashboard from "./pages/admin/AdminDashboard";
