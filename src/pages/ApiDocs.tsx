@@ -39,6 +39,45 @@ const responseExample = `{
   "codigo_rastreio": "BR1A2B3C4D5EJL"
 }`;
 
+const errorExamples = [
+  {
+    status: 400,
+    title: "Token ausente",
+    example: `{ "error": "Missing 'token' query parameter" }`,
+    desc: "O parâmetro ?token= não foi enviado na URL.",
+  },
+  {
+    status: 401,
+    title: "Token inválido",
+    example: `{ "error": "Invalid token. Store not found." }`,
+    desc: "O token informado não corresponde a nenhuma loja cadastrada.",
+  },
+  {
+    status: 405,
+    title: "Método não permitido",
+    example: `{ "error": "Method not allowed. Use POST." }`,
+    desc: "A requisição usou GET, PUT ou outro método. Use apenas POST.",
+  },
+  {
+    status: 422,
+    title: "Validação falhou",
+    example: `{
+  "error": "Validation failed",
+  "details": [
+    "'customer.name' is required and must be a non-empty string",
+    "'customer.email' is required and must be a valid email"
+  ]
+}`,
+    desc: "Campos obrigatórios ausentes ou com formato inválido.",
+  },
+  {
+    status: 500,
+    title: "Erro interno",
+    example: `{ "error": "Internal server error" }`,
+    desc: "Erro inesperado no servidor. Tente novamente.",
+  },
+];
+
 const fields = [
   { path: "customer.name", type: "string", required: true, desc: "Nome completo do cliente" },
   { path: "customer.email", type: "string", required: true, desc: "E-mail do cliente" },
