@@ -266,6 +266,23 @@ print(data["codigo_rastreio"])`;
           </Table>
         </div>
       </div>
+
+      {/* Error Responses */}
+      <div className="glass glow-border rounded-xl p-5 mt-6 animate-stagger-in" style={{ animationDelay: "0.25s" }}>
+        <h2 className="text-sm font-bold text-foreground mb-4">Respostas de Erro</h2>
+        <div className="space-y-4">
+          {errorExamples.map((err) => (
+            <div key={err.status} className="glass rounded-lg p-4 border border-border/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="destructive" className="text-[10px]">{err.status}</Badge>
+                <span className="text-xs font-semibold text-foreground">{err.title}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">{err.desc}</p>
+              <pre className="glass rounded-md p-3 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{err.example}</pre>
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   );
 }
