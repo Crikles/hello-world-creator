@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
     }
 
     const payload = await req.json();
+    const { customer, address, items, total } = payload;
 
     // Validate required fields with specific error messages
     const errors: string[] = [];
