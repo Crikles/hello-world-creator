@@ -176,7 +176,7 @@ function buildEmailHtml(
   envio: Record<string, unknown>,
   extras: Record<string, string>,
   primaryColor = "#6366f1",
-  appBaseUrl = "https://rastreio.logisticajltransportes.com",
+  appBaseUrl = "https://rastreio.jltransportelogistica.com",
   ctaColor = "#1a1a1a",
   postagemConfig?: Record<string, unknown>
 ): string {
@@ -918,7 +918,7 @@ Deno.serve(async (req) => {
       extras
     );
     // Determine app base URL for payment page links
-    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com";
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.jltransportelogistica.com";
 
     const primaryColor = isJadlog ? "#e10526" : corPrimaria;
     const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);

@@ -66,7 +66,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "https://rastreio.jltransportelogistica.com/r/{{codigo_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   Coletado: {
@@ -75,7 +75,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "https://rastreio.jltransportelogistica.com/r/{{codigo_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Em Trânsito": {
@@ -84,7 +84,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Acompanhar Entrega",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "https://rastreio.jltransportelogistica.com/r/{{codigo_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Centro Local": {
@@ -93,7 +93,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "https://rastreio.jltransportelogistica.com/r/{{codigo_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Em Rota": {
@@ -102,7 +102,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Acompanhar Entrega",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "https://rastreio.jltransportelogistica.com/r/{{codigo_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Saiu para Entrega": {
@@ -111,7 +111,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Acompanhar em Tempo Real",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "https://rastreio.jltransportelogistica.com/r/{{codigo_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   Entregue: {
@@ -138,7 +138,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "https://rastreio.jltransportelogistica.com/r/{{codigo_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Falha Entrega": {

@@ -301,7 +301,7 @@ serve(async (req) => {
                 pushPayload,
                 vapidPublicKey,
                 vapidPrivateKey,
-                "mailto:contato@logisticajltransportes.com"
+                "mailto:contato@jltransportelogistica.com"
             );
 
             if (result.success) {
