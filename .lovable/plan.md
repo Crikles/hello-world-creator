@@ -1,58 +1,26 @@
 
 
-## Plan: Skip NF-e events entirely when "Nota Fiscal por E-mail" is disabled
+## Plano: Botão Admin para Reenviar Emails do Dia
 
-### Root cause
+### O que será feito
+Adicionar uma nova Edge Function `resend-daily-emails` e um botão no `AdminDashboard` para reenviar todos os emails do dia com os links atualizados.
 
-When `enviar_nfe_email` is disabled, the NF-e event is still **processed as a step in the flow** — the shipment advances through it, wastes a status transition, and may even generate the PDF. The email is correctly suppressed, but the event should be **filtered out entirely** from the flow (same pattern used for "Falha Entrega" events).
+### Lógica da Edge Function (`supabase/functions/resend-daily-emails/index.ts`)
+1. Autenticação dupla: JWT de admin ou service role
+2. Busca todos os registros em `postagem_email_log` de hoje com `status = 'sent'`
+3. Para cada registro (com `envio_id` e `evento_id`), chama internamente a função `send-email` passando `envio_id`, `evento_id`, `loja_id` (sem NF-e PDF para evitar reenvio de anexos pesados)
+4. Processa sequencialmente com delay de 500ms entre envios para evitar rate limit do Resend
+5. Retorna contagem de sucessos e falhas
 
-Currently, only the email send is gated by `isAtivo`. The event itself still occupies a slot in the sequence, causing an unnecessary step and potentially confusing status transitions.
+### Alterações no Frontend (`src/pages/admin/AdminDashboard.tsx`)
+1. Adicionar botão "Reenviar Emails de Hoje" com ícone de RefreshCw
+2. Dialog de confirmação mostrando quantos emails serão reenviados
+3. Progresso visual durante o reenvio
+4. Toast de resultado com contagem de sucesso/falha
 
-### Fix
-
-Filter out events where `enviar_nfe_pdf = true` when `enviar_nfe_email` is disabled — applied to the event list BEFORE determining the next event. This is the same pattern already used for Falha Entrega filtering.
-
-### Changes
-
-#### 1. `supabase/functions/advance-shipments/index.ts` (event filtering, ~line 349)
-
-Extend the existing filter to also remove NF-e events when disabled:
-
-```typescript
-const filteredEvents = allEvents.filter((e: any) => {
-  // Remove Falha Entrega events when disabled
-  if (!config.ativar_falha_entrega) {
-    const label = (e.status_label || "").toLowerCase();
-    if (label.includes("falha") && !label.includes("pago")) return false;
-  }
-  // Remove NF-e events when enviar_nfe_email is disabled
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-Also move the PDF generation inside the `isAtivo` check (line 560) so no PDF is generated when NF-e is disabled.
-
-#### 2. `src/lib/email-trigger.ts` (event filtering, ~line 67)
-
-Apply the same NF-e filter to the client-side trigger:
-
-```typescript
-// Existing Falha Entrega filter + new NF-e filter
-const filteredEvents = allEvents.filter(e => {
-  if ((e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") && !config.ativar_falha_entrega) return false;
-  if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
-  return true;
-});
-```
-
-### Result
-
-- NF-e disabled → NF-e event is skipped entirely, flow goes directly from previous step to next step
-- NF-e enabled → works as before (generates PDF, sends email with attachment)
-- No billing or status changes needed — filtering happens before any processing
-
-### Files changed
-- `supabase/functions/advance-shipments/index.ts`: Filter NF-e events + gate PDF generation
-- `src/lib/email-trigger.ts`: Filter NF-e events from client-side trigger
+### Detalhes técnicos
+- A Edge Function reutiliza `send-email` existente, que já usa o domínio atualizado
+- Sem NF-e PDF no reenvio (somente email transacional com link de rastreio atualizado)
+- Filtra apenas emails com `status = 'sent'` para não reenviar falhas
+- Deduplica por `envio_id` + `evento_id` para não enviar duplicados
 
