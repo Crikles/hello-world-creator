@@ -31,30 +31,45 @@ Deno.serve(async (req) => {
 
     const payload = await req.json();
 
-    // Validate required fields
-    const { customer, address, items, total } = payload;
+    // Validate required fields with specific error messages
+    const errors: string[] = [];
 
-    if (!customer?.name || !customer?.email) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields: customer.name, customer.email" }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!customer || typeof customer !== "object") {
+      errors.push("'customer' object is required");
+    } else {
+      if (!customer.name || typeof customer.name !== "string" || customer.name.trim().length === 0) {
+        errors.push("'customer.name' is required and must be a non-empty string");
+      }
+      if (!customer.email || typeof customer.email !== "string" || !customer.email.includes("@")) {
+        errors.push("'customer.email' is required and must be a valid email");
+      }
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Missing required field: items (must be a non-empty array)" }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      errors.push("'items' is required and must be a non-empty array");
+    } else {
+      items.forEach((item: any, idx: number) => {
+        if (!item.name || typeof item.name !== "string") {
+          errors.push(`'items[${idx}].name' is required`);
+        }
+        if (item.price !== undefined && (typeof item.price !== "number" || item.price < 0)) {
+          errors.push(`'items[${idx}].price' must be a positive number`);
+        }
+        if (item.quantity !== undefined && (typeof item.quantity !== "number" || item.quantity < 1)) {
+          errors.push(`'items[${idx}].quantity' must be at least 1`);
+        }
+      });
     }
 
-    for (const item of items) {
-      if (!item.name) {
-        return new Response(
-          JSON.stringify({ error: "Each item must have a 'name' field" }),
-          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    if (total !== undefined && (typeof total !== "number" || total < 0)) {
+      errors.push("'total' must be a positive number");
+    }
+
+    if (errors.length > 0) {
+      return new Response(
+        JSON.stringify({ error: "Validation failed", details: errors }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
