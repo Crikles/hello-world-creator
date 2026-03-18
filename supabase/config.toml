@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.resend-nfe]
 verify_jwt = false
+
+[functions.resend-daily-emails]
+verify_jwt = false
