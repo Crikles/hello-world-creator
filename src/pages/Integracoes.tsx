@@ -86,6 +86,9 @@ export default function Integracoes() {
   const activeCount = Object.values(activeMap).filter(Boolean).length;
   const inactiveCount = checkouts.length - activeCount;
 
+  const WEBHOOK_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+  const apiExternalUrl = `${WEBHOOK_BASE_URL}/api-external?token=${loja?.webhook_token || "SEU_TOKEN"}`;
+
   return (
     <>
       {/* Hero Header */}

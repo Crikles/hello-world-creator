@@ -97,6 +97,7 @@ function PanelRoutes() {
           <Route path="postagens" element={<Postagens />} />
           <Route path="empresa" element={<Empresa />} />
           <Route path="integracoes" element={<Integracoes />} />
+          <Route path="api-docs" element={<ApiDocs />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="taxacao" element={<Taxacao />} />
           <Route path="falha-entrega" element={<FalhaEntrega />} />
