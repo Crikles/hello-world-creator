@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight } from "lucide-react";
+import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight, BookOpen } from "lucide-react";
 import logoShopify from "@/assets/logo-shopify.png";
 import { toast } from "@/hooks/use-toast";
 import { useLoja } from "@/contexts/LojaContext";
