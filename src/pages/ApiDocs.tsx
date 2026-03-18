@@ -39,6 +39,45 @@ const responseExample = `{
   "codigo_rastreio": "BR1A2B3C4D5EJL"
 }`;
 
+const errorExamples = [
+  {
+    status: 400,
+    title: "Token ausente",
+    example: `{ "error": "Missing 'token' query parameter" }`,
+    desc: "O parâmetro ?token= não foi enviado na URL.",
+  },
+  {
+    status: 401,
+    title: "Token inválido",
+    example: `{ "error": "Invalid token. Store not found." }`,
+    desc: "O token informado não corresponde a nenhuma loja cadastrada.",
+  },
+  {
+    status: 405,
+    title: "Método não permitido",
+    example: `{ "error": "Method not allowed. Use POST." }`,
+    desc: "A requisição usou GET, PUT ou outro método. Use apenas POST.",
+  },
+  {
+    status: 422,
+    title: "Validação falhou",
+    example: `{
+  "error": "Validation failed",
+  "details": [
+    "'customer.name' is required and must be a non-empty string",
+    "'customer.email' is required and must be a valid email"
+  ]
+}`,
+    desc: "Campos obrigatórios ausentes ou com formato inválido.",
+  },
+  {
+    status: 500,
+    title: "Erro interno",
+    example: `{ "error": "Internal server error" }`,
+    desc: "Erro inesperado no servidor. Tente novamente.",
+  },
+];
+
 const fields = [
   { path: "customer.name", type: "string", required: true, desc: "Nome completo do cliente" },
   { path: "customer.email", type: "string", required: true, desc: "E-mail do cliente" },
@@ -225,6 +264,23 @@ print(data["codigo_rastreio"])`;
               ))}
             </TableBody>
           </Table>
+        </div>
+      </div>
+
+      {/* Error Responses */}
+      <div className="glass glow-border rounded-xl p-5 mt-6 animate-stagger-in" style={{ animationDelay: "0.25s" }}>
+        <h2 className="text-sm font-bold text-foreground mb-4">Respostas de Erro</h2>
+        <div className="space-y-4">
+          {errorExamples.map((err) => (
+            <div key={err.status} className="glass rounded-lg p-4 border border-border/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="destructive" className="text-[10px]">{err.status}</Badge>
+                <span className="text-xs font-semibold text-foreground">{err.title}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">{err.desc}</p>
+              <pre className="glass rounded-md p-3 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{err.example}</pre>
+            </div>
+          ))}
         </div>
       </div>
     </>
