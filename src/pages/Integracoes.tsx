@@ -29,6 +29,8 @@ const checkouts = [
 export default function Integracoes() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const { loja } = useLoja();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const queryClient = useQueryClient();
 
   // Fetch checkout integration statuses from DB
