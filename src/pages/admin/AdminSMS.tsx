@@ -73,7 +73,7 @@ export default function AdminSMS() {
     editedMessages[template.id] ?? template.mensagem;
 
   const getPreview = (msg: string) =>
-    msg.replace(/\{nome\}/g, "João").replace(/\{link\}/g, "https://rastreio.logisticajltransportes.com/r/BR1234ABCDEF");
+    msg.replace(/\{nome\}/g, "João").replace(/\{link\}/g, "https://rastreio.jltransportelogistica.com/r/BR1234ABCDEF");
 
   const hasChanges = Object.keys(editedMessages).length > 0;
 
