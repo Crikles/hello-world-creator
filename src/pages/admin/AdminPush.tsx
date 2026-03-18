@@ -410,7 +410,7 @@ export default function AdminPush() {
                                     URL de Direcionamento Padrão
                                 </label>
                                 <Input
-                                    placeholder="https://rastreio.logisticajltransportes.com/"
+                                    placeholder="https://rastreio.jltransportelogistica.com/"
                                     value={defaultUrl}
                                     onChange={(e) => setDefaultUrl(e.target.value)}
                                 />
