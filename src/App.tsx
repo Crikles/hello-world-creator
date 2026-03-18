@@ -17,6 +17,7 @@ import Dashboard from "./pages/Dashboard";
 import Envios from "./pages/Envios";
 import Empresa from "./pages/Empresa";
 import Integracoes from "./pages/Integracoes";
+import ApiDocs from "./pages/ApiDocs";
 import Configuracoes from "./pages/Configuracoes";
 import Postagens from "./pages/Postagens";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -96,6 +97,7 @@ function PanelRoutes() {
           <Route path="postagens" element={<Postagens />} />
           <Route path="empresa" element={<Empresa />} />
           <Route path="integracoes" element={<Integracoes />} />
+          <Route path="api-docs" element={<ApiDocs />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="taxacao" element={<Taxacao />} />
           <Route path="falha-entrega" element={<FalhaEntrega />} />

@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Plug, Zap, ZapOff } from "lucide-react";
+import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight, BookOpen } from "lucide-react";
 import logoShopify from "@/assets/logo-shopify.png";
 import { toast } from "@/hooks/use-toast";
 import { useLoja } from "@/contexts/LojaContext";
@@ -28,6 +29,7 @@ const checkouts = [
 export default function Integracoes() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const { loja } = useLoja();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Fetch checkout integration statuses from DB
@@ -82,6 +84,9 @@ export default function Integracoes() {
 
   const activeCount = Object.values(activeMap).filter(Boolean).length;
   const inactiveCount = checkouts.length - activeCount;
+
+  const WEBHOOK_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+  const apiExternalUrl = `${WEBHOOK_BASE_URL}/api-external?token=${loja?.webhook_token || "SEU_TOKEN"}`;
 
   return (
     <>
@@ -193,6 +198,54 @@ export default function Integracoes() {
             </div>
           );
         })}
+      </div>
+
+      {/* API Externa Card */}
+      <div className="mt-6 glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.4s" }}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <Code2 className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold text-sm text-foreground">API Externa</h3>
+              <Badge variant="outline" className="border-primary/30 text-primary text-[10px]">REST</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">Envie pedidos via HTTP POST sem precisar de checkout</p>
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Endpoint</label>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-xs glass border-primary/10 px-3 py-2.5 rounded-lg truncate text-foreground">
+              {apiExternalUrl}
+            </code>
+            <Button
+              variant="outline"
+              size="icon"
+              className="shrink-0 glass border-primary/20 hover:border-primary/40 h-9 w-9"
+              onClick={() => {
+                navigator.clipboard.writeText(apiExternalUrl);
+                setCopiedId("api-ext");
+                toast({ title: "URL copiada!" });
+                setTimeout(() => setCopiedId(null), 2000);
+              }}
+            >
+              {copiedId === "api-ext" ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          className="w-full glass border-primary/20 hover:border-primary/40 gap-2"
+          onClick={() => navigate(`/loja/${loja?.id}/api-docs`)}
+        >
+          <BookOpen className="h-4 w-4" />
+          Ver Documentação Completa
+          <ArrowRight className="h-4 w-4 ml-auto" />
+        </Button>
       </div>
     </>
   );
