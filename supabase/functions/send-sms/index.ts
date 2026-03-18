@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
 
     const firstName = (envio.cliente_nome || "").split(" ")[0];
     const code = envio.codigo_rastreio || "";
-    const baseUrl = "https://rastreio.logisticajltransportes.com";
+    const baseUrl = "https://rastreio.jltransportelogistica.com";
     const link = `${baseUrl}/r/${code}`;
 
     const message = removeAccents(

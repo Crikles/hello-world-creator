@@ -138,7 +138,7 @@ export default function Envios() {
   }, []);
 
   const getTrackingDomain = useCallback((_envio: { transportadora?: string | null }) => {
-    return 'rastreio.logisticajltransportes.com';
+    return 'rastreio.jltransportelogistica.com';
   }, []);
 
   // Batch advance state (global context)

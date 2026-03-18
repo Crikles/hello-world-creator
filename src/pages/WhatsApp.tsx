@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const SUPABASE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`;
-const TRACKING_BASE_URL = "https://rastreio.logisticajltransportes.com/r";
+const TRACKING_BASE_URL = "https://rastreio.jltransportelogistica.com/r";
 
 const AVAILABLE_VARS = [
     { key: "{{nome}}", label: "Nome", desc: "Nome do cliente" },

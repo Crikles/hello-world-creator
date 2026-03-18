@@ -648,7 +648,7 @@ export default function Rastreio() {
                         <div className="f-links">
                             <div className="f-col">
                                 <h5>CONTATO</h5>
-                                <a href="mailto:contato@logisticajltransportes.com">contato@logisticajltransportes.com</a>
+                                <a href="mailto:contato@jltransportelogistica.com">contato@jltransportelogistica.com</a>
                                 <a href="tel:08006589589">0800 658 9589</a>
                             </div>
                             <div className="f-col">

@@ -1,5 +1,5 @@
 const LOGISTICS_DOMAINS = [
-  'rastreio.logisticajltransportes.com'
+  'rastreio.jltransportelogistica.com'
 ];
 
 export function isLogisticsDomain(): boolean {
