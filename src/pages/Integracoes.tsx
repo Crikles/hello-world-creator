@@ -31,7 +31,6 @@ export default function Integracoes() {
   const { loja } = useLoja();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const queryClient = useQueryClient();
 
   // Fetch checkout integration statuses from DB
   const { data: checkoutStatuses = [] } = useQuery({
