@@ -1075,8 +1075,9 @@ Deno.serve(async (req) => {
     const primaryColor = isJadlog ? "#e10526" : corPrimaria;
     const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);
 
-    // Resolve PDF attachment: prefer storage path, fallback to inline base64
+    // Resolve PDF attachment: prefer storage path, then server-side generation, fallback to inline base64
     let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;
+    let resolvedNfeFilename = nfe_filename || "NF-e.pdf";
 
     if (nfe_storage_path) {
       console.log("Downloading PDF from storage:", nfe_storage_path);
@@ -1087,7 +1088,6 @@ Deno.serve(async (req) => {
       if (dlErr || !fileData) {
         console.error("Failed to download PDF from storage:", dlErr);
       } else {
-        // Convert ArrayBuffer to base64 safely (in chunks to avoid stack overflow)
         const arrayBuffer = await fileData.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
         const chunkSize = 8192;
@@ -1099,21 +1099,49 @@ Deno.serve(async (req) => {
         pdfBase64ForAttachment = btoa(binary);
         console.log("PDF downloaded from storage, size:", bytes.length);
 
-        // Cleanup: delete the temporary file from storage
         const { error: delErr } = await supabase.storage
           .from("nfe-pdfs")
           .remove([nfe_storage_path]);
         if (delErr) {
           console.error("Failed to cleanup PDF from storage:", delErr);
-        } else {
-          console.log("PDF cleaned up from storage:", nfe_storage_path);
         }
+      }
+    } else if (generate_nfe_server && evento.enviar_nfe_pdf) {
+      // Generate PDF server-side using pdf-lib (no html2canvas dependency)
+      console.log("Generating DANFE PDF server-side for envio:", envio_id);
+      try {
+        let empresaForPdf = null;
+        if (envio.empresa_id) {
+          const { data: emp } = await supabase.from("empresas").select("*").eq("id", envio.empresa_id).single();
+          empresaForPdf = emp;
+        }
+        if (!empresaForPdf && envio.loja_id) {
+          const { data: emp } = await supabase.from("empresas").select("*").eq("loja_id", envio.loja_id).maybeSingle();
+          empresaForPdf = emp;
+        }
+
+        if (empresaForPdf) {
+          const pdfBytes = await generateDanfePdfServerSide(empresaForPdf, envio);
+          const chunkSize = 8192;
+          let binary = "";
+          for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+            const chunk = pdfBytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode(...chunk);
+          }
+          pdfBase64ForAttachment = btoa(binary);
+          resolvedNfeFilename = `DANFE_${Math.floor(Math.random() * 9000000000 + 1000000000)}.pdf`;
+          console.log("DANFE PDF generated server-side, size:", pdfBytes.length);
+        } else {
+          console.warn("No empresa found for PDF generation, skipping attachment");
+        }
+      } catch (pdfErr) {
+        console.error("Server-side PDF generation failed:", pdfErr);
       }
     }
 
     // Build attachments array
     const attachments = pdfBase64ForAttachment
-      ? [{ filename: nfe_filename || "NF-e.pdf", content: pdfBase64ForAttachment }]
+      ? [{ filename: resolvedNfeFilename, content: pdfBase64ForAttachment }]
       : undefined;
 
     // Validate email before sending
