@@ -967,7 +967,7 @@ Deno.serve(async (req) => {
       console.log("Authenticated via service role (server-to-server)");
     }
 
-    const { envio_id, evento_id, loja_id, nfe_pdf_base64, nfe_storage_path, nfe_filename } =
+    const { envio_id, evento_id, loja_id, nfe_pdf_base64, nfe_storage_path, nfe_filename, generate_nfe_server } =
       (await req.json()) as SendEmailRequest;
 
     if (!envio_id || !evento_id || !loja_id) {
