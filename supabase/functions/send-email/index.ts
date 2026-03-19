@@ -14,6 +14,8 @@ interface SendEmailRequest {
   nfe_pdf_base64?: string;
   nfe_storage_path?: string;
   nfe_filename?: string;
+  generate_nfe_server?: boolean;
+  skip_debit?: boolean;
 }
 
 const DEFAULT_TRANSPORTADORA = "JL Transportadora e Logística LTDA";
