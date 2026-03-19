@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { generateDanfePdfBase64, generateNfeFilename } from "./nfe-utils";
 
 type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entregue";
 
