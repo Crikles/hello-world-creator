@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { generateDanfePdfBase64, generateNfeFilename } from "./nfe-utils";
 
 type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entregue";
 
@@ -248,44 +247,13 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             return { status: newStatus, ultimoOrdem: nextEvent.ordem };
         }
 
-        // 8. Build payload and send
-        let nfe_storage_path = "";
-        let nfe_filename = "";
-
-        if (nextEvent.enviar_nfe_pdf && shipment.empresas) {
-            try {
-                const base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
-                nfe_filename = generateNfeFilename();
-
-                const byteChars = atob(base64);
-                const byteNumbers = new Array(byteChars.length);
-                for (let i = 0; i < byteChars.length; i++) {
-                    byteNumbers[i] = byteChars.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: "application/pdf" });
-
-                const storagePath = `${envioId}/${nfe_filename}`;
-                const { error: uploadErr } = await supabase.storage
-                    .from("nfe-pdfs")
-                    .upload(storagePath, blob, { contentType: "application/pdf", upsert: true });
-
-                if (uploadErr) {
-                    console.error("PDF upload to storage failed:", uploadErr);
-                } else {
-                    nfe_storage_path = storagePath;
-                    console.log("PDF uploaded to storage:", storagePath);
-                }
-            } catch (pdfErr) {
-                console.error("PDF generation/upload failed:", pdfErr);
-            }
-        }
-
+        // 8. Build payload and send — PDF is now generated server-side
         console.log("Invoking send-email for event:", {
             envio_id: shipment.id,
             evento_id: nextEvent.id,
             evento_nome: nextEvent.nome,
             loja_id: lojaId,
+            generate_nfe_server: nextEvent.enviar_nfe_pdf,
         });
 
         const { error: funcErr } = await supabase.functions.invoke("send-email", {
@@ -293,8 +261,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 envio_id: shipment.id,
                 evento_id: nextEvent.id,
                 loja_id: lojaId,
-                nfe_storage_path,
-                nfe_filename,
+                generate_nfe_server: nextEvent.enviar_nfe_pdf || false,
             },
         });
 
