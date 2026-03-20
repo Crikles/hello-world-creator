@@ -56,6 +56,31 @@ function truncate(text: string, maxLen: number): string {
   return text.length > maxLen ? text.substring(0, maxLen - 2) + ".." : text;
 }
 
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function generateNfeNumero(envioId: string): string {
+  const h = simpleHash(envioId);
+  const num = (h % 999999) + 1;
+  return String(num).padStart(9, "0").replace(/(\d{3})(\d{3})(\d{3})/, "$1.$2.$3");
+}
+
+function generateNfeChave(envioId: string): string {
+  const h = simpleHash(envioId);
+  let chave = "";
+  for (let i = 0; i < 44; i++) {
+    chave += String((h * (i + 1) + i * 7) % 10);
+  }
+  return chave;
+}
+
 // deno-lint-ignore no-explicit-any
 async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -97,13 +122,17 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   drawText(`CNPJ: ${empresa?.cnpj || "N/A"}   IE: ${empresa?.inscricao_estadual || "N/A"}`, margin, y, 7);
   y -= 20;
 
-  // NF-e info
+  // NF-e info — generate deterministic defaults from envio.id
+  const nfeNumero = envio.nfe_numero || generateNfeNumero(envio.id);
+  const nfeSerie = envio.nfe_serie || "001";
+  const nfeChave = envio.nfe_chave_acesso || generateNfeChave(envio.id);
+
   drawLine(margin, y, margin + colWidth, y);
   y -= 12;
-  drawText(`NF-e Nº: ${envio.nfe_numero || "000001"}`, margin, y, 8, fontBold);
-  drawText(`Série: ${envio.nfe_serie || "001"}`, margin + 200, y, 8);
+  drawText(`NF-e Nº: ${nfeNumero}`, margin, y, 8, fontBold);
+  drawText(`Série: ${nfeSerie}`, margin + 200, y, 8);
   y -= 12;
-  drawText(`Chave de Acesso: ${envio.nfe_chave_acesso || "N/A"}`, margin, y, 7);
+  drawText(`Chave de Acesso: ${nfeChave}`, margin, y, 7);
   y -= 20;
 
   // Destinatário
@@ -137,9 +166,9 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
     if (idx % 2 === 0) drawRect(margin, y - 2, colWidth, 12, lightGray);
     drawText(String(item.codigo || idx + 1), cols[0], y, 6);
     drawText(truncate(item.nome, 30), cols[1], y, 6);
-    drawText(item.ncm_sh || "", cols[2], y, 6);
-    drawText(item.cst || "", cols[3], y, 6);
-    drawText(item.cfop || "", cols[4], y, 6);
+    drawText(item.ncm_sh || "00000000", cols[2], y, 6);
+    drawText(item.cst || "000", cols[3], y, 6);
+    drawText(item.cfop || "5102", cols[4], y, 6);
     drawText(item.unidade || "UN", cols[5], y, 6);
     drawText(String(item.quantidade), cols[6], y, 6);
     drawText(formatCurrency(item.valor), cols[7], y, 6);

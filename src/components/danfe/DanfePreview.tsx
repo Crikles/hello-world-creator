@@ -225,7 +225,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Destinatário Header -->
     <tr>
-      <td colspan="7" class="section-title">DESTINATÁRIO / REMETENTE</td>
+      <td colspan="8" class="section-title">DESTINATÁRIO / REMETENTE</td>
     </tr>
 
     <tr>
@@ -287,7 +287,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Cálculo do Imposto -->
     <tr>
-      <td colspan="7" class="section-title">CÁLCULO DO IMPOSTO</td>
+      <td colspan="8" class="section-title">CÁLCULO DO IMPOSTO</td>
     </tr>
     <tr>
       <td><span class="label">BASE CÁLC. ICMS</span><br><span class="value">0,00</span></td>
@@ -307,7 +307,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Transportador -->
     <tr>
-      <td colspan="7" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
+      <td colspan="8" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
     </tr>
     <tr>
       <td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell">JL Transportes de Cargas LTDA</span></td>
@@ -326,12 +326,13 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Produtos -->
     <tr>
-      <td colspan="7" class="section-title">DADOS DOS PRODUTOS / SERVIÇOS</td>
+      <td colspan="8" class="section-title">DADOS DOS PRODUTOS / SERVIÇOS</td>
     </tr>
     <tr style="font-size: 6pt; font-weight: bold; text-align: center;">
       <td>CÓDIGO</td>
       <td>DESCRIÇÃO DO PRODUTO</td>
       <td>NCM/SH</td>
+      <td>CST</td>
       <td>CFOP</td>
       <td>UNID.</td>
       <td>VALOR UNIT.</td>
@@ -345,6 +346,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td>${item.codigo || idx + 1}</td>
       <td style="text-align: left;">${item.nome || "Produto"}</td>
       <td>${item.ncm_sh || "00000000"}</td>
+      <td>${item.cst || "000"}</td>
       <td>${item.cfop || "5102"}</td>
       <td>${item.unidade || "UN"}</td>
       <td>R$ ${formatCurrency(itemUnit)}</td>
@@ -354,7 +356,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Dados Adicionais -->
     <tr>
-      <td colspan="7" class="section-title">DADOS ADICIONAIS</td>
+      <td colspan="8" class="section-title">DADOS ADICIONAIS</td>
     </tr>
     <tr>
       <td colspan="4" style="height: 60px;">
@@ -371,7 +373,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Footer -->
     <tr>
-      <td colspan="7" class="right" style="font-size: 7pt; border: none;">
+      <td colspan="8" class="right" style="font-size: 7pt; border: none;">
         DATA E HORA DA IMPRESSÃO: ${dataEmissao} ${horaEmissao}
       </td>
     </tr>
