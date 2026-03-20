@@ -1086,6 +1086,13 @@ Deno.serve(async (req) => {
       whatsapp_vendedor: whatsappVendedor,
     };
 
+    // Add vizinho (neighbor) data for "Entregue" events
+    const statusLabel = (evento.status_label as string) || "";
+    if (statusLabel === "Entregue") {
+      const vizinhoExtras = getVizinhoExtras(envio.id, envio.cliente_nome || "");
+      Object.assign(extras, vizinhoExtras);
+    }
+
     // Build beautiful HTML email
     const subject = replaceVariables(
       evento.assunto_email || "Atualização do seu pedido",
