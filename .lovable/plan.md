@@ -1,31 +1,52 @@
 
 
-## Plano: Corrigir Avanço Automático Travado
+## Plano: Eliminar Gargalos e Garantir Fluxo 100%
 
-### Diagnóstico
-O cron `advance-shipments` busca até 100 envios por loja com `proximo_avanco_em <= now()`. Porém, **não exclui envios com status "Falha Entrega" ou "Taxação"** da query SQL. Como há 876 envios pausados em "Falha Entrega", eles consomem o limite de 100 por loja, e os 1.134 envios legítimos (Postado, Coletado, Em Trânsito) nunca são processados.
+### Problema Principal — Filtro SQL não entrou em vigor
+Os logs de agora (15:28 UTC) **ainda mostram** "Skip envio: waiting for manual approval (Falha Entrega)" — significando que o deploy anterior **não propagou** ou a versão antiga está em cache. A função precisa ser redeployada com as correções consolidadas.
 
-O cron gasta todo o tempo logando "Skip envio: waiting for manual approval" e retorna "processed 0 shipments".
+### Problemas Identificados
 
-### Correção (1 arquivo)
+**1. Limite de 200 envios por execução (MAX_PER_RUN = 200)**
+- Com 1.135 envios prontos para avançar, o cron precisa de ~6 ciclos (30 min) para processar tudo
+- Se novos envios chegam continuamente, o backlog nunca zera
 
-**`supabase/functions/advance-shipments/index.ts`** — Adicionar filtro SQL para excluir envios pausados:
+**2. Limite de 100 por loja (MAX_PER_LOJA = 100)**
+- Uma loja tem 973 envios aguardando — precisa de ~10 ciclos só para essa loja
 
-Na query de envios elegíveis (linha ~423), adicionar filtro `not.in` no `status_label` para excluir `Falha Entrega`, `Taxação` e `Taxacao`:
+**3. Timeout da Edge Function**
+- Com 500ms de delay entre cada envio, 200 envios = 100 segundos
+- Cada envio faz múltiplas queries (fetch envio, fetch eventos, update, send email, SMS, WhatsApp)
+- Risco real de timeout em execuções longas
 
-```sql
--- Antes: busca tudo e pula no código
-.or(`proximo_avanco_em.is.null,proximo_avanco_em.lte.${now}`)
+**4. `resend-daily-emails` sem paginação**
+- Busca logs do dia sem `.limit()` mas Supabase retorna no máximo 1000 por padrão
+- Se houver mais de 1000 emails no dia, os excedentes são ignorados silenciosamente
 
--- Depois: exclui pausados direto na query
-.not("status_label", "in", '("Falha Entrega","Taxação","Taxacao")')
-.or(`proximo_avanco_em.is.null,proximo_avanco_em.lte.${now}`)
-```
+**5. Dupla verificação de "Falha Entrega" — redundante**
+- O filtro SQL (linha 430) exclui esses envios, mas o código na linha 521-525 verifica novamente e loga "Skip"
+- Se o filtro SQL funcionar, esse log nunca aparece. Se não funcionar, gasta slots.
 
-Isso garante que os 100 slots por loja sejam usados apenas por envios que realmente podem avançar.
+### Correções
+
+**Arquivo 1: `supabase/functions/advance-shipments/index.ts`**
+- Aumentar `MAX_PER_RUN` de 200 → 500
+- Aumentar `MAX_PER_LOJA` de 100 → 300
+- Reduzir `BATCH_DELAY_MS` de 500ms → 200ms (já é sequencial, o delay é desnecessário tão alto)
+- Remover o check redundante de `pauseLabels` dentro de `advanceShipment()` (linhas 521-525) — já filtrado na query SQL
+- Garantir que o filtro `.not("status_label", "in", ...)` está correto
+
+**Arquivo 2: `supabase/functions/resend-daily-emails/index.ts`**
+- Adicionar paginação na busca de `postagem_email_log` (loop com `.range()` em blocos de 1000) para suportar qualquer volume
+
+**Arquivo 3: `src/lib/email-trigger.ts`**
+- Remover o check redundante de `pauseLabels` (linhas 91-95) — a lógica de pausa é gerenciada pelo cron, não pelo trigger manual
+
+### Redeploy
+- Redeployar `advance-shipments` para garantir que a versão correta esteja ativa
 
 ### Impacto
-- **2.010 envios travados** → 1.134 voltarão a avançar automaticamente no próximo ciclo do cron (5 min)
-- Os 876 em "Falha Entrega" continuam corretamente pausados aguardando aprovação manual
-- Sem mudança de comportamento, apenas eficiência na query
+- 1.135 envios prontos processados em ~2 ciclos (10 min) em vez de ~6 ciclos (30 min)
+- Sem limite prático para volume diário de emails reenviados
+- Redução de 60% no tempo total de processamento por ciclo
 
