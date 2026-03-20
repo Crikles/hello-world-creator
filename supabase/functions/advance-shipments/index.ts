@@ -422,11 +422,12 @@ Deno.serve(async (req) => {
 
       const { data: eligible } = await supabase
         .from("envios")
-        .select("id, ultimo_evento_ordem, proximo_avanco_em")
+        .select("id, ultimo_evento_ordem, proximo_avanco_em, status_label")
         .eq("loja_id", lojaId)
         .neq("status", "entregue")
         .gt("ultimo_evento_ordem", 0)
         .is("deleted_at", null)
+        .not("status_label", "in", '("Falha Entrega","Taxação","Taxacao")')
         .or(`proximo_avanco_em.is.null,proximo_avanco_em.lte.${now}`)
         .order("created_at", { ascending: true })
         .limit(lojaLimit);
