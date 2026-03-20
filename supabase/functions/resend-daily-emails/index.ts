@@ -48,20 +48,36 @@ Deno.serve(async (req) => {
     today.setUTCHours(0, 0, 0, 0);
     const todayISO = today.toISOString();
 
-    // Fetch all sent emails today, deduplicate by envio_id + evento_id
-    const { data: logs, error: logErr } = await supabase
-      .from("postagem_email_log")
-      .select("envio_id, evento_id, loja_id")
-      .gte("created_at", todayISO)
-      .eq("status", "sent")
-      .not("envio_id", "is", null)
-      .not("evento_id", "is", null);
+    // Fetch ALL sent emails today with pagination (Supabase default limit is 1000)
+    const PAGE_SIZE = 1000;
+    let allLogs: { envio_id: string; evento_id: string; loja_id: string }[] = [];
+    let offset = 0;
+    let hasMore = true;
 
-    if (logErr) throw logErr;
+    while (hasMore) {
+      const { data: logs, error: logErr } = await supabase
+        .from("postagem_email_log")
+        .select("envio_id, evento_id, loja_id")
+        .gte("created_at", todayISO)
+        .eq("status", "sent")
+        .not("envio_id", "is", null)
+        .not("evento_id", "is", null)
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (logErr) throw logErr;
+
+      if (logs && logs.length > 0) {
+        allLogs = allLogs.concat(logs);
+        offset += PAGE_SIZE;
+        hasMore = logs.length === PAGE_SIZE;
+      } else {
+        hasMore = false;
+      }
+    }
 
     // Deduplicate by envio_id + evento_id
     const seen = new Set<string>();
-    const unique = (logs || []).filter((l) => {
+    const unique = allLogs.filter((l) => {
       const key = `${l.envio_id}_${l.evento_id}`;
       if (seen.has(key)) return false;
       seen.add(key);
