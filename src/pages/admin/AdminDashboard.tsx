@@ -20,6 +20,7 @@ import {
   Mail, CheckCircle2, XCircle, TrendingUp, ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { SystemHealth } from "@/components/admin/SystemHealth";
 
 export default function AdminDashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -193,7 +194,9 @@ export default function AdminDashboard() {
                 </Card>
               ))}
             </div>
-          </div>
+          {/* System Health */}
+          <SystemHealth />
+        </div>
         </div>
       )}
 
