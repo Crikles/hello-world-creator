@@ -302,26 +302,22 @@ function UserUsageTable() {
     queryKey: ["admin-user-usage"],
     queryFn: async () => {
       // Fetch ALL profiles (paginated)
-      const profiles = await fetchAllRows<{ id: string; full_name: string | null; email: string | null; created_at: string }>(
-        () => supabase.from("profiles").select("id, full_name, email, created_at"),
-        "id, full_name, email, created_at",
+      const profiles = await fetchAllPaginated<{ id: string; full_name: string | null; email: string | null; created_at: string }>(
         "profiles",
+        "id, full_name, email, created_at",
+        "created_at",
       );
 
       if (profiles.length === 0) return [];
 
-      // Fetch ALL lojas (paginated)
-      const lojas = await fetchAllRows<{ id: string; user_id: string; nome: string }>(
-        () => supabase.from("lojas").select("id, user_id, nome"),
-        "id, user_id, nome",
+      const lojas = await fetchAllPaginated<{ id: string; user_id: string; nome: string }>(
         "lojas",
+        "id, user_id, nome",
       );
 
-      // Fetch ALL creditos (paginated)
-      const creditos = await fetchAllRows<{ user_id: string; saldo: number }>(
-        () => supabase.from("creditos").select("user_id, saldo"),
-        "user_id, saldo",
+      const creditos = await fetchAllPaginated<{ user_id: string; saldo: number }>(
         "creditos",
+        "user_id, saldo",
       );
 
       const lojasByUser = new Map<string, string[]>();
