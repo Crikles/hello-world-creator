@@ -332,6 +332,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td>CÓDIGO</td>
       <td>DESCRIÇÃO DO PRODUTO</td>
       <td>NCM/SH</td>
+      <td>CST</td>
       <td>CFOP</td>
       <td>UNID.</td>
       <td>VALOR UNIT.</td>
@@ -345,6 +346,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td>${item.codigo || idx + 1}</td>
       <td style="text-align: left;">${item.nome || "Produto"}</td>
       <td>${item.ncm_sh || "00000000"}</td>
+      <td>${item.cst || "000"}</td>
       <td>${item.cfop || "5102"}</td>
       <td>${item.unidade || "UN"}</td>
       <td>R$ ${formatCurrency(itemUnit)}</td>
