@@ -22,6 +22,29 @@ import {
     RefreshCw,
 } from "lucide-react";
 
+/* ─── Neighbor (Vizinho) Logic ─── */
+const VIZINHO_NOMES = ["Maria Aparecida", "José Carlos", "Ana Paula", "Carlos Eduardo", "Fernanda Silva"];
+const VIZINHO_CPFS = ["***.234.567-**", "***.891.012-**", "***.456.789-**", "***.123.654-**", "***.987.321-**"];
+
+function simpleHash(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash);
+}
+
+function getVizinhoData(envioId: string, clienteNome: string) {
+    const idx = simpleHash(envioId) % 5;
+    const primeiroNome = clienteNome.split(" ")[0];
+    return {
+        nome: VIZINHO_NOMES[idx],
+        cpf: VIZINHO_CPFS[idx],
+        label: `Recebedor: ${VIZINHO_NOMES[idx]} (Vizinho(a) de ${primeiroNome})`,
+    };
+}
+
 /* ─── Types ─── */
 interface EnvioData {
     id: string;
@@ -358,9 +381,11 @@ export default function Rastreio() {
                                                             if (origemLabel && destLabel) locationText = `de ${origemLabel} para ${destLabel}`; break;
                                                         case "Centro Local": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
                                                         case "Saiu para Entrega": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
-                                                        case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
+                                                         case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
                                                         default: locationText = ev.descricao || ev.status_label || null;
                                                     }
+
+                                                    const vizinhoData = ev.status_label === "Entregue" ? getVizinhoData(envio.id, envio.cliente_nome) : null;
 
                                                     return (
                                                         <div key={ev.ordem} className={`jd-tl-item ${isFirst ? 'jd-tl-active' : ''}`}>
@@ -373,6 +398,12 @@ export default function Rastreio() {
                                                             <div className="jd-tl-content">
                                                                 <h4>{ev.nome}</h4>
                                                                 {locationText && <p className="jd-tl-location">{locationText}</p>}
+                                                                {vizinhoData && (
+                                                                    <div style={{ marginTop: 6, fontSize: 13, color: '#4B5563', lineHeight: 1.6 }}>
+                                                                        <p style={{ margin: 0, fontWeight: 600 }}>{vizinhoData.label}</p>
+                                                                        <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Documento: {vizinhoData.cpf}</p>
+                                                                    </div>
+                                                                )}
                                                                 <span className="jd-tl-date">
                                                                     {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                 </span>
@@ -599,9 +630,11 @@ export default function Rastreio() {
                                                         if (origemLabel && destLabel) locationText = `de Unidade de Tratamento, ${origemLabel} para Unidade de Distribuição, ${destLabel}`; break;
                                                     case "Centro Local": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
                                                     case "Saiu para Entrega": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
-                                                    case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
+                                                     case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
                                                     default: locationText = ev.descricao || ev.status_label || null;
                                                 }
+
+                                                const vizinhoData = ev.status_label === "Entregue" ? getVizinhoData(envio.id, envio.cliente_nome) : null;
                                                 return (
                                                     <div key={ev.ordem} className="journey-point-correios">
                                                         <div className="point-indicator-correios">
@@ -614,6 +647,12 @@ export default function Rastreio() {
                                                             <div className="point-col-status">
                                                                 <h4 className="point-title-correios">{ev.nome}</h4>
                                                                 {locationText && <p className="point-desc-correios">{locationText}</p>}
+                                                                {vizinhoData && (
+                                                                    <div style={{ marginTop: 6, fontSize: 13, color: '#4B5563', lineHeight: 1.6 }}>
+                                                                        <p style={{ margin: 0, fontWeight: 600 }}>{vizinhoData.label}</p>
+                                                                        <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Documento: {vizinhoData.cpf}</p>
+                                                                    </div>
+                                                                )}
                                                                 {ev.status_label === "Taxação" && envio && (
                                                                     <a href={`/p/${envio.id}`} style={{ display:'inline-block', marginTop:8, padding:'8px 20px', background:'#ef4444', color:'#fff', borderRadius:8, fontSize:13, fontWeight:700, textDecoration:'none' }}>Pagar taxa</a>
                                                                 )}
