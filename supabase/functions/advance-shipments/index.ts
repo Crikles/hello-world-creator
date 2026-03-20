@@ -331,9 +331,9 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
   let totalProcessed = 0;
-  const MAX_PER_RUN = 200;
-  const MAX_PER_LOJA = 100;
-  const BATCH_DELAY_MS = 500; // delay between each shipment to avoid rate limits
+  const MAX_PER_RUN = 500;
+  const MAX_PER_LOJA = 300;
+  const BATCH_DELAY_MS = 200; // delay between each shipment to avoid rate limits
 
   try {
     // Fetch all stores with postagem config
@@ -517,12 +517,8 @@ async function advanceShipment(
 
     const currentOrdem = shipment.ultimo_evento_ordem ?? 0;
 
-    // Pause: don't auto-advance shipments waiting for manual approval
-    const pauseLabels = ["Falha Entrega", "Taxação", "Taxacao"];
-    if (pauseLabels.includes(shipment.status_label || "")) {
-      console.log(`Skip envio ${envioId}: waiting for manual approval (${shipment.status_label})`);
-      return false;
-    }
+    // Pause labels already filtered at SQL level (.not("status_label", "in", ...))
+    // No redundant check needed here
 
     // deno-lint-ignore no-explicit-any
     const nextEvent = filteredEvents.find((e: any) => e.ordem > currentOrdem);
