@@ -194,7 +194,9 @@ export default function AdminDashboard() {
                 </Card>
               ))}
             </div>
-          </div>
+          {/* System Health */}
+          <SystemHealth />
+        </div>
         </div>
       )}
 
