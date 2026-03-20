@@ -277,18 +277,17 @@ export function SystemHealth() {
   );
 }
 
-async function fetchAllRows<T>(
-  query: () => ReturnType<ReturnType<typeof supabase.from>["select"]>,
-  selectFields: string,
+async function fetchAllPaginated<T>(
   tableName: string,
-  filters?: (q: any) => any,
+  selectFields: string,
+  orderBy?: string,
 ): Promise<T[]> {
   const PAGE = 1000;
   let all: T[] = [];
   let from = 0;
   while (true) {
-    let q = supabase.from(tableName).select(selectFields).range(from, from + PAGE - 1);
-    if (filters) q = filters(q);
+    let q = supabase.from(tableName as any).select(selectFields).range(from, from + PAGE - 1);
+    if (orderBy) q = q.order(orderBy, { ascending: false });
     const { data, error } = await q;
     if (error || !data || data.length === 0) break;
     all = all.concat(data as T[]);
