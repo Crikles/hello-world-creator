@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   Activity, Database, Clock, AlertTriangle, CheckCircle2,
-  Mail, Webhook, Package, Server, BarChart3,
+  Mail, Webhook, Package, Server, BarChart3, Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -270,6 +270,183 @@ export function SystemHealth() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Per-User Usage */}
+      <UserUsageTable />
     </div>
+  );
+}
+
+function UserUsageTable() {
+  const { data: users, isLoading } = useQuery({
+    queryKey: ["admin-user-usage"],
+    queryFn: async () => {
+      // Fetch all profiles
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, created_at")
+        .order("created_at", { ascending: false });
+
+      if (!profiles || profiles.length === 0) return [];
+
+      // Fetch all lojas with user_id
+      const { data: lojas } = await supabase
+        .from("lojas")
+        .select("id, user_id, nome");
+
+      // Fetch all creditos
+      const { data: creditos } = await supabase
+        .from("creditos")
+        .select("user_id, saldo");
+
+      const lojasByUser = new Map<string, string[]>();
+      (lojas || []).forEach((l) => {
+        const arr = lojasByUser.get(l.user_id) || [];
+        arr.push(l.id);
+        lojasByUser.set(l.user_id, arr);
+      });
+
+      // Get all loja IDs for batch counts
+      const allLojaIds = (lojas || []).map((l) => l.id);
+
+      // Fetch counts per loja_id for envios, email_log, leads
+      const [enviosData, emailData, leadsData] = await Promise.all([
+        allLojaIds.length > 0
+          ? supabase
+              .from("envios")
+              .select("loja_id")
+              .is("deleted_at", null)
+              .in("loja_id", allLojaIds)
+          : Promise.resolve({ data: [] }),
+        allLojaIds.length > 0
+          ? supabase
+              .from("postagem_email_log")
+              .select("loja_id")
+              .in("loja_id", allLojaIds)
+          : Promise.resolve({ data: [] }),
+        allLojaIds.length > 0
+          ? supabase
+              .from("leads")
+              .select("loja_id")
+              .in("loja_id", allLojaIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      // Count per loja
+      const countByLoja = (items: { loja_id: string | null }[] | null) => {
+        const map = new Map<string, number>();
+        (items || []).forEach((i) => {
+          if (i.loja_id) map.set(i.loja_id, (map.get(i.loja_id) || 0) + 1);
+        });
+        return map;
+      };
+
+      const enviosByLoja = countByLoja(enviosData.data as any);
+      const emailsByLoja = countByLoja(emailData.data as any);
+      const leadsByLoja = countByLoja(leadsData.data as any);
+
+      const creditosByUser = new Map<string, number>();
+      (creditos || []).forEach((c) => creditosByUser.set(c.user_id, c.saldo));
+
+      // Aggregate per user
+      const result = profiles.map((p) => {
+        const userLojas = lojasByUser.get(p.id) || [];
+        const envios = userLojas.reduce((s, lid) => s + (enviosByLoja.get(lid) || 0), 0);
+        const emails = userLojas.reduce((s, lid) => s + (emailsByLoja.get(lid) || 0), 0);
+        const leads = userLojas.reduce((s, lid) => s + (leadsByLoja.get(lid) || 0), 0);
+        const saldo = creditosByUser.get(p.id) || 0;
+        const total = envios + emails + leads;
+
+        return {
+          id: p.id,
+          name: p.full_name || p.email || "Sem nome",
+          email: p.email || "-",
+          lojas: userLojas.length,
+          envios,
+          emails,
+          leads,
+          saldo,
+          total,
+        };
+      });
+
+      return result.sort((a, b) => b.total - a.total);
+    },
+    refetchInterval: 60000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="border-border/50">
+        <CardContent className="pt-5 pb-4 flex justify-center">
+          <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!users || users.length === 0) return null;
+
+  const maxTotal = users[0]?.total || 1;
+
+  return (
+    <Card className="border-border/50">
+      <CardContent className="pt-5 pb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold text-foreground">Uso por Usuário</span>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {users.length} usuários
+          </span>
+        </div>
+        <div className="overflow-auto max-h-[400px]">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="text-xs">Usuário</TableHead>
+                <TableHead className="text-xs text-right w-16">Lojas</TableHead>
+                <TableHead className="text-xs text-right w-16">Envios</TableHead>
+                <TableHead className="text-xs text-right w-16">Emails</TableHead>
+                <TableHead className="text-xs text-right w-16">Leads</TableHead>
+                <TableHead className="text-xs text-right w-20">Créditos</TableHead>
+                <TableHead className="text-xs w-36">Uso Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((u) => (
+                <TableRow key={u.id} className="hover:bg-muted/30">
+                  <TableCell className="py-2">
+                    <div>
+                      <p className="text-xs font-medium text-foreground truncate max-w-[180px]">{u.name}</p>
+                      <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">{u.email}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-xs py-2">{u.lojas}</TableCell>
+                  <TableCell className="text-right tabular-nums text-xs py-2">{u.envios.toLocaleString("pt-BR")}</TableCell>
+                  <TableCell className="text-right tabular-nums text-xs py-2">{u.emails.toLocaleString("pt-BR")}</TableCell>
+                  <TableCell className="text-right tabular-nums text-xs py-2">{u.leads.toLocaleString("pt-BR")}</TableCell>
+                  <TableCell className="text-right tabular-nums text-xs py-2">
+                    <span className={u.saldo <= 0 ? "text-red-400" : "text-emerald-400"}>
+                      {u.saldo.toLocaleString("pt-BR")}
+                    </span>
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={(u.total / maxTotal) * 100}
+                        className="h-1.5 flex-1"
+                      />
+                      <span className="text-[10px] text-muted-foreground tabular-nums w-12 text-right">
+                        {u.total.toLocaleString("pt-BR")}
+                      </span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
