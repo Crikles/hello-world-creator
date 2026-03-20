@@ -1,52 +1,55 @@
 
 
-## Plano: Eliminar Gargalos e Garantir Fluxo 100%
+## Plano: Monitor de Saúde do Sistema no Admin Dashboard
 
-### Problema Principal — Filtro SQL não entrou em vigor
-Os logs de agora (15:28 UTC) **ainda mostram** "Skip envio: waiting for manual approval (Falha Entrega)" — significando que o deploy anterior **não propagou** ou a versão antiga está em cache. A função precisa ser redeployada com as correções consolidadas.
+### O que será criado
 
-### Problemas Identificados
+Uma nova seção **"Saúde do Sistema"** no AdminDashboard, abaixo dos emails, com dados em tempo real consultados diretamente do banco via queries SQL (usando `.rpc()` ou queries diretas).
 
-**1. Limite de 200 envios por execução (MAX_PER_RUN = 200)**
-- Com 1.135 envios prontos para avançar, o cron precisa de ~6 ciclos (30 min) para processar tudo
-- Se novos envios chegam continuamente, o backlog nunca zera
+### Métricas exibidas
 
-**2. Limite de 100 por loja (MAX_PER_LOJA = 100)**
-- Uma loja tem 973 envios aguardando — precisa de ~10 ciclos só para essa loja
+**1. Banco de Dados (grid 4 colunas)**
+- Tamanho total do banco (soma de todas as tabelas)
+- Total de registros (soma de rows)
+- Maior tabela (nome + tamanho)
+- Tabelas com mais crescimento (top por row count)
 
-**3. Timeout da Edge Function**
-- Com 500ms de delay entre cada envio, 200 envios = 100 segundos
-- Cada envio faz múltiplas queries (fetch envio, fetch eventos, update, send email, SMS, WhatsApp)
-- Risco real de timeout em execuções longas
+**2. Fila de Processamento (grid 3 colunas)**
+- Envios aguardando avanço (`proximo_avanco_em <= now() AND status != pausados`)
+- Emails pendentes hoje (`status = 'pending'`)
+- Webhooks das últimas 24h (total + falhas)
 
-**4. `resend-daily-emails` sem paginação**
-- Busca logs do dia sem `.limit()` mas Supabase retorna no máximo 1000 por padrão
-- Se houver mais de 1000 emails no dia, os excedentes são ignorados silenciosamente
+**3. Edge Functions (grid 3 colunas)**
+- Tempo médio de resposta (últimas 24h, via analytics)
+- Taxa de erro (% de status != 200)
+- Total de chamadas hoje
 
-**5. Dupla verificação de "Falha Entrega" — redundante**
-- O filtro SQL (linha 430) exclui esses envios, mas o código na linha 521-525 verifica novamente e loga "Skip"
-- Se o filtro SQL funcionar, esse log nunca aparece. Se não funcionar, gasta slots.
+**4. Tabela de Tabelas** 
+- Lista das 10 maiores tabelas com nome, rows e tamanho
+- Barras de progresso visuais proporcionais
 
-### Correções
+### Como buscar os dados
 
-**Arquivo 1: `supabase/functions/advance-shipments/index.ts`**
-- Aumentar `MAX_PER_RUN` de 200 → 500
-- Aumentar `MAX_PER_LOJA` de 100 → 300
-- Reduzir `BATCH_DELAY_MS` de 500ms → 200ms (já é sequencial, o delay é desnecessário tão alto)
-- Remover o check redundante de `pauseLabels` dentro de `advanceShipment()` (linhas 521-525) — já filtrado na query SQL
-- Garantir que o filtro `.not("status_label", "in", ...)` está correto
+- **DB stats**: Query `pg_stat_user_tables` + `pg_total_relation_size` via uma database function (RPC) pois o client não acessa `pg_stat_*` diretamente. Alternativa: contar rows das tabelas conhecidas diretamente.
+- **Fila de processamento**: Queries normais nas tabelas `envios`, `postagem_email_log`, `webhook_logs`
+- **Edge Functions**: Não acessível do frontend. Usaremos os dados já disponíveis (`webhook_logs` para taxa de erro, `postagem_email_log` para volume)
 
-**Arquivo 2: `supabase/functions/resend-daily-emails/index.ts`**
-- Adicionar paginação na busca de `postagem_email_log` (loop com `.range()` em blocos de 1000) para suportar qualquer volume
+### Implementação prática (sem RPC)
 
-**Arquivo 3: `src/lib/email-trigger.ts`**
-- Remover o check redundante de `pauseLabels` (linhas 91-95) — a lógica de pausa é gerenciada pelo cron, não pelo trigger manual
+Como não temos acesso a `pg_stat_*` do frontend, usaremos queries diretas:
 
-### Redeploy
-- Redeployar `advance-shipments` para garantir que a versão correta esteja ativa
+**Arquivo: `src/pages/admin/AdminDashboard.tsx`**
+- Adicionar nova query `admin-system-health` que busca:
+  - `envios` com `proximo_avanco_em <= now()` e status ativo → fila de avanço
+  - `postagem_email_log` com `status = 'pending'` hoje → emails pendentes  
+  - `webhook_logs` últimas 24h → total e falhas
+  - Contagem de cada tabela principal (envios, pedidos, email_log, webhook_logs, leads)
+- Nova seção visual com ícone de Activity/Server
+- Cards com indicadores de status (verde/amarelo/vermelho baseado em thresholds)
+- Refresh automático a cada 30s (mesmo interval dos emails)
 
-### Impacto
-- 1.135 envios prontos processados em ~2 ciclos (10 min) em vez de ~6 ciclos (30 min)
-- Sem limite prático para volume diário de emails reenviados
-- Redução de 60% no tempo total de processamento por ciclo
+### Thresholds visuais
+- **Fila de avanço**: Verde (<50), Amarelo (50-200), Vermelho (>200)
+- **Emails pendentes**: Verde (<20), Amarelo (20-100), Vermelho (>100)
+- **Taxa erro webhook**: Verde (<5%), Amarelo (5-15%), Vermelho (>15%)
 
