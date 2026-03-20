@@ -1,36 +1,25 @@
 
 
-## Plano: Adicionar "Recebedor (Vizinho)" no Evento de Entregue
+## Plano: Preencher campos obrigatórios da NF-e com valores padrão
 
-### Conceito
-Quando o status é "Entregue", exibir na página de rastreio e no email dados de um suposto recebedor (vizinho do comprador). O sistema gerará aleatoriamente um nome e CPF mascarado a partir de uma lista fixa de 5 nomes e 5 CPFs.
+### Problema
+A DANFE gerada no servidor (edge function `resend-nfe`) está enviando campos em branco para NCM/SH, CST, CFOP e número da NF-e quando o envio não tem esses dados preenchidos. O frontend já tem defaults, mas o backend não.
 
-### Implementação
+### Correção
 
-**Arquivo 1: `src/pages/Rastreio.tsx`** (2 locais — desktop e mobile timeline)
-- No `case "Entregue"`, além do `locationText`, gerar um nome e CPF aleatório baseado no `envio.id` (usar hash determinístico para que o mesmo envio sempre mostre o mesmo vizinho)
-- Exibir abaixo da localização:
-  ```
-  Recebedor: Maria Aparecida (Vizinho(a) de João)
-  Documento: ***.456.789-**
-  ```
-- Lista fixa de 5 nomes: ["Maria Aparecida", "José Carlos", "Ana Paula", "Carlos Eduardo", "Fernanda Silva"]
-- Lista fixa de 5 CPFs mascarados: ["***.234.567-**", "***.891.012-**", "***.456.789-**", "***.123.654-**", "***.987.321-**"]
+**Arquivo 1: `supabase/functions/resend-nfe/index.ts`** — Função `generateDanfePdf`
 
-**Arquivo 2: `src/components/postagens/emailTemplates.ts`**
-- Atualizar o template "Entregue" para incluir texto sobre o recebedor com placeholders `{{recebedor_nome}}` e `{{recebedor_cpf}}`
+Adicionar valores padrão nos campos fiscais dos produtos e no número da NF-e:
+- `ncm_sh` → fallback `"00000000"`
+- `cst` → fallback `"000"`  
+- `cfop` → fallback `"5102"`
+- `nfe_numero` → gerar número aleatório formatado (ex: `"000.123.456"`) baseado em hash do envio.id para ser determinístico
+- `nfe_serie` → fallback `"001"`
+- `nfe_chave_acesso` → gerar chave de 44 dígitos aleatória baseada no envio.id
 
-**Arquivo 3: `supabase/functions/send-email/index.ts`**
-- Na função `replaceVariables` ou no momento do envio do email "Entregue", gerar o nome/CPF aleatório (mesma lógica determinística baseada no envio_id) e substituir os placeholders `{{recebedor_nome}}` e `{{recebedor_cpf}}`
+**Arquivo 2: `src/components/danfe/DanfePreview.tsx`** — Coluna CST
 
-### Lógica de aleatoriedade determinística
-Usar um hash simples do `envio.id` para selecionar o índice (0-4) nos arrays, garantindo que o mesmo envio sempre mostre o mesmo vizinho em qualquer lugar (email, rastreio, etc.)
+A tabela de produtos no frontend não exibe a coluna CST (a imagem mostra que está faltando). Verificar se o header "CST" existe na tabela HTML e adicionar se necessário, com o mesmo fallback `"000"`.
 
-```text
-index = simpleHash(envio_id) % 5
-nome = NOMES[index]
-cpf = CPFS[index]
-```
-
-O primeiro nome do `cliente_nome` será usado para "Vizinho(a) de {nome}".
+Ambos os locais (frontend e backend) terão os mesmos valores padrão para consistência.
 
