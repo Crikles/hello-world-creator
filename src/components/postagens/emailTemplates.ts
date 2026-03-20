@@ -116,7 +116,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
   },
   Entregue: {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Seu pedido **{{produto}}** foi entregue com sucesso!\n\nEsperamos que você aproveite! Se tiver alguma dúvida, não hesite em nos contatar.",
+    mensagem: "Seu pedido **{{produto}}** foi entregue com sucesso!\n\n**Dados do recebedor:**\nRecebedor: {{recebedor_nome}} (Vizinho(a) de {{cliente_primeiro_nome}})\nDocumento: {{recebedor_cpf}}\n\nEsperamos que você aproveite! Se tiver alguma dúvida, não hesite em nos contatar.",
     mostrar_info_pedido: true,
     mostrar_botao_cta: false,
     texto_botao_cta: "",

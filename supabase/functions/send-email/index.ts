@@ -169,6 +169,29 @@ async function generateDanfePdfServerSide(empresa: any, envio: any): Promise<Uin
 
 const DEFAULT_TRANSPORTADORA = "JL Transportadora e Logística LTDA";
 
+// ============ Vizinho (Neighbor) deterministic logic ============
+const VIZINHO_NOMES = ["Maria Aparecida", "José Carlos", "Ana Paula", "Carlos Eduardo", "Fernanda Silva"];
+const VIZINHO_CPFS = ["***.234.567-**", "***.891.012-**", "***.456.789-**", "***.123.654-**", "***.987.321-**"];
+
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getVizinhoExtras(envioId: string, clienteNome: string): Record<string, string> {
+  const idx = simpleHash(envioId) % 5;
+  const primeiroNome = clienteNome.split(" ")[0];
+  return {
+    recebedor_nome: VIZINHO_NOMES[idx],
+    recebedor_cpf: VIZINHO_CPFS[idx],
+    cliente_primeiro_nome: primeiroNome,
+  };
+}
+
 const emojiMap: Record<string, string> = {
   "Postado": "📄",
   "Nota Fiscal Emitida": "📄",
@@ -1062,6 +1085,13 @@ Deno.serve(async (req) => {
       empresa_logo_url: empresaLogoUrl,
       whatsapp_vendedor: whatsappVendedor,
     };
+
+    // Add vizinho (neighbor) data for "Entregue" events
+    const statusLabel = (evento.status_label as string) || "";
+    if (statusLabel === "Entregue") {
+      const vizinhoExtras = getVizinhoExtras(envio.id, envio.cliente_nome || "");
+      Object.assign(extras, vizinhoExtras);
+    }
 
     // Build beautiful HTML email
     const subject = replaceVariables(
