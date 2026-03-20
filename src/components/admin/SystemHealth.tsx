@@ -277,78 +277,84 @@ export function SystemHealth() {
   );
 }
 
+async function fetchAllPaginated<T>(
+  tableName: string,
+  selectFields: string,
+  orderBy?: string,
+): Promise<T[]> {
+  const PAGE = 1000;
+  let all: T[] = [];
+  let from = 0;
+  while (true) {
+    let q = supabase.from(tableName as any).select(selectFields).range(from, from + PAGE - 1);
+    if (orderBy) q = q.order(orderBy, { ascending: false });
+    const { data, error } = await q;
+    if (error || !data || data.length === 0) break;
+    all = all.concat(data as T[]);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
 function UserUsageTable() {
   const { data: users, isLoading } = useQuery({
     queryKey: ["admin-user-usage"],
     queryFn: async () => {
-      // Fetch all profiles
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, created_at")
-        .order("created_at", { ascending: false });
+      // Fetch ALL profiles (paginated)
+      const profiles = await fetchAllPaginated<{ id: string; full_name: string | null; email: string | null; created_at: string }>(
+        "profiles",
+        "id, full_name, email, created_at",
+        "created_at",
+      );
 
-      if (!profiles || profiles.length === 0) return [];
+      if (profiles.length === 0) return [];
 
-      // Fetch all lojas with user_id
-      const { data: lojas } = await supabase
-        .from("lojas")
-        .select("id, user_id, nome");
+      const lojas = await fetchAllPaginated<{ id: string; user_id: string; nome: string }>(
+        "lojas",
+        "id, user_id, nome",
+      );
 
-      // Fetch all creditos
-      const { data: creditos } = await supabase
-        .from("creditos")
-        .select("user_id, saldo");
+      const creditos = await fetchAllPaginated<{ user_id: string; saldo: number }>(
+        "creditos",
+        "user_id, saldo",
+      );
 
       const lojasByUser = new Map<string, string[]>();
-      (lojas || []).forEach((l) => {
+      lojas.forEach((l) => {
         const arr = lojasByUser.get(l.user_id) || [];
         arr.push(l.id);
         lojasByUser.set(l.user_id, arr);
       });
 
-      // Get all loja IDs for batch counts
-      const allLojaIds = (lojas || []).map((l) => l.id);
+      const allLojaIds = lojas.map((l) => l.id);
 
-      // Fetch counts per loja_id for envios, email_log, leads
-      const [enviosData, emailData, leadsData] = await Promise.all([
-        allLojaIds.length > 0
-          ? supabase
-              .from("envios")
-              .select("loja_id")
-              .is("deleted_at", null)
-              .in("loja_id", allLojaIds)
-          : Promise.resolve({ data: [] }),
-        allLojaIds.length > 0
-          ? supabase
-              .from("postagem_email_log")
-              .select("loja_id")
-              .in("loja_id", allLojaIds)
-          : Promise.resolve({ data: [] }),
-        allLojaIds.length > 0
-          ? supabase
-              .from("leads")
-              .select("loja_id")
-              .in("loja_id", allLojaIds)
-          : Promise.resolve({ data: [] }),
-      ]);
+      // Use exact counts per loja instead of fetching all rows
+      // For each loja, get counts via head:true queries
+      const enviosByLoja = new Map<string, number>();
+      const emailsByLoja = new Map<string, number>();
+      const leadsByLoja = new Map<string, number>();
 
-      // Count per loja
-      const countByLoja = (items: { loja_id: string | null }[] | null) => {
-        const map = new Map<string, number>();
-        (items || []).forEach((i) => {
-          if (i.loja_id) map.set(i.loja_id, (map.get(i.loja_id) || 0) + 1);
+      // Batch count queries for all lojas in parallel (chunks of 20)
+      const CHUNK = 20;
+      for (let i = 0; i < allLojaIds.length; i += CHUNK) {
+        const chunk = allLojaIds.slice(i, i + CHUNK);
+        const promises = chunk.flatMap((lojaId) => [
+          supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", lojaId).is("deleted_at", null),
+          supabase.from("postagem_email_log").select("id", { count: "exact", head: true }).eq("loja_id", lojaId),
+          supabase.from("leads").select("id", { count: "exact", head: true }).eq("loja_id", lojaId),
+        ]);
+        const results = await Promise.all(promises);
+        chunk.forEach((lojaId, idx) => {
+          enviosByLoja.set(lojaId, results[idx * 3].count || 0);
+          emailsByLoja.set(lojaId, results[idx * 3 + 1].count || 0);
+          leadsByLoja.set(lojaId, results[idx * 3 + 2].count || 0);
         });
-        return map;
-      };
-
-      const enviosByLoja = countByLoja(enviosData.data as any);
-      const emailsByLoja = countByLoja(emailData.data as any);
-      const leadsByLoja = countByLoja(leadsData.data as any);
+      }
 
       const creditosByUser = new Map<string, number>();
-      (creditos || []).forEach((c) => creditosByUser.set(c.user_id, c.saldo));
+      creditos.forEach((c) => creditosByUser.set(c.user_id, c.saldo));
 
-      // Aggregate per user
       const result = profiles.map((p) => {
         const userLojas = lojasByUser.get(p.id) || [];
         const envios = userLojas.reduce((s, lid) => s + (enviosByLoja.get(lid) || 0), 0);
