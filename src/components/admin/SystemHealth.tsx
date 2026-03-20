@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   Activity, Database, Clock, AlertTriangle, CheckCircle2,
-  Mail, Webhook, Package, Server, BarChart3,
+  Mail, Webhook, Package, Server, BarChart3, Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
