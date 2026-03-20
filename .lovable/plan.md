@@ -1,23 +1,36 @@
 
 
-## Plano: Adicionar Barra de Progresso ao "Forçar Todos" e "Avançar Todos"
+## Plano: Adicionar "Recebedor (Vizinho)" no Evento de Entregue
 
-### Problema
-Os botões "Forçar Todos" e "Avançar Todos" agendam envios no servidor (atualizam `proximo_avanco_em = now()`), mas **não usam o `BatchProgressContext`** para mostrar a barra de progresso. Após confirmar no AlertDialog, o sistema só mostra um toast — sem feedback visual de carregamento.
+### Conceito
+Quando o status é "Entregue", exibir na página de rastreio e no email dados de um suposto recebedor (vizinho do comprador). O sistema gerará aleatoriamente um nome e CPF mascarado a partir de uma lista fixa de 5 nomes e 5 CPFs.
 
-Isso acontece para todos os usuários (admin impersonando ou não).
+### Implementação
 
-### Correção
+**Arquivo 1: `src/pages/Rastreio.tsx`** (2 locais — desktop e mobile timeline)
+- No `case "Entregue"`, além do `locationText`, gerar um nome e CPF aleatório baseado no `envio.id` (usar hash determinístico para que o mesmo envio sempre mostre o mesmo vizinho)
+- Exibir abaixo da localização:
+  ```
+  Recebedor: Maria Aparecida (Vizinho(a) de João)
+  Documento: ***.456.789-**
+  ```
+- Lista fixa de 5 nomes: ["Maria Aparecida", "José Carlos", "Ana Paula", "Carlos Eduardo", "Fernanda Silva"]
+- Lista fixa de 5 CPFs mascarados: ["***.234.567-**", "***.891.012-**", "***.456.789-**", "***.123.654-**", "***.987.321-**"]
 
-**Arquivo: `src/pages/Envios.tsx`** — Função `handleBatchConfirmed` (linhas 482-517)
+**Arquivo 2: `src/components/postagens/emailTemplates.ts`**
+- Atualizar o template "Entregue" para incluir texto sobre o recebedor com placeholders `{{recebedor_nome}}` e `{{recebedor_cpf}}`
 
-Integrar com `startBatch` / `updateProgress` / `finishBatch` do `BatchProgressContext`:
+**Arquivo 3: `supabase/functions/send-email/index.ts`**
+- Na função `replaceVariables` ou no momento do envio do email "Entregue", gerar o nome/CPF aleatório (mesma lógica determinística baseada no envio_id) e substituir os placeholders `{{recebedor_nome}}` e `{{recebedor_cpf}}`
 
-1. Chamar `startBatch(targets.length)` antes de iniciar os chunks
-2. Chamar `updateProgress(updated)` após cada chunk de 50
-3. Chamar `finishBatch()` ao final
-4. Verificar `checkCancelled()` entre chunks para permitir cancelamento
-5. Em caso de erro, chamar `finishBatch()` para limpar a barra
+### Lógica de aleatoriedade determinística
+Usar um hash simples do `envio.id` para selecionar o índice (0-4) nos arrays, garantindo que o mesmo envio sempre mostre o mesmo vizinho em qualquer lugar (email, rastreio, etc.)
 
-Isso fará a barra de progresso aparecer no header (já implementada no `AppLayout`) e o botão de cancelar substituir os botões de ação (já implementado nas linhas 706-715).
+```text
+index = simpleHash(envio_id) % 5
+nome = NOMES[index]
+cpf = CPFS[index]
+```
+
+O primeiro nome do `cliente_nome` será usado para "Vizinho(a) de {nome}".
 
