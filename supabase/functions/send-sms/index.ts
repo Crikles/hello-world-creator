@@ -97,8 +97,8 @@ Deno.serve(async (req) => {
 
     const firstName = (envio.cliente_nome || "").split(" ")[0];
     const code = envio.codigo_rastreio || "";
-    const baseUrl = "https://rastreio.jltransportelogistica.com";
-    const link = `${baseUrl}/r/${code}`;
+    const redirectBaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const link = `${redirectBaseUrl}/functions/v1/redirect?c=${code}`;
 
     const message = removeAccents(
       await getMessageFromDB(supabase, status_label, firstName, link)
