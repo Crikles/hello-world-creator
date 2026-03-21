@@ -699,7 +699,9 @@ export type Database = {
           evento_id: string | null
           id: string
           loja_id: string
+          resend_email_id: string | null
           status: string
+          updated_at: string | null
         }
         Insert: {
           assunto?: string | null
@@ -710,7 +712,9 @@ export type Database = {
           evento_id?: string | null
           id?: string
           loja_id: string
+          resend_email_id?: string | null
           status?: string
+          updated_at?: string | null
         }
         Update: {
           assunto?: string | null
@@ -721,7 +725,9 @@ export type Database = {
           evento_id?: string | null
           id?: string
           loja_id?: string
+          resend_email_id?: string | null
           status?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
