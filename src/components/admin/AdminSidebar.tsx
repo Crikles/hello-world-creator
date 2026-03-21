@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Coins, Store, LogOut, Mail, FileText, DollarSign, MessageSquare, Contact, Bell, CreditCard, HeadphonesIcon, Smartphone } from "lucide-react";
+import { LayoutDashboard, Users, Coins, Store, LogOut, Mail, FileText, DollarSign, MessageSquare, Contact, Bell, CreditCard, HeadphonesIcon, Smartphone, HeartPulse } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ const menuItems = [
   { title: "Push Web", url: "/admin/push", icon: Bell },
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
   { title: "WhatsApp", url: "/admin/whatsapp", icon: Smartphone },
+  { title: "Emails", url: "/admin/emails", icon: Mail },
+  { title: "Saúde Emails", url: "/admin/email-saude", icon: HeartPulse },
   { title: "Suporte", url: "/admin/suporte", icon: HeadphonesIcon },
 ];
 

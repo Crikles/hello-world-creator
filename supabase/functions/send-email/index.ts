@@ -1255,6 +1255,7 @@ Deno.serve(async (req) => {
       assunto: subject,
       status: "sent",
       custo: 0.0021,
+      resend_email_id: resendData.id || null,
     });
 
     return new Response(
