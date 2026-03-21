@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Save, Coins, Phone } from "lucide-react";
+import { Save, Coins, Phone, Link } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface SystemConfig {
@@ -15,9 +15,13 @@ interface SystemConfig {
   label: string | null;
 }
 
+// Keys that store text in the `label` field instead of numeric `value`
+const TEXT_KEYS = ["tracking_base_url"];
+
 export default function AdminValores() {
   const queryClient = useQueryClient();
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
+  const [localLabels, setLocalLabels] = useState<Record<string, string>>({});
 
   const { data: rawConfigs, isLoading } = useQuery({
     queryKey: ["system-config"],
@@ -36,28 +40,45 @@ export default function AdminValores() {
   useEffect(() => {
     if (configs) {
       const values: Record<string, string> = {};
+      const labels: Record<string, string> = {};
       configs.forEach((c) => {
         values[c.key] = String(c.value);
+        labels[c.key] = c.label || "";
       });
       setLocalValues(values);
+      setLocalLabels(labels);
     }
   }, [configs]);
 
-  const hasChanges = configs.some(
-    (c) => localValues[c.key] !== undefined && localValues[c.key] !== String(c.value)
-  );
+  const hasChanges = configs.some((c) => {
+    if (TEXT_KEYS.includes(c.key)) {
+      return localLabels[c.key] !== undefined && localLabels[c.key] !== (c.label || "");
+    }
+    return localValues[c.key] !== undefined && localValues[c.key] !== String(c.value);
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!configs) return;
       for (const config of configs) {
-        const newVal = parseFloat(localValues[config.key]);
-        if (!isNaN(newVal) && newVal !== config.value) {
-          const { error } = await supabase
-            .from("system_config")
-            .update({ value: newVal })
-            .eq("key", config.key);
-          if (error) throw error;
+        if (TEXT_KEYS.includes(config.key)) {
+          const newLabel = localLabels[config.key];
+          if (newLabel !== undefined && newLabel !== (config.label || "")) {
+            const { error } = await supabase
+              .from("system_config")
+              .update({ label: newLabel })
+              .eq("key", config.key);
+            if (error) throw error;
+          }
+        } else {
+          const newVal = parseFloat(localValues[config.key]);
+          if (!isNaN(newVal) && newVal !== config.value) {
+            const { error } = await supabase
+              .from("system_config")
+              .update({ value: newVal })
+              .eq("key", config.key);
+            if (error) throw error;
+          }
         }
       }
     },
@@ -69,6 +90,17 @@ export default function AdminValores() {
       toast({ title: "Erro ao salvar valores", variant: "destructive" });
     },
   });
+
+  const getIcon = (key: string) => {
+    if (key === "whatsapp_suporte") return <Phone className="h-4 w-4 text-green-500" />;
+    if (TEXT_KEYS.includes(key)) return <Link className="h-4 w-4 text-blue-500" />;
+    return <Coins className="h-4 w-4 text-amber-500" />;
+  };
+
+  const getDisplayLabel = (config: SystemConfig) => {
+    if (config.key === "tracking_base_url") return "URL Base do Rastreio";
+    return config.label || config.key;
+  };
 
   return (
     <AdminLayout>
@@ -97,39 +129,55 @@ export default function AdminValores() {
               <Card key={config.key}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    {config.key === "whatsapp_suporte" ? (
-                      <Phone className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Coins className="h-4 w-4 text-amber-500" />
-                    )}
-                    {config.label || config.key}
+                    {getIcon(config.key)}
+                    {getDisplayLabel(config)}
                   </CardTitle>
                   <CardDescription className="text-xs font-mono">
                     {config.key}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      step={config.key === "whatsapp_suporte" ? "1" : "0.01"}
-                      min="0"
-                      value={localValues[config.key] ?? ""}
-                      onChange={(e) =>
-                        setLocalValues((prev) => ({
-                          ...prev,
-                          [config.key]: e.target.value,
-                        }))
-                      }
-                      className="w-full"
-                      placeholder={config.key === "whatsapp_suporte" ? "Ex: 5511999999999" : ""}
-                    />
-                    {config.key !== "whatsapp_suporte" && (
-                      <Label className="text-xs text-muted-foreground whitespace-nowrap">
-                        moedas
-                      </Label>
-                    )}
-                  </div>
+                  {TEXT_KEYS.includes(config.key) ? (
+                    <div className="space-y-1">
+                      <Input
+                        type="url"
+                        value={localLabels[config.key] ?? ""}
+                        onChange={(e) =>
+                          setLocalLabels((prev) => ({
+                            ...prev,
+                            [config.key]: e.target.value,
+                          }))
+                        }
+                        className="w-full"
+                        placeholder="https://rastreio.seudominio.com"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Se o domínio cair, mude aqui e todos os links antigos continuam funcionando
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step={config.key === "whatsapp_suporte" ? "1" : "0.01"}
+                        min="0"
+                        value={localValues[config.key] ?? ""}
+                        onChange={(e) =>
+                          setLocalValues((prev) => ({
+                            ...prev,
+                            [config.key]: e.target.value,
+                          }))
+                        }
+                        className="w-full"
+                        placeholder={config.key === "whatsapp_suporte" ? "Ex: 5511999999999" : ""}
+                      />
+                      {config.key !== "whatsapp_suporte" && (
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                          moedas
+                        </Label>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
