@@ -63,5 +63,8 @@ verify_jwt = false
 [functions.resend-daily-emails]
 verify_jwt = false
 
+[functions.redirect]
+verify_jwt = false
+
 [functions.api-external]
 verify_jwt = false
