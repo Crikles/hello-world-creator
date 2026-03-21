@@ -41,14 +41,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { dry_run } = await req.json().catch(() => ({ dry_run: false }));
+    const { dry_run, mode } = await req.json().catch(() => ({ dry_run: false, mode: "sent" }));
+
+    // mode "failed" targets failed/bounced emails; default targets "sent" (original behavior)
+    const statusFilter = mode === "failed" ? ["failed", "bounced"] : ["sent"];
 
     // Get today's start in UTC
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const todayISO = today.toISOString();
 
-    // Fetch ALL sent emails today with pagination (Supabase default limit is 1000)
+    // Fetch ALL matching emails today with pagination
     const PAGE_SIZE = 1000;
     let allLogs: { envio_id: string; evento_id: string; loja_id: string }[] = [];
     let offset = 0;
@@ -59,7 +62,7 @@ Deno.serve(async (req) => {
         .from("postagem_email_log")
         .select("envio_id, evento_id, loja_id")
         .gte("created_at", todayISO)
-        .eq("status", "sent")
+        .in("status", statusFilter)
         .not("envio_id", "is", null)
         .not("evento_id", "is", null)
         .range(offset, offset + PAGE_SIZE - 1);
