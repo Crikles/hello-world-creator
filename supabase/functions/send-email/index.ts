@@ -384,11 +384,11 @@ function buildEmailHtml(
   let mostrarBotaoCta = true;
   let textoBotaoCta = "Rastrear Pedido";
   const codigoRastreio = (envio.codigo_rastreio as string) || "";
-  let urlBotaoCta = codigoRastreio ? `${appBaseUrl}/r/${codigoRastreio}` : "#";
+  let urlBotaoCta = codigoRastreio ? `${appBaseUrl}?c=${codigoRastreio}` : "#";
 
   // For Taxação status, always point the CTA to the payment page
   if (statusLabel === "Taxação" && envioId) {
-    urlBotaoCta = `${appBaseUrl}/p/${envioId}`;
+    urlBotaoCta = `${appBaseUrl}?p=${envioId}`;
     textoBotaoCta = "PAGAR TAXA";
   }
 
@@ -645,7 +645,7 @@ function buildTaxacaoEmailHtml(
   const mensagem = replaceVariables(tax.mensagem_taxa, envio, extras);
 
   // Link to the public payment page instead of direct checkout
-  const paymentPageUrl = `${appBaseUrl}/p/${envioId}`;
+  const paymentPageUrl = `${appBaseUrl}?p=${envioId}`;
 
   const prazoHtml = tax.mostrar_prazo && tax.prazo_dias
     ? `<p style="margin:6px 0 0;font-size:11px;color:#78716c;">Prazo: ${tax.prazo_dias} dias para pagamento</p>`
@@ -1111,8 +1111,9 @@ Deno.serve(async (req) => {
       envio,
       extras
     );
-    // Determine app base URL for payment page links
-    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://rastreio.jltransportelogistica.com";
+    // Use redirect edge function as base URL so links never break if domain changes
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const appBaseUrl = `${supabaseUrl}/functions/v1/redirect`;
 
     const primaryColor = isJadlog ? "#e10526" : corPrimaria;
     const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);
