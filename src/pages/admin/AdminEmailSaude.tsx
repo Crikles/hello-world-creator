@@ -11,20 +11,21 @@ import { Button } from "@/components/ui/button";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Calendar } from "@/components/ui/calendar";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, ShieldAlert } from "lucide-react";
-import { format, subDays } from "date-fns";
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, ShieldAlert,
+  CalendarIcon, RefreshCw, Send,
+} from "lucide-react";
+import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import type { DateRange } from "react-day-picker";
 
 const NEGATIVE_STATUSES = ["bounced", "complained", "failed", "delivery_delayed"];
-
-const PERIOD_OPTIONS = [
-  { label: "7 dias", value: "7" },
-  { label: "30 dias", value: "30" },
-  { label: "90 dias", value: "90" },
-];
 
 interface EmailLog {
   id: string;
@@ -55,41 +56,85 @@ interface Evento {
   status_label: string | null;
 }
 
+interface TodayFailure {
+  id: string;
+  destinatario: string;
+  status: string;
+  created_at: string;
+  loja_id: string;
+  evento_id: string | null;
+  envio_id: string | null;
+}
+
 export default function AdminEmailSaude() {
-  const [period, setPeriod] = useState("30");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
   const [openUsers, setOpenUsers] = useState<Set<string>>(new Set());
+  const [isResending, setIsResending] = useState(false);
 
-  const since = useMemo(() => subDays(new Date(), parseInt(period)).toISOString(), [period]);
+  const since = useMemo(
+    () => (dateRange?.from ? startOfDay(dateRange.from).toISOString() : subDays(new Date(), 30).toISOString()),
+    [dateRange?.from]
+  );
+  const until = useMemo(
+    () => (dateRange?.to ? new Date(dateRange.to.getTime() + 86400000 - 1).toISOString() : new Date().toISOString()),
+    [dateRange?.to]
+  );
 
-  // Fetch all negative email logs in period
+  const setPreset = (days: number) => {
+    setDateRange({ from: subDays(new Date(), days), to: new Date() });
+  };
+
+  // Fetch negative email logs in period
   const { data: negativeLogs, isLoading: logsLoading } = useQuery({
-    queryKey: ["admin-email-saude-negative", period],
+    queryKey: ["admin-email-saude-negative", since, until],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("postagem_email_log")
         .select("id, loja_id, envio_id, evento_id, destinatario, status, created_at, updated_at")
         .in("status", NEGATIVE_STATUSES)
         .gte("created_at", since)
+        .lte("created_at", until)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as EmailLog[];
     },
   });
 
-  // Fetch total sent in period for percentage calculation
+  // Fetch total sent in period
   const { data: totalSent } = useQuery({
-    queryKey: ["admin-email-saude-total", period],
+    queryKey: ["admin-email-saude-total", since, until],
     queryFn: async () => {
       const { count, error } = await supabase
         .from("postagem_email_log")
         .select("id", { count: "exact", head: true })
-        .gte("created_at", since);
+        .gte("created_at", since)
+        .lte("created_at", until);
       if (error) throw error;
       return count || 0;
     },
   });
 
-  // Fetch all lojas
+  // Today's failures
+  const todayStart = useMemo(() => startOfDay(new Date()).toISOString(), []);
+  const { data: todayFailures, isLoading: todayLoading, refetch: refetchToday } = useQuery({
+    queryKey: ["admin-email-today-failures", todayStart],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("postagem_email_log")
+        .select("id, destinatario, status, created_at, loja_id, evento_id, envio_id")
+        .in("status", ["failed", "bounced"])
+        .gte("created_at", todayStart)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as TodayFailure[];
+    },
+    refetchInterval: 30000,
+  });
+
+  // Fetch all lojas, profiles, eventos
   const { data: lojas } = useQuery({
     queryKey: ["admin-all-lojas"],
     queryFn: async () => {
@@ -99,7 +144,6 @@ export default function AdminEmailSaude() {
     },
   });
 
-  // Fetch all profiles
   const { data: profiles } = useQuery({
     queryKey: ["admin-all-profiles"],
     queryFn: async () => {
@@ -109,7 +153,6 @@ export default function AdminEmailSaude() {
     },
   });
 
-  // Fetch all eventos for stage names
   const { data: eventos } = useQuery({
     queryKey: ["admin-all-eventos"],
     queryFn: async () => {
@@ -119,7 +162,7 @@ export default function AdminEmailSaude() {
     },
   });
 
-  // Maps for quick lookup
+  // Maps
   const lojaMap = useMemo(() => {
     const m = new Map<string, Loja>();
     lojas?.forEach((l) => m.set(l.id, l));
@@ -167,11 +210,7 @@ export default function AdminEmailSaude() {
           userName: profile?.full_name || "Sem nome",
           userEmail: profile?.email || "",
           lojaNames: new Set(),
-          bounced: 0,
-          complained: 0,
-          failed: 0,
-          delivery_delayed: 0,
-          total: 0,
+          bounced: 0, complained: 0, failed: 0, delivery_delayed: 0, total: 0,
           byEvento: new Map(),
         });
       }
@@ -220,6 +259,57 @@ export default function AdminEmailSaude() {
     });
   };
 
+  const handleResendFailed = async () => {
+    setIsResending(true);
+    try {
+      // Dry run first
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) { toast.error("Sessão expirada"); return; }
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const baseUrl = `https://${projectId}.supabase.co/functions/v1`;
+
+      const dryRes = await fetch(`${baseUrl}/resend-daily-emails`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dry_run: true, mode: "failed" }),
+      });
+
+      if (!dryRes.ok) {
+        toast.error("Erro ao verificar emails falhados");
+        return;
+      }
+
+      const { total } = await dryRes.json();
+      if (total === 0) {
+        toast.info("Nenhum email falhado para reenviar hoje");
+        return;
+      }
+
+      const confirmed = window.confirm(`Reenviar ${total} emails falhados de hoje?`);
+      if (!confirmed) return;
+
+      toast.loading("Reenviando emails...", { id: "resend" });
+
+      const res = await fetch(`${baseUrl}/resend-daily-emails`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dry_run: false, mode: "failed" }),
+      });
+
+      if (!res.ok) throw new Error("Falha no reenvio");
+
+      const result = await res.json();
+      toast.success(`Reenvio concluído: ${result.success} ok, ${result.failed} falhas`, { id: "resend" });
+      refetchToday();
+    } catch (e) {
+      toast.error("Erro ao reenviar: " + (e as Error).message, { id: "resend" });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   const statusBadge = (status: string, count: number) => {
     if (count === 0) return null;
     const variants: Record<string, string> = {
@@ -228,36 +318,123 @@ export default function AdminEmailSaude() {
       failed: "bg-red-700 hover:bg-red-800 text-white",
       delivery_delayed: "bg-yellow-500 hover:bg-yellow-600 text-black",
     };
-    return (
-      <Badge className={variants[status] || ""}>
-        {count} {status}
-      </Badge>
-    );
+    return <Badge className={variants[status] || ""}>{count} {status}</Badge>;
   };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        {/* Header with date picker */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Saúde de Emails</h1>
             <p className="text-muted-foreground">
               Monitoramento de status negativos por usuário e etapa do fluxo.
             </p>
           </div>
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PERIOD_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  Últimos {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setPreset(0)}>Hoje</Button>
+            <Button variant="outline" size="sm" onClick={() => setPreset(7)}>7d</Button>
+            <Button variant="outline" size="sm" onClick={() => setPreset(30)}>30d</Button>
+            <Button variant="outline" size="sm" onClick={() => setPreset(90)}>90d</Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>{format(dateRange.from, "dd/MM", { locale: ptBR })} - {format(dateRange.to, "dd/MM", { locale: ptBR })}</>
+                    ) : format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                  ) : "Selecionar"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                  locale={ptBR}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
+
+        {/* Today's Failures + Resend */}
+        <Card className="border-destructive/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Falhas de Hoje
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => refetchToday()}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleResendFailed}
+                disabled={isResending || !todayFailures?.length}
+              >
+                {isResending ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Reenviar Falhas ({todayFailures?.length || 0})
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {todayLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : !todayFailures?.length ? (
+              <p className="text-center py-4 text-muted-foreground">Nenhuma falha hoje 🎉</p>
+            ) : (
+              <div className="max-h-64 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Destinatário</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Etapa</TableHead>
+                      <TableHead>Loja</TableHead>
+                      <TableHead>Hora</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {todayFailures.map((f) => {
+                      const evento = f.evento_id ? eventoMap.get(f.evento_id) : null;
+                      const loja = lojaMap.get(f.loja_id);
+                      return (
+                        <TableRow key={f.id}>
+                          <TableCell className="font-mono text-xs">{f.destinatario}</TableCell>
+                          <TableCell>
+                            <Badge className={f.status === "bounced" ? "bg-red-500 text-white" : "bg-red-700 text-white"}>
+                              {f.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{evento?.status_label || evento?.nome || "—"}</TableCell>
+                          <TableCell className="text-sm">{loja?.nome || "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {format(new Date(f.created_at), "HH:mm")}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
