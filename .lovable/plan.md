@@ -1,35 +1,53 @@
 
 
-## Plano: Reenviar 67 emails faltantes + Corrigir bug de cobrança
+## Plano: Webhook Resend + Painel de Saúde de Email por Usuário
 
-### Problema
-- 172 envios foram avançados para "Falha Entrega", mas apenas 105 receberam o email
-- 67 envios ficaram sem notificação porque o saldo de SMS esgotou durante o processamento em lote
-- O usuário já pagou pelo fluxo completo na primeira etapa (currentOrdem === 0), então cobranças de SMS em etapas subsequentes não deveriam bloquear o envio de emails
+### Resumo
 
-### Parte 1: Reenviar os 67 emails pendentes
+Integrar webhooks da Resend para capturar status reais dos emails (delivered, bounced, complained, etc.) e criar um painel admin focado em **problemas por usuário** — mostrando quais contas têm emails com status negativos e em qual etapa do pedido ocorreram.
 
-Criar e executar um script que:
-1. Identifica os 67 envios em "Falha Entrega" sem registro de email para o evento `8fab5897-01ca-43c6-9b2a-938b17c18de4`
-2. Chama a edge function `send-email` para cada um deles com `envio_id`, `evento_id` e `loja_id`
-3. Processa com delay de 500ms entre cada chamada para respeitar rate limits
+### Entendi sua ideia — aqui está a versão aperfeiçoada:
 
-### Parte 2: Corrigir o bug na lógica de cobrança
+Em vez de mostrar todos os emails de todos os usuários (que seria poluído), o painel vai funcionar assim:
 
-O problema está em dois lugares:
+1. **Visão geral**: Cards com totais de bounces, complaints e falhas no período
+2. **Ranking de usuários problemáticos**: Uma tabela mostrando cada usuário que teve pelo menos 1 status negativo, com:
+   - Nome / Email do usuário
+   - Nome da loja
+   - Quantidade de bounces, complaints e falhas
+   - % de falha (negativos / total enviados)
+3. **Drill-down por usuário**: Ao clicar num usuário, expande e mostra quais **etapas do fluxo** (ex: "Saiu para Entrega", "Falha Entrega", "Entregue") geraram os status negativos, com contagem por etapa
+4. Tudo isso **apenas no painel admin**
 
-**Arquivo 1: `src/lib/email-trigger.ts`** (client-side trigger)
-- Na seção de SMS dispatch (~linha 170): quando o debit de SMS falha por saldo insuficiente, `canSendSms` é definido como `false` — isso está correto, o email ainda é enviado
-- Porém, verificar se há alguma outra condição que pode bloquear o fluxo
+### Alterações técnicas
 
-**Arquivo 2: `supabase/functions/advance-shipments/index.ts`** (cron/batch)
-- A lógica de SMS (linhas 666-694) já está correta — falha de SMS não bloqueia email
-- O verdadeiro problema: durante o "Forçar Todos" em lote no client-side, se o `triggerNextEmail` lança `InsufficientBalanceError` no debit de SMS, o `catch` na linha 196 propaga o erro e o envio inteiro é abortado para aquele registro
-- **Correção**: O `InsufficientBalanceError` só deve ser lançado quando a cobrança INICIAL (currentOrdem === 0) falha. A cobrança de SMS não deve lançar essa exceção — já não lança, apenas define `canSendSms = false`
+**1. Migration: Adicionar colunas na `postagem_email_log`**
+- `resend_email_id TEXT` — vincula ao ID do Resend para receber webhooks
+- `updated_at TIMESTAMPTZ DEFAULT now()` — última atualização de status
 
-Após investigação mais detalhada, o problema mais provável é que o processamento em lote no frontend **cancelou ou atingiu timeout** antes de processar todos os 67 restantes, já que o batch processa sequencialmente. O status foi atualizado mas o email não foi disparado a tempo.
+**2. Edge Function: `send-email/index.ts`**
+- Salvar `resendData.id` como `resend_email_id` nos inserts de log (linhas 1250-1258)
 
-### Resumo das alterações
-- **Execução imediata**: Script para reenviar 67 emails via `send-email`
-- **Sem mudança de código necessária**: A lógica de cobrança já está correta — SMS não bloqueia email. O problema foi operacional (batch interrompido ou timeout)
+**3. Nova Edge Function: `webhook-resend/index.ts`**
+- Recebe POST da Resend com eventos (delivered, opened, bounced, complained, delivery_delayed)
+- Localiza o log pelo `resend_email_id` (campo `data.email_id` do payload)
+- Atualiza o `status` e `updated_at` do registro
+- Valida via header Svix (opcional, pode ser adicionado depois com signing secret)
+- Status mapeados: `email.delivered` → `delivered`, `email.bounced` → `bounced`, `email.complained` → `complained`, `email.delivery_delayed` → `delivery_delayed`
+
+**4. Nova página admin: Saúde de Email por Usuário**
+- Rota: `/admin/email-saude`
+- Query que cruza `postagem_email_log` → `envios` → `lojas` → `profiles` para agrupar por usuário
+- Cruza com `postagem_eventos` (via `evento_id`) para saber o nome da etapa
+- Filtra apenas status negativos: `bounced`, `complained`, `failed`, `delivery_delayed`
+- Cards resumo no topo + tabela de usuários com accordion para drill-down por etapa
+- Filtro por período (7d, 30d, custom)
+
+**5. Atualizar `AdminEmail.tsx` existente**
+- Mostrar badges coloridas para os novos status (delivered=verde, bounced=vermelho, complained=laranja)
+- O painel existente continua sendo o log geral
+
+**6. Adicionar rota e link no menu admin**
+- Nova entrada no sidebar: "Saúde Emails"
+- Rota protegida com `AdminRoute`
 
