@@ -85,6 +85,7 @@ export default function AdminEmailSaude() {
   const [openUsers, setOpenUsers] = useState<Set<string>>(new Set());
   const [isResending, setIsResending] = useState(false);
   const [dryRunCount, setDryRunCount] = useState<number | null>(null);
+  const [resendResults, setResendResults] = useState<{ destinatario: string; envio_id: string; status: "ok" | "erro"; erro?: string }[] | null>(null);
 
   const since = useMemo(
     () => (dateRange?.from ? startOfDay(dateRange.from).toISOString() : subDays(new Date(), 30).toISOString()),
@@ -304,6 +305,7 @@ export default function AdminEmailSaude() {
 
   const handleResendFailed = async () => {
     setIsResending(true);
+    setResendResults(null);
     try {
       const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
@@ -349,7 +351,8 @@ export default function AdminEmailSaude() {
       if (!res.ok) throw new Error("Falha no reenvio");
 
       const result = await res.json();
-      toast.success(`Reenvio concluído: ${result.success} ok, ${result.failed} falhas`, { id: "resend" });
+      setResendResults(result.results || []);
+      toast.success(`Reenvio concluído: ${result.success} ✅, ${result.failed} ❌`, { id: "resend" });
       refetchToday();
     } catch (e) {
       toast.error("Erro ao reenviar: " + (e as Error).message, { id: "resend" });
@@ -508,6 +511,51 @@ export default function AdminEmailSaude() {
             )}
           </CardContent>
         </Card>
+
+        {/* Resend Results */}
+        {resendResults && resendResults.length > 0 && (
+          <Card className="border-primary/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Send className="h-5 w-5 text-primary" />
+                Resultado do Reenvio
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setResendResults(null)}>
+                Fechar
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-48 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Destinatário</TableHead>
+                      <TableHead>Resultado</TableHead>
+                      <TableHead>Detalhes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {resendResults.map((r, idx) => (
+                      <TableRow key={`result-${idx}`}>
+                        <TableCell className="font-mono text-xs">{r.destinatario}</TableCell>
+                        <TableCell>
+                          {r.status === "ok" ? (
+                            <Badge className="bg-green-600 text-white">✅ Enviado</Badge>
+                          ) : (
+                            <Badge className="bg-red-600 text-white">❌ Falhou</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {r.status === "ok" ? "Email reenviado com sucesso" : r.erro || "Erro desconhecido"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
