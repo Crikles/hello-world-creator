@@ -512,6 +512,51 @@ export default function AdminEmailSaude() {
           </CardContent>
         </Card>
 
+        {/* Resend Results */}
+        {resendResults && resendResults.length > 0 && (
+          <Card className="border-primary/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Send className="h-5 w-5 text-primary" />
+                Resultado do Reenvio
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setResendResults(null)}>
+                Fechar
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-48 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Destinatário</TableHead>
+                      <TableHead>Resultado</TableHead>
+                      <TableHead>Detalhes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {resendResults.map((r, idx) => (
+                      <TableRow key={`result-${idx}`}>
+                        <TableCell className="font-mono text-xs">{r.destinatario}</TableCell>
+                        <TableCell>
+                          {r.status === "ok" ? (
+                            <Badge className="bg-green-600 text-white">✅ Enviado</Badge>
+                          ) : (
+                            <Badge className="bg-red-600 text-white">❌ Falhou</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {r.status === "ok" ? "Email reenviado com sucesso" : r.erro || "Erro desconhecido"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
