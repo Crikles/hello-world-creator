@@ -328,7 +328,7 @@ export default function AdminUsuarios() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {usuarios.map((u) => (
+                  {[...usuarios].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((u) => (
                     <TableRow key={u.id} className={u.blocked ? "opacity-60" : ""}>
                       <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
                       <TableCell>{u.email || "—"}</TableCell>
