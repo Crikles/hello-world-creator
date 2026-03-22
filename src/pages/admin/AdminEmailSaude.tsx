@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import {
   AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, ShieldAlert,
-  CalendarIcon, RefreshCw, Send,
+  CalendarIcon, RefreshCw, Send, CircleAlert, CircleX,
 } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -66,6 +66,17 @@ interface TodayFailure {
   envio_id: string | null;
 }
 
+interface GroupedFailure {
+  destinatario: string;
+  status: string;
+  loja_id: string;
+  evento_id: string | null;
+  envio_id: string | null;
+  attempts: number;
+  latest_at: string;
+  isBounceRepeat: boolean;
+}
+
 export default function AdminEmailSaude() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 30),
@@ -73,6 +84,7 @@ export default function AdminEmailSaude() {
   });
   const [openUsers, setOpenUsers] = useState<Set<string>>(new Set());
   const [isResending, setIsResending] = useState(false);
+  const [dryRunCount, setDryRunCount] = useState<number | null>(null);
 
   const since = useMemo(
     () => (dateRange?.from ? startOfDay(dateRange.from).toISOString() : subDays(new Date(), 30).toISOString()),
@@ -133,6 +145,37 @@ export default function AdminEmailSaude() {
     },
     refetchInterval: 30000,
   });
+
+  // Group today's failures by destinatario+evento_id
+  const groupedFailures = useMemo<GroupedFailure[]>(() => {
+    if (!todayFailures?.length) return [];
+    const map = new Map<string, GroupedFailure>();
+    for (const f of todayFailures) {
+      const key = `${f.destinatario}_${f.evento_id || "none"}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          destinatario: f.destinatario,
+          status: f.status,
+          loja_id: f.loja_id,
+          evento_id: f.evento_id,
+          envio_id: f.envio_id,
+          attempts: 1,
+          latest_at: f.created_at,
+          isBounceRepeat: false,
+        });
+      } else {
+        const existing = map.get(key)!;
+        existing.attempts++;
+        if (f.status === "bounced") existing.status = "bounced";
+        if (existing.attempts >= 2 && existing.status === "bounced") {
+          existing.isBounceRepeat = true;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      new Date(b.latest_at).getTime() - new Date(a.latest_at).getTime()
+    );
+  }, [todayFailures]);
 
   // Fetch all lojas, profiles, eventos
   const { data: lojas } = useQuery({
@@ -262,7 +305,6 @@ export default function AdminEmailSaude() {
   const handleResendFailed = async () => {
     setIsResending(true);
     try {
-      // Dry run first
       const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
       if (!token) { toast.error("Sessão expirada"); return; }
@@ -270,6 +312,7 @@ export default function AdminEmailSaude() {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const baseUrl = `https://${projectId}.supabase.co/functions/v1`;
 
+      // Dry run first to get real count
       const dryRes = await fetch(`${baseUrl}/resend-daily-emails`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -282,12 +325,17 @@ export default function AdminEmailSaude() {
       }
 
       const { total } = await dryRes.json();
+      setDryRunCount(total);
+
       if (total === 0) {
-        toast.info("Nenhum email falhado para reenviar hoje");
+        toast.info("Nenhum email elegível para reenvio (bounce repetido ou já reenviado com sucesso)");
         return;
       }
 
-      const confirmed = window.confirm(`Reenviar ${total} emails falhados de hoje?`);
+      const confirmed = window.confirm(
+        `Reenviar ${total} email(s) falhado(s) de hoje?\n\n` +
+        `(Emails com bounce repetido são limitados a 2 tentativas por dia)`
+      );
       if (!confirmed) return;
 
       toast.loading("Reenviando emails...", { id: "resend" });
@@ -370,6 +418,11 @@ export default function AdminEmailSaude() {
             <CardTitle className="text-lg flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               Falhas de Hoje
+              {todayFailures && todayFailures.length > 0 && groupedFailures.length < todayFailures.length && (
+                <span className="text-xs text-muted-foreground font-normal">
+                  ({groupedFailures.length} únicos de {todayFailures.length} registros)
+                </span>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={() => refetchToday()}>
@@ -379,14 +432,14 @@ export default function AdminEmailSaude() {
                 variant="destructive"
                 size="sm"
                 onClick={handleResendFailed}
-                disabled={isResending || !todayFailures?.length}
+                disabled={isResending || !groupedFailures?.length}
               >
                 {isResending ? (
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="mr-2 h-4 w-4" />
                 )}
-                Reenviar Falhas ({todayFailures?.length || 0})
+                Reenviar Falhas ({dryRunCount !== null ? dryRunCount : groupedFailures.length})
               </Button>
             </div>
           </CardHeader>
@@ -395,7 +448,7 @@ export default function AdminEmailSaude() {
               <div className="flex items-center justify-center py-4">
                 <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
-            ) : !todayFailures?.length ? (
+            ) : !groupedFailures?.length ? (
               <p className="text-center py-4 text-muted-foreground">Nenhuma falha hoje 🎉</p>
             ) : (
               <div className="max-h-64 overflow-auto">
@@ -404,27 +457,47 @@ export default function AdminEmailSaude() {
                     <TableRow>
                       <TableHead>Destinatário</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Tentativas</TableHead>
                       <TableHead>Etapa</TableHead>
                       <TableHead>Loja</TableHead>
-                      <TableHead>Hora</TableHead>
+                      <TableHead>Última</TableHead>
+                      <TableHead>Ação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {todayFailures.map((f) => {
+                    {groupedFailures.map((f, idx) => {
                       const evento = f.evento_id ? eventoMap.get(f.evento_id) : null;
                       const loja = lojaMap.get(f.loja_id);
                       return (
-                        <TableRow key={f.id}>
+                        <TableRow key={`${f.destinatario}-${f.evento_id}-${idx}`}>
                           <TableCell className="font-mono text-xs">{f.destinatario}</TableCell>
                           <TableCell>
                             <Badge className={f.status === "bounced" ? "bg-red-500 text-white" : "bg-red-700 text-white"}>
                               {f.status}
                             </Badge>
                           </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              x{f.attempts}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="text-sm">{evento?.status_label || evento?.nome || "—"}</TableCell>
                           <TableCell className="text-sm">{loja?.nome || "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
-                            {format(new Date(f.created_at), "HH:mm")}
+                            {format(new Date(f.latest_at), "HH:mm")}
+                          </TableCell>
+                          <TableCell>
+                            {f.isBounceRepeat ? (
+                              <span className="flex items-center gap-1 text-xs text-red-500" title="Email provavelmente inválido — bounce repetido">
+                                <CircleX className="h-4 w-4" />
+                                Inválido
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-xs text-green-600" title="Vale tentar reenviar">
+                                <CircleAlert className="h-4 w-4" />
+                                Reenviar
+                              </span>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
