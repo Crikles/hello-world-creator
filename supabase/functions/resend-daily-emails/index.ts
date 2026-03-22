@@ -175,6 +175,7 @@ Deno.serve(async (req) => {
 
     let success = 0;
     let failed = 0;
+    const results: { destinatario: string; envio_id: string; status: "ok" | "erro"; erro?: string }[] = [];
 
     for (const item of toResend) {
       try {
@@ -193,13 +194,17 @@ Deno.serve(async (req) => {
 
         if (resp.ok) {
           success++;
+          results.push({ destinatario: item.destinatario, envio_id: item.envio_id, status: "ok" });
         } else {
+          const errText = await resp.text().catch(() => "");
           console.error(`Failed for envio ${item.envio_id}: ${resp.status}`);
           failed++;
+          results.push({ destinatario: item.destinatario, envio_id: item.envio_id, status: "erro", erro: `HTTP ${resp.status}` });
         }
       } catch (e) {
         console.error(`Error for envio ${item.envio_id}:`, e);
         failed++;
+        results.push({ destinatario: item.destinatario, envio_id: item.envio_id, status: "erro", erro: (e as Error).message });
       }
 
       // Rate limit delay
@@ -207,7 +212,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ total: toResend.length, success, failed }),
+      JSON.stringify({ total: toResend.length, success, failed, results }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
