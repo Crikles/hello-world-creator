@@ -85,6 +85,7 @@ export default function AdminEmailSaude() {
   const [openUsers, setOpenUsers] = useState<Set<string>>(new Set());
   const [isResending, setIsResending] = useState(false);
   const [dryRunCount, setDryRunCount] = useState<number | null>(null);
+  const [resendResults, setResendResults] = useState<{ destinatario: string; envio_id: string; status: "ok" | "erro"; erro?: string }[] | null>(null);
 
   const since = useMemo(
     () => (dateRange?.from ? startOfDay(dateRange.from).toISOString() : subDays(new Date(), 30).toISOString()),
