@@ -66,6 +66,17 @@ interface TodayFailure {
   envio_id: string | null;
 }
 
+interface GroupedFailure {
+  destinatario: string;
+  status: string;
+  loja_id: string;
+  evento_id: string | null;
+  envio_id: string | null;
+  attempts: number;
+  latest_at: string;
+  isBounceRepeat: boolean;
+}
+
 export default function AdminEmailSaude() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 30),
