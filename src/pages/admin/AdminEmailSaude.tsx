@@ -305,6 +305,7 @@ export default function AdminEmailSaude() {
 
   const handleResendFailed = async () => {
     setIsResending(true);
+    setResendResults(null);
     try {
       const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
@@ -350,7 +351,8 @@ export default function AdminEmailSaude() {
       if (!res.ok) throw new Error("Falha no reenvio");
 
       const result = await res.json();
-      toast.success(`Reenvio concluído: ${result.success} ok, ${result.failed} falhas`, { id: "resend" });
+      setResendResults(result.results || []);
+      toast.success(`Reenvio concluído: ${result.success} ✅, ${result.failed} ❌`, { id: "resend" });
       refetchToday();
     } catch (e) {
       toast.error("Erro ao reenviar: " + (e as Error).message, { id: "resend" });
