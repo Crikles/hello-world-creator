@@ -65,9 +65,19 @@ const payloadJson = `{
       "name": "Camiseta Oversized – \\"Luz do Mundo\\" (2 Cores) - G / Preto",
       "quantity": 2,
       "price": 49.90
+    },
+    {
+      "name": "Calça Jogger Premium - M / Cinza",
+      "quantity": 1,
+      "price": 89.90
+    },
+    {
+      "name": "Boné Aba Reta – Edição Limitada",
+      "quantity": 3,
+      "price": 39.90
     }
   ],
-  "total": 99.80
+  "total": 309.40
 }`;
 
 const responseExample = `{
