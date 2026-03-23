@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Check, BookOpen, Terminal, Code2, FileCode2, Braces, Key, Send, AlertTriangle, HelpCircle, ChevronDown, ChevronUp, Play, Loader2, PackageOpen, Info } from "lucide-react";
+import { Copy, Check, BookOpen, Terminal, Code2, FileCode2, Braces, Key, Send, AlertTriangle, HelpCircle, ChevronDown, ChevronUp, Play, Loader2, PackageOpen, Info, Zap, Shield, Globe } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
