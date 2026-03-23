@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Check, BookOpen, Terminal, Code2, FileCode2, Braces, Key, Send, AlertTriangle, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Copy, Check, BookOpen, Terminal, Code2, FileCode2, Braces, Key, Send, AlertTriangle, HelpCircle, ChevronDown, ChevronUp, Play, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -76,6 +77,40 @@ export default function DocumentacaoPublica() {
   const [token, setToken] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [testPayload, setTestPayload] = useState(payloadJson);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [testStatus, setTestStatus] = useState<number | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
+
+  const handleTestRequest = async () => {
+    if (!token) return;
+    try {
+      JSON.parse(testPayload);
+      setJsonError(null);
+    } catch {
+      setJsonError("JSON inválido. Verifique a sintaxe.");
+      return;
+    }
+    setTestLoading(true);
+    setTestResult(null);
+    setTestStatus(null);
+    try {
+      const res = await fetch(`${ENDPOINT_BASE}?token=${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: testPayload,
+      });
+      const data = await res.json();
+      setTestStatus(res.status);
+      setTestResult(data);
+    } catch (err: any) {
+      setTestStatus(0);
+      setTestResult({ error: err.message || "Erro de rede" });
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const displayToken = token || "SEU_TOKEN";
   const fullUrl = `${ENDPOINT_BASE}?token=${displayToken}`;
@@ -229,7 +264,61 @@ echo $result['codigo_rastreio'];`;
           </Tabs>
         </section>
 
-        {/* Success Response */}
+        {/* Sandbox de Teste */}
+        <section className="rounded-xl border-2 border-primary/30 bg-card p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Play className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-bold text-foreground">Testar API</h2>
+            <Badge variant="outline" className="border-primary/30 text-primary text-[10px]">Live</Badge>
+          </div>
+          <div className="flex items-center gap-2 mb-4 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+            <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+            <p className="text-[11px] text-destructive">Este teste cria um pedido real na sua conta. Use com moderação.</p>
+          </div>
+
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Payload JSON (editável)</label>
+          <Textarea
+            value={testPayload}
+            onChange={(e) => { setTestPayload(e.target.value); setJsonError(null); }}
+            className="font-mono text-xs min-h-[200px] mb-2"
+            spellCheck={false}
+          />
+          {jsonError && <p className="text-xs text-destructive mb-2">{jsonError}</p>}
+
+          <Button
+            onClick={handleTestRequest}
+            disabled={!token || testLoading}
+            className="w-full gap-2"
+          >
+            {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {testLoading ? "Enviando..." : !token ? "Insira seu token acima" : "Enviar Requisição de Teste"}
+          </Button>
+
+          {testResult && (
+            <div className="mt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-medium text-muted-foreground">Resposta:</span>
+                <Badge className={testStatus && testStatus >= 200 && testStatus < 300
+                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]"
+                  : "bg-destructive/20 text-destructive border-destructive/30 text-[10px]"
+                }>
+                  {testStatus === 0 ? "Erro de rede" : `${testStatus}`}
+                </Badge>
+              </div>
+              <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(testResult, null, 2)}
+              </pre>
+              {testResult.codigo_rastreio && (
+                <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  <span className="text-sm text-foreground">Rastreio: <strong className="text-primary">{testResult.codigo_rastreio}</strong></span>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+
         <section className="rounded-xl border border-border/40 bg-card p-6">
           <div className="flex items-center gap-2 mb-3">
             <Check className="h-4 w-4 text-emerald-400" />
