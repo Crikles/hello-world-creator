@@ -240,7 +240,7 @@ export default function Integracoes() {
         <Button
           variant="outline"
           className="w-full glass border-primary/20 hover:border-primary/40 gap-2"
-          onClick={() => navigate(`/loja/${loja?.id}/api-docs`)}
+          onClick={() => window.open('/documentacao', '_blank')}
         >
           <BookOpen className="h-4 w-4" />
           Ver Documentação Completa
