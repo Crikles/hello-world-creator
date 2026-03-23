@@ -269,7 +269,78 @@ echo $result['codigo_rastreio'];`;
               </p>
             </section>
 
-            {/* Code Examples */}
+            {/* Quick Start */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Zap className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Quick Start</h2>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { step: "1", title: "Obtenha seu token", desc: "No painel Magnus Frete, vá em Integrações e copie o token da sua loja." },
+                  { step: "2", title: "Monte o payload", desc: "Crie um JSON com pelo menos customer.name, customer.email e items[].name." },
+                  { step: "3", title: "Envie via POST", desc: "Faça um POST para o endpoint com o token na URL e o JSON no body." },
+                  { step: "4", title: "Receba o rastreio", desc: "A resposta retorna o codigo_rastreio e os IDs do pedido e envio criados." },
+                ].map((item) => (
+                  <div key={item.step} className="flex items-start gap-3">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">{item.step}</div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Auth & CORS */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Autenticação & CORS</h2>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/20 border border-border/20">
+                  <Key className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                  <div className="text-xs text-muted-foreground">
+                    <p><strong className="text-foreground">Autenticação via Token:</strong> O token é enviado como query parameter <code className="text-primary bg-muted/40 px-1 rounded">?token=SEU_TOKEN</code>. Não são necessários headers de autenticação (Bearer, API Key, etc).</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/20 border border-border/20">
+                  <Globe className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                  <div className="text-xs text-muted-foreground">
+                    <p><strong className="text-foreground">CORS habilitado:</strong> A API aceita requisições de qualquer origem (<code className="text-primary bg-muted/40 px-1 rounded">Access-Control-Allow-Origin: *</code>). Você pode chamar a API tanto de backends quanto diretamente do frontend (browser).</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/20 border border-border/20">
+                  <AlertTriangle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                  <div className="text-xs text-muted-foreground">
+                    <p><strong className="text-foreground">Importante:</strong> Cada requisição cria um <strong>novo pedido e envio</strong>. A API não é idempotente — implemente controle de duplicidade no seu lado se necessário. Cada chamada consome <strong>1 crédito</strong>.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Minimal Payload */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Code2 className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Payload Mínimo</h2>
+                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Apenas obrigatórios</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Para criar um envio rapidamente, você precisa enviar apenas <strong>3 campos</strong>:
+              </p>
+              <div className="relative">
+                <CopyBtn text={minimalPayloadJson} id="minimal" />
+                <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{minimalPayloadJson}</pre>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Campos omitidos usam valores padrão: <code className="text-primary bg-muted/40 px-1 rounded">quantity = 1</code>, <code className="text-primary bg-muted/40 px-1 rounded">price = 0</code>, <code className="text-primary bg-muted/40 px-1 rounded">total = calculado automaticamente</code>.
+              </p>
+            </section>
+
+
             <section className="rounded-xl border border-border/40 bg-card p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Code2 className="h-4 w-4 text-primary" />
