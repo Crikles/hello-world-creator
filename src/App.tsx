@@ -45,6 +45,7 @@ import Indicacao from "./pages/Indicacao";
 import ResetPassword from "./pages/ResetPassword";
 import Suporte from "./pages/Suporte";
 import WhatsApp from "./pages/WhatsApp";
+import DocumentacaoPublica from "./pages/DocumentacaoPublica";
 
 const queryClient = new QueryClient();
 
