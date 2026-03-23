@@ -42,7 +42,21 @@ const faqItems = [
   { q: "O código de rastreio é gerado automaticamente?", a: "Sim! A API retorna o código de rastreio na resposta de sucesso." },
   { q: "Preciso enviar todos os campos?", a: "Não. Apenas customer.name, customer.email e items[].name são obrigatórios. Os demais são opcionais." },
   { q: "Qual o limite de requisições?", a: "Cada requisição consome 1 crédito da sua conta. Não há limite de taxa, mas recomendamos espaçar requisições em lote." },
+  { q: "A API é idempotente?", a: "Não. Cada requisição cria um novo pedido e envio, mesmo com o mesmo payload. Implemente controle de duplicidade no seu lado se necessário." },
+  { q: "Posso usar a API via frontend (browser)?", a: "Sim! A API suporta CORS com Access-Control-Allow-Origin: *, permitindo chamadas direto do browser." },
+  { q: "Os valores são em reais ou centavos?", a: "Em reais (R$). Exemplo: 49.90 = R$ 49,90. O sistema converte para centavos internamente." },
+  { q: "Posso enviar um pedido sem endereço?", a: "Sim. O endereço é opcional. Porém, sem ele o envio ficará sem dados de entrega no painel." },
 ];
+
+const minimalPayloadJson = `{
+  "customer": {
+    "name": "Maria Oliveira",
+    "email": "maria@email.com"
+  },
+  "items": [
+    { "name": "Produto Exemplo" }
+  ]
+}`;
 
 const payloadJson = `{
   "customer": {
