@@ -62,22 +62,22 @@ const payloadJson = `{
   },
   "items": [
     {
-      "name": "Camiseta Oversized – \\"Luz do Mundo\\" (2 Cores) - G / Preto",
-      "quantity": 2,
-      "price": 49.90
+      "name": "Tênis Sport Max – Edição \\"Urban\\" (3 Cores) - 42 / Branco",
+      "quantity": 1,
+      "price": 199.90
     },
     {
-      "name": "Calça Jogger Premium - M / Cinza",
+      "name": "Mochila Impermeável Pro - Preta",
+      "quantity": 2,
+      "price": 129.90
+    },
+    {
+      "name": "Óculos de Sol – Coleção Verão",
       "quantity": 1,
       "price": 89.90
-    },
-    {
-      "name": "Boné Aba Reta – Edição Limitada",
-      "quantity": 3,
-      "price": 39.90
     }
   ],
-  "total": 309.40
+  "total": 549.60
 }`;
 
 const responseExample = `{
