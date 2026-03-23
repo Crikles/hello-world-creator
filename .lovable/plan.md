@@ -1,30 +1,29 @@
 
 
-## Plano: Página Pública de Documentação da API
-
-### Situação atual
-- A API Externa (`api-external/index.ts`) está implementada e funcional — aceita POST com token, valida campos, cria pedido + envio.
-- A documentação atual (`ApiDocs.tsx`) está **dentro da área logada**, acessível apenas em `/loja/:lojaId/api-docs`. Usa `useLoja()` para pegar o token automaticamente.
-- Precisa de uma versão **pública** acessível sem login.
+## Plano: Sandbox de Teste na Documentação Pública
 
 ### O que será feito
 
-**1. Nova página pública: `src/pages/DocumentacaoPublica.tsx`**
-- Acessível em `/documentacao` (sem autenticação)
-- Conteúdo completo e profissional: endpoint, campos, exemplos (cURL, JavaScript, Python, PHP), respostas de sucesso e erro
-- Campo de input onde o dev cola seu token — os exemplos de código atualizam automaticamente com o token informado
-- Visual limpo e moderno, sem dependência de LojaContext
-- Seções: Introdução, Autenticação, Endpoint, Campos do Payload, Exemplos de Código, Respostas, Erros, FAQ
+Adicionar uma seção **"Testar API"** na página `/documentacao` onde o usuário cola seu token, vê um payload de exemplo editável, clica em "Enviar Teste" e vê a resposta da API em tempo real — confirmando se o pedido entrou no painel.
 
-**2. Rota pública no `App.tsx`**
-- Adicionar `/documentacao` como rota pública dentro de `PanelRoutes`, fora do `ProtectedRoute`
-- Funciona em `magnusfrete.lovable.app/documentacao` e em qualquer domínio custom configurado
+### Implementação
 
-**3. Verificar API Externa**
-- Revisar os logs da edge function para confirmar que está operacional
-- A function já está deployada e os logs mostram que está respondendo
+**Arquivo: `src/pages/DocumentacaoPublica.tsx`**
 
-### Arquivos alterados
-- `src/pages/DocumentacaoPublica.tsx` — nova página pública
-- `src/App.tsx` — adicionar rota `/documentacao`
+- Nova seção entre "Exemplos de Integração" e "Resposta de Sucesso"
+- Componentes:
+  - Textarea com payload JSON pré-preenchido (editável pelo dev)
+  - Botão "Enviar Requisição de Teste"
+  - Área de resultado mostrando: status HTTP, resposta JSON formatada, e badge verde/vermelho de sucesso/erro
+  - Se o token estiver vazio, botão fica desabilitado com tooltip "Insira seu token acima"
+- Ao clicar, faz `fetch(ENDPOINT_BASE?token=..., { method: "POST", body: payload })` diretamente do browser
+- Mostra loading spinner durante a requisição
+- Exibe a resposta completa com destaque no `codigo_rastreio` se sucesso
+- Aviso: "Este teste cria um pedido real na sua conta"
+
+### Detalhes técnicos
+- Usa `fetch` direto (a API já tem CORS habilitado com `Access-Control-Allow-Origin: *`)
+- Estado: `testPayload` (string JSON editável), `testResult` (objeto resposta), `testLoading`, `testStatus` (número HTTP)
+- Validação local de JSON antes de enviar (try/catch no `JSON.parse`)
+- Nenhum arquivo backend alterado — a API já suporta tudo necessário
 
