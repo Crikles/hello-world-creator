@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Check, BookOpen, Terminal, Code2, FileCode2, Braces, Key, Send, AlertTriangle, HelpCircle, ChevronDown, ChevronUp, Play, Loader2 } from "lucide-react";
+import { Copy, Check, BookOpen, Terminal, Code2, FileCode2, Braces, Key, Send, AlertTriangle, HelpCircle, ChevronDown, ChevronUp, Play, Loader2, PackageOpen, Info } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -297,7 +297,52 @@ echo $result['codigo_rastreio'];`;
               </div>
             </section>
 
-            {/* Payload Fields */}
+            {/* Multiple Products */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <PackageOpen className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Múltiplos Produtos</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                A API aceita <strong>múltiplos produtos</strong> no array <code className="text-primary text-xs">items[]</code>. Veja como eles aparecem no painel:
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/20 border border-border/20">
+                  <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                  <div className="text-xs text-muted-foreground space-y-1.5">
+                    <p><strong className="text-foreground">Campo "Produto" no envio:</strong> Todos os itens são exibidos como uma lista no painel. Ex: <code className="text-primary bg-muted/40 px-1 rounded">Tênis Sport Max (1x), Mochila Impermeável (2x)</code></p>
+                    <p><strong className="text-foreground">Quantidade total:</strong> É a soma de todas as quantidades dos itens. Se você enviar 1 + 2 + 1 = <strong>4 unidades</strong> no total.</p>
+                    <p><strong className="text-foreground">Valor total:</strong> Se o campo <code className="text-primary bg-muted/40 px-1 rounded">total</code> for omitido, o sistema calcula automaticamente: <code className="text-primary bg-muted/40 px-1 rounded">Σ (price × quantity)</code> de cada item.</p>
+                  </div>
+                </div>
+                <div className="bg-muted/30 border border-border/20 rounded-lg p-4">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Exemplo — como aparece no painel</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-foreground">📦 Tênis Sport Max – Edição "Urban" - 42 / Branco</span>
+                      <span className="text-muted-foreground">1x · R$ 199,90</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-foreground">📦 Mochila Impermeável Pro - Preta</span>
+                      <span className="text-muted-foreground">2x · R$ 129,90</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-foreground">📦 Óculos de Sol – Coleção Verão</span>
+                      <span className="text-muted-foreground">1x · R$ 89,90</span>
+                    </div>
+                    <div className="border-t border-border/30 mt-2 pt-2 flex justify-between text-xs font-semibold">
+                      <span className="text-foreground">Total: 4 unidades</span>
+                      <span className="text-primary">R$ 549,60</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  <strong>Dica:</strong> Caracteres especiais como acentos (ã, é), aspas ("..."), traços (–) e barras (/) são totalmente suportados nos nomes dos produtos.
+                </p>
+              </div>
+            </section>
+
+
             <section className="rounded-xl border border-border/40 bg-card p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Braces className="h-4 w-4 text-primary" />
