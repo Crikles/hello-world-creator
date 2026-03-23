@@ -77,6 +77,40 @@ export default function DocumentacaoPublica() {
   const [token, setToken] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [testPayload, setTestPayload] = useState(payloadJson);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [testStatus, setTestStatus] = useState<number | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
+
+  const handleTestRequest = async () => {
+    if (!token) return;
+    try {
+      JSON.parse(testPayload);
+      setJsonError(null);
+    } catch {
+      setJsonError("JSON inválido. Verifique a sintaxe.");
+      return;
+    }
+    setTestLoading(true);
+    setTestResult(null);
+    setTestStatus(null);
+    try {
+      const res = await fetch(`${ENDPOINT_BASE}?token=${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: testPayload,
+      });
+      const data = await res.json();
+      setTestStatus(res.status);
+      setTestResult(data);
+    } catch (err: any) {
+      setTestStatus(0);
+      setTestResult({ error: err.message || "Erro de rede" });
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const displayToken = token || "SEU_TOKEN";
   const fullUrl = `${ENDPOINT_BASE}?token=${displayToken}`;
