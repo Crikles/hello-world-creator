@@ -45,6 +45,7 @@ import Indicacao from "./pages/Indicacao";
 import ResetPassword from "./pages/ResetPassword";
 import Suporte from "./pages/Suporte";
 import WhatsApp from "./pages/WhatsApp";
+import DocumentacaoPublica from "./pages/DocumentacaoPublica";
 
 const queryClient = new QueryClient();
 
@@ -163,6 +164,7 @@ function PanelRoutes() {
         <Route path="/r" element={<Rastreio />} />
         <Route path="/r/:codigoParam" element={<Rastreio />} />
         <Route path="/p/:envioId" element={<Pagamento />} />
+        <Route path="/documentacao" element={<DocumentacaoPublica />} />
         <Route path="/" element={<Navigate to="/lojas" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
