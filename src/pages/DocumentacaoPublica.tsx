@@ -61,7 +61,11 @@ const payloadJson = `{
     "complement": "Apto 1"
   },
   "items": [
-    { "name": "Produto X", "quantity": 2, "price": 49.90 }
+    {
+      "name": "Camiseta Oversized – \\"Luz do Mundo\\" (2 Cores) - G / Preto",
+      "quantity": 2,
+      "price": 49.90
+    }
   ],
   "total": 99.80
 }`;
@@ -72,6 +76,14 @@ const responseExample = `{
   "envio_id": "uuid-do-envio",
   "codigo_rastreio": "BR1A2B3C4D5EJL"
 }`;
+
+function sanitizeJson(text: string): string {
+  return text
+    .replace(/\u201C|\u201D/g, '"')  // smart double quotes
+    .replace(/\u2018|\u2019/g, "'")  // smart single quotes
+    .replace(/\u2013/g, "-")         // en dash
+    .replace(/\u2014/g, "-");        // em dash
+}
 
 export default function DocumentacaoPublica() {
   const [token, setToken] = useState("");
@@ -85,8 +97,9 @@ export default function DocumentacaoPublica() {
 
   const handleTestRequest = async () => {
     if (!token) return;
+    const cleaned = sanitizeJson(testPayload);
     try {
-      JSON.parse(testPayload);
+      JSON.parse(cleaned);
       setJsonError(null);
     } catch {
       setJsonError("JSON inválido. Verifique a sintaxe.");
@@ -99,7 +112,7 @@ export default function DocumentacaoPublica() {
       const res = await fetch(`${ENDPOINT_BASE}?token=${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: testPayload,
+        body: cleaned,
       });
       const data = await res.json();
       setTestStatus(res.status);
@@ -176,7 +189,7 @@ echo $result['codigo_rastreio'];`;
     <div className="min-h-screen bg-background">
       {/* Hero */}
       <div className="border-b border-border/40 bg-gradient-to-b from-primary/5 to-background">
-        <div className="max-w-4xl mx-auto px-4 py-12 md:py-16">
+        <div className="max-w-7xl mx-auto px-4 py-10 md:py-14">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2.5 rounded-xl bg-primary/10">
               <BookOpen className="h-6 w-6 text-primary" />
@@ -189,232 +202,256 @@ echo $result['codigo_rastreio'];`;
           <p className="text-muted-foreground text-lg max-w-2xl">
             Integre seu sistema diretamente com o Magnus Frete. Envie pedidos via HTTP POST e receba códigos de rastreio automaticamente.
           </p>
+
+          {/* Token Input */}
+          <div className="mt-6 max-w-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <Key className="h-4 w-4 text-primary" />
+              <span className="text-sm font-bold text-foreground">Seu Token</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-2">
+              Cole seu token para que os exemplos e o sandbox sejam atualizados. Encontre em <strong>Integrações → API Externa</strong>.
+            </p>
+            <Input
+              placeholder="Cole seu token aqui..."
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              className="font-mono text-sm"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Token Input */}
-        <section className="rounded-xl border border-border/40 bg-card p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Key className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold text-foreground">Seu Token</h2>
-          </div>
-          <p className="text-xs text-muted-foreground mb-4">
-            Cole seu token abaixo para que os exemplos de código sejam atualizados automaticamente. 
-            Encontre seu token no painel em <strong>Integrações → API Externa</strong>.
-          </p>
-          <Input
-            placeholder="Cole seu token aqui..."
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            className="font-mono text-sm"
-          />
-        </section>
-
-        {/* Endpoint */}
-        <section className="rounded-xl border border-border/40 bg-card p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Send className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold text-foreground">Endpoint</h2>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shrink-0">POST</Badge>
-            <code className="text-xs text-foreground bg-muted/50 px-3 py-2 rounded-lg break-all flex-1">{fullUrl}</code>
-            <Button
-              variant="outline"
-              size="icon"
-              className="shrink-0 h-8 w-8"
-              onClick={() => copyText(fullUrl, "url")}
-            >
-              {copiedKey === "url" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            Envie uma requisição <code className="text-primary">POST</code> com o body JSON contendo os dados do pedido. 
-            O token deve ser enviado como query parameter na URL.
-          </p>
-        </section>
-
-        {/* Code Examples */}
-        <section className="rounded-xl border border-border/40 bg-card p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Code2 className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold text-foreground">Exemplos de Integração</h2>
-          </div>
-          <Tabs defaultValue="curl" className="w-full">
-            <TabsList className="bg-muted/50 mb-4">
-              <TabsTrigger value="curl" className="gap-1.5 text-xs"><Terminal className="h-3.5 w-3.5" />cURL</TabsTrigger>
-              <TabsTrigger value="js" className="gap-1.5 text-xs"><Code2 className="h-3.5 w-3.5" />JavaScript</TabsTrigger>
-              <TabsTrigger value="python" className="gap-1.5 text-xs"><FileCode2 className="h-3.5 w-3.5" />Python</TabsTrigger>
-              <TabsTrigger value="php" className="gap-1.5 text-xs"><Braces className="h-3.5 w-3.5" />PHP</TabsTrigger>
-            </TabsList>
-            {[
-              { key: "curl", code: curlExample },
-              { key: "js", code: jsExample },
-              { key: "python", code: pythonExample },
-              { key: "php", code: phpExample },
-            ].map(({ key, code }) => (
-              <TabsContent key={key} value={key}>
-                <div className="relative">
-                  <CopyBtn text={code} id={key} />
-                  <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{code}</pre>
-                </div>
-              </TabsContent>
-            ))}
-          </Tabs>
-        </section>
-
-        {/* Sandbox de Teste */}
-        <section className="rounded-xl border-2 border-primary/30 bg-card p-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Play className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold text-foreground">Testar API</h2>
-            <Badge variant="outline" className="border-primary/30 text-primary text-[10px]">Live</Badge>
-          </div>
-          <div className="flex items-center gap-2 mb-4 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
-            <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
-            <p className="text-[11px] text-destructive">Este teste cria um pedido real na sua conta. Use com moderação.</p>
-          </div>
-
-          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Payload JSON (editável)</label>
-          <Textarea
-            value={testPayload}
-            onChange={(e) => { setTestPayload(e.target.value); setJsonError(null); }}
-            className="font-mono text-xs min-h-[200px] mb-2"
-            spellCheck={false}
-          />
-          {jsonError && <p className="text-xs text-destructive mb-2">{jsonError}</p>}
-
-          <Button
-            onClick={handleTestRequest}
-            disabled={!token || testLoading}
-            className="w-full gap-2"
-          >
-            {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {testLoading ? "Enviando..." : !token ? "Insira seu token acima" : "Enviar Requisição de Teste"}
-          </Button>
-
-          {testResult && (
-            <div className="mt-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-medium text-muted-foreground">Resposta:</span>
-                <Badge className={testStatus && testStatus >= 200 && testStatus < 300
-                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]"
-                  : "bg-destructive/20 text-destructive border-destructive/30 text-[10px]"
-                }>
-                  {testStatus === 0 ? "Erro de rede" : `${testStatus}`}
-                </Badge>
+      {/* Split Layout */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,440px] gap-8">
+          {/* LEFT — Documentation */}
+          <div className="space-y-8 min-w-0">
+            {/* Endpoint */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Send className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Endpoint</h2>
               </div>
-              <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify(testResult, null, 2)}
-              </pre>
-              {testResult.codigo_rastreio && (
-                <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-400" />
-                  <span className="text-sm text-foreground">Rastreio: <strong className="text-primary">{testResult.codigo_rastreio}</strong></span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shrink-0">POST</Badge>
+                <code className="text-xs text-foreground bg-muted/50 px-3 py-2 rounded-lg break-all flex-1">{fullUrl}</code>
+                <Button variant="outline" size="icon" className="shrink-0 h-8 w-8" onClick={() => copyText(fullUrl, "url")}>
+                  {copiedKey === "url" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Envie uma requisição <code className="text-primary">POST</code> com o body JSON contendo os dados do pedido. O token deve ser enviado como query parameter na URL.
+              </p>
+            </section>
+
+            {/* Code Examples */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Code2 className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Exemplos de Integração</h2>
+              </div>
+              <Tabs defaultValue="curl" className="w-full">
+                <TabsList className="bg-muted/50 mb-4">
+                  <TabsTrigger value="curl" className="gap-1.5 text-xs"><Terminal className="h-3.5 w-3.5" />cURL</TabsTrigger>
+                  <TabsTrigger value="js" className="gap-1.5 text-xs"><Code2 className="h-3.5 w-3.5" />JavaScript</TabsTrigger>
+                  <TabsTrigger value="python" className="gap-1.5 text-xs"><FileCode2 className="h-3.5 w-3.5" />Python</TabsTrigger>
+                  <TabsTrigger value="php" className="gap-1.5 text-xs"><Braces className="h-3.5 w-3.5" />PHP</TabsTrigger>
+                </TabsList>
+                {[
+                  { key: "curl", code: curlExample },
+                  { key: "js", code: jsExample },
+                  { key: "python", code: pythonExample },
+                  { key: "php", code: phpExample },
+                ].map(({ key, code }) => (
+                  <TabsContent key={key} value={key}>
+                    <div className="relative">
+                      <CopyBtn text={code} id={key} />
+                      <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{code}</pre>
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </section>
+
+            {/* Success Response */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Check className="h-4 w-4 text-emerald-400" />
+                <h2 className="text-sm font-bold text-foreground">Resposta de Sucesso</h2>
+                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">201 Created</Badge>
+              </div>
+              <div className="relative">
+                <CopyBtn text={responseExample} id="response" />
+                <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{responseExample}</pre>
+              </div>
+            </section>
+
+            {/* Payload Fields */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Braces className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Campos do Payload</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/30">
+                      <TableHead className="text-xs">Campo</TableHead>
+                      <TableHead className="text-xs">Tipo</TableHead>
+                      <TableHead className="text-xs">Obrigatório</TableHead>
+                      <TableHead className="text-xs">Descrição</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fields.map((f) => (
+                      <TableRow key={f.path} className="border-border/20">
+                        <TableCell className="font-mono text-xs text-primary">{f.path}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{f.type}</TableCell>
+                        <TableCell>
+                          <Badge variant={f.required ? "default" : "secondary"} className={f.required ? "bg-primary/20 text-primary border-primary/30 text-[10px]" : "text-[10px]"}>
+                            {f.required ? "Sim" : "Não"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{f.desc}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+
+            {/* Error Responses */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <h2 className="text-sm font-bold text-foreground">Respostas de Erro</h2>
+              </div>
+              <div className="space-y-4">
+                {errorExamples.map((err) => (
+                  <div key={err.status} className="bg-muted/20 border border-border/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="destructive" className="text-[10px]">{err.status}</Badge>
+                      <span className="text-xs font-semibold text-foreground">{err.title}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">{err.desc}</p>
+                    <pre className="bg-muted/30 border border-border/10 rounded-md p-3 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{err.example}</pre>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* FAQ */}
+            <section className="rounded-xl border border-border/40 bg-card p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <HelpCircle className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Perguntas Frequentes</h2>
+              </div>
+              <div className="space-y-2">
+                {faqItems.map((item, i) => (
+                  <div key={i} className="border border-border/20 rounded-lg overflow-hidden">
+                    <button
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+                      onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    >
+                      <span className="text-sm font-medium text-foreground">{item.q}</span>
+                      {openFaq === i ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+                    </button>
+                    {openFaq === i && (
+                      <div className="px-4 pb-3">
+                        <p className="text-sm text-muted-foreground">{item.a}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Footer */}
+            <div className="text-center py-8 text-xs text-muted-foreground">
+              <p>Magnus Frete — API v1</p>
+              <p className="mt-1">Dúvidas? Entre em contato pelo painel em <strong>Suporte</strong>.</p>
+            </div>
+          </div>
+
+          {/* RIGHT — Sandbox */}
+          <div className="order-first lg:order-last">
+            <div className="lg:sticky lg:top-4 space-y-4">
+              <div className="rounded-xl border-2 border-primary/30 bg-card p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Play className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-bold text-foreground">Testar API</h2>
+                  <Badge variant="outline" className="border-primary/30 text-primary text-[10px]">Live</Badge>
+                </div>
+
+                <div className="flex items-center gap-2 mb-4 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                  <p className="text-[11px] text-destructive">Este teste cria um pedido real na sua conta.</p>
+                </div>
+
+                {/* Full request preview */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Request</label>
+                    <div className="bg-muted/30 border border-border/20 rounded-lg p-3 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] shrink-0">POST</Badge>
+                        <code className="text-[10px] text-foreground break-all">{`${ENDPOINT_BASE}?token=${displayToken}`}</code>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-mono">
+                        Content-Type: application/json
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Body (JSON editável)</label>
+                    <Textarea
+                      value={testPayload}
+                      onChange={(e) => { setTestPayload(e.target.value); setJsonError(null); }}
+                      className="font-mono text-[11px] min-h-[260px] leading-relaxed"
+                      spellCheck={false}
+                    />
+                    {jsonError && <p className="text-xs text-destructive mt-1">{jsonError}</p>}
+                  </div>
+
+                  <Button
+                    onClick={handleTestRequest}
+                    disabled={!token || testLoading}
+                    className="w-full gap-2"
+                    size="sm"
+                  >
+                    {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    {testLoading ? "Enviando..." : !token ? "Insira seu token acima" : "Enviar Requisição"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Response */}
+              {testResult && (
+                <div className="rounded-xl border border-border/40 bg-card p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Resposta</span>
+                    <Badge className={testStatus && testStatus >= 200 && testStatus < 300
+                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]"
+                      : "bg-destructive/20 text-destructive border-destructive/30 text-[10px]"
+                    }>
+                      {testStatus === 0 ? "Erro de rede" : `${testStatus}`}
+                    </Badge>
+                  </div>
+                  <pre className="bg-muted/30 border border-border/20 rounded-lg p-3 text-[11px] text-foreground overflow-x-auto whitespace-pre-wrap">
+                    {JSON.stringify(testResult, null, 2)}
+                  </pre>
+                  {testResult.codigo_rastreio && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+                      <Check className="h-4 w-4 text-emerald-400" />
+                      <span className="text-xs text-foreground">Rastreio: <strong className="text-primary">{testResult.codigo_rastreio}</strong></span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </section>
-
-
-        <section className="rounded-xl border border-border/40 bg-card p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Check className="h-4 w-4 text-emerald-400" />
-            <h2 className="text-sm font-bold text-foreground">Resposta de Sucesso</h2>
-            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">201 Created</Badge>
           </div>
-          <div className="relative">
-            <CopyBtn text={responseExample} id="response" />
-            <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{responseExample}</pre>
-          </div>
-        </section>
-
-        {/* Payload Fields */}
-        <section className="rounded-xl border border-border/40 bg-card p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Braces className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold text-foreground">Campos do Payload</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border/30">
-                  <TableHead className="text-xs">Campo</TableHead>
-                  <TableHead className="text-xs">Tipo</TableHead>
-                  <TableHead className="text-xs">Obrigatório</TableHead>
-                  <TableHead className="text-xs">Descrição</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fields.map((f) => (
-                  <TableRow key={f.path} className="border-border/20">
-                    <TableCell className="font-mono text-xs text-primary">{f.path}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{f.type}</TableCell>
-                    <TableCell>
-                      <Badge variant={f.required ? "default" : "secondary"} className={f.required ? "bg-primary/20 text-primary border-primary/30 text-[10px]" : "text-[10px]"}>
-                        {f.required ? "Sim" : "Não"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{f.desc}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </section>
-
-        {/* Error Responses */}
-        <section className="rounded-xl border border-border/40 bg-card p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            <h2 className="text-sm font-bold text-foreground">Respostas de Erro</h2>
-          </div>
-          <div className="space-y-4">
-            {errorExamples.map((err) => (
-              <div key={err.status} className="bg-muted/20 border border-border/20 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="destructive" className="text-[10px]">{err.status}</Badge>
-                  <span className="text-xs font-semibold text-foreground">{err.title}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mb-2">{err.desc}</p>
-                <pre className="bg-muted/30 border border-border/10 rounded-md p-3 text-xs text-foreground overflow-x-auto whitespace-pre-wrap">{err.example}</pre>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* FAQ */}
-        <section className="rounded-xl border border-border/40 bg-card p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <HelpCircle className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold text-foreground">Perguntas Frequentes</h2>
-          </div>
-          <div className="space-y-2">
-            {faqItems.map((item, i) => (
-              <div key={i} className="border border-border/20 rounded-lg overflow-hidden">
-                <button
-                  className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/30 transition-colors"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                >
-                  <span className="text-sm font-medium text-foreground">{item.q}</span>
-                  {openFaq === i ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
-                </button>
-                {openFaq === i && (
-                  <div className="px-4 pb-3">
-                    <p className="text-sm text-muted-foreground">{item.a}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Footer */}
-        <div className="text-center py-8 text-xs text-muted-foreground">
-          <p>Magnus Frete — API v1</p>
-          <p className="mt-1">Dúvidas? Entre em contato pelo painel em <strong>Suporte</strong>.</p>
         </div>
       </div>
     </div>
