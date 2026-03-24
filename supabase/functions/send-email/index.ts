@@ -1035,6 +1035,7 @@ Deno.serve(async (req) => {
     let emailRemetente = "noreply@jltransportes.pro";
     let whatsappVendedor = "";
     const isJadlog = envio.transportadora?.toUpperCase().includes("JADLOG");
+    const isVetor = envio.transportadora?.toUpperCase().includes("VETOR");
 
     let corPrimaria = "#6366f1";
     let corBotaoCta = "#1a1a1a";
