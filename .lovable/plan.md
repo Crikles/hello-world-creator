@@ -1,33 +1,46 @@
 
 
-## Plan: Add Payment Method Filter to Envios
+## Plan: Block Webhook Events When Integration is Disabled
 
-### What
-Add a new dropdown filter next to the existing "Todos Status" filter that lets users filter shipments by payment method: **Todos Pagamentos**, **PIX**, **Cartão**, or **Checkout** (all checkout-originating orders).
+### Problem
+Currently, when a user deactivates an integration (sets `ativo = false`), webhook events from that checkout are still processed and create pedidos/envios. The toggle is cosmetic only.
 
-### Changes (single file: `src/pages/Envios.tsx`)
+### Solution
+Add an `ativo` check in each webhook Edge Function right after resolving the loja. If the integration is disabled (`ativo = false`), return a 200 response with `{ success: true, skipped: true, reason: "integration_disabled" }` without creating any records.
 
-1. **Add state** for the new filter:
-   ```typescript
-   const [filterMetodo, setFilterMetodo] = useState<string>("todos");
-   ```
+### Changes
 
-2. **Add filter logic** in `filteredEnvios` alongside the existing `matchStatus` and `matchDate`:
-   - `"todos"` → no filter
-   - `"pix"` → only envios where `pedidoMetodoMap[e.id]` contains "pix"
-   - `"cartao"` → only envios where `pedidoMetodoMap[e.id]` contains "card/cartao/cartão/credit"
-   - `"checkout"` → only envios that have an entry in `pedidoOrigemMap` (i.e., came from a checkout integration)
-   - `"manual"` → only envios without an entry in `pedidoOrigemMap`
+**6 Edge Functions** (same pattern in each):
 
-3. **Add Select dropdown** right after the status filter, using the same style (`w-[160px] h-8 text-xs bg-transparent border-border/50`):
-   ```
-   Todos Pagamentos | PIX | Cartão | Boleto | Checkout | Manual
-   ```
+After resolving `lojaId`, query `checkout_integrations` for `ativo` status and return early if disabled:
 
-4. **Reset page** when `filterMetodo` changes (add to existing `useEffect` that resets `currentPage`).
+```typescript
+// Check if integration is active
+const { data: integrationStatus } = await supabase
+  .from("checkout_integrations")
+  .select("ativo")
+  .eq("loja_id", lojaId)
+  .eq("checkout_id", "<checkout_id>")
+  .maybeSingle();
 
-### Technical Details
-- Reuses the existing `pedidoMetodoMap` data (already fetched from `pedidos` table) — no new queries needed.
-- Uses the same `getMetodoLabel` normalization logic already in the codebase to match PIX/Cartão/Boleto.
-- Filter is purely client-side, matching the pattern of the status and date filters.
+if (integrationStatus?.ativo === false) {
+  return new Response(
+    JSON.stringify({ success: true, skipped: true, reason: "integration_disabled" }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+```
+
+Files to edit:
+1. `supabase/functions/webhook-vega/index.ts` - checkout_id: "vega"
+2. `supabase/functions/webhook-zedy/index.ts` - checkout_id: "zedy"
+3. `supabase/functions/webhook-luna/index.ts` - checkout_id: "luna"
+4. `supabase/functions/webhook-corvex/index.ts` - checkout_id: "corvex"
+5. `supabase/functions/webhook-adoorei/index.ts` - checkout_id: "adoorei"
+6. `supabase/functions/shopify-webhook/index.ts` - checkout_id: "shopify"
+
+**Note**: If no row exists in `checkout_integrations` for that loja+checkout (i.e. `integrationStatus` is null), the webhook will still process normally (default behavior = active). Only an explicit `ativo = false` blocks processing.
+
+### No DB or frontend changes needed
+The `ativo` column and toggle UI already exist. This is purely a server-side enforcement.
 
