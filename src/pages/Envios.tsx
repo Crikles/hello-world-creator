@@ -918,6 +918,20 @@ export default function Envios() {
                   ))}
                 </SelectContent>
               </Select>
+
+              <Select value={filterMetodo} onValueChange={setFilterMetodo}>
+                <SelectTrigger className="w-[170px] h-8 text-xs bg-transparent border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Pagamentos</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="cartao">Cartão</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                  <SelectItem value="checkout">Checkout</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
               {loja && <ImportarPlanilha lojaId={loja.id} />}
               <Button
                 size="sm"
