@@ -1,5 +1,5 @@
 import { formatProduto } from "@/lib/format-produto";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, Fragment } from "react";
 
 import { useParams, useSearchParams } from "react-router-dom";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
@@ -285,6 +285,30 @@ export default function Rastreio() {
                                 <div className="vt-benefit-icon"><ShieldCheck size={24} /></div>
                                 <h3>Parceiro oficial</h3>
                                 <p>Integração direta com Jadlog, Correios e Loggi.</p>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Partners ── */}
+                {!searched && (
+                    <section className="vt-partners">
+                        <h2 className="vt-partners-title">Nossos Parceiros</h2>
+                        <div className="vt-partners-overflow">
+                            <div className="vt-partners-track">
+                                {[...Array(6)].map((_, i) => (
+                                    <Fragment key={i}>
+                                        <div className="vt-partner-card">
+                                            <img src="/logo-jadlog.jpg" alt="Jadlog" className="vt-partner-logo" />
+                                        </div>
+                                        <div className="vt-partner-card">
+                                            <img src="/logo-correios.png" alt="Correios" className="vt-partner-logo" />
+                                        </div>
+                                        <div className="vt-partner-card">
+                                            <img src="/logo-loggi.webp" alt="Loggi" className="vt-partner-logo" />
+                                        </div>
+                                    </Fragment>
+                                ))}
                             </div>
                         </div>
                     </section>
@@ -1506,8 +1530,45 @@ const vetorStyles = `
 }
 .vt-search-btn-mobile:disabled { opacity: 0.6; cursor: not-allowed; }
 .vt-benefits {
-  padding: 80px 32px; background: #ffffff;
+  padding: 80px 32px 40px; background: #ffffff;
+}
+@keyframes vt-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.vt-partners {
+  padding: 0 32px 80px; background: #ffffff;
   border-bottom: 1px solid #E5E7EB;
+  text-align: center;
+}
+.vt-partners-title {
+  font-size: 24px; font-weight: 700; color: #1B5E20;
+  margin-bottom: 32px;
+}
+.vt-partners-overflow {
+  overflow: hidden; max-width: 1100px; margin: 0 auto;
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+.vt-partners-track {
+  display: flex; gap: 2rem; width: max-content;
+  animation: vt-scroll 25s linear infinite;
+}
+.vt-partners-track:hover { animation-play-state: paused; }
+.vt-partner-card {
+  flex-shrink: 0; background: #fff;
+  border: 1px solid #f0f0f0; border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  padding: 24px 32px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.vt-partner-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(27,94,32,0.1);
+}
+.vt-partner-logo {
+  height: 60px; width: auto; object-fit: contain;
 }
 .vt-benefits-grid {
   max-width: 1100px; margin: 0 auto;
@@ -1666,6 +1727,11 @@ const vetorStyles = `
   .vt-search-input { height: 44px; text-align: center; }
   .vt-search-icon { display: none; }
   .vt-benefits-grid { grid-template-columns: 1fr; gap: 16px; }
+  .vt-partners { padding: 0 16px 60px; }
+  .vt-partners-title { font-size: 20px; margin-bottom: 24px; }
+  .vt-partners-track { gap: 1rem; }
+  .vt-partner-card { padding: 16px 20px; }
+  .vt-partner-logo { height: 45px; }
   .vt-data-grid { grid-template-columns: 1fr; }
   .vt-results { padding: 24px 16px 60px; }
   .vt-info-card { padding: 20px; }
