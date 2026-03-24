@@ -262,6 +262,34 @@ export default function Envios() {
     enabled: !!loja,
   });
 
+  // Fetch pedidos linked to envios to determine origin (webhook vs manual)
+  const { data: pedidoOrigemMap = {} } = useQuery<Record<string, string>>({
+    queryKey: ["pedido-origem", loja?.id],
+    queryFn: async () => {
+      if (!loja) return {};
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select("envio_id, checkout_provider")
+        .eq("loja_id", loja.id)
+        .not("envio_id", "is", null);
+      if (error || !data) return {};
+      const map: Record<string, string> = {};
+      for (const p of data) {
+        if (p.envio_id) map[p.envio_id] = p.checkout_provider;
+      }
+      return map;
+    },
+    enabled: !!loja,
+  });
+
+  const getOrigemLabel = (provider: string) => {
+    const labels: Record<string, string> = {
+      vega: "Vega", zedy: "Zedy", luna: "Luna", corvex: "Corvex",
+      adoorei: "Adoorei", shopify: "Shopify", api_externa: "API",
+    };
+    return labels[provider.toLowerCase()] || provider;
+  };
+
   // Fetch event counts per template_id for progress calculation
   const templateIdsKey = envios.map(e => e.postagem_template_id).filter(Boolean).join(",");
   const { data: eventCountMap = {} } = useQuery<Record<string, number>>({
