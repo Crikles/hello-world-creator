@@ -310,7 +310,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       <td colspan="8" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
     </tr>
     <tr>
-      <td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell">JL Transportes de Cargas LTDA</span></td>
+      <td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell"><td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell">HOLDING Transportes de Cargas LTDA</span></td></span></td>
       <td><span class="label">FRETE POR CONTA</span><br><span class="value">0 - REMETENTE</span></td>
       <td><span class="label">CÓDIGO ANTT</span><br><span class="value"></span></td>
       <td><span class="label">PLACA DO VEÍCULO</span><br><span class="value">FOD9C97</span></td>
