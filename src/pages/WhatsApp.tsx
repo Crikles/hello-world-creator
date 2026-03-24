@@ -150,7 +150,7 @@ export default function WhatsApp() {
     const [activeTab, setActiveTab] = useState<"instance" | "template" | "send">("instance");
     const [phoneInput, setPhoneInput] = useState("");
     const [search, setSearch] = useState("");
-    const [filterStatus, setFilterStatus] = useState("todos");
+    const [sendSubTab, setSendSubTab] = useState<"pendentes" | "enviados">("pendentes");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
@@ -600,11 +600,16 @@ export default function WhatsApp() {
             (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(s)) ||
             e.cliente_email.toLowerCase().includes(s);
 
-        if (filterStatus === "todos") return matchSearch;
-        if (filterStatus === "enviado") return matchSearch && sentEnvioIds.has(e.id);
-        if (filterStatus === "nao_enviado") return matchSearch && !sentEnvioIds.has(e.id);
-        return matchSearch;
+        if (!matchSearch) return false;
+
+        if (sendSubTab === "pendentes") return !sentEnvioIds.has(e.id);
+        if (sendSubTab === "enviados") return sentEnvioIds.has(e.id);
+        return true;
     });
+
+    // Counts for sub-tab badges
+    const pendentesCount = envios.filter((e) => !sentEnvioIds.has(e.id)).length;
+    const enviadosCount = envios.filter((e) => sentEnvioIds.has(e.id)).length;
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
@@ -1333,20 +1338,49 @@ export default function WhatsApp() {
                         )}
                     </div>
 
-                    {/* Action bar */}
-                    <div className="glass-strong glow-border rounded-xl p-3">
+                    {/* Sub-tabs: Pendentes / Enviados */}
+                    <div className="glass-strong glow-border rounded-xl p-3 space-y-3">
                         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
-                                    <Checkbox
-                                        checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
-                                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                                        className="h-4 w-4 border-primary/30"
-                                    />
-                                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Tudo</span>
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant={sendSubTab === "pendentes" ? "default" : "ghost"}
+                                    size="sm"
+                                    className="h-8 text-xs gap-1.5"
+                                    onClick={() => { setSendSubTab("pendentes"); setSelectedIds(new Set()); }}
+                                >
+                                    <Clock className="h-3.5 w-3.5" />
+                                    Pendentes
+                                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-yellow-500/20 text-yellow-500">
+                                        {pendentesCount}
+                                    </Badge>
+                                </Button>
+                                <Button
+                                    variant={sendSubTab === "enviados" ? "default" : "ghost"}
+                                    size="sm"
+                                    className="h-8 text-xs gap-1.5"
+                                    onClick={() => { setSendSubTab("enviados"); setSelectedIds(new Set()); }}
+                                >
+                                    <Check className="h-3.5 w-3.5" />
+                                    Enviados
+                                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-green-500/20 text-green-500">
+                                        {enviadosCount}
+                                    </Badge>
+                                </Button>
+                            </div>
 
-                                {selectedIds.size > 0 && (
+                            <div className="flex gap-2 items-center w-full sm:w-auto">
+                                {sendSubTab === "pendentes" && (
+                                    <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
+                                        <Checkbox
+                                            checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
+                                            onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                            className="h-4 w-4 border-primary/30"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Tudo</span>
+                                    </div>
+                                )}
+
+                                {sendSubTab === "pendentes" && selectedIds.size > 0 && (
                                     <Button
                                         size="sm"
                                         className="shimmer-btn h-8 text-xs"
@@ -1364,9 +1398,7 @@ export default function WhatsApp() {
                                         )}
                                     </Button>
                                 )}
-                            </div>
 
-                            <div className="flex gap-2 items-center w-full sm:w-auto">
                                 <div className="relative flex-1 sm:w-56">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                                     <Input
@@ -1376,16 +1408,6 @@ export default function WhatsApp() {
                                         className="pl-8 h-8 text-xs bg-transparent border-border/50"
                                     />
                                 </div>
-                                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                    <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/50">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="todos">Todos</SelectItem>
-                                        <SelectItem value="enviado">✅ Enviado</SelectItem>
-                                        <SelectItem value="nao_enviado">⏳ Não Enviado</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </div>
                         </div>
                     </div>
@@ -1394,18 +1416,25 @@ export default function WhatsApp() {
                     {filteredEnvios.length === 0 ? (
                         <div className="flex flex-col items-center py-16 text-center">
                             <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center mb-4">
-                                <Send className="h-8 w-8 text-muted-foreground/30" />
+                                {sendSubTab === "pendentes" ? (
+                                    <Clock className="h-8 w-8 text-muted-foreground/30" />
+                                ) : (
+                                    <Check className="h-8 w-8 text-muted-foreground/30" />
+                                )}
                             </div>
-                            <p className="text-foreground font-medium">Nenhum envio encontrado</p>
+                            <p className="text-foreground font-medium">
+                                {sendSubTab === "pendentes" ? "Nenhum envio pendente" : "Nenhum envio enviado"}
+                            </p>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Adicione envios na aba "Envios" para enviar mensagens via WhatsApp.
+                                {sendSubTab === "pendentes"
+                                    ? "Todos os envios já foram enviados via WhatsApp ou adicione novos na aba \"Envios\"."
+                                    : "Envie mensagens na aba \"Pendentes\" para vê-las aqui."}
                             </p>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-1.5">
                             {filteredEnvios.map((envio, idx) => {
                                 const isSending = sendingIds.has(envio.id);
-                                const isSent = sentEnvioIds.has(envio.id) || failedIds.has(envio.id) === false && sendingIds.has(envio.id) === false && sentEnvioIds.has(envio.id);
                                 const isFailed = failedEnvioIds.has(envio.id) || failedIds.has(envio.id);
                                 const hasPhone = !!envio.cliente_telefone;
                                 const anyInstanceReady = connectedInstances.length > 0;
@@ -1417,11 +1446,14 @@ export default function WhatsApp() {
                                         style={{ animationDelay: `${idx * 0.02}s` }}
                                     >
                                         <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
-                                            <Checkbox
-                                                checked={selectedIds.has(envio.id)}
-                                                onCheckedChange={() => toggleSelect(envio.id)}
-                                                className="h-4 w-4 border-primary/30 shrink-0"
-                                            />
+                                            {/* Checkbox only in Pendentes */}
+                                            {sendSubTab === "pendentes" && (
+                                                <Checkbox
+                                                    checked={selectedIds.has(envio.id)}
+                                                    onCheckedChange={() => toggleSelect(envio.id)}
+                                                    className="h-4 w-4 border-primary/30 shrink-0"
+                                                />
+                                            )}
 
                                             {/* Name + Phone */}
                                             <div className="min-w-0 w-40 shrink-0">
@@ -1449,33 +1481,36 @@ export default function WhatsApp() {
                                                 R$ {Number(envio.valor).toFixed(2)}
                                             </span>
 
-                                            {/* Status indicator */}
+                                            {/* Status / Actions */}
                                             <div className="flex items-center gap-2 ml-auto shrink-0">
-                                                {sentEnvioIds.has(envio.id) && (
+                                                {sendSubTab === "enviados" && (
                                                     <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
                                                         <Check className="h-3 w-3 mr-0.5" /> Enviado
                                                     </Badge>
                                                 )}
-                                                {(failedEnvioIds.has(envio.id) || failedIds.has(envio.id)) && !sentEnvioIds.has(envio.id) && (
+
+                                                {sendSubTab === "pendentes" && isFailed && (
                                                     <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5">
                                                         <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
                                                     </Badge>
                                                 )}
 
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 hover:bg-green-500/10"
-                                                    onClick={() => sendMessage(envio)}
-                                                    disabled={isSending || !anyInstanceReady}
-                                                    title={!anyInstanceReady ? "Nenhuma instância ativa" : "Enviar mensagem"}
-                                                >
-                                                    {isSending ? (
-                                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />
-                                                    ) : (
-                                                        <Send className="h-3.5 w-3.5 text-green-500" />
-                                                    )}
-                                                </Button>
+                                                {sendSubTab === "pendentes" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 hover:bg-green-500/10"
+                                                        onClick={() => sendMessage(envio)}
+                                                        disabled={isSending || !anyInstanceReady || selectedInstanceIds.size === 0}
+                                                        title={!anyInstanceReady ? "Nenhuma instância ativa" : "Enviar mensagem"}
+                                                    >
+                                                        {isSending ? (
+                                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />
+                                                        ) : (
+                                                            <Send className="h-3.5 w-3.5 text-green-500" />
+                                                        )}
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
