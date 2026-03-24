@@ -446,9 +446,100 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Cron complete: processed ${totalProcessed} shipments`);
+    // ── 3. PROCESS WHATSAPP SEND QUEUE ──
+    let queueProcessed = 0;
+    const QUEUE_BATCH = 50;
+    try {
+      const { data: queueItems } = await supabase
+        .from("whatsapp_send_queue")
+        .select("*")
+        .eq("status", "pending")
+        .lte("scheduled_at", now)
+        .order("scheduled_at", { ascending: true })
+        .limit(QUEUE_BATCH);
+
+      if (queueItems && queueItems.length > 0) {
+        for (const item of queueItems) {
+          try {
+            // Get instance token
+            const { data: inst } = await supabase
+              .from("whatsapp_instances")
+              .select("instance_token, instance_name, id, expires_at")
+              .eq("id", item.instance_id)
+              .maybeSingle();
+
+            if (!inst || !inst.instance_token || !inst.expires_at || new Date(inst.expires_at) < new Date()) {
+              // Instance invalid or expired — mark as failed
+              await supabase
+                .from("whatsapp_send_queue")
+                .update({ status: "failed", processed_at: new Date().toISOString() })
+                .eq("id", item.id);
+              continue;
+            }
+
+            // Parse choices
+            let choices: string[] = [];
+            try {
+              const parsed = typeof item.choices === "string" ? JSON.parse(item.choices) : item.choices;
+              if (Array.isArray(parsed)) choices = parsed;
+            } catch { /* ignore */ }
+
+            const sendBody: Record<string, unknown> = {
+              number: item.number,
+              type: "button",
+              text: item.msg_text,
+              choices,
+            };
+            if (item.image_url) sendBody.imageButton = item.image_url;
+            if (item.footer_text) sendBody.footerText = item.footer_text;
+
+            const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                token: inst.instance_token,
+              },
+              body: JSON.stringify(sendBody),
+            });
+
+            const waStatus = res.ok ? "sent" : "failed";
+
+            // Update queue item
+            await supabase
+              .from("whatsapp_send_queue")
+              .update({ status: waStatus, processed_at: new Date().toISOString() })
+              .eq("id", item.id);
+
+            // Log to whatsapp_message_log
+            await supabase.from("whatsapp_message_log").insert({
+              envio_id: item.envio_id,
+              loja_id: item.loja_id,
+              instance_id: inst.id,
+              status: waStatus,
+            });
+
+            queueProcessed++;
+            console.log(`Queue ${waStatus}: envio ${item.envio_id} via ${inst.instance_name}`);
+
+            // Small delay between sends to avoid rate limiting
+            await new Promise(r => setTimeout(r, 500));
+          } catch (qErr) {
+            console.error(`Queue item ${item.id} failed:`, qErr);
+            await supabase
+              .from("whatsapp_send_queue")
+              .update({ status: "failed", processed_at: new Date().toISOString() })
+              .eq("id", item.id);
+          }
+        }
+      }
+    } catch (queueError) {
+      console.error("Queue processing error:", queueError);
+    }
+
+    console.log(`Cron complete: processed ${totalProcessed} shipments, ${queueProcessed} queue items`);
     return new Response(
-      JSON.stringify({ success: true, processed: totalProcessed }),
+      JSON.stringify({ success: true, processed: totalProcessed, queue_processed: queueProcessed }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
