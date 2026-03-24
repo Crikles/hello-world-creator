@@ -480,6 +480,23 @@ export default function WhatsApp() {
         onError: () => toast.error("Erro ao salvar configurações"),
     });
 
+    // ── Save label mutation ──
+    const saveLabelMutation = useMutation({
+        mutationFn: async ({ id, label }: { id: string; label: string }) => {
+            const { error } = await supabase
+                .from("whatsapp_instances")
+                .update({ label: label || null } as any)
+                .eq("id", id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances", loja?.id] });
+            setEditingLabelId(null);
+            toast.success("Apelido salvo!");
+        },
+        onError: () => toast.error("Erro ao salvar apelido"),
+    });
+
     // ── Send message ──
     const sendMessage = useCallback(async (envio: any) => {
         if (!envio.cliente_telefone) {
@@ -493,6 +510,10 @@ export default function WhatsApp() {
             const text = replaceVars(msgTemplate, envio);
             const trackingUrl = `${TRACKING_BASE_URL}/${envio.codigo_rastreio || ""}`;
 
+            // Pick a specific instance if only one selected, otherwise let backend rotate
+            const instanceIdsArray = Array.from(selectedInstanceIds);
+            const instanceParam = instanceIdsArray.length === 1 ? { instance_id: instanceIdsArray[0] } : {};
+
             await callWhatsApp("send", {
                 loja_id: loja!.id,
                 number: formatPhone(envio.cliente_telefone),
@@ -505,7 +526,7 @@ export default function WhatsApp() {
                 reply_text: replyText || undefined,
                 btn2_text: btn2Text || undefined,
                 btn2_url: btn2Url || undefined,
-                ...(selectedInstanceId !== "all" ? { instance_id: selectedInstanceId } : {}),
+                ...instanceParam,
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
@@ -520,7 +541,7 @@ export default function WhatsApp() {
                 return next;
             });
         }
-    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url, selectedInstanceId]);
+    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url, selectedInstanceIds]);
 
     const handleSendSelected = async () => {
         const selected = envios.filter((e) => selectedIds.has(e.id));
