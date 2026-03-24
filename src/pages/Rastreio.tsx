@@ -191,6 +191,277 @@ export default function Rastreio() {
     };
 
     /* ═══════════════════════════════════════════════════════════════
+       VETOR TRANSPORTES — Green/Graphite tech design
+       ═══════════════════════════════════════════════════════════════ */
+    if (isVetor) {
+        return (
+            <div className="vt-page">
+                <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+                {/* ── Nav ── */}
+                <nav className="vt-nav">
+                    <div className="vt-nav-inner">
+                        <img src={logoUrl} alt={empresaNome} className="vt-nav-logo" />
+                        <div className="vt-nav-links">
+                            <a href="#">Início</a>
+                            <a href="#rastrear">Rastrear</a>
+                            <a href="#contato">Contato</a>
+                        </div>
+                        <button className="vt-nav-mobile" onClick={() => setMobileMenuOpen(p => !p)} aria-label="Menu">
+                            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+                        </button>
+                    </div>
+                </nav>
+
+                {mobileMenuOpen && (
+                    <>
+                        <div className="vt-overlay" onClick={() => setMobileMenuOpen(false)} />
+                        <div className="vt-drawer">
+                            <div className="vt-drawer-head">
+                                <img src={logoUrl} alt={empresaNome} style={{ width: 120 }} />
+                                <button onClick={() => setMobileMenuOpen(false)}><X size={22} /></button>
+                            </div>
+                            <a href="#" onClick={() => setMobileMenuOpen(false)}>Início</a>
+                            <a href="#rastrear" onClick={() => setMobileMenuOpen(false)}>Rastrear</a>
+                            <a href="#contato" onClick={() => setMobileMenuOpen(false)}>Contato</a>
+                        </div>
+                    </>
+                )}
+
+                {/* ── Hero ── */}
+                <section className="vt-hero" id="rastrear">
+                    <div className="vt-hero-decor" />
+                    <div className="vt-hero-content">
+                        <div className="vt-hero-badge">
+                            <MapPin size={14} />
+                            <span>Logística estratégica</span>
+                        </div>
+                        <h1>Rastreie sua encomenda<br />com precisão</h1>
+                        <p className="vt-hero-sub">
+                            Parceira oficial Jadlog, Correios e Loggi — integração logística completa.
+                        </p>
+                        <p className="vt-hero-desc">
+                            Monitoramento em tempo real com atualizações automáticas em cada etapa do transporte.
+                        </p>
+
+                        <form onSubmit={handleSearch} className="vt-search-form">
+                            <div className="vt-search-wrapper">
+                                <Search size={20} className="vt-search-icon" />
+                                <input
+                                    type="text"
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
+                                    placeholder="Digite seu código de rastreio"
+                                    className="vt-search-input"
+                                />
+                                <button type="submit" disabled={loading} className="vt-search-btn-inline">
+                                    {loading ? <div className="vt-spinner" /> : (<><Search size={16} /><span>Rastrear</span></>)}
+                                </button>
+                            </div>
+                            <button type="submit" disabled={loading} className="vt-search-btn-mobile">
+                                {loading ? <div className="vt-spinner" /> : (<><Package size={16} /><span>Rastrear encomenda</span><ArrowRight size={16} /></>)}
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                {/* ── Benefits ── */}
+                {!searched && (
+                    <section className="vt-benefits">
+                        <div className="vt-benefits-grid">
+                            <div className="vt-benefit-card">
+                                <div className="vt-benefit-icon"><Zap size={24} /></div>
+                                <h3>Rastreamento preciso</h3>
+                                <p>Cada movimentação registrada com precisão e transparência total.</p>
+                            </div>
+                            <div className="vt-benefit-card">
+                                <div className="vt-benefit-icon"><Globe size={24} /></div>
+                                <h3>Cobertura regional</h3>
+                                <p>Presença estratégica em toda a região com eficiência operacional.</p>
+                            </div>
+                            <div className="vt-benefit-card">
+                                <div className="vt-benefit-icon"><ShieldCheck size={24} /></div>
+                                <h3>Parceiro oficial</h3>
+                                <p>Integração direta com Jadlog, Correios e Loggi.</p>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Results ── */}
+                {searched && (
+                    <section className="vt-results">
+                        <div className="vt-results-inner">
+                            {error && !envio ? (
+                                <div className="vt-error-card">
+                                    <AlertTriangle size={40} />
+                                    <h2>Informação não localizada</h2>
+                                    <p>{error}</p>
+                                    <button onClick={() => window.location.reload()}>Tentar novamente</button>
+                                </div>
+                            ) : envio && (
+                                <div className="vt-data-grid">
+                                    {/* ── Sidebar ── */}
+                                    <div className="vt-sidebar">
+                                        <div className="vt-info-card">
+                                            <div className="vt-card-header">
+                                                <Package size={18} />
+                                                <span>Detalhes do envio</span>
+                                            </div>
+                                            <div className="vt-info-row">
+                                                <span className="vt-label">Código de rastreamento</span>
+                                                <span className="vt-tracking-code">{envio.codigo_rastreio}</span>
+                                            </div>
+                                            <div className="vt-info-row">
+                                                <span className="vt-label">Produto</span>
+                                                <span className="vt-value">{formatProduto(envio.produto) || "Encomenda"}</span>
+                                            </div>
+                                            <div className="vt-info-row">
+                                                <span className="vt-label">Transportadora</span>
+                                                <span className="vt-value">{envio.transportadora}</span>
+                                            </div>
+                                            <div className="vt-info-row">
+                                                <span className="vt-label">Status da entrega</span>
+                                                <span className="vt-status-badge">{formatStatus(envio.status_label || envio.status)}</span>
+                                            </div>
+                                            <div className="vt-progress-area">
+                                                <div className="vt-progress-header">
+                                                    <span>Progresso da entrega</span>
+                                                    <span>{progress}%</span>
+                                                </div>
+                                                <div className="vt-progress-track">
+                                                    <div className="vt-progress-fill" style={{ width: `${progress}%` }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="vt-meta-card">
+                                            <UserIcon />
+                                            <div>
+                                                <span className="vt-label">Destinatário</span>
+                                                <span className="vt-value">{envio.cliente_nome}</span>
+                                            </div>
+                                        </div>
+                                        <div className="vt-meta-card">
+                                            <CalendarIcon />
+                                            <div>
+                                                <span className="vt-label">Despachado em</span>
+                                                <span className="vt-value">{new Date(envio.created_at).toLocaleDateString("pt-BR")}</span>
+                                            </div>
+                                        </div>
+                                        <div className="vt-meta-card">
+                                            <Clock size={18} />
+                                            <div>
+                                                <span className="vt-label">Última atualização</span>
+                                                <span className="vt-value">{new Date(envio.updated_at).toLocaleDateString("pt-BR")}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ── Timeline ── */}
+                                    <div className="vt-timeline-card">
+                                        <div className="vt-timeline-header">
+                                            <span>Histórico de movimentações</span>
+                                        </div>
+                                        {eventos.length === 0 ? (
+                                            <div className="vt-timeline-empty">
+                                                <p>Aguardando atualizações da transportadora.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="vt-timeline">
+                                                {[...eventos].reverse().map((ev, idx) => {
+                                                    const cfg = statusConfig[ev.status_label || ""] || { icon: MapPin, label: "Atualização" };
+                                                    const Icon = cfg.icon;
+                                                    const eventDate = new Date(new Date(envio.updated_at).getTime() - (idx * 24 * 60 * 60 * 1000));
+                                                    const isFirst = idx === 0;
+
+                                                    const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
+                                                    const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
+                                                    let locationText: string | null = null;
+                                                    switch (ev.status_label) {
+                                                        case "Postado": locationText = origemLabel ? `Unidade de Postagem, ${origemLabel}` : null; break;
+                                                        case "Coletado": locationText = origemLabel ? `Unidade de Tratamento, ${origemLabel}` : null; break;
+                                                        case "Em Trânsito": case "Em Rota":
+                                                            if (origemLabel && destLabel) locationText = `de ${origemLabel} para ${destLabel}`; break;
+                                                        case "Centro Local": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
+                                                        case "Saiu para Entrega": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
+                                                        case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
+                                                        default: locationText = ev.descricao || ev.status_label || null;
+                                                    }
+
+                                                    const vizinhoData = ev.status_label === "Entregue" ? getVizinhoData(envio.id, envio.cliente_nome) : null;
+
+                                                    return (
+                                                        <div key={ev.ordem} className={`vt-tl-item ${isFirst ? 'vt-tl-active' : ''}`}>
+                                                            <div className="vt-tl-indicator">
+                                                                <div className={`vt-tl-dot ${isFirst ? 'active' : ''}`}>
+                                                                    <Icon size={14} />
+                                                                </div>
+                                                                {idx < eventos.length - 1 && <div className="vt-tl-line" />}
+                                                            </div>
+                                                            <div className="vt-tl-content">
+                                                                <h4>{ev.nome}</h4>
+                                                                {locationText && <p className="vt-tl-location">{locationText}</p>}
+                                                                {vizinhoData && (
+                                                                    <div style={{ marginTop: 6, fontSize: 13, color: '#4B5563', lineHeight: 1.6 }}>
+                                                                        <p style={{ margin: 0, fontWeight: 600 }}>{vizinhoData.label}</p>
+                                                                        <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Documento: {vizinhoData.cpf}</p>
+                                                                    </div>
+                                                                )}
+                                                                <span className="vt-tl-date">
+                                                                    {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                                </span>
+                                                                {ev.status_label === "Taxação" && envio && (
+                                                                    <a href={`/p/${envio.id}`} className="vt-action-btn">Pagar taxa</a>
+                                                                )}
+                                                                {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
+                                                                    <a href={`/f/${envio.id}`} className="vt-action-btn">Pagar reenvio / frete</a>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Footer ── */}
+                <footer className="vt-footer" id="contato">
+                    <div className="vt-footer-inner">
+                        <div className="vt-footer-top">
+                            <div className="vt-footer-brand">
+                                <img src={logoUrl} alt={empresaNome} />
+                                <p>Logística estratégica com rastreamento preciso e eficiente.</p>
+                            </div>
+                            <div className="vt-footer-cols">
+                                <div>
+                                    <h5>Contato</h5>
+                                    <a href="mailto:contato@vetortransportes.com.br">contato@vetortransportes.com.br</a>
+                                </div>
+                                <div>
+                                    <h5>Informações</h5>
+                                    <a href="#">Termos de serviço</a>
+                                    <a href="#">Política de privacidade</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="vt-footer-bottom">
+                            <span>© {new Date().getFullYear()} {empresaNome}. Todos os direitos reservados.</span>
+                        </div>
+                    </div>
+                </footer>
+
+                <NotificationPrompt codigoRastreio={envio?.codigo_rastreio} />
+                <style>{vetorStyles}</style>
+            </div>
+        );
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
        JADLOG — Clean corporate redesign
        ═══════════════════════════════════════════════════════════════ */
     if (isJadlog) {
