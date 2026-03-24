@@ -262,6 +262,34 @@ export default function Envios() {
     enabled: !!loja,
   });
 
+  // Fetch pedidos linked to envios to determine origin (webhook vs manual)
+  const { data: pedidoOrigemMap = {} } = useQuery<Record<string, string>>({
+    queryKey: ["pedido-origem", loja?.id],
+    queryFn: async () => {
+      if (!loja) return {};
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select("envio_id, checkout_provider")
+        .eq("loja_id", loja.id)
+        .not("envio_id", "is", null);
+      if (error || !data) return {};
+      const map: Record<string, string> = {};
+      for (const p of data) {
+        if (p.envio_id) map[p.envio_id] = p.checkout_provider;
+      }
+      return map;
+    },
+    enabled: !!loja,
+  });
+
+  const getOrigemLabel = (provider: string) => {
+    const labels: Record<string, string> = {
+      vega: "Vega", zedy: "Zedy", luna: "Luna", corvex: "Corvex",
+      adoorei: "Adoorei", shopify: "Shopify", api_externa: "API",
+    };
+    return labels[provider.toLowerCase()] || provider;
+  };
+
   // Fetch event counts per template_id for progress calculation
   const templateIdsKey = envios.map(e => e.postagem_template_id).filter(Boolean).join(",");
   const { data: eventCountMap = {} } = useQuery<Record<string, number>>({
@@ -947,8 +975,22 @@ export default function Envios() {
                   >
                     {isJadlog(envio) ? 'JADLOG' : 'JL'}
                   </Badge>
+                  {/* Origem badge */}
+                  <Badge
+                    variant="outline"
+                    className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-medium ${
+                      pedidoOrigemMap[envio.id]
+                        ? 'bg-primary/10 text-primary border-primary/30'
+                        : 'bg-muted text-muted-foreground border-border/50'
+                    }`}
+                  >
+                    {pedidoOrigemMap[envio.id] ? (
+                      <><Zap className="h-2.5 w-2.5 mr-0.5" />{getOrigemLabel(pedidoOrigemMap[envio.id])}</>
+                    ) : (
+                      'Manual'
+                    )}
+                  </Badge>
 
-                  {/* Quick links */}
                   <div className="flex items-center gap-0.5 ml-auto shrink-0">
                     {envio.codigo_rastreio && (
                       <Button
