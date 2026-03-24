@@ -15,7 +15,20 @@ function jsonResp(body: unknown, status = 200) {
     });
 }
 
-async function getWhatsAppPrice(supabaseAdmin: any): Promise<number> {
+async function getWhatsAppPrice(supabaseAdmin: any, userId?: string): Promise<number> {
+    // 1. Check user custom price
+    if (userId) {
+        const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("custom_prices")
+            .eq("id", userId)
+            .maybeSingle();
+        const custom = profile?.custom_prices as Record<string, number> | null;
+        if (custom && custom.custo_whatsapp != null) {
+            return custom.custo_whatsapp;
+        }
+    }
+    // 2. Fallback to global
     const { data } = await supabaseAdmin
         .from("system_config")
         .select("value")
@@ -106,7 +119,7 @@ Deno.serve(async (req) => {
                 price = 0;
             } else {
                 // No free slot — charge credits and create new subscription
-                price = await getWhatsAppPrice(supabaseAdmin);
+                price = await getWhatsAppPrice(supabaseAdmin, userId);
 
                 const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
                     _user_id: userId,
@@ -170,7 +183,7 @@ Deno.serve(async (req) => {
                     instance_token: token,
                     status: "disconnected",
                     expires_at: expiresAt,
-                    subscription_price: price || (await getWhatsAppPrice(supabaseAdmin)),
+                    subscription_price: price || (await getWhatsAppPrice(supabaseAdmin, userId)),
                     subscription_id: subscriptionId,
                     updated_at: new Date().toISOString(),
                 });
@@ -216,7 +229,7 @@ Deno.serve(async (req) => {
 
         // ── RENEW: Renew subscription ──
         if (action === "renew") {
-            const price = await getWhatsAppPrice(supabaseAdmin);
+            const price = await getWhatsAppPrice(supabaseAdmin, userId);
 
             const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
                 _user_id: userId,
