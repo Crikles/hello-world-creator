@@ -397,8 +397,9 @@ Deno.serve(async (req) => {
       }
 
       // --- 1. AUTO-START: new shipments if auto_envio is enabled ---
+      // Strict check: only start new shipments when explicitly true (not null/undefined)
       // deno-lint-ignore no-explicit-any
-      if ((config as any).auto_envio) {
+      if ((config as any).auto_envio === true) {
         const { data: pending } = await supabase
           .from("envios")
           .select("id")
