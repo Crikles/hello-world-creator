@@ -175,21 +175,24 @@ export default function WhatsApp() {
     });
 
     // ── WhatsApp price (custom_prices overrides system_config) ──
+    const billingUserId = loja?.user_id || user?.id;
     const { data: whatsappPrice = 29.99 } = useQuery({
-        queryKey: ["whatsapp-price", user?.id],
+        queryKey: ["whatsapp-price", billingUserId],
         queryFn: async () => {
             // 1. Check user custom price first
-            if (user?.id) {
+            if (billingUserId) {
                 const { data: profile } = await supabase
                     .from("profiles")
                     .select("custom_prices")
-                    .eq("id", user.id)
+                    .eq("id", billingUserId)
                     .maybeSingle();
-                const custom = profile?.custom_prices as Record<string, number> | null;
+                const custom = profile?.custom_prices as Record<string, number | string> | null;
                 if (custom && custom.custo_whatsapp != null) {
-                    return custom.custo_whatsapp;
+                    const customPrice = Number(custom.custo_whatsapp);
+                    if (!Number.isNaN(customPrice)) return customPrice;
                 }
             }
+
             // 2. Fallback to global system_config
             const { data } = await supabase
                 .from("system_config")
@@ -198,7 +201,7 @@ export default function WhatsApp() {
                 .maybeSingle();
             return data?.value ?? 29.99;
         },
-        enabled: !!user?.id,
+        enabled: !!billingUserId,
     });
 
     // ── ALL instances for this loja (multiple) ──

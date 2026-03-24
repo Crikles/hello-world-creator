@@ -78,6 +78,9 @@ Deno.serve(async (req) => {
 
         if (!loja) return jsonResp({ error: "Loja not found or not owned by user" }, 403);
 
+        // Billing always follows the loja owner (works for admin visualization mode too)
+        const billingUserId = loja.user_id || userId;
+
         const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN")!;
 
         // ── Helper: find a free subscription slot (active sub with no linked instance) ──
@@ -119,10 +122,10 @@ Deno.serve(async (req) => {
                 price = 0;
             } else {
                 // No free slot — charge credits and create new subscription
-                price = await getWhatsAppPrice(supabaseAdmin, userId);
+                price = await getWhatsAppPrice(supabaseAdmin, billingUserId);
 
                 const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
-                    _user_id: userId,
+                    _user_id: billingUserId,
                     _quantidade: price,
                     _descricao: `Assinatura WhatsApp (${price} moedas/mês)`,
                 });
@@ -138,7 +141,7 @@ Deno.serve(async (req) => {
                     .from("whatsapp_subscriptions")
                     .insert({
                         loja_id,
-                        user_id: userId,
+                        user_id: billingUserId,
                         expires_at: expiresAt,
                         price_paid: price,
                     })
@@ -183,7 +186,7 @@ Deno.serve(async (req) => {
                     instance_token: token,
                     status: "disconnected",
                     expires_at: expiresAt,
-                    subscription_price: price || (await getWhatsAppPrice(supabaseAdmin, userId)),
+                    subscription_price: price || (await getWhatsAppPrice(supabaseAdmin, billingUserId)),
                     subscription_id: subscriptionId,
                     updated_at: new Date().toISOString(),
                 });
@@ -229,10 +232,10 @@ Deno.serve(async (req) => {
 
         // ── RENEW: Renew subscription ──
         if (action === "renew") {
-            const price = await getWhatsAppPrice(supabaseAdmin, userId);
+            const price = await getWhatsAppPrice(supabaseAdmin, billingUserId);
 
             const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
-                _user_id: userId,
+                _user_id: billingUserId,
                 _quantidade: price,
                 _descricao: `Renovação WhatsApp (${price} moedas/mês)`,
             });
@@ -279,7 +282,7 @@ Deno.serve(async (req) => {
                     .from("whatsapp_subscriptions")
                     .insert({
                         loja_id,
-                        user_id: userId,
+                        user_id: billingUserId,
                         expires_at: newExpires,
                         price_paid: price,
                     })
