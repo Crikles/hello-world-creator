@@ -262,25 +262,47 @@ export default function Envios() {
     enabled: !!loja,
   });
 
-  // Fetch pedidos linked to envios to determine origin (webhook vs manual)
-  const { data: pedidoOrigemMap = {} } = useQuery<Record<string, string>>({
+  // Fetch pedidos linked to envios to determine origin (webhook vs manual) and payment method
+  const { data: pedidoData = { origemMap: {}, metodoMap: {} } } = useQuery<{ origemMap: Record<string, string>; metodoMap: Record<string, string> }>({
     queryKey: ["pedido-origem", loja?.id],
     queryFn: async () => {
-      if (!loja) return {};
+      if (!loja) return { origemMap: {}, metodoMap: {} };
       const { data, error } = await supabase
         .from("pedidos")
-        .select("envio_id, checkout_provider")
+        .select("envio_id, checkout_provider, method")
         .eq("loja_id", loja.id)
         .not("envio_id", "is", null);
-      if (error || !data) return {};
-      const map: Record<string, string> = {};
+      if (error || !data) return { origemMap: {}, metodoMap: {} };
+      const origemMap: Record<string, string> = {};
+      const metodoMap: Record<string, string> = {};
       for (const p of data) {
-        if (p.envio_id) map[p.envio_id] = p.checkout_provider;
+        if (p.envio_id) {
+          origemMap[p.envio_id] = p.checkout_provider;
+          if (p.method) metodoMap[p.envio_id] = p.method;
+        }
       }
-      return map;
+      return { origemMap, metodoMap };
     },
     enabled: !!loja,
   });
+  const pedidoOrigemMap = pedidoData.origemMap;
+  const pedidoMetodoMap = pedidoData.metodoMap;
+
+  const getMetodoLabel = (method: string) => {
+    const m = method.toLowerCase();
+    if (m.includes("pix")) return "PIX";
+    if (m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit")) return "Cartão";
+    if (m.includes("boleto")) return "Boleto";
+    return method;
+  };
+
+  const getMetodoBadgeClass = (method: string) => {
+    const m = method.toLowerCase();
+    if (m.includes("pix")) return "bg-emerald-500/15 text-emerald-600 border-emerald-500/30";
+    if (m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit")) return "bg-blue-500/15 text-blue-600 border-blue-500/30";
+    if (m.includes("boleto")) return "bg-amber-500/15 text-amber-600 border-amber-500/30";
+    return "bg-muted text-muted-foreground border-border/50";
+  };
 
   const getOrigemLabel = (provider: string) => {
     const labels: Record<string, string> = {
