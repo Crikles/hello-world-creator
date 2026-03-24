@@ -155,7 +155,18 @@ Deno.serve(async (req) => {
                 subscriptionId = newSub.id;
             }
 
-            const instanceName = body.instance_name || `magnus-${loja_id.slice(0, 8)}-${Date.now().toString(36)}`;
+            // Build instance name using owner email for easy identification in UAZAPI
+            const { data: ownerProfile } = await supabaseAdmin
+                .from("profiles")
+                .select("email")
+                .eq("id", billingUserId)
+                .maybeSingle();
+            const emailPrefix = (ownerProfile?.email || "")
+                .split("@")[0]
+                .replace(/[^a-zA-Z0-9]/g, "")
+                .slice(0, 20)
+                .toLowerCase();
+            const instanceName = body.instance_name || `magnus-${emailPrefix || loja_id.slice(0, 8)}-${Date.now().toString(36)}`;
 
             const res = await fetch(`${UAZAPI_BASE}/instance/init`, {
                 method: "POST",
