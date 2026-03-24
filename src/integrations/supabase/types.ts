@@ -1194,6 +1194,7 @@ export type Database = {
           id: string
           instance_name: string
           instance_token: string
+          label: string | null
           loja_id: string
           pairing_code: string | null
           phone: string | null
@@ -1209,6 +1210,7 @@ export type Database = {
           id?: string
           instance_name: string
           instance_token: string
+          label?: string | null
           loja_id: string
           pairing_code?: string | null
           phone?: string | null
@@ -1224,6 +1226,7 @@ export type Database = {
           id?: string
           instance_name?: string
           instance_token?: string
+          label?: string | null
           loja_id?: string
           pairing_code?: string | null
           phone?: string | null

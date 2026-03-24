@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     MessageCircle, Wifi, WifiOff, QrCode, Trash2, Send, Search,
-    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply
+    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply, Pencil, X, Save
 } from "lucide-react";
 import { useLoja } from "@/contexts/LojaContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -158,7 +158,9 @@ export default function WhatsApp() {
     const [copiedVar, setCopiedVar] = useState<string | null>(null);
     const [connectData, setConnectData] = useState<{ instanceId: string; qrCode?: string; pairingCode?: string } | null>(null);
     const [connectingStartedAt, setConnectingStartedAt] = useState<number | null>(null);
-    const [selectedInstanceId, setSelectedInstanceId] = useState<string>("all");
+    const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
+    const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+    const [editingLabelValue, setEditingLabelValue] = useState("");
 
     // ── User credits ──
     const { data: creditos } = useQuery({
@@ -240,6 +242,13 @@ export default function WhatsApp() {
     const daysRemaining = getDaysRemaining(instance?.expires_at ?? null);
 
     const connectedInstances = instances.filter((i) => i.status === "connected" && i.expires_at && new Date(i.expires_at) > new Date());
+
+    // Auto-select all connected instances on first load
+    useEffect(() => {
+        if (connectedInstances.length > 0 && selectedInstanceIds.size === 0) {
+            setSelectedInstanceIds(new Set(connectedInstances.map((i) => i.id)));
+        }
+    }, [connectedInstances.length]);
 
     // ── Message log (persistent sent tracking) ──
     const { data: messageLogs = [] } = useQuery({
@@ -478,6 +487,23 @@ export default function WhatsApp() {
         onError: () => toast.error("Erro ao salvar configurações"),
     });
 
+    // ── Save label mutation ──
+    const saveLabelMutation = useMutation({
+        mutationFn: async ({ id, label }: { id: string; label: string }) => {
+            const { error } = await supabase
+                .from("whatsapp_instances")
+                .update({ label: label || null } as any)
+                .eq("id", id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances", loja?.id] });
+            setEditingLabelId(null);
+            toast.success("Apelido salvo!");
+        },
+        onError: () => toast.error("Erro ao salvar apelido"),
+    });
+
     // ── Send message ──
     const sendMessage = useCallback(async (envio: any) => {
         if (!envio.cliente_telefone) {
@@ -491,6 +517,10 @@ export default function WhatsApp() {
             const text = replaceVars(msgTemplate, envio);
             const trackingUrl = `${TRACKING_BASE_URL}/${envio.codigo_rastreio || ""}`;
 
+            // Pick a specific instance if only one selected, otherwise let backend rotate
+            const instanceIdsArray = Array.from(selectedInstanceIds);
+            const instanceParam = instanceIdsArray.length === 1 ? { instance_id: instanceIdsArray[0] } : {};
+
             await callWhatsApp("send", {
                 loja_id: loja!.id,
                 number: formatPhone(envio.cliente_telefone),
@@ -503,7 +533,7 @@ export default function WhatsApp() {
                 reply_text: replyText || undefined,
                 btn2_text: btn2Text || undefined,
                 btn2_url: btn2Url || undefined,
-                ...(selectedInstanceId !== "all" ? { instance_id: selectedInstanceId } : {}),
+                ...instanceParam,
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
@@ -518,17 +548,16 @@ export default function WhatsApp() {
                 return next;
             });
         }
-    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url, selectedInstanceId]);
+    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url, selectedInstanceIds]);
 
     const handleSendSelected = async () => {
         const selected = envios.filter((e) => selectedIds.has(e.id));
         if (selected.length === 0) return toast.info("Selecione pelo menos 1 envio.");
 
-        if (connectedInstances.length > 1 && selectedInstanceId === "all") {
+        if (connectedInstances.length > 1 && selectedInstanceIds.size !== 1) {
             // Use send-queue for rotation
             setSendingIds(new Set(selected.map((e) => e.id)));
             try {
-                const texts = selected.map((e) => replaceVars(msgTemplate, e));
                 await callWhatsApp("send-queue", {
                     loja_id: loja!.id,
                     envio_ids: selected.map((e) => e.id),
@@ -538,6 +567,7 @@ export default function WhatsApp() {
                     footer: footerText,
                     btn2_text: btn2Text || undefined,
                     btn2_url: btn2Url || undefined,
+                    ...(selectedInstanceIds.size > 0 ? { instance_ids: Array.from(selectedInstanceIds) } : {}),
                 });
                 queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
                 toast.success(`Envio em massa finalizado com rotação entre ${connectedInstances.length} instâncias!`);
@@ -748,7 +778,37 @@ export default function WhatsApp() {
                                                 <div className="flex items-center gap-3">
                                                     <div className={`h-3 w-3 rounded-full ${inst.status === "connected" ? "bg-green-500 animate-pulse" : inst.status === "connecting" ? "bg-yellow-500 animate-pulse" : "bg-red-400"}`} />
                                                     <div>
-                                                        <p className="text-sm font-semibold text-foreground">{inst.instance_name}</p>
+                                                        {editingLabelId === inst.id ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Input
+                                                                    value={editingLabelValue}
+                                                                    onChange={(e) => setEditingLabelValue(e.target.value)}
+                                                                    className="h-7 w-40 text-xs bg-transparent border-border/50"
+                                                                    placeholder="Ex: Loja SP, Suporte..."
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === "Enter") saveLabelMutation.mutate({ id: inst.id, label: editingLabelValue });
+                                                                        if (e.key === "Escape") setEditingLabelId(null);
+                                                                    }}
+                                                                />
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => saveLabelMutation.mutate({ id: inst.id, label: editingLabelValue })} disabled={saveLabelMutation.isPending}>
+                                                                    {saveLabelMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 text-green-500" />}
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingLabelId(null)}>
+                                                                    <X className="h-3 w-3 text-muted-foreground" />
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-sm font-semibold text-foreground">{(inst as any).label || inst.instance_name}</p>
+                                                                <Button variant="ghost" size="icon" className="h-5 w-5 opacity-50 hover:opacity-100" onClick={() => { setEditingLabelId(inst.id); setEditingLabelValue((inst as any).label || ""); }}>
+                                                                    <Pencil className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                        {!(editingLabelId === inst.id) && (inst as any).label && (
+                                                            <p className="text-[10px] text-muted-foreground font-mono">{inst.instance_name}</p>
+                                                        )}
                                                         <p className={`text-xs font-medium ${instStatusColor}`}>{instStatusLabel}</p>
                                                     </div>
                                                 </div>
@@ -1132,46 +1192,94 @@ export default function WhatsApp() {
                         </div>
                     )}
 
-                    {/* Instance selector */}
+                    {/* Instance selector — checkbox cards */}
                     {connectedInstances.length > 0 && (
                         <div className="glass glow-border rounded-xl p-4 space-y-3">
-                            <div className="flex items-center gap-3 mb-1">
-                                <div className="p-2 rounded-xl bg-primary/10">
-                                    <Wifi className="h-4 w-4 text-primary" />
+                            <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-xl bg-primary/10">
+                                        <Wifi className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">Instâncias de Envio</p>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            Selecione as instâncias que serão usadas. Múltiplas = rotação automática.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-foreground">Instância de Envio</p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        Escolha qual instância será usada para enviar as mensagens.
-                                    </p>
+                                <div className="flex gap-1.5">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[10px] px-2"
+                                        onClick={() => setSelectedInstanceIds(new Set(connectedInstances.map((i) => i.id)))}
+                                    >
+                                        Todas
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[10px] px-2"
+                                        onClick={() => setSelectedInstanceIds(new Set())}
+                                    >
+                                        Nenhuma
+                                    </Button>
                                 </div>
                             </div>
-                            <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
-                                <SelectTrigger className="w-full glass border-border/50 h-9 text-sm">
-                                    <SelectValue placeholder="Selecione a instância" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {connectedInstances.length > 1 && (
-                                        <SelectItem value="all">
-                                            <div className="flex items-center gap-2">
-                                                <RotateCcw className="h-3.5 w-3.5 text-primary" />
-                                                <span>Todas — rotação automática ({connectedInstances.length} instâncias)</span>
-                                            </div>
-                                        </SelectItem>
-                                    )}
-                                    {connectedInstances.map((inst) => (
-                                        <SelectItem key={inst.id} value={inst.id}>
-                                            <div className="flex items-center gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {connectedInstances.map((inst) => {
+                                    const isSelected = selectedInstanceIds.has(inst.id);
+                                    return (
+                                        <div
+                                            key={inst.id}
+                                            onClick={() => {
+                                                setSelectedInstanceIds((prev) => {
+                                                    const next = new Set(prev);
+                                                    next.has(inst.id) ? next.delete(inst.id) : next.add(inst.id);
+                                                    return next;
+                                                });
+                                            }}
+                                            className={`cursor-pointer rounded-lg p-3 border transition-all duration-200 ${
+                                                isSelected
+                                                    ? "border-primary bg-primary/10 shadow-sm shadow-primary/10"
+                                                    : "border-border/30 bg-transparent hover:border-border/60"
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <Checkbox
+                                                    checked={isSelected}
+                                                    className="h-4 w-4 border-primary/30 pointer-events-none"
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-foreground truncate">
+                                                        {(inst as any).label || inst.instance_name}
+                                                    </p>
+                                                    {inst.phone && (
+                                                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                            <Phone className="h-2.5 w-2.5" />
+                                                            {inst.phone}
+                                                        </p>
+                                                    )}
+                                                </div>
                                                 <span className="inline-block h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                                                <span>{inst.instance_name}</span>
-                                                {inst.phone && (
-                                                    <span className="text-muted-foreground text-xs">({inst.phone})</span>
-                                                )}
                                             </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {selectedInstanceIds.size > 1 && (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <RotateCcw className="h-3 w-3 text-primary" />
+                                    <span className="text-[10px] text-muted-foreground">
+                                        Rotação automática entre {selectedInstanceIds.size} instâncias selecionadas.
+                                    </span>
+                                </div>
+                            )}
+                            {selectedInstanceIds.size === 0 && (
+                                <p className="text-[10px] text-yellow-500 flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" /> Selecione ao menos uma instância para enviar.
+                                </p>
+                            )}
                         </div>
                     )}
 
@@ -1243,7 +1351,7 @@ export default function WhatsApp() {
                                         size="sm"
                                         className="shimmer-btn h-8 text-xs"
                                         onClick={handleSendSelected}
-                                        disabled={connectedInstances.length === 0 || sendingIds.size > 0}
+                                        disabled={connectedInstances.length === 0 || sendingIds.size > 0 || selectedInstanceIds.size === 0}
                                     >
                                         {sendingIds.size > 0 ? (
                                             <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -1251,8 +1359,8 @@ export default function WhatsApp() {
                                             <Send className="h-3.5 w-3.5 mr-1" />
                                         )}
                                         Enviar ({selectedIds.size})
-                                        {connectedInstances.length > 1 && (
-                                            <span className="ml-1 text-[9px] opacity-70">🔄 rotação</span>
+                                        {selectedInstanceIds.size > 1 && (
+                                            <span className="ml-1 text-[9px] opacity-70">🔄 {selectedInstanceIds.size}x rotação</span>
                                         )}
                                     </Button>
                                 )}
