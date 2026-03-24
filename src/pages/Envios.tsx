@@ -137,6 +137,16 @@ export default function Envios() {
     return false;
   }, []);
 
+  const isVetor = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
+    if (envio.transportadora) {
+      return envio.transportadora.toUpperCase().includes('VETOR');
+    }
+    if (envio.codigo_rastreio) {
+      return envio.codigo_rastreio.toUpperCase().endsWith('VT');
+    }
+    return false;
+  }, []);
+
   const getTrackingDomain = useCallback((_envio: { transportadora?: string | null }) => {
     return 'rastreio.jltransportelogistica.com';
   }, []);
@@ -992,10 +1002,12 @@ export default function Envios() {
                     className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${
                       isJadlog(envio)
                         ? 'bg-destructive/10 text-destructive border-destructive/30'
-                        : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                        : isVetor(envio)
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
+                          : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
                     }`}
                   >
-                    {isJadlog(envio) ? 'JADLOG' : 'JL'}
+                    {isJadlog(envio) ? 'JADLOG' : isVetor(envio) ? 'VETOR' : 'JL'}
                   </Badge>
                   {/* Origem badge */}
                   <Badge

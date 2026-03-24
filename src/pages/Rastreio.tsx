@@ -171,9 +171,15 @@ export default function Rastreio() {
         return code.toUpperCase().trim().endsWith("JD");
     }, [codigoFromUrl, envio]);
 
-    const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
-    const logoUrl = isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
-    const primaryColor = isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
+    const isVetor = useMemo(() => {
+        if (envio?.transportadora?.toUpperCase().includes("VETOR")) return true;
+        const code = envio?.codigo_rastreio || codigoFromUrl || "";
+        return code.toUpperCase().trim().endsWith("VT");
+    }, [codigoFromUrl, envio]);
+
+    const empresaNome = isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
+    const logoUrl = isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
+    const primaryColor = isVetor ? "#1B5E20" : isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
 
     const progress = totalEventos > 0 && envio
         ? Math.min(100, Math.round((envio.ultimo_evento_ordem / totalEventos) * 100))
@@ -183,6 +189,277 @@ export default function Rastreio() {
         const cfg = statusConfig[status];
         return cfg?.label || status;
     };
+
+    /* ═══════════════════════════════════════════════════════════════
+       VETOR TRANSPORTES — Green/Graphite tech design
+       ═══════════════════════════════════════════════════════════════ */
+    if (isVetor) {
+        return (
+            <div className="vt-page">
+                <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+                {/* ── Nav ── */}
+                <nav className="vt-nav">
+                    <div className="vt-nav-inner">
+                        <img src={logoUrl} alt={empresaNome} className="vt-nav-logo" />
+                        <div className="vt-nav-links">
+                            <a href="#">Início</a>
+                            <a href="#rastrear">Rastrear</a>
+                            <a href="#contato">Contato</a>
+                        </div>
+                        <button className="vt-nav-mobile" onClick={() => setMobileMenuOpen(p => !p)} aria-label="Menu">
+                            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+                        </button>
+                    </div>
+                </nav>
+
+                {mobileMenuOpen && (
+                    <>
+                        <div className="vt-overlay" onClick={() => setMobileMenuOpen(false)} />
+                        <div className="vt-drawer">
+                            <div className="vt-drawer-head">
+                                <img src={logoUrl} alt={empresaNome} style={{ width: 120 }} />
+                                <button onClick={() => setMobileMenuOpen(false)}><X size={22} /></button>
+                            </div>
+                            <a href="#" onClick={() => setMobileMenuOpen(false)}>Início</a>
+                            <a href="#rastrear" onClick={() => setMobileMenuOpen(false)}>Rastrear</a>
+                            <a href="#contato" onClick={() => setMobileMenuOpen(false)}>Contato</a>
+                        </div>
+                    </>
+                )}
+
+                {/* ── Hero ── */}
+                <section className="vt-hero" id="rastrear">
+                    <div className="vt-hero-decor" />
+                    <div className="vt-hero-content">
+                        <div className="vt-hero-badge">
+                            <MapPin size={14} />
+                            <span>Logística estratégica</span>
+                        </div>
+                        <h1>Rastreie sua encomenda<br />com precisão</h1>
+                        <p className="vt-hero-sub">
+                            Parceira oficial Jadlog, Correios e Loggi — integração logística completa.
+                        </p>
+                        <p className="vt-hero-desc">
+                            Monitoramento em tempo real com atualizações automáticas em cada etapa do transporte.
+                        </p>
+
+                        <form onSubmit={handleSearch} className="vt-search-form">
+                            <div className="vt-search-wrapper">
+                                <Search size={20} className="vt-search-icon" />
+                                <input
+                                    type="text"
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
+                                    placeholder="Digite seu código de rastreio"
+                                    className="vt-search-input"
+                                />
+                                <button type="submit" disabled={loading} className="vt-search-btn-inline">
+                                    {loading ? <div className="vt-spinner" /> : (<><Search size={16} /><span>Rastrear</span></>)}
+                                </button>
+                            </div>
+                            <button type="submit" disabled={loading} className="vt-search-btn-mobile">
+                                {loading ? <div className="vt-spinner" /> : (<><Package size={16} /><span>Rastrear encomenda</span><ArrowRight size={16} /></>)}
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                {/* ── Benefits ── */}
+                {!searched && (
+                    <section className="vt-benefits">
+                        <div className="vt-benefits-grid">
+                            <div className="vt-benefit-card">
+                                <div className="vt-benefit-icon"><Zap size={24} /></div>
+                                <h3>Rastreamento preciso</h3>
+                                <p>Cada movimentação registrada com precisão e transparência total.</p>
+                            </div>
+                            <div className="vt-benefit-card">
+                                <div className="vt-benefit-icon"><Globe size={24} /></div>
+                                <h3>Cobertura regional</h3>
+                                <p>Presença estratégica em toda a região com eficiência operacional.</p>
+                            </div>
+                            <div className="vt-benefit-card">
+                                <div className="vt-benefit-icon"><ShieldCheck size={24} /></div>
+                                <h3>Parceiro oficial</h3>
+                                <p>Integração direta com Jadlog, Correios e Loggi.</p>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Results ── */}
+                {searched && (
+                    <section className="vt-results">
+                        <div className="vt-results-inner">
+                            {error && !envio ? (
+                                <div className="vt-error-card">
+                                    <AlertTriangle size={40} />
+                                    <h2>Informação não localizada</h2>
+                                    <p>{error}</p>
+                                    <button onClick={() => window.location.reload()}>Tentar novamente</button>
+                                </div>
+                            ) : envio && (
+                                <div className="vt-data-grid">
+                                    {/* ── Sidebar ── */}
+                                    <div className="vt-sidebar">
+                                        <div className="vt-info-card">
+                                            <div className="vt-card-header">
+                                                <Package size={18} />
+                                                <span>Detalhes do envio</span>
+                                            </div>
+                                            <div className="vt-info-row">
+                                                <span className="vt-label">Código de rastreamento</span>
+                                                <span className="vt-tracking-code">{envio.codigo_rastreio}</span>
+                                            </div>
+                                            <div className="vt-info-row">
+                                                <span className="vt-label">Produto</span>
+                                                <span className="vt-value">{formatProduto(envio.produto) || "Encomenda"}</span>
+                                            </div>
+                                            <div className="vt-info-row">
+                                                <span className="vt-label">Transportadora</span>
+                                                <span className="vt-value">{envio.transportadora}</span>
+                                            </div>
+                                            <div className="vt-info-row">
+                                                <span className="vt-label">Status da entrega</span>
+                                                <span className="vt-status-badge">{formatStatus(envio.status_label || envio.status)}</span>
+                                            </div>
+                                            <div className="vt-progress-area">
+                                                <div className="vt-progress-header">
+                                                    <span>Progresso da entrega</span>
+                                                    <span>{progress}%</span>
+                                                </div>
+                                                <div className="vt-progress-track">
+                                                    <div className="vt-progress-fill" style={{ width: `${progress}%` }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="vt-meta-card">
+                                            <UserIcon />
+                                            <div>
+                                                <span className="vt-label">Destinatário</span>
+                                                <span className="vt-value">{envio.cliente_nome}</span>
+                                            </div>
+                                        </div>
+                                        <div className="vt-meta-card">
+                                            <CalendarIcon />
+                                            <div>
+                                                <span className="vt-label">Despachado em</span>
+                                                <span className="vt-value">{new Date(envio.created_at).toLocaleDateString("pt-BR")}</span>
+                                            </div>
+                                        </div>
+                                        <div className="vt-meta-card">
+                                            <Clock size={18} />
+                                            <div>
+                                                <span className="vt-label">Última atualização</span>
+                                                <span className="vt-value">{new Date(envio.updated_at).toLocaleDateString("pt-BR")}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ── Timeline ── */}
+                                    <div className="vt-timeline-card">
+                                        <div className="vt-timeline-header">
+                                            <span>Histórico de movimentações</span>
+                                        </div>
+                                        {eventos.length === 0 ? (
+                                            <div className="vt-timeline-empty">
+                                                <p>Aguardando atualizações da transportadora.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="vt-timeline">
+                                                {[...eventos].reverse().map((ev, idx) => {
+                                                    const cfg = statusConfig[ev.status_label || ""] || { icon: MapPin, label: "Atualização" };
+                                                    const Icon = cfg.icon;
+                                                    const eventDate = new Date(new Date(envio.updated_at).getTime() - (idx * 24 * 60 * 60 * 1000));
+                                                    const isFirst = idx === 0;
+
+                                                    const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
+                                                    const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
+                                                    let locationText: string | null = null;
+                                                    switch (ev.status_label) {
+                                                        case "Postado": locationText = origemLabel ? `Unidade de Postagem, ${origemLabel}` : null; break;
+                                                        case "Coletado": locationText = origemLabel ? `Unidade de Tratamento, ${origemLabel}` : null; break;
+                                                        case "Em Trânsito": case "Em Rota":
+                                                            if (origemLabel && destLabel) locationText = `de ${origemLabel} para ${destLabel}`; break;
+                                                        case "Centro Local": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
+                                                        case "Saiu para Entrega": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
+                                                        case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
+                                                        default: locationText = ev.descricao || ev.status_label || null;
+                                                    }
+
+                                                    const vizinhoData = ev.status_label === "Entregue" ? getVizinhoData(envio.id, envio.cliente_nome) : null;
+
+                                                    return (
+                                                        <div key={ev.ordem} className={`vt-tl-item ${isFirst ? 'vt-tl-active' : ''}`}>
+                                                            <div className="vt-tl-indicator">
+                                                                <div className={`vt-tl-dot ${isFirst ? 'active' : ''}`}>
+                                                                    <Icon size={14} />
+                                                                </div>
+                                                                {idx < eventos.length - 1 && <div className="vt-tl-line" />}
+                                                            </div>
+                                                            <div className="vt-tl-content">
+                                                                <h4>{ev.nome}</h4>
+                                                                {locationText && <p className="vt-tl-location">{locationText}</p>}
+                                                                {vizinhoData && (
+                                                                    <div style={{ marginTop: 6, fontSize: 13, color: '#4B5563', lineHeight: 1.6 }}>
+                                                                        <p style={{ margin: 0, fontWeight: 600 }}>{vizinhoData.label}</p>
+                                                                        <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Documento: {vizinhoData.cpf}</p>
+                                                                    </div>
+                                                                )}
+                                                                <span className="vt-tl-date">
+                                                                    {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                                </span>
+                                                                {ev.status_label === "Taxação" && envio && (
+                                                                    <a href={`/p/${envio.id}`} className="vt-action-btn">Pagar taxa</a>
+                                                                )}
+                                                                {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
+                                                                    <a href={`/f/${envio.id}`} className="vt-action-btn">Pagar reenvio / frete</a>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Footer ── */}
+                <footer className="vt-footer" id="contato">
+                    <div className="vt-footer-inner">
+                        <div className="vt-footer-top">
+                            <div className="vt-footer-brand">
+                                <img src={logoUrl} alt={empresaNome} />
+                                <p>Logística estratégica com rastreamento preciso e eficiente.</p>
+                            </div>
+                            <div className="vt-footer-cols">
+                                <div>
+                                    <h5>Contato</h5>
+                                    <a href="mailto:contato@vetortransportes.com.br">contato@vetortransportes.com.br</a>
+                                </div>
+                                <div>
+                                    <h5>Informações</h5>
+                                    <a href="#">Termos de serviço</a>
+                                    <a href="#">Política de privacidade</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="vt-footer-bottom">
+                            <span>© {new Date().getFullYear()} {empresaNome}. Todos os direitos reservados.</span>
+                        </div>
+                    </div>
+                </footer>
+
+                <NotificationPrompt codigoRastreio={envio?.codigo_rastreio} />
+                <style>{vetorStyles}</style>
+            </div>
+        );
+    }
 
     /* ═══════════════════════════════════════════════════════════════
        JADLOG — Clean corporate redesign
@@ -1090,6 +1367,309 @@ const jadlogStyles = `
   .jd-tracking-code { font-size: 18px; }
   .jd-footer-top { flex-direction: column; gap: 32px; }
   .jd-footer-cols { flex-direction: column; gap: 24px; }
+}
+`;
+
+/* ═══════════════════════════════════════════════
+   VETOR TRANSPORTES STYLES — Green/Graphite tech
+   ═══════════════════════════════════════════════ */
+const vetorStyles = `
+.vt-page {
+  min-height: 100vh;
+  background: #F5F7F5;
+  color: #2B2B2B;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.vt-nav {
+  position: fixed; top: 0; width: 100%; height: 64px;
+  background: #ffffff; border-bottom: 1px solid #E5E7EB;
+  z-index: 1000; display: flex; align-items: center;
+}
+.vt-nav-inner {
+  max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.vt-nav-logo { height: 40px; width: auto; }
+.vt-nav-links { display: flex; gap: 32px; }
+.vt-nav-links a {
+  font-size: 14px; font-weight: 500; color: #37474F;
+  text-decoration: none; transition: color 0.2s;
+}
+.vt-nav-links a:hover { color: #1B5E20; }
+.vt-nav-mobile {
+  display: none; background: none; border: none;
+  cursor: pointer; color: #37474F; padding: 8px;
+}
+.vt-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1100;
+}
+.vt-drawer {
+  position: fixed; top: 0; right: 0; width: 280px; max-width: 80vw;
+  height: 100vh; background: #fff; z-index: 1200;
+  display: flex; flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+  animation: vtSlide 0.25s ease-out;
+}
+@keyframes vtSlide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.vt-drawer-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid #E5E7EB;
+}
+.vt-drawer-head button { background: none; border: none; cursor: pointer; color: #6B7280; }
+.vt-drawer a {
+  font-size: 15px; font-weight: 500; color: #2B2B2B;
+  text-decoration: none; padding: 14px 24px;
+  border-bottom: 1px solid #F5F6F7; transition: background 0.2s;
+}
+.vt-drawer a:hover { background: #E8F5E9; color: #1B5E20; }
+.vt-hero {
+  padding: 130px 32px 90px;
+  background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 40%, #263238 100%);
+  color: white; text-align: center; position: relative; overflow: hidden;
+}
+.vt-hero-decor {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.03) 75%, transparent 75%),
+    radial-gradient(ellipse 800px 400px at 20% 80%, rgba(76,175,80,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 600px 300px at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 70%);
+  background-size: 60px 60px, 100% 100%, 100% 100%;
+}
+.vt-hero-content { max-width: 680px; margin: 0 auto; position: relative; z-index: 2; }
+.vt-hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 16px; border-radius: 100px;
+  background: rgba(76,175,80,0.2); backdrop-filter: blur(4px);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+  text-transform: uppercase; margin-bottom: 24px;
+  border: 1px solid rgba(76,175,80,0.3);
+}
+.vt-hero h1 {
+  font-size: 40px; font-weight: 700; line-height: 1.15;
+  margin-bottom: 18px; letter-spacing: -0.5px;
+}
+.vt-hero-sub {
+  font-size: 17px; font-weight: 400; opacity: 0.92;
+  margin-bottom: 8px; line-height: 1.6;
+}
+.vt-hero-desc {
+  font-size: 14px; font-weight: 400; opacity: 0.7;
+  margin-bottom: 44px; line-height: 1.6;
+}
+.vt-search-form {
+  max-width: 540px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 0;
+}
+.vt-search-wrapper {
+  display: flex; align-items: center; gap: 12px;
+  background: #ffffff; border-radius: 16px;
+  padding: 6px 6px 6px 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1);
+  transition: box-shadow 0.3s;
+}
+.vt-search-wrapper:focus-within {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2), 0 0 0 3px rgba(76,175,80,0.3);
+}
+.vt-search-icon { color: #9CA3AF; flex-shrink: 0; }
+.vt-search-input {
+  flex: 1; border: none; background: transparent;
+  height: 52px; font-size: 15px; font-weight: 500;
+  color: #2B2B2B; outline: none; font-family: inherit;
+}
+.vt-search-input::placeholder { color: #BFBFBF; }
+.vt-search-btn-inline {
+  display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 24px; background: #1B5E20;
+  color: white; border: none; border-radius: 12px;
+  font-weight: 700; font-size: 14px; cursor: pointer;
+  transition: all 0.2s; white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(27,94,32,0.4);
+}
+.vt-search-btn-inline:hover:not(:disabled) {
+  background: #145218; transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(27,94,32,0.5);
+}
+.vt-search-btn-inline:active:not(:disabled) { transform: translateY(0); }
+.vt-search-btn-inline:disabled { opacity: 0.6; cursor: not-allowed; }
+.vt-search-btn-mobile {
+  display: none; align-items: center; justify-content: center; gap: 8px;
+  height: 52px; width: 100%; margin-top: 12px;
+  background: rgba(255,255,255,0.15); backdrop-filter: blur(4px);
+  color: white; border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 14px; font-weight: 700; font-size: 15px;
+  cursor: pointer; transition: all 0.2s;
+}
+.vt-search-btn-mobile:hover:not(:disabled) {
+  background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5);
+}
+.vt-search-btn-mobile:disabled { opacity: 0.6; cursor: not-allowed; }
+.vt-benefits {
+  padding: 80px 32px; background: #ffffff;
+  border-bottom: 1px solid #E5E7EB;
+}
+.vt-benefits-grid {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
+}
+.vt-benefit-card {
+  text-align: center; padding: 40px 28px;
+  border-radius: 16px; border: 1px solid #F0F0F0;
+  transition: all 0.3s;
+}
+.vt-benefit-card:hover {
+  border-color: rgba(27,94,32,0.15);
+  box-shadow: 0 8px 24px rgba(27,94,32,0.06);
+  transform: translateY(-2px);
+}
+.vt-benefit-icon {
+  width: 60px; height: 60px; border-radius: 16px;
+  background: linear-gradient(135deg, rgba(27,94,32,0.1), rgba(76,175,80,0.06));
+  color: #1B5E20;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+}
+.vt-benefit-card h3 { font-size: 16px; font-weight: 700; color: #37474F; margin-bottom: 10px; }
+.vt-benefit-card p { font-size: 14px; color: #6B7280; line-height: 1.7; }
+.vt-results { padding: 60px 32px 100px; }
+.vt-results-inner { max-width: 1100px; margin: 0 auto; }
+.vt-data-grid {
+  display: grid; grid-template-columns: 380px 1fr;
+  gap: 32px; align-items: start;
+}
+.vt-sidebar { display: flex; flex-direction: column; gap: 12px; }
+.vt-info-card {
+  background: #ffffff; border-radius: 16px;
+  padding: 28px; border: 1px solid #E5E7EB;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.vt-card-header {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; font-weight: 600; color: #37474F;
+  margin-bottom: 24px; padding-bottom: 16px;
+  border-bottom: 1px solid #E5E7EB;
+}
+.vt-info-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px; }
+.vt-info-row:last-of-type { margin-bottom: 0; }
+.vt-label { font-size: 12px; font-weight: 500; color: #6B7280; letter-spacing: 0.3px; }
+.vt-tracking-code {
+  font-size: 22px; font-weight: 700; color: #37474F;
+  letter-spacing: 1px; font-family: 'JetBrains Mono', monospace;
+}
+.vt-value { font-size: 15px; font-weight: 600; color: #37474F; }
+.vt-status-badge {
+  display: inline-block; padding: 4px 12px;
+  background: rgba(27,94,32,0.1); color: #1B5E20;
+  border-radius: 6px; font-size: 13px; font-weight: 600; width: fit-content;
+}
+.vt-progress-area { margin-top: 24px; padding-top: 20px; border-top: 1px solid #E5E7EB; }
+.vt-progress-header {
+  display: flex; justify-content: space-between;
+  font-size: 12px; font-weight: 600; color: #6B7280; margin-bottom: 8px;
+}
+.vt-progress-track { height: 8px; background: #E5E7EB; border-radius: 4px; overflow: hidden; }
+.vt-progress-fill {
+  height: 100%; background: linear-gradient(90deg, #1B5E20, #4CAF50); border-radius: 4px;
+  transition: width 1s ease-out;
+}
+.vt-meta-card {
+  background: #ffffff; border-radius: 12px; padding: 16px 20px;
+  display: flex; align-items: center; gap: 14px; border: 1px solid #E5E7EB;
+}
+.vt-meta-card svg { color: #1B5E20; flex-shrink: 0; }
+.vt-meta-card div { display: flex; flex-direction: column; }
+.vt-timeline-card {
+  background: #ffffff; border-radius: 16px;
+  border: 1px solid #E5E7EB; overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.vt-timeline-header {
+  background: #37474F; color: white;
+  padding: 14px 24px; font-size: 14px; font-weight: 600;
+}
+.vt-timeline-empty { padding: 40px 24px; text-align: center; color: #6B7280; font-size: 14px; }
+.vt-timeline { padding: 24px; }
+.vt-tl-item { display: flex; gap: 16px; position: relative; padding-bottom: 24px; }
+.vt-tl-item:last-child { padding-bottom: 0; }
+.vt-tl-indicator {
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; flex-shrink: 0;
+}
+.vt-tl-dot {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: #F5F6F7; border: 2px solid #E5E7EB;
+  display: flex; align-items: center; justify-content: center;
+  color: #6B7280; z-index: 2;
+}
+.vt-tl-dot.active { background: rgba(27,94,32,0.1); border-color: #1B5E20; color: #1B5E20; }
+.vt-tl-line { position: absolute; top: 38px; bottom: -2px; width: 2px; background: #4CAF50; }
+.vt-tl-content { flex: 1; padding-top: 6px; }
+.vt-tl-content h4 { font-size: 14px; font-weight: 600; color: #37474F; margin: 0 0 4px; }
+.vt-tl-active .vt-tl-content h4 { color: #1B5E20; }
+.vt-tl-location { font-size: 13px; color: #6B7280; margin: 0 0 4px; line-height: 1.4; }
+.vt-tl-date { font-size: 12px; color: #9CA3AF; font-family: 'JetBrains Mono', monospace; }
+.vt-action-btn {
+  display: inline-block; margin-top: 8px; padding: 8px 20px;
+  background: #1B5E20; color: #fff; border-radius: 8px;
+  font-size: 13px; font-weight: 600; text-decoration: none; transition: background 0.2s;
+}
+.vt-action-btn:hover { background: #145218; }
+.vt-error-card {
+  text-align: center; padding: 60px 24px;
+  background: #ffffff; border-radius: 16px; border: 1px solid #E5E7EB;
+}
+.vt-error-card svg { color: #1B5E20; margin-bottom: 16px; }
+.vt-error-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.vt-error-card p { color: #6B7280; margin-bottom: 24px; }
+.vt-error-card button {
+  padding: 12px 28px; background: #1B5E20; color: white;
+  border: none; border-radius: 10px; font-weight: 600;
+  cursor: pointer; transition: background 0.2s;
+}
+.vt-error-card button:hover { background: #145218; }
+.vt-footer {
+  background: #ffffff; padding: 60px 32px 32px; border-top: 1px solid #E5E7EB;
+}
+.vt-footer-inner { max-width: 1100px; margin: 0 auto; }
+.vt-footer-top { display: flex; justify-content: space-between; margin-bottom: 48px; }
+.vt-footer-brand img { height: 40px; width: auto; margin-bottom: 16px; }
+.vt-footer-brand p { font-size: 14px; color: #6B7280; line-height: 1.6; max-width: 300px; }
+.vt-footer-cols { display: flex; gap: 64px; }
+.vt-footer-cols h5 {
+  font-size: 12px; font-weight: 700; color: #37474F;
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px;
+}
+.vt-footer-cols a {
+  display: block; font-size: 14px; color: #6B7280;
+  text-decoration: none; margin-bottom: 10px; transition: color 0.2s;
+}
+.vt-footer-cols a:hover { color: #1B5E20; }
+.vt-footer-bottom { padding-top: 24px; border-top: 1px solid #E5E7EB; font-size: 13px; color: #9CA3AF; }
+.vt-spinner {
+  width: 20px; height: 20px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white; border-radius: 50%;
+  animation: vtSpin 0.8s linear infinite; margin: 0 auto;
+}
+@keyframes vtSpin { to { transform: rotate(360deg); } }
+@media (max-width: 768px) {
+  .vt-nav-links { display: none; }
+  .vt-nav-mobile { display: block; }
+  .vt-hero { padding: 100px 20px 60px; }
+  .vt-hero h1 { font-size: 28px; }
+  .vt-hero-sub { font-size: 15px; }
+  .vt-hero-desc { font-size: 13px; margin-bottom: 32px; }
+  .vt-search-wrapper { padding: 12px 16px; }
+  .vt-search-btn-inline { display: none; }
+  .vt-search-btn-mobile { display: flex; }
+  .vt-search-input { height: 44px; text-align: center; }
+  .vt-search-icon { display: none; }
+  .vt-benefits-grid { grid-template-columns: 1fr; gap: 16px; }
+  .vt-data-grid { grid-template-columns: 1fr; }
+  .vt-results { padding: 24px 16px 60px; }
+  .vt-info-card { padding: 20px; }
+  .vt-tracking-code { font-size: 18px; }
+  .vt-footer-top { flex-direction: column; gap: 32px; }
+  .vt-footer-cols { flex-direction: column; gap: 24px; }
 }
 `;
 

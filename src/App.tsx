@@ -8,7 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { LojaProvider } from "@/contexts/LojaContext";
 import { BatchProgressProvider } from "@/contexts/BatchProgressContext";
-import { isLogisticsDomain } from "@/lib/domain-config";
+import { isLogisticsDomain, getLogisticsProvider } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -174,9 +174,12 @@ function PanelRoutes() {
 
 const App = () => {
   const logistics = isLogisticsDomain();
+  const provider = getLogisticsProvider();
 
   if (typeof document !== 'undefined') {
-    if (logistics) {
+    if (provider === 'vetor') {
+      document.title = 'Vetor Transportes — Rastreamento';
+    } else if (logistics) {
       document.title = 'Logística JL Transportes';
     } else {
       document.title = 'Magnus Frete';
