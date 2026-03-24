@@ -1344,7 +1344,7 @@ export default function WhatsApp() {
                                         size="sm"
                                         className="shimmer-btn h-8 text-xs"
                                         onClick={handleSendSelected}
-                                        disabled={connectedInstances.length === 0 || sendingIds.size > 0}
+                                        disabled={connectedInstances.length === 0 || sendingIds.size > 0 || selectedInstanceIds.size === 0}
                                     >
                                         {sendingIds.size > 0 ? (
                                             <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -1352,8 +1352,8 @@ export default function WhatsApp() {
                                             <Send className="h-3.5 w-3.5 mr-1" />
                                         )}
                                         Enviar ({selectedIds.size})
-                                        {connectedInstances.length > 1 && (
-                                            <span className="ml-1 text-[9px] opacity-70">🔄 rotação</span>
+                                        {selectedInstanceIds.size > 1 && (
+                                            <span className="ml-1 text-[9px] opacity-70">🔄 {selectedInstanceIds.size}x rotação</span>
                                         )}
                                     </Button>
                                 )}
