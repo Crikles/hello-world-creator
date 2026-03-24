@@ -1185,46 +1185,94 @@ export default function WhatsApp() {
                         </div>
                     )}
 
-                    {/* Instance selector */}
+                    {/* Instance selector — checkbox cards */}
                     {connectedInstances.length > 0 && (
                         <div className="glass glow-border rounded-xl p-4 space-y-3">
-                            <div className="flex items-center gap-3 mb-1">
-                                <div className="p-2 rounded-xl bg-primary/10">
-                                    <Wifi className="h-4 w-4 text-primary" />
+                            <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-xl bg-primary/10">
+                                        <Wifi className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">Instâncias de Envio</p>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            Selecione as instâncias que serão usadas. Múltiplas = rotação automática.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-foreground">Instância de Envio</p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        Escolha qual instância será usada para enviar as mensagens.
-                                    </p>
+                                <div className="flex gap-1.5">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[10px] px-2"
+                                        onClick={() => setSelectedInstanceIds(new Set(connectedInstances.map((i) => i.id)))}
+                                    >
+                                        Todas
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[10px] px-2"
+                                        onClick={() => setSelectedInstanceIds(new Set())}
+                                    >
+                                        Nenhuma
+                                    </Button>
                                 </div>
                             </div>
-                            <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
-                                <SelectTrigger className="w-full glass border-border/50 h-9 text-sm">
-                                    <SelectValue placeholder="Selecione a instância" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {connectedInstances.length > 1 && (
-                                        <SelectItem value="all">
-                                            <div className="flex items-center gap-2">
-                                                <RotateCcw className="h-3.5 w-3.5 text-primary" />
-                                                <span>Todas — rotação automática ({connectedInstances.length} instâncias)</span>
-                                            </div>
-                                        </SelectItem>
-                                    )}
-                                    {connectedInstances.map((inst) => (
-                                        <SelectItem key={inst.id} value={inst.id}>
-                                            <div className="flex items-center gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {connectedInstances.map((inst) => {
+                                    const isSelected = selectedInstanceIds.has(inst.id);
+                                    return (
+                                        <div
+                                            key={inst.id}
+                                            onClick={() => {
+                                                setSelectedInstanceIds((prev) => {
+                                                    const next = new Set(prev);
+                                                    next.has(inst.id) ? next.delete(inst.id) : next.add(inst.id);
+                                                    return next;
+                                                });
+                                            }}
+                                            className={`cursor-pointer rounded-lg p-3 border transition-all duration-200 ${
+                                                isSelected
+                                                    ? "border-primary bg-primary/10 shadow-sm shadow-primary/10"
+                                                    : "border-border/30 bg-transparent hover:border-border/60"
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <Checkbox
+                                                    checked={isSelected}
+                                                    className="h-4 w-4 border-primary/30 pointer-events-none"
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-foreground truncate">
+                                                        {(inst as any).label || inst.instance_name}
+                                                    </p>
+                                                    {inst.phone && (
+                                                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                            <Phone className="h-2.5 w-2.5" />
+                                                            {inst.phone}
+                                                        </p>
+                                                    )}
+                                                </div>
                                                 <span className="inline-block h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                                                <span>{inst.instance_name}</span>
-                                                {inst.phone && (
-                                                    <span className="text-muted-foreground text-xs">({inst.phone})</span>
-                                                )}
                                             </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {selectedInstanceIds.size > 1 && (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <RotateCcw className="h-3 w-3 text-primary" />
+                                    <span className="text-[10px] text-muted-foreground">
+                                        Rotação automática entre {selectedInstanceIds.size} instâncias selecionadas.
+                                    </span>
+                                </div>
+                            )}
+                            {selectedInstanceIds.size === 0 && (
+                                <p className="text-[10px] text-yellow-500 flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" /> Selecione ao menos uma instância para enviar.
+                                </p>
+                            )}
                         </div>
                     )}
 
