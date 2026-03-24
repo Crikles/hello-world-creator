@@ -1302,6 +1302,76 @@ export type Database = {
           },
         ]
       }
+      whatsapp_send_queue: {
+        Row: {
+          choices: Json | null
+          created_at: string
+          envio_id: string
+          footer_text: string | null
+          id: string
+          image_url: string | null
+          instance_id: string | null
+          loja_id: string
+          msg_text: string
+          number: string
+          processed_at: string | null
+          scheduled_at: string
+          status: string
+        }
+        Insert: {
+          choices?: Json | null
+          created_at?: string
+          envio_id: string
+          footer_text?: string | null
+          id?: string
+          image_url?: string | null
+          instance_id?: string | null
+          loja_id: string
+          msg_text: string
+          number: string
+          processed_at?: string | null
+          scheduled_at?: string
+          status?: string
+        }
+        Update: {
+          choices?: Json | null
+          created_at?: string
+          envio_id?: string
+          footer_text?: string | null
+          id?: string
+          image_url?: string | null
+          instance_id?: string | null
+          loja_id?: string
+          msg_text?: string
+          number?: string
+          processed_at?: string | null
+          scheduled_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_send_queue_envio_id_fkey"
+            columns: ["envio_id"]
+            isOneToOne: false
+            referencedRelation: "envios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_send_queue_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_send_queue_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_subscriptions: {
         Row: {
           created_at: string

@@ -561,7 +561,7 @@ Deno.serve(async (req) => {
             return jsonResp({ success: true, ...data });
         }
 
-        // ── SEND-QUEUE: Bulk send with rotation ──
+        // ── SEND-QUEUE: Bulk send via queue (respects delay, works offline) ──
         if (action === "send-queue") {
             console.log("SEND-QUEUE action received body:", JSON.stringify({ envio_ids_count: body.envio_ids?.length, btn_text: body.btn_text, btn_url_template: body.btn_url_template, btn2_text: body.btn2_text, btn2_url: body.btn2_url, footer: body.footer }));
             const { envio_ids, msg_template, btn_text, btn_url_template, footer, btn2_text: queueBtn2Text, btn2_url: queueBtn2Url } = body;
@@ -570,18 +570,17 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "envio_ids array is required" }, 400);
             }
 
+            // Fetch active connected instances
             const { data: allInstances } = await supabaseAdmin
                 .from("whatsapp_instances")
                 .select("*")
                 .eq("loja_id", loja_id)
                 .eq("status", "connected");
 
-            // Filter by selected instance_ids if provided
             let activeInstances = (allInstances || []).filter(
                 (i: any) => i.expires_at && new Date(i.expires_at) > new Date()
             );
 
-            // If frontend sent specific instance_ids, filter to only those
             const requestedInstanceIds: string[] | undefined = body.instance_ids;
             if (requestedInstanceIds && Array.isArray(requestedInstanceIds) && requestedInstanceIds.length > 0) {
                 const idSet = new Set(requestedInstanceIds);
@@ -593,6 +592,7 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "Nenhuma instância WhatsApp ativa e conectada encontrada." }, 400);
             }
 
+            // Fetch envios data
             const { data: enviosData } = await supabaseAdmin
                 .from("envios")
                 .select("*")
@@ -602,42 +602,41 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "No envios found" }, 404);
             }
 
+            // Fetch config for delay and extras
             const { data: configData } = await supabaseAdmin
                 .from("postagem_config")
                 .select("whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url")
                 .eq("loja_id", loja_id)
                 .maybeSingle();
 
-            const delayMs = ((configData?.whatsapp_delay_seconds) || 300) * 1000;
+            const delaySeconds = (configData?.whatsapp_delay_seconds) || 300;
             const queueImageUrl = configData?.whatsapp_image_url || null;
             const queueReplyText = configData?.whatsapp_reply_text || null;
             const cfgBtn2Text = queueBtn2Text || configData?.whatsapp_btn2_text || null;
             const cfgBtn2Url = queueBtn2Url || configData?.whatsapp_btn2_url || null;
 
-            const results: { envio_id: string; status: string; instance_name: string }[] = [];
+            // Build queue items with staggered scheduled_at and round-robin instance assignment
+            const queueItems: any[] = [];
+            const baseTime = Date.now();
 
             for (let i = 0; i < enviosData.length; i++) {
                 const envio = enviosData[i];
                 const inst = activeInstances[i % activeInstances.length];
 
-                if (!envio.cliente_telefone) {
-                    await logMessage(envio.id, inst.id, "failed");
-                    results.push({ envio_id: envio.id, status: "failed", instance_name: inst.instance_name });
-                    continue;
-                }
+                if (!envio.cliente_telefone) continue;
 
-                // Parse produto for display name
                 let produtoNome = envio.produto;
                 try {
                     const parsed = JSON.parse(envio.produto);
                     if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
-                } catch { /* not JSON, use as-is */ }
+                } catch { /* not JSON */ }
 
-                let text = (msg_template || envio.produto)
+                const text = (msg_template || envio.produto)
                     .replace(/\{\{nome\}\}/g, envio.cliente_nome || "")
                     .replace(/\{\{produto\}\}/g, produtoNome)
                     .replace(/\{\{valor\}\}/g, Number(envio.valor || 0).toFixed(2))
                     .replace(/\{\{codigo_rastreio\}\}/g, envio.codigo_rastreio || "");
+
                 const number = envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
                     ? envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
                     : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
@@ -649,42 +648,46 @@ Deno.serve(async (req) => {
                 if (cfgBtn2Text && cfgBtn2Url) choices.push(`${cfgBtn2Text}|${cfgBtn2Url}`);
                 if (queueReplyText) choices.push(queueReplyText);
 
-                const sendBody: Record<string, unknown> = {
+                // Stagger by delay: first item now, subsequent items spaced by delaySeconds
+                const scheduledAt = new Date(baseTime + i * delaySeconds * 1000).toISOString();
+
+                queueItems.push({
+                    loja_id,
+                    envio_id: envio.id,
+                    instance_id: inst.id,
                     number,
-                    type: "button",
-                    text: queueImageUrl ? `\n${text}` : text,
-                    choices,
-                };
-                if (queueImageUrl) sendBody.imageButton = queueImageUrl;
-                if (footer) sendBody.footerText = footer;
-
-                console.log(`SEND-QUEUE payload for envio ${envio.id}:`, JSON.stringify({ choices, text: sendBody.text, number: sendBody.number, btn2: cfgBtn2Text }));
-
-                try {
-                    const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            token: inst.instance_token,
-                        },
-                        body: JSON.stringify(sendBody),
-                    });
-
-                    const status = res.ok ? "sent" : "failed";
-                    await logMessage(envio.id, inst.id, status);
-                    results.push({ envio_id: envio.id, status, instance_name: inst.instance_name });
-                } catch {
-                    await logMessage(envio.id, inst.id, "failed");
-                    results.push({ envio_id: envio.id, status: "failed", instance_name: inst.instance_name });
-                }
-
-                if (i < enviosData.length - 1 && delayMs > 0) {
-                    await new Promise((r) => setTimeout(r, Math.min(delayMs, 10000)));
-                }
+                    msg_text: queueImageUrl ? `\n${text}` : text,
+                    choices: JSON.stringify(choices),
+                    image_url: queueImageUrl || null,
+                    footer_text: footer || null,
+                    scheduled_at: scheduledAt,
+                    status: "pending",
+                });
             }
 
-            return jsonResp({ success: true, results });
+            if (queueItems.length === 0) {
+                return jsonResp({ error: "Nenhum envio com telefone válido encontrado." }, 400);
+            }
+
+            // Insert all queue items
+            const { error: queueErr } = await supabaseAdmin
+                .from("whatsapp_send_queue")
+                .insert(queueItems);
+
+            if (queueErr) {
+                console.error("Failed to insert queue items:", queueErr);
+                return jsonResp({ error: "Erro ao enfileirar mensagens", details: queueErr.message }, 500);
+            }
+
+            console.log(`Queued ${queueItems.length} WhatsApp messages for loja ${loja_id}`);
+
+            return jsonResp({
+                success: true,
+                queued: queueItems.length,
+                total_instances: activeInstances.length,
+                delay_seconds: delaySeconds,
+                estimated_minutes: Math.ceil((queueItems.length * delaySeconds) / 60),
+            });
         }
 
         return jsonResp({ error: `Unknown action: ${action}` }, 400);
