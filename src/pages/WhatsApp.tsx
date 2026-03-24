@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     MessageCircle, Wifi, WifiOff, QrCode, Trash2, Send, Search,
-    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply
+    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply, Pencil, X, Save
 } from "lucide-react";
 import { useLoja } from "@/contexts/LojaContext";
 import { useAuth } from "@/contexts/AuthContext";
