@@ -1116,7 +1116,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const appBaseUrl = `${supabaseUrl}/functions/v1/redirect`;
 
-    const primaryColor = isJadlog ? "#e10526" : corPrimaria;
+    const primaryColor = isJadlog ? "#e10526" : isVetor ? "#1B5E20" : corPrimaria;
     const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);
 
     // Resolve PDF attachment: prefer storage path, then server-side generation, fallback to inline base64
