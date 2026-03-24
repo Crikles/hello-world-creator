@@ -771,7 +771,37 @@ export default function WhatsApp() {
                                                 <div className="flex items-center gap-3">
                                                     <div className={`h-3 w-3 rounded-full ${inst.status === "connected" ? "bg-green-500 animate-pulse" : inst.status === "connecting" ? "bg-yellow-500 animate-pulse" : "bg-red-400"}`} />
                                                     <div>
-                                                        <p className="text-sm font-semibold text-foreground">{inst.instance_name}</p>
+                                                        {editingLabelId === inst.id ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Input
+                                                                    value={editingLabelValue}
+                                                                    onChange={(e) => setEditingLabelValue(e.target.value)}
+                                                                    className="h-7 w-40 text-xs bg-transparent border-border/50"
+                                                                    placeholder="Ex: Loja SP, Suporte..."
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === "Enter") saveLabelMutation.mutate({ id: inst.id, label: editingLabelValue });
+                                                                        if (e.key === "Escape") setEditingLabelId(null);
+                                                                    }}
+                                                                />
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => saveLabelMutation.mutate({ id: inst.id, label: editingLabelValue })} disabled={saveLabelMutation.isPending}>
+                                                                    {saveLabelMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 text-green-500" />}
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingLabelId(null)}>
+                                                                    <X className="h-3 w-3 text-muted-foreground" />
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-sm font-semibold text-foreground">{(inst as any).label || inst.instance_name}</p>
+                                                                <Button variant="ghost" size="icon" className="h-5 w-5 opacity-50 hover:opacity-100" onClick={() => { setEditingLabelId(inst.id); setEditingLabelValue((inst as any).label || ""); }}>
+                                                                    <Pencil className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                        {!(editingLabelId === inst.id) && (inst as any).label && (
+                                                            <p className="text-[10px] text-muted-foreground font-mono">{inst.instance_name}</p>
+                                                        )}
                                                         <p className={`text-xs font-medium ${instStatusColor}`}>{instStatusLabel}</p>
                                                     </div>
                                                 </div>
