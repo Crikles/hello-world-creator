@@ -647,7 +647,7 @@ export default function Envios() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterStatus, filterMetodo, dateRange.from, dateRange.to]);
+  }, [search, filterStatus, filterMetodo, filterOrigem, dateRange.from, dateRange.to]);
 
   const totalPages = Math.ceil(filteredEnvios.length / itemsPerPage);
   const paginatedEnvios = filteredEnvios.slice(
@@ -936,8 +936,23 @@ export default function Envios() {
                   <SelectItem value="pix">PIX</SelectItem>
                   <SelectItem value="cartao">Cartão</SelectItem>
                   <SelectItem value="boleto">Boleto</SelectItem>
-                  <SelectItem value="checkout">Checkout</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterOrigem} onValueChange={setFilterOrigem}>
+                <SelectTrigger className="w-[160px] h-8 text-xs bg-transparent border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas Origens</SelectItem>
                   <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="vega">Vega</SelectItem>
+                  <SelectItem value="zedy">Zedy</SelectItem>
+                  <SelectItem value="luna">Luna</SelectItem>
+                  <SelectItem value="corvex">Corvex</SelectItem>
+                  <SelectItem value="adoorei">Adoorei</SelectItem>
+                  <SelectItem value="shopify">Shopify</SelectItem>
+                  <SelectItem value="api_externa">API Externa</SelectItem>
                 </SelectContent>
               </Select>
               {loja && <ImportarPlanilha lojaId={loja.id} />}
