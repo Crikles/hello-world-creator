@@ -171,9 +171,15 @@ export default function Rastreio() {
         return code.toUpperCase().trim().endsWith("JD");
     }, [codigoFromUrl, envio]);
 
-    const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
-    const logoUrl = isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
-    const primaryColor = isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
+    const isVetor = useMemo(() => {
+        if (envio?.transportadora?.toUpperCase().includes("VETOR")) return true;
+        const code = envio?.codigo_rastreio || codigoFromUrl || "";
+        return code.toUpperCase().trim().endsWith("VT");
+    }, [codigoFromUrl, envio]);
+
+    const empresaNome = isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
+    const logoUrl = isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
+    const primaryColor = isVetor ? "#1B5E20" : isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
 
     const progress = totalEventos > 0 && envio
         ? Math.min(100, Math.round((envio.ultimo_evento_ordem / totalEventos) * 100))
