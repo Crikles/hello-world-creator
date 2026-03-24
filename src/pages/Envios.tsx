@@ -397,6 +397,18 @@ export default function Envios() {
         async (payload) => {
           const newEnvio = payload.new as any;
           if ((newEnvio.ultimo_evento_ordem ?? 0) === 0 && newEnvio.status === "pendente") {
+            // Re-check auto_envio from DB to avoid stale state across tabs
+            const { data: freshConfig } = await supabase
+              .from("postagem_config")
+              .select("auto_envio")
+              .eq("loja_id", loja.id)
+              .maybeSingle();
+
+            if (!freshConfig?.auto_envio) {
+              console.log("AUTO: skipped — auto_envio disabled in DB");
+              return;
+            }
+
             console.log("AUTO: Starting new shipment", newEnvio.id);
             try {
               await triggerNextEmail(newEnvio.id, loja.id);
