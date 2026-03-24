@@ -639,7 +639,7 @@ export default function Envios() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterStatus, dateRange.from, dateRange.to]);
+  }, [search, filterStatus, filterMetodo, dateRange.from, dateRange.to]);
 
   const totalPages = Math.ceil(filteredEnvios.length / itemsPerPage);
   const paginatedEnvios = filteredEnvios.slice(
