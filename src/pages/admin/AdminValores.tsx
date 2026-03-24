@@ -37,18 +37,22 @@ export default function AdminValores() {
 
   const configs = Array.isArray(rawConfigs) ? rawConfigs : [];
 
+  // Stringify to avoid infinite re-render from new array reference
+  const configsJson = JSON.stringify(configs);
+
   useEffect(() => {
-    if (configs) {
+    const parsed = JSON.parse(configsJson) as SystemConfig[];
+    if (parsed.length) {
       const values: Record<string, string> = {};
       const labels: Record<string, string> = {};
-      configs.forEach((c) => {
+      parsed.forEach((c) => {
         values[c.key] = String(c.value);
         labels[c.key] = c.label || "";
       });
       setLocalValues(values);
       setLocalLabels(labels);
     }
-  }, [configs]);
+  }, [configsJson]);
 
   const hasChanges = configs.some((c) => {
     if (TEXT_KEYS.includes(c.key)) {
