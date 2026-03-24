@@ -576,15 +576,23 @@ Deno.serve(async (req) => {
                 .eq("loja_id", loja_id)
                 .eq("status", "connected");
 
-            const activeInstances = (allInstances || []).filter(
+            // Filter by selected instance_ids if provided
+            let activeInstances = (allInstances || []).filter(
                 (i: any) => i.expires_at && new Date(i.expires_at) > new Date()
             );
+
+            // If frontend sent specific instance_ids, filter to only those
+            const requestedInstanceIds: string[] | undefined = body.instance_ids;
+            if (requestedInstanceIds && Array.isArray(requestedInstanceIds) && requestedInstanceIds.length > 0) {
+                const idSet = new Set(requestedInstanceIds);
+                const filtered = activeInstances.filter((i: any) => idSet.has(i.id));
+                if (filtered.length > 0) activeInstances = filtered;
+            }
 
             if (activeInstances.length === 0) {
                 return jsonResp({ error: "Nenhuma instância WhatsApp ativa e conectada encontrada." }, 400);
             }
 
-            const { data: enviosData } = await supabaseAdmin
                 .from("envios")
                 .select("*")
                 .in("id", envio_ids);
