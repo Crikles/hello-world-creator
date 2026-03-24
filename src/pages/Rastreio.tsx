@@ -1,5 +1,5 @@
 import { formatProduto } from "@/lib/format-produto";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, Fragment } from "react";
 
 import { useParams, useSearchParams } from "react-router-dom";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
@@ -307,7 +307,7 @@ export default function Rastreio() {
                                         <div className="vt-partner-card">
                                             <img src="/logo-loggi.webp" alt="Loggi" className="vt-partner-logo" />
                                         </div>
-                                    </React.Fragment>
+                                    </Fragment>
                                 ))}
                             </div>
                         </div>
