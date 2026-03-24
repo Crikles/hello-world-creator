@@ -1391,7 +1391,7 @@ const vetorStyles = `
   max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 32px;
   display: flex; align-items: center; justify-content: space-between;
 }
-.vt-nav-logo { height: 40px; width: auto; }
+.vt-nav-logo { height: 64px; width: auto; }
 .vt-nav-links { display: flex; gap: 32px; }
 .vt-nav-links a {
   font-size: 14px; font-weight: 500; color: #37474F;
