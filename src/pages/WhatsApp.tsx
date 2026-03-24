@@ -150,7 +150,7 @@ export default function WhatsApp() {
     const [activeTab, setActiveTab] = useState<"instance" | "template" | "send">("instance");
     const [phoneInput, setPhoneInput] = useState("");
     const [search, setSearch] = useState("");
-    const [filterStatus, setFilterStatus] = useState("todos");
+    const [sendSubTab, setSendSubTab] = useState<"pendentes" | "enviados">("pendentes");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
