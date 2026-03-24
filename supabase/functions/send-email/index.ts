@@ -1035,6 +1035,7 @@ Deno.serve(async (req) => {
     let emailRemetente = "noreply@jltransportes.pro";
     let whatsappVendedor = "";
     const isJadlog = envio.transportadora?.toUpperCase().includes("JADLOG");
+    const isVetor = envio.transportadora?.toUpperCase().includes("VETOR");
 
     let corPrimaria = "#6366f1";
     let corBotaoCta = "#1a1a1a";
@@ -1115,7 +1116,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const appBaseUrl = `${supabaseUrl}/functions/v1/redirect`;
 
-    const primaryColor = isJadlog ? "#e10526" : corPrimaria;
+    const primaryColor = isJadlog ? "#e10526" : isVetor ? "#1B5E20" : corPrimaria;
     const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);
 
     // Resolve PDF attachment: prefer storage path, then server-side generation, fallback to inline base64
