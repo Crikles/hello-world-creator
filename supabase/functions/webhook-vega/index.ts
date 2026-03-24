@@ -57,25 +57,12 @@ Deno.serve(async (req) => {
 
     const transactionToken = isAbandonedCart
       ? payload.abandoned_cart_code || payload.checkout_id || `ac_${Date.now()}`
-      : payload.transaction_token || `tx_${Date.now()}`;
+      : payload.transaction_token || payload.transaction_id || `tx_${Date.now()}`;
 
-    // 1. Log the webhook
-    await supabase.from("webhook_logs").insert({
-      checkout_provider: "vega",
-      event_type: eventType,
-      status: status,
-      payload: payload,
-      processed: false,
-      loja_id: lojaId,
-    });
 
-    // 2. Normalize customer data
-    const customer = payload.customer || {};
-    const address = payload.address || {};
-    const products = payload.products || [];
-
+    // Extract products: V2 uses payload.products, V1 uses payload.plans[].products[]
     let normalizedProducts = products;
-    if (isAbandonedCart && payload.plans && !products.length) {
+    if (!products.length && payload.plans) {
       normalizedProducts = [];
       for (const plan of payload.plans) {
         if (plan.products) {
@@ -85,7 +72,7 @@ Deno.serve(async (req) => {
               title: p.name,
               description: p.description,
               amount: parseInt(String(p.value || plan.value || 0).replace(".", ""), 10) || 0,
-              quantity: parseInt(p.amount || "1", 10),
+              quantity: parseInt(String(p.amount || "1"), 10),
             });
           }
         }
