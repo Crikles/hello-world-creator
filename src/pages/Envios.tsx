@@ -619,7 +619,6 @@ export default function Envios() {
     let matchMetodo = true;
     if (filterMetodo !== "todos") {
       const metodo = pedidoMetodoMap[e.id];
-      const hasCheckout = !!pedidoOrigemMap[e.id];
       if (filterMetodo === "pix") {
         matchMetodo = !!metodo && metodo.toLowerCase().includes("pix");
       } else if (filterMetodo === "cartao") {
@@ -627,14 +626,22 @@ export default function Envios() {
         matchMetodo = m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit");
       } else if (filterMetodo === "boleto") {
         matchMetodo = !!metodo && metodo.toLowerCase().includes("boleto");
-      } else if (filterMetodo === "checkout") {
-        matchMetodo = hasCheckout;
-      } else if (filterMetodo === "manual") {
-        matchMetodo = !hasCheckout;
       }
     }
 
-    return matchSearch && matchStatus && matchDate && matchMetodo;
+    let matchOrigem = true;
+    if (filterOrigem !== "todos") {
+      const provider = pedidoOrigemMap[e.id];
+      if (filterOrigem === "manual") {
+        matchOrigem = !provider;
+      } else if (filterOrigem === "api_externa") {
+        matchOrigem = provider === "api_externa";
+      } else {
+        matchOrigem = provider === filterOrigem;
+      }
+    }
+
+    return matchSearch && matchStatus && matchDate && matchMetodo && matchOrigem;
   });
 
   // Reset page when filters change
