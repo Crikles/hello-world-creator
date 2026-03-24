@@ -105,6 +105,7 @@ export default function Envios() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [filterMetodo, setFilterMetodo] = useState<string>("todos");
+  const [filterOrigem, setFilterOrigem] = useState<string>("todos");
   const [autoEnvio, setAutoEnvio] = useState(false);
   const [autoEnvioLoading, setAutoEnvioLoading] = useState(false);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
@@ -618,7 +619,6 @@ export default function Envios() {
     let matchMetodo = true;
     if (filterMetodo !== "todos") {
       const metodo = pedidoMetodoMap[e.id];
-      const hasCheckout = !!pedidoOrigemMap[e.id];
       if (filterMetodo === "pix") {
         matchMetodo = !!metodo && metodo.toLowerCase().includes("pix");
       } else if (filterMetodo === "cartao") {
@@ -626,20 +626,28 @@ export default function Envios() {
         matchMetodo = m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit");
       } else if (filterMetodo === "boleto") {
         matchMetodo = !!metodo && metodo.toLowerCase().includes("boleto");
-      } else if (filterMetodo === "checkout") {
-        matchMetodo = hasCheckout;
-      } else if (filterMetodo === "manual") {
-        matchMetodo = !hasCheckout;
       }
     }
 
-    return matchSearch && matchStatus && matchDate && matchMetodo;
+    let matchOrigem = true;
+    if (filterOrigem !== "todos") {
+      const provider = pedidoOrigemMap[e.id];
+      if (filterOrigem === "manual") {
+        matchOrigem = !provider;
+      } else if (filterOrigem === "api_externa") {
+        matchOrigem = provider === "api_externa";
+      } else {
+        matchOrigem = provider === filterOrigem;
+      }
+    }
+
+    return matchSearch && matchStatus && matchDate && matchMetodo && matchOrigem;
   });
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterStatus, filterMetodo, dateRange.from, dateRange.to]);
+  }, [search, filterStatus, filterMetodo, filterOrigem, dateRange.from, dateRange.to]);
 
   const totalPages = Math.ceil(filteredEnvios.length / itemsPerPage);
   const paginatedEnvios = filteredEnvios.slice(
@@ -928,8 +936,23 @@ export default function Envios() {
                   <SelectItem value="pix">PIX</SelectItem>
                   <SelectItem value="cartao">Cartão</SelectItem>
                   <SelectItem value="boleto">Boleto</SelectItem>
-                  <SelectItem value="checkout">Checkout</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterOrigem} onValueChange={setFilterOrigem}>
+                <SelectTrigger className="w-[160px] h-8 text-xs bg-transparent border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas Origens</SelectItem>
                   <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="vega">Vega</SelectItem>
+                  <SelectItem value="zedy">Zedy</SelectItem>
+                  <SelectItem value="luna">Luna</SelectItem>
+                  <SelectItem value="corvex">Corvex</SelectItem>
+                  <SelectItem value="adoorei">Adoorei</SelectItem>
+                  <SelectItem value="shopify">Shopify</SelectItem>
+                  <SelectItem value="api_externa">API Externa</SelectItem>
                 </SelectContent>
               </Select>
               {loja && <ImportarPlanilha lojaId={loja.id} />}
