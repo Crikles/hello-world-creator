@@ -181,9 +181,8 @@ export function NotificationPrompt({ codigoRastreio }: NotificationPromptProps) 
         </>
       )}
 
-      {/* Banner */}
       <div className="nprompt-banner">
-        <div className="nprompt-icon" style={{ background: isPushMode ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+        <div className="nprompt-icon" style={{ background: "#111" }}>
           <Icon size={22} color="white" />
         </div>
         <div className="nprompt-content">
@@ -195,7 +194,6 @@ export function NotificationPrompt({ codigoRastreio }: NotificationPromptProps) 
             className="nprompt-btn nprompt-btn-accept"
             onClick={handleAccept}
             disabled={working}
-            style={{ background: isPushMode ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "linear-gradient(135deg, #22c55e, #16a34a)" }}
           >
             {acceptLabel}
           </button>
@@ -223,12 +221,12 @@ const styles = `
 .nprompt-banner {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   z-index: 9999;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border: 1px solid rgba(99,102,241,0.25);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 18px; padding: 18px 22px;
   display: flex; align-items: center; gap: 14px;
   max-width: 540px; width: calc(100% - 32px);
-  box-shadow: 0 16px 50px rgba(0,0,0,0.4), 0 0 30px rgba(99,102,241,0.1);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
   animation: npSlideUp 0.4s cubic-bezier(0.16,1,0.3,1);
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
@@ -237,45 +235,45 @@ const styles = `
   display: flex; align-items: center; justify-content: center;
 }
 .nprompt-content { flex: 1; min-width: 0; }
-.nprompt-title { font-size: 14px; font-weight: 700; color: #f8fafc; margin: 0 0 3px; }
-.nprompt-text { font-size: 12px; color: #94a3b8; margin: 0; line-height: 1.4; }
+.nprompt-title { font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 3px; }
+.nprompt-text { font-size: 12px; color: #64748b; margin: 0; line-height: 1.4; }
 .nprompt-actions { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
 .nprompt-btn {
   border: none; border-radius: 9px; padding: 8px 18px;
   font-size: 12px; font-weight: 700; cursor: pointer;
   transition: all 0.2s; font-family: inherit; white-space: nowrap;
 }
-.nprompt-btn-accept { color: white; }
-.nprompt-btn-accept:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
+.nprompt-btn-accept { color: white; background: #111; }
+.nprompt-btn-accept:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
 .nprompt-btn-accept:disabled { opacity: 0.7; cursor: wait; }
-.nprompt-btn-dismiss { background: rgba(255,255,255,0.06); color: #64748b; font-size: 11px; }
-.nprompt-btn-dismiss:hover { background: rgba(255,255,255,0.1); color: #94a3b8; }
-.nprompt-close { background: none; border: none; color: #475569; cursor: pointer; padding: 4px; border-radius: 6px; transition: all 0.2s; }
-.nprompt-close:hover { color: #94a3b8; background: rgba(255,255,255,0.05); }
+.nprompt-btn-dismiss { background: #f1f5f9; color: #64748b; font-size: 11px; }
+.nprompt-btn-dismiss:hover { background: #e2e8f0; color: #475569; }
+.nprompt-close { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px; border-radius: 6px; transition: all 0.2s; }
+.nprompt-close:hover { color: #475569; background: #f1f5f9; }
 .nprompt-close-banner { position: absolute; top: 6px; right: 6px; }
 
 /* iOS Guide */
 .nprompt-ios-guide {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   z-index: 10001;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border: 1px solid rgba(99,102,241,0.3); border-radius: 20px; padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px;
   max-width: 380px; width: calc(100% - 32px);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
   animation: npSlideUp 0.3s cubic-bezier(0.16,1,0.3,1);
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
-.nprompt-ios-title { font-size: 17px; font-weight: 800; color: #f8fafc; margin: 0 0 16px; text-align: center; }
+.nprompt-ios-title { font-size: 17px; font-weight: 800; color: #0f172a; margin: 0 0 16px; text-align: center; }
 .nprompt-ios-steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
 .nprompt-ios-step { display: flex; align-items: center; gap: 12px; }
 .nprompt-ios-num {
   flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: #111;
   color: white; font-size: 13px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
 }
-.nprompt-ios-text { font-size: 13px; color: #cbd5e1; line-height: 1.4; }
-.nprompt-ios-note { font-size: 12px; color: #22c55e; text-align: center; margin: 0; font-weight: 600; }
+.nprompt-ios-text { font-size: 13px; color: #475569; line-height: 1.4; }
+.nprompt-ios-note { font-size: 12px; color: #16a34a; text-align: center; margin: 0; font-weight: 600; }
 
 @keyframes npSlideUp {
   from { opacity: 0; transform: translateX(-50%) translateY(30px); }
