@@ -1,75 +1,49 @@
 
 
-## Criar Logistica "Vetor Transportes" com design proprio
+## Adicionar Carrossel de Logos de Parceiros na Seção Benefits (Vetor)
 
-### Resumo
+### O que sera feito
 
-Adicionar a Vetor Transportes como terceira opcao de logistica no sistema, com identidade visual propria (verde escuro, verde claro, grafite), site de rastreio dedicado e preparacao para dominio customizado.
+Adicionar uma nova seção abaixo dos benefit cards com os logos dos parceiros (Jadlog, Correios e Loggi) em cards brancos com borda arredondada, animados com movimento horizontal infinito (marquee/carousel), responsivo para mobile e desktop.
 
-### Arquivos a criar/modificar
+### Arquivos
 
-**1. Copiar logo para o projeto**
-- Copiar `user-uploads://unnamed-removebg-preview_1.png` para `public/logovetor.png`
+**1. Copiar as 3 imagens para o projeto**
+- `user-uploads://unnamed_1.jpg` → `public/logo-jadlog.jpg` (cubo vermelho = Jadlog)
+- `user-uploads://unnamed.png` → `public/logo-correios.png` (setas amarela/azul = Correios)
+- `user-uploads://unnamed.webp` → `public/logo-loggi.webp` (coelho branco = Loggi)
 
-**2. `src/lib/domain-config.ts`** - Adicionar dominio Vetor
-```typescript
-const LOGISTICS_DOMAINS = [
-  'rastreio.jltransportelogistica.com',
-  'rastreio.vetortransportes.com.br'  // placeholder ate definir dominio real
-];
+**2. `src/pages/Rastreio.tsx`** - Adicionar seção de parceiros dentro do bloco `!searched && isVetor`
 
-export function getLogisticsProvider(): string | null {
-  const host = window.location.hostname;
-  if (host === 'rastreio.vetortransportes.com.br') return 'vetor';
-  if (LOGISTICS_DOMAINS.includes(host)) return 'jl'; // default
-  return null;
-}
-```
+- Nova seção `vt-partners` entre Benefits e Results:
+  - Titulo: "Nossos Parceiros" centralizado
+  - Container com overflow hidden
+  - Faixa duplicada de logos (para loop infinito) animando com translateX
+  - Cada logo em card branco, borda arredondada (border-radius 20px), sombra suave, padding generoso
+  - Logos com altura fixa (~60px desktop, ~45px mobile), object-fit contain
 
-**3. `src/App.tsx`** - Atualizar titulo dinamico por provider e passar provider para LogisticsRoutes
+- CSS novo no `vetorStyles`:
+  - `@keyframes vt-scroll` para translateX de 0 a -50% (loop infinito)
+  - `.vt-partners-track` com display flex, animacao 15s linear infinite
+  - `.vt-partner-card` com fundo branco, border-radius 20px, sombra, padding
+  - Hover: pausa a animacao, leve scale
+  - Mobile: logos menores, gap reduzido, animacao mais lenta
 
-**4. `src/pages/Rastreio.tsx`** - Adicionar bloco `isVetor` com design completo:
-- Paleta: Verde Escuro `#1B5E20`, Verde Claro `#4CAF50`, Grafite `#37474F`
-- Hero com gradiente verde escuro → grafite, linhas de rota/GPS como decoracao
-- Nav com logo Vetor, links Inicio/Rastrear/Contato
-- Benefits section: "Rastreamento Preciso", "Cobertura Regional", "Parceiro Oficial"
-- Timeline com dots verde e header grafite
-- Footer com contato Vetor
-- Mobile responsivo completo
-- CSS inline (`vetorStyles`) seguindo o mesmo padrao de `jadlogStyles`
-
-**5. `src/pages/Pagamento.tsx`** e `src/pages/PagamentoFalha.tsx`** - Detectar transportadora "Vetor" e aplicar cores verdes
-
-**6. `src/pages/Postagens.tsx` (LogisticaTab)** - Adicionar terceiro botao "Vetor Transportes" com logo
-- Mutation aceitar `"vetor"` alem de `"jl" | "jadlog"`
-
-**7. `supabase/functions/redirect/index.ts`** - Preparar para redirecionar baseado no provider do envio
-
-### Detalhes do Design Vetor
+### Design
 
 ```text
-Nav:     Fundo branco, links grafite, hover verde escuro
-Hero:    Gradiente 135deg #1B5E20 → #263238 (grafite escuro)
-         Decoracao: linhas diagonais estilo rota/vetor
-         Badge: "Logistica estrategica"
-         Titulo: "Rastreie sua encomenda com precisao"
-         Subtitulo: Parceira oficial Jadlog, Correios e Loggi
-Search:  Input branco, botao verde escuro #1B5E20, hover #145218
-Benefits: Cards com icones verde, borda hover verde suave
-Results: Sidebar com card grafite #37474F (escuro), progress bar verde
-Timeline: Header verde escuro, dots verde, linha verde claro
-Footer:  Fundo branco, links grafite, hover verde
+Desktop:
+┌──────────────────────────────────────────────┐
+│           Nossos Parceiros                   │
+│                                              │
+│  ╭──────╮  ╭──────╮  ╭──────╮  ╭──────╮ ... │
+│  │Jadlog│  │Correi│  │Loggi │  │Jadlog│  →  │
+│  ╰──────╯  ╰──────╯  ╰──────╯  ╰──────╯     │
+│         ← animacao scroll infinito →         │
+└──────────────────────────────────────────────┘
+
+Mobile: mesma logica, cards menores
 ```
 
-### Detecao de Transportadora
-
-A logica de detecao seguira o padrao existente:
-- Campo `transportadora` do envio contendo "VETOR"
-- Sufixo do codigo de rastreio "VT" como fallback
-- `logistica_provider === "vetor"` na config da loja
-
-### Notas
-- Nenhuma migracao de banco necessaria (campo `logistica_provider` ja e texto livre)
-- O dominio sera configurado posteriormente pelo usuario
-- Todas as paginas publicas (/r, /p, /f) respeitarao o branding Vetor
+Cards: fundo #fff, border 1px solid #f0f0f0, border-radius 20px, box-shadow sutil, padding 24px 32px.
 
