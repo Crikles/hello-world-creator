@@ -256,24 +256,24 @@ const styles = `
 .nprompt-ios-guide {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   z-index: 10001;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border: 1px solid rgba(99,102,241,0.3); border-radius: 20px; padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px;
   max-width: 380px; width: calc(100% - 32px);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
   animation: npSlideUp 0.3s cubic-bezier(0.16,1,0.3,1);
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
-.nprompt-ios-title { font-size: 17px; font-weight: 800; color: #f8fafc; margin: 0 0 16px; text-align: center; }
+.nprompt-ios-title { font-size: 17px; font-weight: 800; color: #0f172a; margin: 0 0 16px; text-align: center; }
 .nprompt-ios-steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
 .nprompt-ios-step { display: flex; align-items: center; gap: 12px; }
 .nprompt-ios-num {
   flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: #111;
   color: white; font-size: 13px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
 }
-.nprompt-ios-text { font-size: 13px; color: #cbd5e1; line-height: 1.4; }
-.nprompt-ios-note { font-size: 12px; color: #22c55e; text-align: center; margin: 0; font-weight: 600; }
+.nprompt-ios-text { font-size: 13px; color: #475569; line-height: 1.4; }
+.nprompt-ios-note { font-size: 12px; color: #16a34a; text-align: center; margin: 0; font-weight: 600; }
 
 @keyframes npSlideUp {
   from { opacity: 0; transform: translateX(-50%) translateY(30px); }
