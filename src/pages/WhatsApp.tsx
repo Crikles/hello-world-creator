@@ -1416,18 +1416,25 @@ export default function WhatsApp() {
                     {filteredEnvios.length === 0 ? (
                         <div className="flex flex-col items-center py-16 text-center">
                             <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center mb-4">
-                                <Send className="h-8 w-8 text-muted-foreground/30" />
+                                {sendSubTab === "pendentes" ? (
+                                    <Clock className="h-8 w-8 text-muted-foreground/30" />
+                                ) : (
+                                    <Check className="h-8 w-8 text-muted-foreground/30" />
+                                )}
                             </div>
-                            <p className="text-foreground font-medium">Nenhum envio encontrado</p>
+                            <p className="text-foreground font-medium">
+                                {sendSubTab === "pendentes" ? "Nenhum envio pendente" : "Nenhum envio enviado"}
+                            </p>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Adicione envios na aba "Envios" para enviar mensagens via WhatsApp.
+                                {sendSubTab === "pendentes"
+                                    ? "Todos os envios já foram enviados via WhatsApp ou adicione novos na aba \"Envios\"."
+                                    : "Envie mensagens na aba \"Pendentes\" para vê-las aqui."}
                             </p>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-1.5">
                             {filteredEnvios.map((envio, idx) => {
                                 const isSending = sendingIds.has(envio.id);
-                                const isSent = sentEnvioIds.has(envio.id) || failedIds.has(envio.id) === false && sendingIds.has(envio.id) === false && sentEnvioIds.has(envio.id);
                                 const isFailed = failedEnvioIds.has(envio.id) || failedIds.has(envio.id);
                                 const hasPhone = !!envio.cliente_telefone;
                                 const anyInstanceReady = connectedInstances.length > 0;
@@ -1439,11 +1446,14 @@ export default function WhatsApp() {
                                         style={{ animationDelay: `${idx * 0.02}s` }}
                                     >
                                         <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
-                                            <Checkbox
-                                                checked={selectedIds.has(envio.id)}
-                                                onCheckedChange={() => toggleSelect(envio.id)}
-                                                className="h-4 w-4 border-primary/30 shrink-0"
-                                            />
+                                            {/* Checkbox only in Pendentes */}
+                                            {sendSubTab === "pendentes" && (
+                                                <Checkbox
+                                                    checked={selectedIds.has(envio.id)}
+                                                    onCheckedChange={() => toggleSelect(envio.id)}
+                                                    className="h-4 w-4 border-primary/30 shrink-0"
+                                                />
+                                            )}
 
                                             {/* Name + Phone */}
                                             <div className="min-w-0 w-40 shrink-0">
@@ -1471,33 +1481,36 @@ export default function WhatsApp() {
                                                 R$ {Number(envio.valor).toFixed(2)}
                                             </span>
 
-                                            {/* Status indicator */}
+                                            {/* Status / Actions */}
                                             <div className="flex items-center gap-2 ml-auto shrink-0">
-                                                {sentEnvioIds.has(envio.id) && (
+                                                {sendSubTab === "enviados" && (
                                                     <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
                                                         <Check className="h-3 w-3 mr-0.5" /> Enviado
                                                     </Badge>
                                                 )}
-                                                {(failedEnvioIds.has(envio.id) || failedIds.has(envio.id)) && !sentEnvioIds.has(envio.id) && (
+
+                                                {sendSubTab === "pendentes" && isFailed && (
                                                     <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5">
                                                         <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
                                                     </Badge>
                                                 )}
 
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 hover:bg-green-500/10"
-                                                    onClick={() => sendMessage(envio)}
-                                                    disabled={isSending || !anyInstanceReady}
-                                                    title={!anyInstanceReady ? "Nenhuma instância ativa" : "Enviar mensagem"}
-                                                >
-                                                    {isSending ? (
-                                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />
-                                                    ) : (
-                                                        <Send className="h-3.5 w-3.5 text-green-500" />
-                                                    )}
-                                                </Button>
+                                                {sendSubTab === "pendentes" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 hover:bg-green-500/10"
+                                                        onClick={() => sendMessage(envio)}
+                                                        disabled={isSending || !anyInstanceReady || selectedInstanceIds.size === 0}
+                                                        title={!anyInstanceReady ? "Nenhuma instância ativa" : "Enviar mensagem"}
+                                                    >
+                                                        {isSending ? (
+                                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />
+                                                        ) : (
+                                                            <Send className="h-3.5 w-3.5 text-green-500" />
+                                                        )}
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
