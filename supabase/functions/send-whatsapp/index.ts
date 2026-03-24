@@ -593,6 +593,7 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "Nenhuma instância WhatsApp ativa e conectada encontrada." }, 400);
             }
 
+            const { data: enviosData } = await supabaseAdmin
                 .from("envios")
                 .select("*")
                 .in("id", envio_ids);
