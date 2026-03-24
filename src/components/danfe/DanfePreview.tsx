@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import jsPDF from "jspdf";
+import { getRandomNcm, getRandomCst } from "@/lib/fiscal-codes";
 
 export interface EmpresaData {
   razao_social: string;
@@ -67,28 +68,32 @@ function parseProductItems(envio: EnvioData): ProductItem[] {
           });
         }
         // Inherit fiscal fields from envio when not set per item
-        return items.map((item, idx) => ({
-          codigo: item.codigo || idx + 1,
-          nome: item.nome || "Produto",
-          quantidade: item.quantidade || 1,
-          valor: item.valor || 0,
-          cfop: item.cfop || envio.cfop,
-          ncm_sh: item.ncm_sh || envio.ncm_sh,
-          cst: item.cst || envio.cst,
-          unidade: item.unidade || envio.unidade,
-        }));
+        return items.map((item, idx) => {
+          const seed = `${envio.cliente_nome || ""}${idx}`;
+          return {
+            codigo: item.codigo || idx + 1,
+            nome: item.nome || "Produto",
+            quantidade: item.quantidade || 1,
+            valor: item.valor || 0,
+            cfop: item.cfop || envio.cfop || "5102",
+            ncm_sh: item.ncm_sh || envio.ncm_sh || getRandomNcm(seed),
+            cst: item.cst || envio.cst || getRandomCst(seed),
+            unidade: item.unidade || envio.unidade,
+          };
+        });
       }
     } catch { /* fallthrough */ }
   }
   // Single product (backward compatible)
+  const seed = envio.cliente_nome || "default";
   return [{
     codigo: 1,
     nome: raw || "Produto",
     quantidade: envio.quantidade || 1,
     valor: envio.valor || 0,
-    cfop: envio.cfop,
-    ncm_sh: envio.ncm_sh,
-    cst: envio.cst,
+    cfop: envio.cfop || "5102",
+    ncm_sh: envio.ncm_sh || getRandomNcm(seed),
+    cst: envio.cst || getRandomCst(seed),
     unidade: envio.unidade,
   }];
 }
@@ -345,8 +350,8 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     return `<tr style="text-align: center;">
       <td>${item.codigo || idx + 1}</td>
       <td style="text-align: left;">${item.nome || "Produto"}</td>
-      <td>${item.ncm_sh || "00000000"}</td>
-      <td>${item.cst || "000"}</td>
+      <td>${item.ncm_sh || getRandomNcm(String(idx))}</td>
+      <td>${item.cst || getRandomCst(String(idx))}</td>
       <td>${item.cfop || "5102"}</td>
       <td>${item.unidade || "UN"}</td>
       <td>R$ ${formatCurrency(itemUnit)}</td>

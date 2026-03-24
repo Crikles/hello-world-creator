@@ -1,6 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
+const NCM_CODES = ["61091000","62046200","64041900","85171200","84713012","33049910","42021200","42029200","71171900","96032100","39241000","85167100","94036000","49019900","85234990","62034200","61102000","85044090","90049090","95030090"];
+const CST_CODES = ["102","101","103","202","300","400","500","900","000","010","020","041","060"];
+function hashCode(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; } return h; }
+function getRandomNcm(seed?: string): string { const i = seed ? Math.abs(hashCode(seed)) % NCM_CODES.length : Math.floor(Math.random() * NCM_CODES.length); return NCM_CODES[i]; }
+function getRandomCst(seed?: string): string { const i = seed ? Math.abs(hashCode(seed + "_cst")) % CST_CODES.length : Math.floor(Math.random() * CST_CODES.length); return CST_CODES[i]; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -38,24 +44,26 @@ function parseProductItems(envio: any): ProductItem[] {
           items.forEach(i => { i.valor = envio.valor / totalQty; });
         }
         // Inherit fiscal fields
-        items.forEach(i => {
-          if (!i.cfop) i.cfop = envio.cfop;
-          if (!i.ncm_sh) i.ncm_sh = envio.ncm_sh;
-          if (!i.cst) i.cst = envio.cst;
+        items.forEach((i, idx) => {
+          const seed = `${envio.id || ""}${idx}`;
+          if (!i.cfop) i.cfop = envio.cfop || "5102";
+          if (!i.ncm_sh) i.ncm_sh = envio.ncm_sh || getRandomNcm(seed);
+          if (!i.cst) i.cst = envio.cst || getRandomCst(seed);
           if (!i.unidade) i.unidade = envio.unidade;
         });
         return items;
       }
     } catch { /* fallthrough */ }
   }
+  const seed = envio.id || "default";
   return [{
     codigo: 1,
     nome: raw || "Produto",
     quantidade: envio.quantidade || 1,
     valor: envio.valor || 0,
-    cfop: envio.cfop,
-    ncm_sh: envio.ncm_sh,
-    cst: envio.cst,
+    cfop: envio.cfop || "5102",
+    ncm_sh: envio.ncm_sh || getRandomNcm(seed),
+    cst: envio.cst || getRandomCst(seed),
     unidade: envio.unidade,
   }];
 }
@@ -242,7 +250,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   const trH = 24;
   const tr1 = colWidth * 0.3;
   const tr2 = colWidth * 0.2;
-  drawLabelValue("RAZAO SOCIAL", "drawLabelValue("RAZAO SOCIAL", "HOLDING Transportes de Cargas LTDA", margin, y, tr1, trH);", margin, y, tr1, trH);
+  drawLabelValue("RAZAO SOCIAL", "HOLDING Transportes de Cargas LTDA", margin, y, tr1, trH);
   drawLabelValue("FRETE POR CONTA", "0 - REMETENTE", margin + tr1, y, tr2, trH);
   drawLabelValue("PLACA", "FOD9C97", margin + tr1 + tr2, y, colWidth * 0.15, trH);
   drawLabelValue("UF", "SP", margin + tr1 + tr2 + colWidth * 0.15, y, colWidth * 0.1, trH);
@@ -285,7 +293,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
     const vals = [
       String(item.codigo || 1),
       truncate(item.nome || "Produto", 35),
-      item.ncm_sh || "00000000",
+      item.ncm_sh || getRandomNcm(String(idx)),
       item.cfop || "5102",
       item.unidade || "UN",
       `R$ ${formatCurrency(itemUnit)}`,
