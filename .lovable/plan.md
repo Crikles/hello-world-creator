@@ -1,41 +1,75 @@
 
 
-## Separar aba Enviar em "Pendentes" e "Enviados"
+## Criar Logistica "Vetor Transportes" com design proprio
 
-### O que muda
+### Resumo
 
-Na aba "Enviar" (tab `send`), a lista de envios sera dividida em duas sub-abas:
+Adicionar a Vetor Transportes como terceira opcao de logistica no sistema, com identidade visual propria (verde escuro, verde claro, grafite), site de rastreio dedicado e preparacao para dominio customizado.
 
-1. **Pendentes** - Envios que ainda NAO receberam mensagem WhatsApp (nao estao no `sentEnvioIds`)
-2. **Enviados** - Envios que JA receberam mensagem com sucesso (estao no `sentEnvioIds`)
+### Arquivos a criar/modificar
 
-Quando um envio receber a mensagem, ele sai automaticamente de Pendentes e aparece em Enviados (ja acontece via `whatsapp_message_log` query).
+**1. Copiar logo para o projeto**
+- Copiar `user-uploads://unnamed-removebg-preview_1.png` para `public/logovetor.png`
 
-### Implementacao
+**2. `src/lib/domain-config.ts`** - Adicionar dominio Vetor
+```typescript
+const LOGISTICS_DOMAINS = [
+  'rastreio.jltransportelogistica.com',
+  'rastreio.vetortransportes.com.br'  // placeholder ate definir dominio real
+];
 
-**Arquivo: `src/pages/WhatsApp.tsx`**
+export function getLogisticsProvider(): string | null {
+  const host = window.location.hostname;
+  if (host === 'rastreio.vetortransportes.com.br') return 'vetor';
+  if (LOGISTICS_DOMAINS.includes(host)) return 'jl'; // default
+  return null;
+}
+```
 
-1. Adicionar estado `sendSubTab` com valores `"pendentes" | "enviados"`
+**3. `src/App.tsx`** - Atualizar titulo dinamico por provider e passar provider para LogisticsRoutes
 
-2. Substituir o filtro `filterStatus` (dropdown "Todos/Enviado/Nao Enviado") por duas sub-abas visuais (botoes/pills) dentro da action bar:
-   - "Pendentes (X)" - filtra `filteredEnvios` onde `!sentEnvioIds.has(e.id)`
-   - "Enviados (X)" - filtra onde `sentEnvioIds.has(e.id)`
+**4. `src/pages/Rastreio.tsx`** - Adicionar bloco `isVetor` com design completo:
+- Paleta: Verde Escuro `#1B5E20`, Verde Claro `#4CAF50`, Grafite `#37474F`
+- Hero com gradiente verde escuro → grafite, linhas de rota/GPS como decoracao
+- Nav com logo Vetor, links Inicio/Rastrear/Contato
+- Benefits section: "Rastreamento Preciso", "Cobertura Regional", "Parceiro Oficial"
+- Timeline com dots verde e header grafite
+- Footer com contato Vetor
+- Mobile responsivo completo
+- CSS inline (`vetorStyles`) seguindo o mesmo padrao de `jadlogStyles`
 
-3. Na sub-aba **Pendentes**:
-   - Mostrar checkbox de selecao, botao "Enviar", busca
-   - Lista com botao de envio individual (icone Send verde)
-   - Apos envio com sucesso, o item migra para "Enviados" automaticamente (ja funciona via invalidacao do query `whatsapp-message-log`)
+**5. `src/pages/Pagamento.tsx`** e `src/pages/PagamentoFalha.tsx`** - Detectar transportadora "Vetor" e aplicar cores verdes
 
-4. Na sub-aba **Enviados**:
-   - Remover checkbox de selecao e botao de envio
-   - Mostrar badge "Enviado" com check verde
-   - Manter busca
-   - Layout mais limpo, sem acoes de envio
+**6. `src/pages/Postagens.tsx` (LogisticaTab)** - Adicionar terceiro botao "Vetor Transportes" com logo
+- Mutation aceitar `"vetor"` alem de `"jl" | "jadlog"`
 
-5. Remover o dropdown `Select` de filtro (Todos/Enviado/Nao Enviado) que sera substituido pelas sub-abas
+**7. `supabase/functions/redirect/index.ts`** - Preparar para redirecionar baseado no provider do envio
+
+### Detalhes do Design Vetor
+
+```text
+Nav:     Fundo branco, links grafite, hover verde escuro
+Hero:    Gradiente 135deg #1B5E20 → #263238 (grafite escuro)
+         Decoracao: linhas diagonais estilo rota/vetor
+         Badge: "Logistica estrategica"
+         Titulo: "Rastreie sua encomenda com precisao"
+         Subtitulo: Parceira oficial Jadlog, Correios e Loggi
+Search:  Input branco, botao verde escuro #1B5E20, hover #145218
+Benefits: Cards com icones verde, borda hover verde suave
+Results: Sidebar com card grafite #37474F (escuro), progress bar verde
+Timeline: Header verde escuro, dots verde, linha verde claro
+Footer:  Fundo branco, links grafite, hover verde
+```
+
+### Detecao de Transportadora
+
+A logica de detecao seguira o padrao existente:
+- Campo `transportadora` do envio contendo "VETOR"
+- Sufixo do codigo de rastreio "VT" como fallback
+- `logistica_provider === "vetor"` na config da loja
 
 ### Notas
-- Nenhuma mudanca no banco de dados necessaria
-- O `whatsapp_message_log` ja rastreia o status "sent" por `envio_id`
-- A contagem em cada sub-aba atualiza automaticamente apos envio
+- Nenhuma migracao de banco necessaria (campo `logistica_provider` ja e texto livre)
+- O dominio sera configurado posteriormente pelo usuario
+- Todas as paginas publicas (/r, /p, /f) respeitarao o branding Vetor
 
