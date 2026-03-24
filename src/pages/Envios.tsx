@@ -615,7 +615,25 @@ export default function Envios() {
       matchDate = isWithinInterval(envioDate, { start, end });
     }
 
-    return matchSearch && matchStatus && matchDate;
+    let matchMetodo = true;
+    if (filterMetodo !== "todos") {
+      const metodo = pedidoMetodoMap[e.id];
+      const hasCheckout = !!pedidoOrigemMap[e.id];
+      if (filterMetodo === "pix") {
+        matchMetodo = !!metodo && metodo.toLowerCase().includes("pix");
+      } else if (filterMetodo === "cartao") {
+        const m = (metodo || "").toLowerCase();
+        matchMetodo = m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit");
+      } else if (filterMetodo === "boleto") {
+        matchMetodo = !!metodo && metodo.toLowerCase().includes("boleto");
+      } else if (filterMetodo === "checkout") {
+        matchMetodo = hasCheckout;
+      } else if (filterMetodo === "manual") {
+        matchMetodo = !hasCheckout;
+      }
+    }
+
+    return matchSearch && matchStatus && matchDate && matchMetodo;
   });
 
   // Reset page when filters change
