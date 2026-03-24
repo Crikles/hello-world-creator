@@ -291,7 +291,7 @@ export default function Rastreio() {
                 )}
 
                 {/* ── Partners ── */}
-                {!searched && (
+                {(
                     <section className="vt-partners">
                         <h2 className="vt-partners-title">Nossos Parceiros</h2>
                         <div className="vt-partners-overflow">
