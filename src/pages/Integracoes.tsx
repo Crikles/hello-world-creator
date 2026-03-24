@@ -224,6 +224,29 @@ export default function Integracoes() {
                 <span className="text-xs text-muted-foreground">Ativar integração</span>
                 <Switch checked={isActive} onCheckedChange={() => toggleCheckoutMutation.mutate(checkout.id)} disabled={toggleCheckoutMutation.isPending} />
               </div>
+
+              {/* Payment Method Filter */}
+              {isActive && (
+                <div className="flex items-center justify-between pt-2 border-t border-border/30 mt-2">
+                  <div className="flex items-center gap-1.5">
+                    <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Filtro de pagamento</span>
+                  </div>
+                  <Select
+                    value={filtroMap[checkout.id] || "todos"}
+                    onValueChange={(value) => updateFiltroMutation.mutate({ checkoutId: checkout.id, filtro: value })}
+                  >
+                    <SelectTrigger className="w-[150px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todas as vendas</SelectItem>
+                      <SelectItem value="cartao">Apenas Cartão</SelectItem>
+                      <SelectItem value="pix">Apenas PIX</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           );
         })}
