@@ -1,35 +1,47 @@
 
 
-## Exibir Método de Pagamento (PIX / Cartão) nos Envios
+## Compatibilizar Webhook Vega para V1 e V2
 
-### Situacao Atual
-A query que busca a origem do envio ja consulta a tabela `pedidos` buscando `envio_id` e `checkout_provider`. O campo `method` da tabela `pedidos` armazena o metodo de pagamento (ex: "pix", "credit_card", "cartao", etc.) e ja esta preenchido para vendas historicas vindas dos webhooks.
+### Problema
+O webhook atual so extrai produtos de `payload.products` (V2). Na V1, os produtos vem dentro de `payload.plans[].products[]` e nao existe `payload.products`. O codigo atual so faz essa extracao de `plans` quando e `abandoned_cart`, entao vendas normais da V1 ficam sem nome de produto.
+
+Alem disso, na V1 o identificador da transacao e `transaction_id` (nao `transaction_token`).
 
 ### Plano
 
-**Arquivo: `src/pages/Envios.tsx`**
+**Arquivo: `supabase/functions/webhook-vega/index.ts`**
 
-1. Alterar a query existente de `pedido-origem` para tambem buscar o campo `method`:
-   - `.select("envio_id, checkout_provider, method")`
-   
-2. Criar um segundo Map `pedidoMetodoMap` de `envio_id -> method` para lookup do metodo de pagamento
+1. **Extrair `transactionToken` tambem de `transaction_id`** (V1):
+   ```
+   const transactionToken = payload.transaction_token 
+     || payload.transaction_id 
+     || `tx_${Date.now()}`;
+   ```
 
-3. Adicionar uma Badge compacta ao lado da badge de origem, mostrando:
-   - Se method contem "pix" → Badge "PIX" com cor verde/esmeralda
-   - Se method contem "card"/"cartao"/"credit" → Badge "Cartão" com cor azul
-   - Se method existe mas nao reconhecido → Badge com o valor original
-   - Se nao tem pedido vinculado (manual) → nao exibir badge de metodo
+2. **Extrair produtos de `plans` para TODAS as vendas** (nao so abandoned_cart):
+   Mover a logica de extracao de `plans[].products[]` para fora do `if (isAbandonedCart)`, aplicando sempre que `products` estiver vazio:
+   ```
+   let normalizedProducts = products;
+   if (!products.length && payload.plans) {
+     normalizedProducts = [];
+     for (const plan of payload.plans) {
+       if (plan.products) {
+         for (const p of plan.products) {
+           normalizedProducts.push({
+             code: p.id,
+             title: p.name,
+             description: p.description,
+             amount: ...,
+             quantity: parseInt(String(p.amount || "1"), 10),
+           });
+         }
+       }
+     }
+   }
+   ```
 
-### Visual (referencia da screenshot do usuario)
+3. **Nenhuma mudanca na UI ou banco** — so ajuste na edge function.
 
-```text
-[Em Transito] [JADLOG] [⚡ Corvex] [PIX]      ← verde
-[Em Transito] [JADLOG] [⚡ API]    [Cartão]   ← azul
-[Postado]     [JL]     [Manual]               ← sem badge de metodo
-```
-
-### Notas
-- Funciona para vendas historicas pois o campo `method` ja foi salvo nos webhooks
-- Envios manuais (sem pedido vinculado) nao terao badge de metodo
-- Nenhuma mudanca no banco de dados necessaria
+### Resultado
+Um unico webhook funciona para V1 e V2: se `products` existe (V2), usa direto; se nao, extrai de `plans` (V1). O `transaction_id` da V1 tambem e reconhecido.
 
