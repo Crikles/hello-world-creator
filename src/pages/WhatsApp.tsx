@@ -243,6 +243,13 @@ export default function WhatsApp() {
 
     const connectedInstances = instances.filter((i) => i.status === "connected" && i.expires_at && new Date(i.expires_at) > new Date());
 
+    // Auto-select all connected instances on first load
+    useEffect(() => {
+        if (connectedInstances.length > 0 && selectedInstanceIds.size === 0) {
+            setSelectedInstanceIds(new Set(connectedInstances.map((i) => i.id)));
+        }
+    }, [connectedInstances.length]);
+
     // ── Message log (persistent sent tracking) ──
     const { data: messageLogs = [] } = useQuery({
         queryKey: ["whatsapp-message-log", loja?.id],
