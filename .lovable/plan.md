@@ -1,46 +1,40 @@
 
 
-## Plan: Block Webhook Events When Integration is Disabled
+## Plan: Fix AUTO bypass — Ensure disabled AUTO never starts new shipments
 
 ### Problem
-Currently, when a user deactivates an integration (sets `ativo = false`), webhook events from that checkout are still processed and create pedidos/envios. The toggle is cosmetic only.
+Users report that with AUTO disabled, new orders from checkouts still get their flow started automatically instead of staying at stage zero (`pendente`). 
 
-### Solution
-Add an `ativo` check in each webhook Edge Function right after resolving the loja. If the integration is disabled (`ativo = false`), return a 200 response with `{ success: true, skipped: true, reason: "integration_disabled" }` without creating any records.
+### Root Cause
+The client-side realtime listener on the Envios page uses local React state (`autoEnvio`) to decide whether to auto-start new envios. This creates two vulnerabilities:
+1. **Stale state across tabs**: If AUTO is disabled in one tab, another open tab still holds `autoEnvio = true` in memory
+2. **No server-side re-check**: The client listener trusts its cached state without re-validating against the database before triggering
 
-### Changes
+### Solution (2 changes)
 
-**6 Edge Functions** (same pattern in each):
-
-After resolving `lojaId`, query `checkout_integrations` for `ativo` status and return early if disabled:
+**1. Client-side fix (`src/pages/Envios.tsx`)**
+In the realtime INSERT listener (the AUTO channel), before calling `triggerNextEmail`, re-fetch `auto_envio` from `postagem_config` to confirm it's still enabled. If it's false/null in the DB, skip the trigger and log it.
 
 ```typescript
-// Check if integration is active
-const { data: integrationStatus } = await supabase
-  .from("checkout_integrations")
-  .select("ativo")
-  .eq("loja_id", lojaId)
-  .eq("checkout_id", "<checkout_id>")
+// Before triggering, re-check DB
+const { data: freshConfig } = await supabase
+  .from("postagem_config")
+  .select("auto_envio")
+  .eq("loja_id", loja.id)
   .maybeSingle();
 
-if (integrationStatus?.ativo === false) {
-  return new Response(
-    JSON.stringify({ success: true, skipped: true, reason: "integration_disabled" }),
-    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
+if (!freshConfig?.auto_envio) {
+  console.log("AUTO: skipped — auto_envio disabled in DB");
+  return;
 }
 ```
 
-Files to edit:
-1. `supabase/functions/webhook-vega/index.ts` - checkout_id: "vega"
-2. `supabase/functions/webhook-zedy/index.ts` - checkout_id: "zedy"
-3. `supabase/functions/webhook-luna/index.ts` - checkout_id: "luna"
-4. `supabase/functions/webhook-corvex/index.ts` - checkout_id: "corvex"
-5. `supabase/functions/webhook-adoorei/index.ts` - checkout_id: "adoorei"
-6. `supabase/functions/shopify-webhook/index.ts` - checkout_id: "shopify"
+**2. Server-side safeguard (`supabase/functions/advance-shipments/index.ts`)**
+The cron already checks `config.auto_envio` before processing pending shipments. However, the config is fetched once per loja per run. Add a comment reinforcing this is correct and ensure the check is explicit (not relying on type coercion for null):
 
-**Note**: If no row exists in `checkout_integrations` for that loja+checkout (i.e. `integrationStatus` is null), the webhook will still process normally (default behavior = active). Only an explicit `ativo = false` blocks processing.
+Change `if ((config as any).auto_envio)` to `if ((config as any).auto_envio === true)` to prevent any truthy edge cases with unexpected values.
 
-### No DB or frontend changes needed
-The `ativo` column and toggle UI already exist. This is purely a server-side enforcement.
+### Files to edit
+1. `src/pages/Envios.tsx` — Add DB re-check in the AUTO realtime listener
+2. `supabase/functions/advance-shipments/index.ts` — Stricten the `auto_envio` check to `=== true`
 
