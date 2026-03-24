@@ -1012,6 +1012,15 @@ export default function Envios() {
                       'Manual'
                     )}
                   </Badge>
+                  {/* Método de pagamento badge */}
+                  {pedidoMetodoMap[envio.id] && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-medium ${getMetodoBadgeClass(pedidoMetodoMap[envio.id])}`}
+                    >
+                      {getMetodoLabel(pedidoMetodoMap[envio.id])}
+                    </Badge>
+                  )}
 
                   <div className="flex items-center gap-0.5 ml-auto shrink-0">
                     {envio.codigo_rastreio && (
