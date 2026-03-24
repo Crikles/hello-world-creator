@@ -297,7 +297,7 @@ export default function Rastreio() {
                         <div className="vt-partners-overflow">
                             <div className="vt-partners-track">
                                 {[...Array(6)].map((_, i) => (
-                                    <React.Fragment key={i}>
+                                    <Fragment key={i}>
                                         <div className="vt-partner-card">
                                             <img src="/logo-jadlog.jpg" alt="Jadlog" className="vt-partner-logo" />
                                         </div>
