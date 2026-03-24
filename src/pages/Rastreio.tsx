@@ -172,6 +172,8 @@ export default function Rastreio() {
     }, [codigoFromUrl, envio]);
 
     const isVetor = useMemo(() => {
+        const host = window.location.hostname;
+        if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return true;
         if (envio?.transportadora?.toUpperCase().includes("VETOR")) return true;
         const code = envio?.codigo_rastreio || codigoFromUrl || "";
         return code.toUpperCase().trim().endsWith("VT");
