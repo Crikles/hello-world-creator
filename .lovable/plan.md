@@ -1,47 +1,44 @@
 
 
-## Compatibilizar Webhook Vega para V1 e V2
+## Gerar Nome da Instancia com Email do Usuario
 
 ### Problema
-O webhook atual so extrai produtos de `payload.products` (V2). Na V1, os produtos vem dentro de `payload.plans[].products[]` e nao existe `payload.products`. O codigo atual so faz essa extracao de `plans` quando e `abandoned_cart`, entao vendas normais da V1 ficam sem nome de produto.
-
-Alem disso, na V1 o identificador da transacao e `transaction_id` (nao `transaction_token`).
+Atualmente o nome da instancia e gerado como `magnus-{loja_id_8chars}-{timestamp}`, o que nao permite identificar o dono no painel UAZAPI.
 
 ### Plano
 
-**Arquivo: `supabase/functions/webhook-vega/index.ts`**
+**Arquivo: `supabase/functions/send-whatsapp/index.ts`**
 
-1. **Extrair `transactionToken` tambem de `transaction_id`** (V1):
-   ```
-   const transactionToken = payload.transaction_token 
-     || payload.transaction_id 
-     || `tx_${Date.now()}`;
-   ```
+Na secao de criacao da instancia (action "create"), antes de gerar o `instanceName`:
 
-2. **Extrair produtos de `plans` para TODAS as vendas** (nao so abandoned_cart):
-   Mover a logica de extracao de `plans[].products[]` para fora do `if (isAbandonedCart)`, aplicando sempre que `products` estiver vazio:
-   ```
-   let normalizedProducts = products;
-   if (!products.length && payload.plans) {
-     normalizedProducts = [];
-     for (const plan of payload.plans) {
-       if (plan.products) {
-         for (const p of plan.products) {
-           normalizedProducts.push({
-             code: p.id,
-             title: p.name,
-             description: p.description,
-             amount: ...,
-             quantity: parseInt(String(p.amount || "1"), 10),
-           });
-         }
-       }
-     }
-   }
+1. Buscar o email do dono da loja no banco:
+   ```typescript
+   const { data: ownerProfile } = await supabaseAdmin
+     .from("profiles")
+     .select("email")
+     .eq("id", billingUserId)
+     .maybeSingle();
    ```
 
-3. **Nenhuma mudanca na UI ou banco** — so ajuste na edge function.
+2. Gerar o nome da instancia usando o email (sanitizado):
+   ```
+   // Pega a parte antes do @ e remove caracteres especiais
+   // Ex: "joao.silva@gmail.com" -> "joaosilva"
+   const emailPrefix = (ownerProfile?.email || "")
+     .split("@")[0]
+     .replace(/[^a-zA-Z0-9]/g, "")
+     .slice(0, 20)
+     .toLowerCase();
+   
+   const instanceName = body.instance_name 
+     || `magnus-${emailPrefix || loja_id.slice(0, 8)}-${Date.now().toString(36)}`;
+   ```
 
-### Resultado
-Um unico webhook funciona para V1 e V2: se `products` existe (V2), usa direto; se nao, extrai de `plans` (V1). O `transaction_id` da V1 tambem e reconhecido.
+   Resultado: `magnus-joaosilva-mn4yttch`
+
+### Notas
+- Fallback para `loja_id` caso o email nao exista
+- Caracteres especiais removidos para compatibilidade com UAZAPI
+- Truncado em 20 chars do prefixo do email para evitar nomes muito longos
+- Nenhuma mudanca no banco ou frontend necessaria
 
