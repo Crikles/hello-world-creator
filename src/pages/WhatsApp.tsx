@@ -557,10 +557,10 @@ export default function WhatsApp() {
         const delayBetweenMs = Math.max(delayMinutes * 60 * 1000, 1500);
 
         if (connectedInstances.length > 1 && selectedInstanceIds.size > 1) {
-            // Use send-queue for rotation (backend handles instance rotation, frontend handles delay)
+            // Use send-queue: messages are queued in DB and processed by cron with proper delays
             setSendingIds(new Set(selected.map((e) => e.id)));
             try {
-                await callWhatsApp("send-queue", {
+                const result = await callWhatsApp("send-queue", {
                     loja_id: loja!.id,
                     envio_ids: selected.map((e) => e.id),
                     msg_template: msgTemplate,
@@ -571,15 +571,17 @@ export default function WhatsApp() {
                     btn2_url: btn2Url || undefined,
                     ...(selectedInstanceIds.size > 0 ? { instance_ids: Array.from(selectedInstanceIds) } : {}),
                 });
-                queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
-                toast.success(`Envio em massa finalizado com rotação entre ${selectedInstanceIds.size} instâncias!`);
+                const queued = result?.queued || selected.length;
+                const estMinutes = result?.estimated_minutes || "?";
+                toast.success(`${queued} mensagens enfileiradas! Serão enviadas automaticamente em ~${estMinutes} min com rotação entre ${selectedInstanceIds.size} instâncias.`);
+                setSelectedIds(new Set());
             } catch (err: any) {
                 toast.error(err.message || "Erro no envio em massa");
             } finally {
                 setSendingIds(new Set());
             }
         } else {
-            // Single instance or single selected — send individually with configured delay
+            // Single instance — send individually with configured delay from frontend
             for (let i = 0; i < selected.length; i++) {
                 await sendMessage(selected[i]);
                 if (i < selected.length - 1) {
