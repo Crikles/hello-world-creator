@@ -1,37 +1,35 @@
 
 
-## Indicador Visual de Origem do Envio (Webhook vs Manual)
+## Exibir Método de Pagamento (PIX / Cartão) nos Envios
 
-### Problema
-Atualmente na pagina de Envios nao ha como saber se um envio foi criado automaticamente por um webhook de checkout ou manualmente pelo usuario.
+### Situacao Atual
+A query que busca a origem do envio ja consulta a tabela `pedidos` buscando `envio_id` e `checkout_provider`. O campo `method` da tabela `pedidos` armazena o metodo de pagamento (ex: "pix", "credit_card", "cartao", etc.) e ja esta preenchido para vendas historicas vindas dos webhooks.
 
-### Abordagem
-A tabela `pedidos` ja possui o campo `envio_id` que referencia o envio criado pelo webhook, alem do campo `checkout_provider` indicando a origem. Basta fazer um JOIN ou query complementar para identificar quais envios possuem um pedido vinculado.
-
-### Implementacao
+### Plano
 
 **Arquivo: `src/pages/Envios.tsx`**
 
-1. Apos buscar os envios, fazer uma query complementar na tabela `pedidos` para obter os `envio_id` e `checkout_provider` dos pedidos vinculados a loja
-2. Criar um Map de `envio_id -> checkout_provider` para lookup rapido
-3. Adicionar uma Badge compacta ao lado da badge de transportadora (JL/JADLOG) em cada linha:
-   - Se o envio tem pedido vinculado: Badge com icone Zap + nome do checkout (ex: "Vega", "Corvex", "API") em cor primaria
-   - Se nao tem pedido vinculado: Badge "Manual" em cor neutra
+1. Alterar a query existente de `pedido-origem` para tambem buscar o campo `method`:
+   - `.select("envio_id, checkout_provider, method")`
+   
+2. Criar um segundo Map `pedidoMetodoMap` de `envio_id -> method` para lookup do metodo de pagamento
 
-### UI do Badge
+3. Adicionar uma Badge compacta ao lado da badge de origem, mostrando:
+   - Se method contem "pix" → Badge "PIX" com cor verde/esmeralda
+   - Se method contem "card"/"cartao"/"credit" → Badge "Cartão" com cor azul
+   - Se method existe mas nao reconhecido → Badge com o valor original
+   - Se nao tem pedido vinculado (manual) → nao exibir badge de metodo
+
+### Visual (referencia da screenshot do usuario)
 
 ```text
-[JL] [⚡ Vega]     ← envio criado via webhook Vega
-[JADLOG] [Manual]   ← envio criado manualmente
-[JL] [⚡ API]       ← envio criado via API externa
+[Em Transito] [JADLOG] [⚡ Corvex] [PIX]      ← verde
+[Em Transito] [JADLOG] [⚡ API]    [Cartão]   ← azul
+[Postado]     [JL]     [Manual]               ← sem badge de metodo
 ```
 
-Sera uma badge pequena (text-[8px]) consistente com as badges existentes de transportadora.
-
-### Detalhes Tecnicos
-
-- Query: `supabase.from("pedidos").select("envio_id, checkout_provider").eq("loja_id", loja.id).not("envio_id", "is", null)`
-- Mapeamento de nomes: `vega` -> "Vega", `zedy` -> "Zedy", `api_externa` -> "API", etc.
-- A query sera feita em paralelo com a query de envios usando um `useQuery` separado
+### Notas
+- Funciona para vendas historicas pois o campo `method` ja foi salvo nos webhooks
+- Envios manuais (sem pedido vinculado) nao terao badge de metodo
 - Nenhuma mudanca no banco de dados necessaria
 
