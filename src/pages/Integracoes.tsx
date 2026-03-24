@@ -3,7 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight, BookOpen } from "lucide-react";
+import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight, BookOpen, Filter } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import logoShopify from "@/assets/logo-shopify.png";
 import { toast } from "@/hooks/use-toast";
 import { useLoja } from "@/contexts/LojaContext";
@@ -77,6 +84,24 @@ export default function Integracoes() {
     const token = loja?.webhook_token || "SEU_TOKEN";
     return `${WEBHOOK_BASE}/${checkout.webhookFn}?token=${token}`;
   };
+
+  const updateFiltroMutation = useMutation({
+    mutationFn: async ({ checkoutId, filtro }: { checkoutId: string; filtro: string }) => {
+      if (!loja?.id) throw new Error("Sem loja");
+      const { error } = await supabase
+        .from("checkout_integrations")
+        .upsert(
+          { loja_id: loja.id, checkout_id: checkoutId, filtro_metodo: filtro, updated_at: new Date().toISOString() } as any,
+          { onConflict: "loja_id,checkout_id" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checkout-integrations", loja?.id] });
+      toast({ title: "Filtro atualizado!" });
+    },
+    onError: () => toast({ title: "Erro ao alterar filtro", variant: "destructive" }),
+  });
 
   const copyWebhook = async (checkout: typeof checkouts[0]) => {
     const url = getWebhookUrl(checkout);
