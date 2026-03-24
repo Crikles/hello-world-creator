@@ -250,7 +250,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   const trH = 24;
   const tr1 = colWidth * 0.3;
   const tr2 = colWidth * 0.2;
-  drawLabelValue("RAZAO SOCIAL", "drawLabelValue("RAZAO SOCIAL", "HOLDING Transportes de Cargas LTDA", margin, y, tr1, trH);", margin, y, tr1, trH);
+  drawLabelValue("RAZAO SOCIAL", "HOLDING Transportes de Cargas LTDA", margin, y, tr1, trH);
   drawLabelValue("FRETE POR CONTA", "0 - REMETENTE", margin + tr1, y, tr2, trH);
   drawLabelValue("PLACA", "FOD9C97", margin + tr1 + tr2, y, colWidth * 0.15, trH);
   drawLabelValue("UF", "SP", margin + tr1 + tr2 + colWidth * 0.15, y, colWidth * 0.1, trH);
