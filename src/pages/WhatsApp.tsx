@@ -554,8 +554,10 @@ export default function WhatsApp() {
         const selected = envios.filter((e) => selectedIds.has(e.id));
         if (selected.length === 0) return toast.info("Selecione pelo menos 1 envio.");
 
-        if (connectedInstances.length > 1 && selectedInstanceIds.size !== 1) {
-            // Use send-queue for rotation
+        const delayBetweenMs = Math.max(delayMinutes * 60 * 1000, 1500);
+
+        if (connectedInstances.length > 1 && selectedInstanceIds.size > 1) {
+            // Use send-queue for rotation (backend handles instance rotation, frontend handles delay)
             setSendingIds(new Set(selected.map((e) => e.id)));
             try {
                 await callWhatsApp("send-queue", {
@@ -570,16 +572,19 @@ export default function WhatsApp() {
                     ...(selectedInstanceIds.size > 0 ? { instance_ids: Array.from(selectedInstanceIds) } : {}),
                 });
                 queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
-                toast.success(`Envio em massa finalizado com rotação entre ${connectedInstances.length} instâncias!`);
+                toast.success(`Envio em massa finalizado com rotação entre ${selectedInstanceIds.size} instâncias!`);
             } catch (err: any) {
                 toast.error(err.message || "Erro no envio em massa");
             } finally {
                 setSendingIds(new Set());
             }
         } else {
-            for (const envio of selected) {
-                await sendMessage(envio);
-                await new Promise((r) => setTimeout(r, 1500));
+            // Single instance or single selected — send individually with configured delay
+            for (let i = 0; i < selected.length; i++) {
+                await sendMessage(selected[i]);
+                if (i < selected.length - 1) {
+                    await new Promise((r) => setTimeout(r, delayBetweenMs));
+                }
             }
             toast.success(`Envio em massa finalizado!`);
         }
