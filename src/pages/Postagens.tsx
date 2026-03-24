@@ -876,7 +876,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
   });
 
   const mutation = useMutation({
-    mutationFn: async (provider: "jl" | "jadlog") => {
+    mutationFn: async (provider: "jl" | "jadlog" | "vetor") => {
       if (!lojaId) return;
       const { error } = await supabase
         .from("lojas")
@@ -894,7 +894,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
     },
   });
 
-  const activeLabel = logisticaProvider === "jadlog" ? "JADLOG" : "JL Transportes";
+  const activeLabel = logisticaProvider === "jadlog" ? "JADLOG" : logisticaProvider === "vetor" ? "Vetor Transportes" : "JL Transportes";
 
   return (
     <Card>
@@ -912,7 +912,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
             Transportadora ativa: <strong className="text-primary">{activeLabel}</strong>
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <button
             onClick={() => mutation.mutate("jl")}
             disabled={mutation.isPending}
@@ -934,6 +934,17 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
           >
             <img src="/logojadlog.png" alt="JADLOG" className="h-16 mb-3 object-contain" />
             <span className={`font-semibold text-sm ${logisticaProvider === "jadlog" ? "text-primary" : "text-slate-600"}`}>JADLOG</span>
+          </button>
+          <button
+            onClick={() => mutation.mutate("vetor")}
+            disabled={mutation.isPending}
+            className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "vetor"
+                ? "border-primary ring-2 ring-primary/20"
+                : "border-border hover:border-primary/50"
+              }`}
+          >
+            <img src="/logovetor.png" alt="Vetor Transportes" className="h-16 mb-3 object-contain" />
+            <span className={`font-semibold text-sm ${logisticaProvider === "vetor" ? "text-primary" : "text-slate-600"}`}>Vetor Transportes</span>
           </button>
         </div>
       </CardContent>
