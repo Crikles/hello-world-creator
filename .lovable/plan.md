@@ -1,44 +1,41 @@
 
 
-## Apelido Customizado + Seletor Multi-Instância Redesenhado
+## Separar aba Enviar em "Pendentes" e "Enviados"
 
-### Problema
-1. Usuários não conseguem identificar suas instâncias — só veem o ID técnico (`magnus-xxx`)
-2. O seletor de instância na aba "Enviar" é um dropdown simples que só permite "todas" ou "uma"
+### O que muda
 
-### Plano
+Na aba "Enviar" (tab `send`), a lista de envios sera dividida em duas sub-abas:
 
-#### 1. Migração: Adicionar coluna `label` na tabela `whatsapp_instances`
-```sql
-ALTER TABLE public.whatsapp_instances ADD COLUMN label text;
-```
-Coluna nullable — quando vazia, exibe o `instance_name` como fallback.
+1. **Pendentes** - Envios que ainda NAO receberam mensagem WhatsApp (nao estao no `sentEnvioIds`)
+2. **Enviados** - Envios que JA receberam mensagem com sucesso (estao no `sentEnvioIds`)
 
-#### 2. Frontend — Campo de apelido editável (aba Instâncias)
+Quando um envio receber a mensagem, ele sai automaticamente de Pendentes e aparece em Enviados (ja acontece via `whatsapp_message_log` query).
+
+### Implementacao
+
 **Arquivo: `src/pages/WhatsApp.tsx`**
 
-No card de cada instância (onde mostra `inst.instance_name`), adicionar:
-- Exibir `inst.label || inst.instance_name` como nome principal
-- Mostrar `inst.instance_name` em texto menor/mono abaixo (ID técnico)
-- Botão de edição (ícone lápis) que abre um input inline para o usuário digitar o apelido
-- Ao salvar, faz `UPDATE whatsapp_instances SET label = '...' WHERE id = inst.id`
+1. Adicionar estado `sendSubTab` com valores `"pendentes" | "enviados"`
 
-#### 3. Frontend — Redesenhar seletor na aba "Enviar"
-**Arquivo: `src/pages/WhatsApp.tsx`** (linhas ~1135-1176)
+2. Substituir o filtro `filterStatus` (dropdown "Todos/Enviado/Nao Enviado") por duas sub-abas visuais (botoes/pills) dentro da action bar:
+   - "Pendentes (X)" - filtra `filteredEnvios` onde `!sentEnvioIds.has(e.id)`
+   - "Enviados (X)" - filtra onde `sentEnvioIds.has(e.id)`
 
-Substituir o `Select` dropdown por um seletor visual com checkboxes:
-- Cada instância conectada aparece como um card/chip com checkbox
-- Mostra o `label` (ou `instance_name`), telefone e status visual
-- Botão "Selecionar todas" / "Nenhuma" no topo
-- O estado muda de `selectedInstanceId: string` para `selectedInstanceIds: Set<string>`
-- Quando múltiplas selecionadas, rotação automática entre as selecionadas
-- Quando nenhuma selecionada, desabilita o botão de envio
+3. Na sub-aba **Pendentes**:
+   - Mostrar checkbox de selecao, botao "Enviar", busca
+   - Lista com botao de envio individual (icone Send verde)
+   - Apos envio com sucesso, o item migra para "Enviados" automaticamente (ja funciona via invalidacao do query `whatsapp-message-log`)
 
-#### 4. Ajustar lógica de envio
-Atualizar a mutação de envio para usar `selectedInstanceIds` (array) ao invés de `selectedInstanceId` (string "all" ou ID único), enviando a lista de IDs selecionados para a edge function.
+4. Na sub-aba **Enviados**:
+   - Remover checkbox de selecao e botao de envio
+   - Mostrar badge "Enviado" com check verde
+   - Manter busca
+   - Layout mais limpo, sem acoes de envio
 
-### Resultado
-- Usuários identificam instâncias pelo apelido que escolherem (ex: "Loja SP", "Suporte")
-- Seletor visual com checkboxes permite escolher quais instâncias usar no envio
-- ID técnico continua visível em texto menor para referência
+5. Remover o dropdown `Select` de filtro (Todos/Enviado/Nao Enviado) que sera substituido pelas sub-abas
+
+### Notas
+- Nenhuma mudanca no banco de dados necessaria
+- O `whatsapp_message_log` ja rastreia o status "sent" por `envio_id`
+- A contagem em cada sub-aba atualiza automaticamente apos envio
 
