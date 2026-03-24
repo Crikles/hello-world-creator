@@ -547,11 +547,10 @@ export default function WhatsApp() {
         const selected = envios.filter((e) => selectedIds.has(e.id));
         if (selected.length === 0) return toast.info("Selecione pelo menos 1 envio.");
 
-        if (connectedInstances.length > 1 && selectedInstanceId === "all") {
+        if (connectedInstances.length > 1 && selectedInstanceIds.size !== 1) {
             // Use send-queue for rotation
             setSendingIds(new Set(selected.map((e) => e.id)));
             try {
-                const texts = selected.map((e) => replaceVars(msgTemplate, e));
                 await callWhatsApp("send-queue", {
                     loja_id: loja!.id,
                     envio_ids: selected.map((e) => e.id),
@@ -561,6 +560,7 @@ export default function WhatsApp() {
                     footer: footerText,
                     btn2_text: btn2Text || undefined,
                     btn2_url: btn2Url || undefined,
+                    ...(selectedInstanceIds.size > 0 ? { instance_ids: Array.from(selectedInstanceIds) } : {}),
                 });
                 queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
                 toast.success(`Envio em massa finalizado com rotação entre ${connectedInstances.length} instâncias!`);
