@@ -1,44 +1,44 @@
 
 
-## Gerar Nome da Instancia com Email do Usuario
+## Apelido Customizado + Seletor Multi-Instância Redesenhado
 
 ### Problema
-Atualmente o nome da instancia e gerado como `magnus-{loja_id_8chars}-{timestamp}`, o que nao permite identificar o dono no painel UAZAPI.
+1. Usuários não conseguem identificar suas instâncias — só veem o ID técnico (`magnus-xxx`)
+2. O seletor de instância na aba "Enviar" é um dropdown simples que só permite "todas" ou "uma"
 
 ### Plano
 
-**Arquivo: `supabase/functions/send-whatsapp/index.ts`**
+#### 1. Migração: Adicionar coluna `label` na tabela `whatsapp_instances`
+```sql
+ALTER TABLE public.whatsapp_instances ADD COLUMN label text;
+```
+Coluna nullable — quando vazia, exibe o `instance_name` como fallback.
 
-Na secao de criacao da instancia (action "create"), antes de gerar o `instanceName`:
+#### 2. Frontend — Campo de apelido editável (aba Instâncias)
+**Arquivo: `src/pages/WhatsApp.tsx`**
 
-1. Buscar o email do dono da loja no banco:
-   ```typescript
-   const { data: ownerProfile } = await supabaseAdmin
-     .from("profiles")
-     .select("email")
-     .eq("id", billingUserId)
-     .maybeSingle();
-   ```
+No card de cada instância (onde mostra `inst.instance_name`), adicionar:
+- Exibir `inst.label || inst.instance_name` como nome principal
+- Mostrar `inst.instance_name` em texto menor/mono abaixo (ID técnico)
+- Botão de edição (ícone lápis) que abre um input inline para o usuário digitar o apelido
+- Ao salvar, faz `UPDATE whatsapp_instances SET label = '...' WHERE id = inst.id`
 
-2. Gerar o nome da instancia usando o email (sanitizado):
-   ```
-   // Pega a parte antes do @ e remove caracteres especiais
-   // Ex: "joao.silva@gmail.com" -> "joaosilva"
-   const emailPrefix = (ownerProfile?.email || "")
-     .split("@")[0]
-     .replace(/[^a-zA-Z0-9]/g, "")
-     .slice(0, 20)
-     .toLowerCase();
-   
-   const instanceName = body.instance_name 
-     || `magnus-${emailPrefix || loja_id.slice(0, 8)}-${Date.now().toString(36)}`;
-   ```
+#### 3. Frontend — Redesenhar seletor na aba "Enviar"
+**Arquivo: `src/pages/WhatsApp.tsx`** (linhas ~1135-1176)
 
-   Resultado: `magnus-joaosilva-mn4yttch`
+Substituir o `Select` dropdown por um seletor visual com checkboxes:
+- Cada instância conectada aparece como um card/chip com checkbox
+- Mostra o `label` (ou `instance_name`), telefone e status visual
+- Botão "Selecionar todas" / "Nenhuma" no topo
+- O estado muda de `selectedInstanceId: string` para `selectedInstanceIds: Set<string>`
+- Quando múltiplas selecionadas, rotação automática entre as selecionadas
+- Quando nenhuma selecionada, desabilita o botão de envio
 
-### Notas
-- Fallback para `loja_id` caso o email nao exista
-- Caracteres especiais removidos para compatibilidade com UAZAPI
-- Truncado em 20 chars do prefixo do email para evitar nomes muito longos
-- Nenhuma mudanca no banco ou frontend necessaria
+#### 4. Ajustar lógica de envio
+Atualizar a mutação de envio para usar `selectedInstanceIds` (array) ao invés de `selectedInstanceId` (string "all" ou ID único), enviando a lista de IDs selecionados para a edge function.
+
+### Resultado
+- Usuários identificam instâncias pelo apelido que escolherem (ex: "Loja SP", "Suporte")
+- Seletor visual com checkboxes permite escolher quais instâncias usar no envio
+- ID técnico continua visível em texto menor para referência
 
