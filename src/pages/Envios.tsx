@@ -104,6 +104,7 @@ export default function Envios() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [filterMetodo, setFilterMetodo] = useState<string>("todos");
   const [autoEnvio, setAutoEnvio] = useState(false);
   const [autoEnvioLoading, setAutoEnvioLoading] = useState(false);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
@@ -614,13 +615,31 @@ export default function Envios() {
       matchDate = isWithinInterval(envioDate, { start, end });
     }
 
-    return matchSearch && matchStatus && matchDate;
+    let matchMetodo = true;
+    if (filterMetodo !== "todos") {
+      const metodo = pedidoMetodoMap[e.id];
+      const hasCheckout = !!pedidoOrigemMap[e.id];
+      if (filterMetodo === "pix") {
+        matchMetodo = !!metodo && metodo.toLowerCase().includes("pix");
+      } else if (filterMetodo === "cartao") {
+        const m = (metodo || "").toLowerCase();
+        matchMetodo = m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit");
+      } else if (filterMetodo === "boleto") {
+        matchMetodo = !!metodo && metodo.toLowerCase().includes("boleto");
+      } else if (filterMetodo === "checkout") {
+        matchMetodo = hasCheckout;
+      } else if (filterMetodo === "manual") {
+        matchMetodo = !hasCheckout;
+      }
+    }
+
+    return matchSearch && matchStatus && matchDate && matchMetodo;
   });
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterStatus, dateRange.from, dateRange.to]);
+  }, [search, filterStatus, filterMetodo, dateRange.from, dateRange.to]);
 
   const totalPages = Math.ceil(filteredEnvios.length / itemsPerPage);
   const paginatedEnvios = filteredEnvios.slice(
@@ -897,6 +916,20 @@ export default function Envios() {
                   {statusOptions.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filterMetodo} onValueChange={setFilterMetodo}>
+                <SelectTrigger className="w-[170px] h-8 text-xs bg-transparent border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Pagamentos</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="cartao">Cartão</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                  <SelectItem value="checkout">Checkout</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
                 </SelectContent>
               </Select>
               {loja && <ImportarPlanilha lojaId={loja.id} />}
