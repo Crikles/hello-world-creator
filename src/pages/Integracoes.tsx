@@ -39,16 +39,20 @@ export default function Integracoes() {
       if (!loja?.id) return [];
       const { data, error } = await supabase
         .from("checkout_integrations")
-        .select("checkout_id, ativo")
+        .select("checkout_id, ativo, filtro_metodo")
         .eq("loja_id", loja.id);
       if (error) throw error;
-      return (data ?? []) as { checkout_id: string; ativo: boolean }[];
+      return (data ?? []) as { checkout_id: string; ativo: boolean; filtro_metodo: string }[];
     },
     enabled: !!loja?.id,
   });
 
   const activeMap: Record<string, boolean> = {};
-  checkoutStatuses.forEach((s) => { activeMap[s.checkout_id] = s.ativo; });
+  const filtroMap: Record<string, string> = {};
+  checkoutStatuses.forEach((s) => {
+    activeMap[s.checkout_id] = s.ativo;
+    filtroMap[s.checkout_id] = s.filtro_metodo || "todos";
+  });
 
   const toggleCheckoutMutation = useMutation({
     mutationFn: async (checkoutId: string) => {

@@ -152,8 +152,27 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
-    // 4. If approved and no envio linked yet, create envio
+    // 4. If approved and no envio linked yet, create envio (with payment method filter)
     if (status === "approved" && !existingPedido?.envio_id && pedidoId) {
+      // Check filtro_metodo from checkout_integrations
+      const { data: integrationConfig } = await supabase
+        .from("checkout_integrations")
+        .select("filtro_metodo")
+        .eq("loja_id", lojaId)
+        .eq("checkout_id", "vega")
+        .maybeSingle();
+
+      const filtroMetodo = integrationConfig?.filtro_metodo || "todos";
+      const methodValue = (payload.method || "").toLowerCase();
+      const isPix = methodValue.includes("pix");
+      const shouldCreateEnvio = filtroMetodo === "todos" || (filtroMetodo === "cartao" && !isPix) || (filtroMetodo === "pix" && isPix);
+
+      if (!shouldCreateEnvio) {
+        // Skip envio creation due to payment method filter
+        await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "vega").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
+        return new Response(JSON.stringify({ success: true, event_type: eventType, status, envio_skipped: true, reason: `filtro_metodo=${filtroMetodo}` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       const produtoJson = JSON.stringify(
         normalizedProducts.map((p: any) => ({ nome: p.title || p.name, quantidade: p.quantity || 1 }))
       );
