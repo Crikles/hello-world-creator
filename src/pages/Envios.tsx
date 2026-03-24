@@ -975,8 +975,22 @@ export default function Envios() {
                   >
                     {isJadlog(envio) ? 'JADLOG' : 'JL'}
                   </Badge>
+                  {/* Origem badge */}
+                  <Badge
+                    variant="outline"
+                    className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-medium ${
+                      pedidoOrigemMap[envio.id]
+                        ? 'bg-primary/10 text-primary border-primary/30'
+                        : 'bg-muted text-muted-foreground border-border/50'
+                    }`}
+                  >
+                    {pedidoOrigemMap[envio.id] ? (
+                      <><Zap className="h-2.5 w-2.5 mr-0.5" />{getOrigemLabel(pedidoOrigemMap[envio.id])}</>
+                    ) : (
+                      'Manual'
+                    )}
+                  </Badge>
 
-                  {/* Quick links */}
                   <div className="flex items-center gap-0.5 ml-auto shrink-0">
                     {envio.codigo_rastreio && (
                       <Button
