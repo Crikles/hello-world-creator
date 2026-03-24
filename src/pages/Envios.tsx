@@ -104,6 +104,7 @@ export default function Envios() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [filterMetodo, setFilterMetodo] = useState<string>("todos");
   const [autoEnvio, setAutoEnvio] = useState(false);
   const [autoEnvioLoading, setAutoEnvioLoading] = useState(false);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
