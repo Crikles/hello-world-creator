@@ -59,6 +59,10 @@ Deno.serve(async (req) => {
       ? payload.abandoned_cart_code || payload.checkout_id || `ac_${Date.now()}`
       : payload.transaction_token || payload.transaction_id || `tx_${Date.now()}`;
 
+    // 2. Normalize customer data
+    const customer = payload.customer || {};
+    const address = payload.address || {};
+    const products = payload.products || [];
 
     // Extract products: V2 uses payload.products, V1 uses payload.plans[].products[]
     let normalizedProducts = products;
