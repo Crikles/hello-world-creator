@@ -56,6 +56,22 @@ Deno.serve(async (req) => {
     }
 
     const lojaId = lojaData.id;
+
+    // Check if integration is active
+    const { data: integrationStatus } = await supabase
+      .from("checkout_integrations")
+      .select("ativo")
+      .eq("loja_id", lojaId)
+      .eq("checkout_id", "corvex")
+      .maybeSingle();
+
+    if (integrationStatus?.ativo === false) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "integration_disabled" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const event = payload.event || "";
     const status = payload.status || "";
     const transactionToken = payload.id || `corvex_${Date.now()}`;
