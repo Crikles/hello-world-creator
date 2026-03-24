@@ -600,11 +600,16 @@ export default function WhatsApp() {
             (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(s)) ||
             e.cliente_email.toLowerCase().includes(s);
 
-        if (filterStatus === "todos") return matchSearch;
-        if (filterStatus === "enviado") return matchSearch && sentEnvioIds.has(e.id);
-        if (filterStatus === "nao_enviado") return matchSearch && !sentEnvioIds.has(e.id);
-        return matchSearch;
+        if (!matchSearch) return false;
+
+        if (sendSubTab === "pendentes") return !sentEnvioIds.has(e.id);
+        if (sendSubTab === "enviados") return sentEnvioIds.has(e.id);
+        return true;
     });
+
+    // Counts for sub-tab badges
+    const pendentesCount = envios.filter((e) => !sentEnvioIds.has(e.id)).length;
+    const enviadosCount = envios.filter((e) => sentEnvioIds.has(e.id)).length;
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
@@ -1333,20 +1338,49 @@ export default function WhatsApp() {
                         )}
                     </div>
 
-                    {/* Action bar */}
-                    <div className="glass-strong glow-border rounded-xl p-3">
+                    {/* Sub-tabs: Pendentes / Enviados */}
+                    <div className="glass-strong glow-border rounded-xl p-3 space-y-3">
                         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
-                                    <Checkbox
-                                        checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
-                                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                                        className="h-4 w-4 border-primary/30"
-                                    />
-                                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Tudo</span>
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant={sendSubTab === "pendentes" ? "default" : "ghost"}
+                                    size="sm"
+                                    className="h-8 text-xs gap-1.5"
+                                    onClick={() => { setSendSubTab("pendentes"); setSelectedIds(new Set()); }}
+                                >
+                                    <Clock className="h-3.5 w-3.5" />
+                                    Pendentes
+                                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-yellow-500/20 text-yellow-500">
+                                        {pendentesCount}
+                                    </Badge>
+                                </Button>
+                                <Button
+                                    variant={sendSubTab === "enviados" ? "default" : "ghost"}
+                                    size="sm"
+                                    className="h-8 text-xs gap-1.5"
+                                    onClick={() => { setSendSubTab("enviados"); setSelectedIds(new Set()); }}
+                                >
+                                    <Check className="h-3.5 w-3.5" />
+                                    Enviados
+                                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-green-500/20 text-green-500">
+                                        {enviadosCount}
+                                    </Badge>
+                                </Button>
+                            </div>
 
-                                {selectedIds.size > 0 && (
+                            <div className="flex gap-2 items-center w-full sm:w-auto">
+                                {sendSubTab === "pendentes" && (
+                                    <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
+                                        <Checkbox
+                                            checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
+                                            onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                            className="h-4 w-4 border-primary/30"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Tudo</span>
+                                    </div>
+                                )}
+
+                                {sendSubTab === "pendentes" && selectedIds.size > 0 && (
                                     <Button
                                         size="sm"
                                         className="shimmer-btn h-8 text-xs"
@@ -1364,9 +1398,7 @@ export default function WhatsApp() {
                                         )}
                                     </Button>
                                 )}
-                            </div>
 
-                            <div className="flex gap-2 items-center w-full sm:w-auto">
                                 <div className="relative flex-1 sm:w-56">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                                     <Input
@@ -1376,16 +1408,6 @@ export default function WhatsApp() {
                                         className="pl-8 h-8 text-xs bg-transparent border-border/50"
                                     />
                                 </div>
-                                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                    <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/50">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="todos">Todos</SelectItem>
-                                        <SelectItem value="enviado">✅ Enviado</SelectItem>
-                                        <SelectItem value="nao_enviado">⏳ Não Enviado</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </div>
                         </div>
                     </div>
