@@ -137,6 +137,16 @@ export default function Envios() {
     return false;
   }, []);
 
+  const isVetor = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
+    if (envio.transportadora) {
+      return envio.transportadora.toUpperCase().includes('VETOR');
+    }
+    if (envio.codigo_rastreio) {
+      return envio.codigo_rastreio.toUpperCase().endsWith('VT');
+    }
+    return false;
+  }, []);
+
   const getTrackingDomain = useCallback((_envio: { transportadora?: string | null }) => {
     return 'rastreio.jltransportelogistica.com';
   }, []);
