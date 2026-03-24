@@ -1,41 +1,81 @@
 
 
-## Plano: Redesign da Documentação com Layout Split + Fix JSON
+## Filtro de Método de Pagamento por Integração
 
-### Problemas identificados
+### Problema
+Os webhooks dos checkouts enviam todas as vendas pagas (PIX e cartão juntas). Alguns usuários querem criar envios apenas para vendas de cartão, ignorando PIX.
 
-1. **JSON inválido**: Quando o usuário digita aspas curvas (`"` `"` — smart quotes) no textarea, o `JSON.parse()` falha. Precisa sanitizar automaticamente para aspas retas (`"`)
-2. **Layout**: Atualmente tudo em coluna única. Usuário quer docs à esquerda, sandbox de teste à direita
-3. **Sandbox incompleto**: Mostra apenas o payload JSON, deveria mostrar o request completo (URL, método, headers, body)
+### Solução
+Adicionar um campo `filtro_metodo` na tabela `checkout_integrations` que permite ao usuário escolher quais métodos de pagamento geram envios automaticamente. Os webhooks consultam essa config antes de criar o envio.
 
-### Correções
+### Arquitetura
 
-**Arquivo: `src/pages/DocumentacaoPublica.tsx`** — rewrite completo do layout
+```text
+Webhook recebido → Log salvo (sempre) → Pedido criado (sempre)
+                                          ↓
+                              Consulta checkout_integrations.filtro_metodo
+                                          ↓
+                          filtro_metodo = "todos" → cria envio
+                          filtro_metodo = "cartao" → só cria se method ≠ pix
+                          filtro_metodo = "pix" → só cria se method = pix
+```
 
-**1. Layout split (duas colunas)**
-- Hero + Token input no topo (full width)
-- Abaixo: grid `lg:grid-cols-[1fr,420px]`
-  - **Esquerda**: Endpoint, Exemplos de código, Campos do Payload, Respostas de sucesso/erro, FAQ
-  - **Direita**: Sandbox de teste (sticky, acompanha scroll) com request completo e resultado
+**Importante**: O webhook SEMPRE loga e cria o pedido. O filtro age apenas na criação do envio (rastreio).
 
-**2. Sanitização de caracteres especiais no textarea**
-- Antes do `JSON.parse()`, substituir automaticamente:
-  - `"` `"` → `"` (smart quotes)
-  - `–` → `-` (em dash) — opcional, não quebra JSON
-  - `'` `'` → `'` (smart single quotes)
-- Aplicar sanitização no `onChange` do textarea e no `handleTestRequest`
+---
 
-**3. Sandbox completo mostrando request inteiro**
-- Mostrar acima do textarea editável:
-  - Método + URL: `POST https://...?token=XXX`
-  - Header: `Content-Type: application/json`
-- Textarea com o body JSON editável
-- Botão de enviar + resultado abaixo
+### 1. Migration - Novo campo na tabela `checkout_integrations`
 
-**4. API backend — sem alteração necessária**
-- A edge function recebe JSON já parseado pelo runtime, então aspas curvas não chegam lá — o problema é 100% client-side no `JSON.parse()`
-- Caracteres especiais como acentos, traços e aspas dentro de strings JSON são totalmente válidos quando as aspas de delimitação são retas
+```sql
+ALTER TABLE public.checkout_integrations 
+ADD COLUMN filtro_metodo text NOT NULL DEFAULT 'todos';
+```
 
-### Arquivos alterados
-- `src/pages/DocumentacaoPublica.tsx` — layout split + sanitização + sandbox completo
+Valores possíveis: `todos`, `cartao`, `pix`
+
+---
+
+### 2. Atualizar todos os 6 webhooks
+
+Em cada webhook (vega, zedy, luna, corvex, adoorei, shopify), antes de criar o envio:
+
+1. Consultar `checkout_integrations` para obter `filtro_metodo` da loja + checkout
+2. Normalizar o valor do `method` do payload (cada checkout usa nomes diferentes para cartão/pix)
+3. Aplicar o filtro: se `filtro_metodo = "cartao"` e o método é pix, pular criação do envio (mas manter pedido e log)
+
+Mapeamento de detecção por checkout:
+- **Vega**: `payload.method` - valores como `credit_card`, `pix`, `boleto`
+- **Zedy**: `payload.paymentMethod` - valores como `credit_card`, `pix`
+- **Luna**: `payload.method` - valores como `credit_card`, `pix`
+- **Corvex**: `payload.method` - valores como `credit_card`, `pix`
+- **Adoorei**: `resource.payment_method` - valores como `credit_card`, `pix`
+
+A lógica de detecção será simples: se o valor do method contém "pix" (case-insensitive), é PIX. Caso contrário, é cartão.
+
+---
+
+### 3. UI - Página de Integrações
+
+Adicionar um seletor abaixo do toggle de cada checkout card com 3 opções:
+
+- **Todas as vendas** (default) - recebe PIX + cartão
+- **Apenas Cartão** - ignora vendas de PIX
+- **Apenas PIX** - ignora vendas de cartão
+
+Visível apenas quando a integração está ativa. Usa o mesmo mutation pattern de `toggleCheckoutMutation` para salvar no `checkout_integrations`.
+
+---
+
+### Arquivos modificados
+
+| Arquivo | Mudança |
+|---------|---------|
+| Migration SQL | Adicionar coluna `filtro_metodo` |
+| `src/pages/Integracoes.tsx` | Seletor de filtro no card de cada checkout |
+| `supabase/functions/webhook-vega/index.ts` | Consultar filtro antes de criar envio |
+| `supabase/functions/webhook-zedy/index.ts` | Idem |
+| `supabase/functions/webhook-luna/index.ts` | Idem |
+| `supabase/functions/webhook-corvex/index.ts` | Idem |
+| `supabase/functions/webhook-adoorei/index.ts` | Idem |
+| `supabase/functions/shopify-webhook/index.ts` | Idem |
 
