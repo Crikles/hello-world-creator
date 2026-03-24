@@ -51,6 +51,21 @@ Deno.serve(async (req) => {
 
     const lojaId = lojaData.id;
 
+    // Check if integration is active
+    const { data: integrationStatus } = await supabase
+      .from("checkout_integrations")
+      .select("ativo")
+      .eq("loja_id", lojaId)
+      .eq("checkout_id", "vega")
+      .maybeSingle();
+
+    if (integrationStatus?.ativo === false) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "integration_disabled" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const status = payload.status || "";
     const isAbandonedCart = status === "abandoned_cart";
     const eventType = isAbandonedCart ? "abandoned_cart" : "sale";

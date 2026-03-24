@@ -51,6 +51,21 @@ Deno.serve(async (req) => {
 
     const lojaId = lojaData.id;
 
+    // Check if integration is active
+    const { data: integrationStatus } = await supabase
+      .from("checkout_integrations")
+      .select("ativo")
+      .eq("loja_id", lojaId)
+      .eq("checkout_id", "shopify")
+      .maybeSingle();
+
+    if (integrationStatus?.ativo === false) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "integration_disabled" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // === Shopify native payload mapping ===
     const customer = payload.customer || {};
     const shippingAddress = payload.shipping_address || {};
