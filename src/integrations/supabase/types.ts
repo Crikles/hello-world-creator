@@ -57,6 +57,7 @@ export type Database = {
           ativo: boolean
           checkout_id: string
           created_at: string
+          filtro_metodo: string
           id: string
           loja_id: string
           updated_at: string
@@ -65,6 +66,7 @@ export type Database = {
           ativo?: boolean
           checkout_id: string
           created_at?: string
+          filtro_metodo?: string
           id?: string
           loja_id: string
           updated_at?: string
@@ -73,6 +75,7 @@ export type Database = {
           ativo?: boolean
           checkout_id?: string
           created_at?: string
+          filtro_metodo?: string
           id?: string
           loja_id?: string
           updated_at?: string
