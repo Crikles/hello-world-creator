@@ -1,0 +1,1 @@
+ALTER TABLE public.checkout_integrations ADD COLUMN filtro_metodo text NOT NULL DEFAULT 'todos';
