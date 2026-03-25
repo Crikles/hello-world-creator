@@ -169,6 +169,7 @@ const SmsCodeInput: React.FC<{
   const [error, setError] = useState('');
   const [resendCooldown, setResendCooldown] = useState(60);
   const inputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+  const hasAdvancedRef = React.useRef(false);
 
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -230,7 +231,8 @@ const SmsCodeInput: React.FC<{
         return;
       }
 
-      if (data?.verified) {
+      if (data?.verified && !hasAdvancedRef.current) {
+        hasAdvancedRef.current = true;
         onVerified();
       }
     } catch (err: unknown) {
@@ -262,23 +264,29 @@ const SmsCodeInput: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-  // Poll for admin approval every 5 seconds
+  // Poll for admin approval every 5 seconds (via edge function, no direct table access)
   useEffect(() => {
     const normalizedPhone = phone.replace(/\D/g, '');
-    if (!normalizedPhone) return;
+    if (!normalizedPhone || hasAdvancedRef.current) return;
 
     const interval = setInterval(async () => {
-      try {
-        const { data } = await supabase
-          .from('signup_verifications')
-          .select('status')
-          .eq('phone', normalizedPhone)
-          .eq('status', 'verificado')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      if (hasAdvancedRef.current) {
+        clearInterval(interval);
+        return;
+      }
 
-        if (data) {
+      try {
+        const { data, error: fnErr } = await supabase.functions.invoke('verify-sms-code', {
+          body: {
+            phone: normalizedPhone,
+            check_only: true,
+          },
+        });
+
+        if (fnErr) return;
+
+        if (data?.verified && !hasAdvancedRef.current) {
+          hasAdvancedRef.current = true;
           clearInterval(interval);
           onVerified();
         }
