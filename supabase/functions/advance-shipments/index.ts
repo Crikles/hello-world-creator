@@ -889,6 +889,23 @@ async function advanceShipment(
       }
     }
 
+    // Process cashback when flow completes
+    if (newStatus === "entregue") {
+      try {
+        const { data: cashbackVal, error: cbErr } = await supabase.rpc("process_cashback", {
+          _envio_id: envioId,
+          _user_id: lojaUserId,
+        });
+        if (cbErr) {
+          console.error(`Cashback RPC error for envio ${envioId}:`, cbErr);
+        } else if (cashbackVal && cashbackVal > 0) {
+          console.log(`Cashback: ${cashbackVal} credits returned for envio ${envioId}`);
+        }
+      } catch (cbErr) {
+        console.error(`Cashback failed for envio ${envioId}:`, cbErr);
+      }
+    }
+
     console.log(`Advanced envio ${envioId} -> ${nextEvent.status_label} (${newStatus})`);
     return true;
   } catch (err) {

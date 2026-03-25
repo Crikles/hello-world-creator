@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Users, Store, Package, Coins, Contact, RefreshCw,
-  Mail, CheckCircle2, XCircle, TrendingUp, ArrowUpRight,
+  Mail, CheckCircle2, XCircle, TrendingUp, ArrowUpRight, Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SystemHealth } from "@/components/admin/SystemHealth";
