@@ -1,48 +1,42 @@
 
 
-## Plan: WhatsApp Verification via UAZAPI on Admin Support Page
+## Plan: UAZAPI Verification Instance with QR Code Connection
 
 ### What changes
 
-1. **Admin Support page (`AdminSuporte.tsx`)** — Add a new card for configuring a UAZAPI instance dedicated to sending verification codes. Two fields stored in `system_config`:
-   - `verificacao_whatsapp_token` — the UAZAPI instance token
-   - `verificacao_whatsapp_instance` — the instance name (informational)
-   
-   The admin connects a UAZAPI instance and pastes the token. A test button sends a sample message to validate.
+Replace the current manual token input in the "WhatsApp de Verificação" card on AdminSuporte with a full instance management flow (similar to user WhatsApp instances), where the admin:
 
-2. **Database migration** — Insert two new `system_config` rows:
-   - `key: verificacao_whatsapp_token`, `value: 0`, `label: Token UAZAPI Verificação`
-   - `key: verificacao_whatsapp_instance`, `value: 0`, `label: Nome Instância Verificação`
-   
-   Since `system_config.value` is numeric, we'll store the token as a new text column OR use a separate approach. Actually, `system_config.value` is numeric-only. We need a text field. We'll add a `text_value` column to `system_config` to store string configs like the token.
-
-3. **Edge function `send-verification-sms`** — After sending SMS successfully, also send the same code via WhatsApp using the UAZAPI `/send/text` endpoint. The function will:
-   - Read `verificacao_whatsapp_token` from `system_config`
-   - If a token is configured, send a WhatsApp text message to the same phone number
-   - This is best-effort: if WhatsApp fails, the SMS was already sent so the user still gets the code
-   - No authentication or credits required since this is a system-level verification
+1. Creates a UAZAPI instance via the admin token (`UAZAPI_ADMIN_TOKEN` secret, already configured)
+2. Generates a QR code to connect a phone number
+3. The connected instance token is stored in `system_config` and used by `send-verification-sms` to send WhatsApp codes
 
 ### Technical Details
 
-**New column on `system_config`:**
-```sql
-ALTER TABLE public.system_config ADD COLUMN text_value text;
-```
+**AdminSuporte.tsx — Replace UAZAPI card with instance flow:**
+- "Criar Instância" button calls UAZAPI `/instance/init` via a new edge function action or directly via the existing `send-whatsapp` edge function (but admin-level, not loja-bound)
+- Since this is an admin-only system instance (not tied to a loja), we'll create a dedicated edge function `admin-verification-whatsapp` that handles: `init`, `connect`, `status`, `disconnect`, `delete`
+- Store instance data in `system_config` with keys:
+  - `verificacao_whatsapp_token` — instance token (text_value)
+  - `verificacao_whatsapp_instance` — instance name (text_value)
+  - `verificacao_whatsapp_status` — connection status (text_value)
+  - `verificacao_whatsapp_phone` — connected phone (text_value)
+- UI states: No instance → Create button → QR code/pairing code → Connected status with disconnect/delete options
+- Polling for status while connecting (same pattern as WhatsApp.tsx)
+- Test send button remains
 
-**AdminSuporte.tsx changes:**
-- Add a second card "WhatsApp de Verificação (UAZAPI)" with:
-  - Input for instance token
-  - Input for instance name (optional, display only)
-  - Save button that upserts to `system_config` using `text_value`
-  - Test button that calls the edge function with a test number
+**New edge function `admin-verification-whatsapp`:**
+- Validates admin role via JWT
+- Actions: `init`, `connect`, `status`, `disconnect`, `delete`
+- Uses `UAZAPI_ADMIN_TOKEN` for init, instance token for other actions
+- Stores/updates `system_config` rows accordingly
 
-**Edge function `send-verification-sms` changes:**
-- After successful SMS send, query `system_config` for `verificacao_whatsapp_token` (`text_value`)
-- If token exists, call `https://rushsend.uazapi.com/send/text` with the same formatted phone and verification message
-- Log result but don't block the response if WhatsApp fails
+**Database migration:**
+- Insert new `system_config` rows for `verificacao_whatsapp_status` and `verificacao_whatsapp_phone`
+
+**No changes to `send-verification-sms`** — it already reads the token from `system_config.verificacao_whatsapp_token` and sends WhatsApp messages.
 
 ### Files Modified
-- `src/pages/admin/AdminSuporte.tsx` — new UAZAPI config card
-- `supabase/functions/send-verification-sms/index.ts` — add WhatsApp send after SMS
-- Database migration — add `text_value` column to `system_config`
+- `src/pages/admin/AdminSuporte.tsx` — full rewrite of UAZAPI card with QR code flow
+- `supabase/functions/admin-verification-whatsapp/index.ts` — new edge function
+- Database migration — add new system_config rows
 
