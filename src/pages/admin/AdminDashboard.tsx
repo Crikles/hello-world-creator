@@ -129,8 +129,6 @@ export default function AdminDashboard() {
     { title: "Sucesso", value: emailStats?.sent ?? 0, icon: CheckCircle2, accent: "text-emerald-400" },
     { title: "Falhas", value: emailStats?.failed ?? 0, icon: XCircle, accent: "text-red-400" },
     { title: "Custo Total", value: `R$ ${(emailStats?.custo ?? 0).toFixed(2)}`, icon: TrendingUp, accent: "text-primary" },
-    { title: "Cashbacks Hoje", value: cashbackStats?.countToday ?? 0, icon: Undo2, accent: "text-amber-400" },
-    { title: "Devolvido Hoje", value: `${(cashbackStats?.totalToday ?? 0).toFixed(1)} moedas`, icon: Undo2, accent: "text-amber-400" },
   ];
 
   return (
