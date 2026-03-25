@@ -891,6 +891,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_tag: string | null
           blocked: boolean
           created_at: string
           custom_prices: Json | null
@@ -904,6 +905,7 @@ export type Database = {
           whatsapp_verified: boolean
         }
         Insert: {
+          admin_tag?: string | null
           blocked?: boolean
           created_at?: string
           custom_prices?: Json | null
@@ -917,6 +919,7 @@ export type Database = {
           whatsapp_verified?: boolean
         }
         Update: {
+          admin_tag?: string | null
           blocked?: boolean
           created_at?: string
           custom_prices?: Json | null

@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN admin_tag text DEFAULT NULL;
