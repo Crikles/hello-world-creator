@@ -69,7 +69,8 @@ export function WhatsAppVerificationPopup() {
 
   const sendCodeMutation = useMutation({
     mutationFn: async () => {
-      if (!phoneInput.trim()) throw new Error("Informe seu WhatsApp.");
+      const normalizedPhoneInput = normalizePhone(phoneInput.trim());
+      if (!normalizedPhoneInput) throw new Error("Informe seu WhatsApp.");
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -77,15 +78,15 @@ export function WhatsAppVerificationPopup() {
         .eq("id", user!.id)
         .maybeSingle();
 
-      // Save the confirmed phone to profile
+      // Save the confirmed phone normalized to profile
       await supabase
         .from("profiles")
-        .update({ whatsapp: phoneInput.trim() })
+        .update({ whatsapp: normalizedPhoneInput })
         .eq("id", user!.id);
 
       const { data, error } = await supabase.functions.invoke("send-verification-sms", {
         body: {
-          phone: phoneInput.trim(),
+          phone: normalizedPhoneInput,
           email: profile?.email,
           full_name: profile?.full_name || "Usuário",
           skip_email_check: true,
@@ -108,7 +109,7 @@ export function WhatsAppVerificationPopup() {
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("verify-sms-code", {
         body: {
-          phone: phoneInput.trim(),
+          phone: normalizePhone(phoneInput.trim()),
           code,
         },
       });
