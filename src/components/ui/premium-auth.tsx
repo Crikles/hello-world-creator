@@ -365,7 +365,7 @@ export function AuthForm({
     email: '',
     password: '',
     confirmPassword: '',
-    phone: '',
+    phone: '+55',
     agreeToTerms: false,
     rememberMe: false,
   });
@@ -622,9 +622,13 @@ export function AuthForm({
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="tel"
-              placeholder="WhatsApp (ex: 11999998888)"
+              placeholder="+55 11999998888"
               value={formData.phone}
-              onChange={e => handleInputChange('phone', e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                if (!val.startsWith('+55')) return;
+                handleInputChange('phone', val);
+              }}
               onBlur={() => handleFieldBlur('phone')}
               className={cn(
                 "w-full pl-10 pr-4 py-3 bg-muted/50 border rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground",
