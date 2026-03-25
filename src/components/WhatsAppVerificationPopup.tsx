@@ -109,10 +109,13 @@ export function WhatsAppVerificationPopup() {
     },
   });
 
-  const showDialog = !verificationCompleted && !isLoading && needsVerification;
+  // Don't render anything until we know the status — prevents flash
+  if (isLoading || verificationCompleted || !needsVerification) {
+    return null;
+  }
 
   return (
-    <Dialog open={!!showDialog} onOpenChange={() => {}}>
+    <Dialog open={true} onOpenChange={() => {}}>
       <DialogContent
         className="max-w-sm [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
