@@ -1118,7 +1118,6 @@ export default function WhatsApp() {
                                                                     cliente_email: "joao@email.com",
                                                                     cliente_telefone: "11999999999",
                                                                 })
-                                                                })
                                                         )),
                                                     }}
                                                 />
