@@ -1,42 +1,27 @@
 
 
-## Plano: Blindagem contra Ataques XSS e Abuso de Cadastro
+## Plano: Verificação SMS + Email no Cadastro ✅ IMPLEMENTADO
 
-Sobre bloqueio de IP: infelizmente não é possivel bloquear IPs diretamente no nível do backend atual (seria necessário um proxy/WAF como Cloudflare). Porém, podemos implementar várias camadas de proteção eficazes.
+### Fluxo Implementado
 
-### Mudanças
+```text
+1. Usuário preenche nome, WhatsApp, email, senha
+2. Clica "Enviar Código SMS" → gera código 6 dígitos → envia SMS via IntegraX
+3. Tela de inserção do código SMS aparece (6 inputs com auto-complete)
+4. Código correto → cadastro no Supabase Auth (com email verification)
+5. Tela de "Verifique seu email" aparece (fluxo atual)
 
-**1. Sanitização do campo Nome no cadastro (client-side)**
-- Arquivo: `src/components/ui/premium-auth.tsx`
-- Rejeitar nomes com caracteres HTML (`<`, `>`, `"`, `'`, `&`) no campo de validação
-- Limitar tamanho máximo do nome a 60 caracteres
-- Mostrar erro claro: "Nome contém caracteres inválidos"
+Admin: vê verificações pendentes com código visível e pode aprovar manualmente
+Admin: pode confirmar email de qualquer usuário
+```
 
-**2. Bloqueio de domínios de email descartáveis (client-side)**
-- Arquivo: `src/components/ui/premium-auth.tsx`
-- Manter lista de domínios descartáveis conhecidos (sharebot.net, tempmail, guerrillamail, etc.)
-- Validar no campo email e bloquear cadastro com esses domínios
-
-**3. Sanitização server-side no trigger `handle_new_user` (migração)**
-- Alterar a função SQL para limpar HTML do `full_name` antes de gravar no profiles
-- Usar `regexp_replace` para remover tags HTML do nome
-
-**4. Instalar DOMPurify e sanitizar `dangerouslySetInnerHTML` (4 arquivos)**
-- `src/pages/WhatsApp.tsx` — preview de mensagem WhatsApp
-- `src/pages/Rastreio.tsx` — CSS inline
-- `src/components/postagens/FailedDeliveryConfig.tsx` — preview de email
-- Envolver conteúdo dinâmico com `DOMPurify.sanitize()` antes de renderizar
-
-**5. Validação de WhatsApp no cadastro**
-- Limitar campo phone a máximo 15 dígitos para evitar inputs absurdos
-
-### Arquivos envolvidos
+### Arquivos criados/modificados
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/ui/premium-auth.tsx` | Validação de nome e email |
-| Migração SQL | Sanitizar `handle_new_user` |
-| `src/pages/WhatsApp.tsx` | DOMPurify |
-| `src/pages/Rastreio.tsx` | DOMPurify |
-| `src/components/postagens/FailedDeliveryConfig.tsx` | DOMPurify |
-
+| Migração SQL | Tabela `signup_verifications` com RLS |
+| `supabase/functions/send-verification-sms/index.ts` | Edge function - gera e envia código SMS |
+| `supabase/functions/verify-sms-code/index.ts` | Edge function - valida código |
+| `supabase/functions/admin-manage-user/index.ts` | Ações `confirm_email` e `approve_sms` |
+| `src/components/ui/premium-auth.tsx` | Step de código SMS com auto-verify |
+| `src/pages/admin/AdminUsuarios.tsx` | Seção de verificações pendentes + botão confirmar email |
