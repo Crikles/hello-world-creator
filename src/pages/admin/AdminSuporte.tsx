@@ -79,6 +79,9 @@ export default function AdminSuporte() {
       data?.forEach((row: any) => {
         map[row.key] = row.text_value;
       });
+      if (map.verificacao_whatsapp_template) {
+        setWhatsTemplate(map.verificacao_whatsapp_template);
+      }
       return map;
     },
   });
