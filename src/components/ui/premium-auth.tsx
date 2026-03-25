@@ -280,7 +280,7 @@ const SmsCodeInput: React.FC<{
         <MessageSquare className="h-10 w-10 text-primary mx-auto" />
         <h3 className="text-lg font-semibold text-foreground">Verificação SMS</h3>
         <p className="text-sm text-muted-foreground">
-          Enviamos um código de 6 dígitos para o WhatsApp <strong className="text-foreground">{maskedPhone}</strong>
+          Enviamos um código de 6 dígitos via SMS para <strong className="text-foreground">{maskedPhone}</strong>
         </p>
       </div>
 
