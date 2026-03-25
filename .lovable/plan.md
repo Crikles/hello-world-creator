@@ -1,35 +1,28 @@
 
 
-## Plan: WhatsApp Verification with Editable Phone + Non-Expiring Codes + Admin Visibility
+## Plan: Add "Indicação" Column to Admin Users Table
 
-### What changes
+### What
+Add a new column "Indicação" to the users table in the admin panel that shows:
+1. Who referred this user (the referrer's name/email)
+2. The user's own referral link (`/signup?ref=CODE`)
 
-1. **Popup asks user to input/confirm their WhatsApp number** before sending the code -- since many old users have random/invalid numbers stored. The popup gets a new "phone input" step where the user confirms or edits their WhatsApp. The confirmed number is saved to their profile before sending the code.
+### How
 
-2. **Codes never expire** for the verification popup flow (existing users). The `send-verification-sms` edge function will set `expires_at` far in the future (e.g. year 2099) when `skip_email_check: true` (existing user flow). The `verify-sms-code` function already checks expiration, so this just works.
+**File: `src/pages/admin/AdminUsuarios.tsx`**
 
-3. **Admin panel shows pending verification codes** for each unverified user. In the "Todos os Usuarios" table, for users who are "Nao verificado", show their latest pending code inline (so admin can help via support). This uses the already-fetched `pendingVerifications` data cross-referenced with user phone/email.
+1. **Update the `UserRow` interface** — add `referred_by_name`, `referred_by_email`, and `referral_code` fields.
 
-4. **Admin is also required to verify** -- remove any special bypass. The current popup in `WhatsAppVerificationPopup.tsx` already checks `profiles.whatsapp` and `signup_verifications` without admin exceptions, so this already works. Just confirm no bypass exists.
+2. **Update the query** — the `profiles` query already returns `referred_by` and `referral_code`. Use the profiles list to resolve the referrer's name/email by matching `referred_by` to another profile's `id`.
+
+3. **Add table column** — insert a "Indicação" column between "Lojas" and "Ações" showing:
+   - If referred: referrer's name (or email) as a badge
+   - The user's own referral link as a copyable code snippet
+   - If not referred: just show their ref link
 
 ### Technical Details
 
-**`WhatsAppVerificationPopup.tsx`:**
-- Add new step `"phone"` before `"prompt"`. User sees their current WhatsApp pre-filled in an input, can edit it.
-- On "Confirmar" in the phone step: update `profiles.whatsapp` with the new number, then proceed to send code.
-- The `sendCodeMutation` uses the user-entered phone instead of reading from profile.
-- Change step flow: `phone` → `code` (skip the old "prompt" step, go straight to sending after phone confirmation).
-
-**`send-verification-sms/index.ts`:**
-- When `skip_email_check: true`, set `expires_at` to `'2099-12-31T23:59:59Z'` instead of the default 10-min expiration.
-
-**`AdminUsuarios.tsx`:**
-- Fetch ALL pending verifications (not just status=pendente, also include the code field).
-- In the "WA Verificado" column, for unverified users, show their latest pending code if one exists (e.g. "Codigo: 123456").
-- Cross-reference by phone or email.
-
-### Files Modified
-- `src/components/WhatsAppVerificationPopup.tsx` -- add phone input step
-- `supabase/functions/send-verification-sms/index.ts` -- non-expiring codes for existing users
-- `src/pages/admin/AdminUsuarios.tsx` -- show pending codes for unverified users
+- Map `profiles.referred_by` → lookup referrer name from the same profiles array (no extra query needed)
+- Display referral code as `magnusfrete.lovable.app/signup?ref=CODE` with a copy button
+- Show referrer info with a small label like "Indicado por: Nome"
 
