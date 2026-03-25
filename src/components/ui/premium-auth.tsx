@@ -262,6 +262,34 @@ const SmsCodeInput: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
+  // Poll for admin approval every 5 seconds
+  useEffect(() => {
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (!normalizedPhone) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('signup_verifications')
+          .select('status')
+          .eq('phone', normalizedPhone)
+          .eq('status', 'verificado')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          clearInterval(interval);
+          onVerified();
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [phone, onVerified]);
+
   const maskedPhone = phone.length > 4
     ? '***' + phone.slice(-4)
     : phone;
