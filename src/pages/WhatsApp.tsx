@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -1099,7 +1100,7 @@ export default function WhatsApp() {
                                             <div className="p-3">
                                                 <p className="text-sm text-white whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{
-                                                        __html: formatWhatsAppText(
+                                                        __html: DOMPurify.sanitize(formatWhatsAppText(
                                                             previewEnvio
                                                                 ? replaceVars(msgTemplate, previewEnvio)
                                                                 : replaceVars(msgTemplate, {
@@ -1117,7 +1118,7 @@ export default function WhatsApp() {
                                                                     cliente_email: "joao@email.com",
                                                                     cliente_telefone: "11999999999",
                                                                 })
-                                                        ),
+                                                        )),
                                                     }}
                                                 />
                                                 {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
