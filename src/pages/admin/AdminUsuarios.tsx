@@ -497,6 +497,15 @@ export default function AdminUsuarios() {
                             <>
                               <Button
                                 size="sm"
+                                variant="outline"
+                                onClick={() => confirmEmailMutation.mutate(u.id)}
+                                disabled={confirmEmailMutation.isPending}
+                              >
+                                <MailCheck className="h-3.5 w-3.5 mr-1" />
+                                Confirmar Email
+                              </Button>
+                              <Button
+                                size="sm"
                                 variant={u.blocked ? "outline" : "secondary"}
                                 onClick={() => setUserToBlock(u)}
                               >
