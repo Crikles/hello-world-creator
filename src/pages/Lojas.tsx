@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Package, Plus, Store, LogOut, Shield, Coins, MoreVertical, Pencil, Trash2, Eye } from "lucide-react";
+import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
