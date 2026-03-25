@@ -549,6 +549,38 @@ export default function AdminUsuarios() {
                         </span>
                       </TableCell>
                       <TableCell>{u.lojas_count}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1 min-w-[180px]">
+                          {u.referred_by_name && (
+                            <div className="flex items-center gap-1 text-xs">
+                              <Users className="h-3 w-3 text-primary" />
+                              <span className="text-muted-foreground">Indicado por:</span>
+                              <span className="font-medium text-foreground">{u.referred_by_name}</span>
+                            </div>
+                          )}
+                          {u.referral_code && (
+                            <div className="flex items-center gap-1">
+                              <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono truncate max-w-[160px]">
+                                /signup?ref={u.referral_code}
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-5 w-5 p-0"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`https://magnusfrete.lovable.app/signup?ref=${u.referral_code}`);
+                                  toast.success("Link copiado!");
+                                }}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          {!u.referred_by_name && !u.referral_code && (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5 flex-wrap">
                           <Button size="sm" variant="outline" onClick={() => {
