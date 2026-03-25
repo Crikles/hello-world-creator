@@ -73,20 +73,12 @@ interface PasswordStrength {
   };
 }
 
-// Disposable email domains blacklist
-const DISPOSABLE_DOMAINS = [
-  'sharebot.net', 'tempmail.com', 'guerrillamail.com', 'guerrillamail.net',
-  'mailinator.com', 'throwaway.email', 'yopmail.com', 'trashmail.com',
-  'fakeinbox.com', 'sharklasers.com', 'guerrillamailblock.com', 'grr.la',
-  'dispostable.com', 'maildrop.cc', 'mailnesia.com', 'tempail.com',
-  'temp-mail.org', 'mohmal.com', 'getnada.com', 'emailondeck.com',
-  'mintemail.com', '10minutemail.com', 'trashmail.net', 'harakirimail.com',
-  'bugmenot.com', 'mailcatch.com', 'tempr.email', 'discard.email',
-];
+// Allowed email domains whitelist
+const ALLOWED_DOMAINS = ['gmail.com', 'hotmail.com', 'outlook.com', 'proton.me'];
 
-const isDisposableEmail = (email: string): boolean => {
+const isAllowedEmail = (email: string): boolean => {
   const domain = email.split('@')[1]?.toLowerCase();
-  return DISPOSABLE_DOMAINS.some(d => domain === d || domain?.endsWith('.' + d));
+  return ALLOWED_DOMAINS.includes(domain);
 };
 
 const hasHtmlChars = (value: string): boolean => /[<>"'&]/.test(value);
@@ -394,7 +386,7 @@ export function AuthForm({
       case 'email':
         if (!value || (typeof value === 'string' && !value.trim())) error = 'Email é obrigatório';
         else if (typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Email inválido';
-        else if (typeof value === 'string' && isDisposableEmail(value)) error = 'Domínio de email não permitido';
+        else if (typeof value === 'string' && !isAllowedEmail(value)) error = 'Apenas Gmail, Hotmail, Outlook e Proton são permitidos';
         break;
       case 'password':
         if (!value) error = 'Senha é obrigatória';
