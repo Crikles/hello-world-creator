@@ -433,6 +433,7 @@ export default function AdminUsuarios() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>WhatsApp</TableHead>
+                    <TableHead>WA Verificado</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Cadastro</TableHead>
