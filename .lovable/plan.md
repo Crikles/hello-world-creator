@@ -1,42 +1,83 @@
 
 
-## Plano: Blindagem contra Ataques XSS e Abuso de Cadastro
+## Plano: Verificação SMS + Email no Cadastro
 
-Sobre bloqueio de IP: infelizmente não é possivel bloquear IPs diretamente no nível do backend atual (seria necessário um proxy/WAF como Cloudflare). Porém, podemos implementar várias camadas de proteção eficazes.
+### Fluxo Proposto
+
+```text
+1. Usuário preenche nome, WhatsApp, email, senha
+2. Clica "Criar Conta" → gera código 6 dígitos → envia SMS via IntegraX
+3. Tela de inserção do código SMS aparece
+4. Código correto → cadastro no Supabase Auth (com email verification)
+5. Tela de "Verifique seu email" aparece (fluxo atual)
+
+Admin: vê todos os códigos pendentes e pode aprovar manualmente
+```
 
 ### Mudanças
 
-**1. Sanitização do campo Nome no cadastro (client-side)**
-- Arquivo: `src/components/ui/premium-auth.tsx`
-- Rejeitar nomes com caracteres HTML (`<`, `>`, `"`, `'`, `&`) no campo de validação
-- Limitar tamanho máximo do nome a 60 caracteres
-- Mostrar erro claro: "Nome contém caracteres inválidos"
+**1. Nova tabela `signup_verifications` (migração)**
+- Campos: `id`, `phone`, `email`, `name`, `password_hash` (NÃO armazenar senha em texto), `code` (6 dígitos), `status` (pendente/verificado/expirado), `created_at`, `expires_at`, `verified_at`, `approved_by`
+- Nota importante: NÃO podemos armazenar a senha do usuário antes do cadastro. Em vez disso, o fluxo será:
+  - Gerar e enviar código SMS
+  - Usuário confirma o código
+  - Só então criar a conta no Supabase Auth
+  - O formulário mantém os dados em memória (state) até a verificação
 
-**2. Bloqueio de domínios de email descartáveis (client-side)**
-- Arquivo: `src/components/ui/premium-auth.tsx`
-- Manter lista de domínios descartáveis conhecidos (sharebot.net, tempmail, guerrillamail, etc.)
-- Validar no campo email e bloquear cadastro com esses domínios
+Tabela simplificada:
+- `id`, `phone`, `email`, `full_name`, `code` (6 dígitos), `status`, `created_at`, `expires_at`, `verified_at`, `approved_by`
+- RLS: admin full access, service_role full access, sem acesso público direto
 
-**3. Sanitização server-side no trigger `handle_new_user` (migração)**
-- Alterar a função SQL para limpar HTML do `full_name` antes de gravar no profiles
-- Usar `regexp_replace` para remover tags HTML do nome
+**2. Nova Edge Function `send-verification-sms`**
+- Recebe: `phone`, `email`, `full_name`
+- Gera código de 6 dígitos aleatório
+- Salva na tabela `signup_verifications`
+- Envia SMS via IntegraX (mesma API já usada)
+- Mensagem: "Seu código de verificação Magnus Frete: XXXXXX"
+- Código expira em 10 minutos
+- Rate limiting: máximo 3 tentativas por telefone em 10 min
 
-**4. Instalar DOMPurify e sanitizar `dangerouslySetInnerHTML` (4 arquivos)**
-- `src/pages/WhatsApp.tsx` — preview de mensagem WhatsApp
-- `src/pages/Rastreio.tsx` — CSS inline
-- `src/components/postagens/FailedDeliveryConfig.tsx` — preview de email
-- Envolver conteúdo dinâmico com `DOMPurify.sanitize()` antes de renderizar
+**3. Nova Edge Function `verify-sms-code`**
+- Recebe: `phone`, `code`
+- Valida código contra tabela
+- Retorna `{ verified: true }` se correto e não expirado
+- Marca como `verificado`
 
-**5. Validação de WhatsApp no cadastro**
-- Limitar campo phone a máximo 15 dígitos para evitar inputs absurdos
+**4. Modificar fluxo de Signup (`premium-auth.tsx` + `Signup.tsx`)**
+- Adicionar novo estado/step no formulário:
+  - Step 1: Formulário normal (nome, WhatsApp, email, senha)
+  - Step 2: Tela de inserção do código SMS (6 inputs)
+  - Step 3: Sucesso SMS → criar conta no Supabase Auth → tela de verificação email
+- Os dados do formulário ficam em memória até SMS ser verificado
+- Botão "Reenviar SMS" com cooldown de 60s
+
+**5. Painel Admin - Nova seção em AdminUsuarios ou nova página**
+- Listar verificações pendentes com: nome, telefone, email, código, data
+- Botão "Aprovar" para o admin marcar como verificado manualmente
+- Quando admin aprova, o frontend do usuário (se ainda aberto) detecta e prossegue
+- Alternativa: admin pode aprovar a verificação de email dos usuários também (usando a edge function `admin-manage-user` para confirmar email)
+
+**6. Admin pode confirmar email de usuários**
+- Adicionar ação "Confirmar Email" no `admin-manage-user` edge function
+- Usa `supabase.auth.admin.updateUserById(userId, { email_confirm: true })`
+- Botão visível no painel de usuários
 
 ### Arquivos envolvidos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/ui/premium-auth.tsx` | Validação de nome e email |
-| Migração SQL | Sanitizar `handle_new_user` |
-| `src/pages/WhatsApp.tsx` | DOMPurify |
-| `src/pages/Rastreio.tsx` | DOMPurify |
-| `src/components/postagens/FailedDeliveryConfig.tsx` | DOMPurify |
+| Migração SQL | Criar tabela `signup_verifications` |
+| `supabase/functions/send-verification-sms/index.ts` | Nova edge function |
+| `supabase/functions/verify-sms-code/index.ts` | Nova edge function |
+| `supabase/functions/admin-manage-user/index.ts` | Adicionar ação `confirm_email` |
+| `src/components/ui/premium-auth.tsx` | Adicionar step de código SMS |
+| `src/pages/Signup.tsx` | Integrar novo fluxo |
+| `src/pages/Login.tsx` | Integrar novo fluxo no signup embutido |
+| `src/pages/admin/AdminUsuarios.tsx` | Seção de verificações pendentes + botão confirmar email |
+
+### Considerações de Segurança
+- Códigos expiram em 10 minutos
+- Máximo 3 tentativas por telefone a cada 10 minutos
+- Senha nunca é armazenada fora do Supabase Auth
+- Tabela de verificação acessível apenas via service_role e admin
 
