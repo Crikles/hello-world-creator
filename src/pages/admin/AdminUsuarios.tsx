@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
-import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn, Trophy, MessageSquare, MailCheck, CheckCircle, Copy, Users } from "lucide-react";
+import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn, Trophy, MessageSquare, MailCheck, CheckCircle, Copy, Users, Tag, Pencil, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -31,6 +31,7 @@ interface UserRow {
   pending_code: string | null;
   referral_code: string | null;
   referred_by_name: string | null;
+  admin_tag: string | null;
 }
 
 export default function AdminUsuarios() {
@@ -47,6 +48,8 @@ export default function AdminUsuarios() {
 
   const [userToBlock, setUserToBlock] = useState<UserRow | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserRow | null>(null);
+  const [editingTagUserId, setEditingTagUserId] = useState<string | null>(null);
+  const [tagValue, setTagValue] = useState("");
 
   // Pending SMS verifications
   const { data: pendingVerifications = [] } = useQuery({
@@ -218,8 +221,27 @@ export default function AdminUsuarios() {
           pending_code: pendingCode,
           referral_code: p.referral_code || null,
           referred_by_name,
+          admin_tag: (p as any).admin_tag || null,
         };
       });
+    },
+  });
+
+  const saveTagMutation = useMutation({
+    mutationFn: async ({ userId, tag }: { userId: string; tag: string | null }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ admin_tag: tag } as any)
+        .eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      setEditingTagUserId(null);
+      toast.success("Tag salva!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao salvar tag.");
     },
   });
 
@@ -498,8 +520,9 @@ export default function AdminUsuarios() {
                     <TableHead>Créditos</TableHead>
                     <TableHead>Recargas</TableHead>
                     <TableHead>Lojas</TableHead>
-                    <TableHead>Indicação</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                     <TableHead>Indicação</TableHead>
+                     <TableHead>Tag</TableHead>
+                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -580,8 +603,51 @@ export default function AdminUsuarios() {
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right">
+                       </TableCell>
+                       <TableCell>
+                         {editingTagUserId === u.id ? (
+                           <div className="flex items-center gap-1 min-w-[140px]">
+                             <Input
+                               value={tagValue}
+                               onChange={(e) => setTagValue(e.target.value)}
+                               className="h-7 text-xs w-24"
+                               placeholder="Tag..."
+                               autoFocus
+                               onKeyDown={(e) => {
+                                 if (e.key === "Enter") {
+                                   saveTagMutation.mutate({ userId: u.id, tag: tagValue.trim() || null });
+                                 } else if (e.key === "Escape") {
+                                   setEditingTagUserId(null);
+                                 }
+                               }}
+                             />
+                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => saveTagMutation.mutate({ userId: u.id, tag: tagValue.trim() || null })}>
+                               <Save className="h-3 w-3 text-primary" />
+                             </Button>
+                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setEditingTagUserId(null)}>
+                               <X className="h-3 w-3 text-muted-foreground" />
+                             </Button>
+                           </div>
+                         ) : (
+                           <div
+                             className="flex items-center gap-1 cursor-pointer group min-w-[80px]"
+                             onClick={() => { setEditingTagUserId(u.id); setTagValue(u.admin_tag || ""); }}
+                           >
+                             {u.admin_tag ? (
+                               <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium flex items-center gap-1">
+                                 <Tag className="h-3 w-3" />
+                                 {u.admin_tag}
+                               </span>
+                             ) : (
+                               <span className="text-xs text-muted-foreground group-hover:text-foreground flex items-center gap-1">
+                                 <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                 Adicionar
+                               </span>
+                             )}
+                           </div>
+                         )}
+                       </TableCell>
+                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5 flex-wrap">
                           <Button size="sm" variant="outline" onClick={() => {
                             setSelectedUserForPrices(u);
