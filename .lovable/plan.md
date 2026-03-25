@@ -1,42 +1,35 @@
 
 
-## Plan: UAZAPI Verification Instance with QR Code Connection
+## Plan: WhatsApp Verification with Editable Phone + Non-Expiring Codes + Admin Visibility
 
 ### What changes
 
-Replace the current manual token input in the "WhatsApp de Verificação" card on AdminSuporte with a full instance management flow (similar to user WhatsApp instances), where the admin:
+1. **Popup asks user to input/confirm their WhatsApp number** before sending the code -- since many old users have random/invalid numbers stored. The popup gets a new "phone input" step where the user confirms or edits their WhatsApp. The confirmed number is saved to their profile before sending the code.
 
-1. Creates a UAZAPI instance via the admin token (`UAZAPI_ADMIN_TOKEN` secret, already configured)
-2. Generates a QR code to connect a phone number
-3. The connected instance token is stored in `system_config` and used by `send-verification-sms` to send WhatsApp codes
+2. **Codes never expire** for the verification popup flow (existing users). The `send-verification-sms` edge function will set `expires_at` far in the future (e.g. year 2099) when `skip_email_check: true` (existing user flow). The `verify-sms-code` function already checks expiration, so this just works.
+
+3. **Admin panel shows pending verification codes** for each unverified user. In the "Todos os Usuarios" table, for users who are "Nao verificado", show their latest pending code inline (so admin can help via support). This uses the already-fetched `pendingVerifications` data cross-referenced with user phone/email.
+
+4. **Admin is also required to verify** -- remove any special bypass. The current popup in `WhatsAppVerificationPopup.tsx` already checks `profiles.whatsapp` and `signup_verifications` without admin exceptions, so this already works. Just confirm no bypass exists.
 
 ### Technical Details
 
-**AdminSuporte.tsx — Replace UAZAPI card with instance flow:**
-- "Criar Instância" button calls UAZAPI `/instance/init` via a new edge function action or directly via the existing `send-whatsapp` edge function (but admin-level, not loja-bound)
-- Since this is an admin-only system instance (not tied to a loja), we'll create a dedicated edge function `admin-verification-whatsapp` that handles: `init`, `connect`, `status`, `disconnect`, `delete`
-- Store instance data in `system_config` with keys:
-  - `verificacao_whatsapp_token` — instance token (text_value)
-  - `verificacao_whatsapp_instance` — instance name (text_value)
-  - `verificacao_whatsapp_status` — connection status (text_value)
-  - `verificacao_whatsapp_phone` — connected phone (text_value)
-- UI states: No instance → Create button → QR code/pairing code → Connected status with disconnect/delete options
-- Polling for status while connecting (same pattern as WhatsApp.tsx)
-- Test send button remains
+**`WhatsAppVerificationPopup.tsx`:**
+- Add new step `"phone"` before `"prompt"`. User sees their current WhatsApp pre-filled in an input, can edit it.
+- On "Confirmar" in the phone step: update `profiles.whatsapp` with the new number, then proceed to send code.
+- The `sendCodeMutation` uses the user-entered phone instead of reading from profile.
+- Change step flow: `phone` → `code` (skip the old "prompt" step, go straight to sending after phone confirmation).
 
-**New edge function `admin-verification-whatsapp`:**
-- Validates admin role via JWT
-- Actions: `init`, `connect`, `status`, `disconnect`, `delete`
-- Uses `UAZAPI_ADMIN_TOKEN` for init, instance token for other actions
-- Stores/updates `system_config` rows accordingly
+**`send-verification-sms/index.ts`:**
+- When `skip_email_check: true`, set `expires_at` to `'2099-12-31T23:59:59Z'` instead of the default 10-min expiration.
 
-**Database migration:**
-- Insert new `system_config` rows for `verificacao_whatsapp_status` and `verificacao_whatsapp_phone`
-
-**No changes to `send-verification-sms`** — it already reads the token from `system_config.verificacao_whatsapp_token` and sends WhatsApp messages.
+**`AdminUsuarios.tsx`:**
+- Fetch ALL pending verifications (not just status=pendente, also include the code field).
+- In the "WA Verificado" column, for unverified users, show their latest pending code if one exists (e.g. "Codigo: 123456").
+- Cross-reference by phone or email.
 
 ### Files Modified
-- `src/pages/admin/AdminSuporte.tsx` — full rewrite of UAZAPI card with QR code flow
-- `supabase/functions/admin-verification-whatsapp/index.ts` — new edge function
-- Database migration — add new system_config rows
+- `src/components/WhatsAppVerificationPopup.tsx` -- add phone input step
+- `supabase/functions/send-verification-sms/index.ts` -- non-expiring codes for existing users
+- `src/pages/admin/AdminUsuarios.tsx` -- show pending codes for unverified users
 
