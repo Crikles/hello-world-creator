@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
     // Send SMS via IntegraX
     const token = Deno.env.get("INTEGRAX_API_KEY")!;
     const formattedPhone = formatPhone(phone);
-    const message = `Seu codigo de verificacao Magnus Frete: ${code}. Valido por 10 minutos.`;
+    const message = `${code} - Use este codigo para confirmar seu cadastro. Valido por 10 min.`;
 
     console.log("Sending verification SMS to:", formattedPhone);
 
