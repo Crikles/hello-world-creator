@@ -52,6 +52,36 @@ export type Database = {
           },
         ]
       }
+      cashback_log: {
+        Row: {
+          created_at: string
+          envio_id: string
+          id: string
+          loja_id: string
+          motivo: string | null
+          user_id: string
+          valor_devolvido: number
+        }
+        Insert: {
+          created_at?: string
+          envio_id: string
+          id?: string
+          loja_id: string
+          motivo?: string | null
+          user_id: string
+          valor_devolvido?: number
+        }
+        Update: {
+          created_at?: string
+          envio_id?: string
+          id?: string
+          loja_id?: string
+          motivo?: string | null
+          user_id?: string
+          valor_devolvido?: number
+        }
+        Relationships: []
+      }
       checkout_integrations: {
         Row: {
           ativo: boolean
@@ -1422,6 +1452,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      process_cashback: {
+        Args: { _envio_id: string; _user_id: string }
+        Returns: number
       }
       user_owns_loja: {
         Args: { _loja_id: string; _user_id: string }

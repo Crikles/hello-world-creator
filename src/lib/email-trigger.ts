@@ -307,6 +307,23 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             }
         }
 
+        // Process cashback when flow completes
+        if (newStatus === "entregue") {
+            try {
+                const { data: cashbackVal, error: cbErr } = await supabase.rpc("process_cashback" as any, {
+                    _envio_id: envioId,
+                    _user_id: lojaUserId,
+                });
+                if (cbErr) {
+                    console.error("Cashback RPC error:", cbErr);
+                } else if (cashbackVal && Number(cashbackVal) > 0) {
+                    console.log(`Cashback: ${cashbackVal} credits returned for envio ${envioId}`);
+                }
+            } catch (cbErr) {
+                console.error("Cashback failed:", cbErr);
+            }
+        }
+
         return { status: newStatus, ultimoOrdem: nextEvent.ordem };
 
     } catch (err) {
