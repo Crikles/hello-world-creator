@@ -169,6 +169,20 @@ export function WhatsAppVerificationPopup() {
           </div>
         ) : (
           <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Enviado para: </span>
+                <span className="font-mono font-medium">{phoneInput}</span>
+              </div>
+              <Button
+                variant="link"
+                size="sm"
+                className="text-xs h-auto p-0"
+                onClick={() => { setStep("phone"); setCode(""); }}
+              >
+                Alterar número
+              </Button>
+            </div>
             <div className="space-y-2">
               <Label>Código de verificação</Label>
               <Input
@@ -200,14 +214,6 @@ export function WhatsAppVerificationPopup() {
                 Reenviar
               </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-muted-foreground"
-              onClick={() => { setStep("phone"); setCode(""); }}
-            >
-              Alterar número
-            </Button>
           </div>
         )}
       </DialogContent>
