@@ -157,6 +157,7 @@ export default function Lojas() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
+      <WhatsAppVerificationPopup />
       {/* Immersive Background */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_hsla(43,74%,49%,0.04)_0%,_transparent_70%)]" />
