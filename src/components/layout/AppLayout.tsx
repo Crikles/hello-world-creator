@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Megaphone, AlertTriangle, MessageCircle, Zap, Square } from "lucide-react";
 import { useBatchProgress } from "@/contexts/BatchProgressContext";
 import { Progress } from "@/components/ui/progress";
+import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
 
 export function AppLayout() {
   const navigate = useNavigate();
