@@ -22,6 +22,7 @@ export function WhatsAppVerificationPopup() {
   const [code, setCode] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneLoaded, setPhoneLoaded] = useState(false);
+  const [verificationCompleted, setVerificationCompleted] = useState(false);
 
   // Check if user needs verification
   const { data: needsVerification, isLoading } = useQuery({
@@ -56,11 +57,9 @@ export function WhatsAppVerificationPopup() {
         .or(conditions.join(","))
         .limit(1);
 
-      if (verifications && verifications.length > 0) return false;
-
-      return true;
+      return !(verifications && verifications.length > 0);
     },
-    enabled: !!user,
+    enabled: !!user && !verificationCompleted,
   });
 
   const sendCodeMutation = useMutation({
@@ -113,15 +112,19 @@ export function WhatsAppVerificationPopup() {
       return data;
     },
     onSuccess: () => {
+      setVerificationCompleted(true);
+      setCode("");
       toast.success("WhatsApp verificado com sucesso! ✅");
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-verification-check"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-verification-check", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-verifications"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Código inválido ou expirado.");
     },
   });
 
-  if (isLoading || !needsVerification) return null;
+  if (verificationCompleted || isLoading || !needsVerification) return null;
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
