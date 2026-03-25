@@ -1,28 +1,25 @@
 
 
-## Plan: Add "Indicação" Column to Admin Users Table
+## Plan: Show Customer Phone Number in Shipment List
 
 ### What
-Add a new column "Indicação" to the users table in the admin panel that shows:
-1. Who referred this user (the referrer's name/email)
-2. The user's own referral link (`/signup?ref=CODE`)
+Add the customer's phone number below their email in the shipment listing on the Envios page. No database changes needed — `cliente_telefone` already exists in the `envios` table and is already being fetched.
 
 ### How
 
-**File: `src/pages/admin/AdminUsuarios.tsx`**
+**File: `src/pages/Envios.tsx`**
 
-1. **Update the `UserRow` interface** — add `referred_by_name`, `referred_by_email`, and `referral_code` fields.
+On line 1045, after the email line, add the phone number display:
 
-2. **Update the query** — the `profiles` query already returns `referred_by` and `referral_code`. Use the profiles list to resolve the referrer's name/email by matching `referred_by` to another profile's `id`.
+```tsx
+<div className="min-w-0 w-32 md:w-40 shrink-0">
+  <p className="text-sm font-medium text-foreground truncate leading-tight">{envio.cliente_nome}</p>
+  <p className="text-[10px] text-muted-foreground truncate">{envio.cliente_email}</p>
+  {envio.cliente_telefone && (
+    <p className="text-[10px] text-muted-foreground truncate">{envio.cliente_telefone}</p>
+  )}
+</div>
+```
 
-3. **Add table column** — insert a "Indicação" column between "Lojas" and "Ações" showing:
-   - If referred: referrer's name (or email) as a badge
-   - The user's own referral link as a copyable code snippet
-   - If not referred: just show their ref link
-
-### Technical Details
-
-- Map `profiles.referred_by` → lookup referrer name from the same profiles array (no extra query needed)
-- Display referral code as `magnusfrete.lovable.app/signup?ref=CODE` with a copy button
-- Show referrer info with a small label like "Indicado por: Nome"
+This will show the phone for all shipments (old and new) that have `cliente_telefone` populated. No backfill is needed since the data comes from the original shipment creation.
 
