@@ -16,13 +16,21 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { phone, code } = await req.json();
+    const { phone, code, check_only } = await req.json();
     const normalizedPhone = normalizePhone(phone);
     const trimmedCode = String(code ?? "").trim();
+    const checkOnly = check_only === true;
 
-    if (!normalizedPhone || !trimmedCode) {
+    if (!normalizedPhone) {
       return new Response(
-        JSON.stringify({ error: "phone e code são obrigatórios" }),
+        JSON.stringify({ error: "phone é obrigatório" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!checkOnly && !trimmedCode) {
+      return new Response(
+        JSON.stringify({ error: "code é obrigatório" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -31,6 +39,72 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    if (checkOnly) {
+      const { data: exactVerified, error: checkErr } = await supabase
+        .from("signup_verifications")
+        .select("id")
+        .eq("phone", normalizedPhone)
+        .eq("status", "verificado")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (checkErr) {
+        console.error("Check error (exact):", checkErr);
+        throw new Error("Erro ao verificar status");
+      }
+
+      if (exactVerified) {
+        return new Response(
+          JSON.stringify({ verified: true }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: verifiedCandidates, error: checkFallbackErr } = await supabase
+        .from("signup_verifications")
+        .select("phone")
+        .eq("status", "verificado")
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (checkFallbackErr) {
+        console.error("Check error (fallback):", checkFallbackErr);
+        throw new Error("Erro ao verificar status");
+      }
+
+      const matched = (verifiedCandidates || []).some(
+        (row: any) => normalizePhone(row.phone) === normalizedPhone
+      );
+
+      return new Response(
+        JSON.stringify({ verified: matched }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // If admin already approved this phone, consider as verified immediately
+    const { data: alreadyVerified, error: alreadyVerifiedErr } = await supabase
+      .from("signup_verifications")
+      .select("id")
+      .eq("phone", normalizedPhone)
+      .eq("status", "verificado")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (alreadyVerifiedErr) {
+      console.error("Fetch error (already verified):", alreadyVerifiedErr);
+      throw new Error("Erro ao buscar verificação");
+    }
+
+    if (alreadyVerified) {
+      return new Response(
+        JSON.stringify({ verified: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // First try exact normalized phone match (new records)
     const { data: exactVerification, error: exactErr } = await supabase
