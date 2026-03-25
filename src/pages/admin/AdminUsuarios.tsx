@@ -44,6 +44,56 @@ export default function AdminUsuarios() {
   const [userToBlock, setUserToBlock] = useState<UserRow | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserRow | null>(null);
 
+  // Pending SMS verifications
+  const { data: pendingVerifications = [] } = useQuery({
+    queryKey: ["admin-pending-verifications"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("signup_verifications")
+        .select("*")
+        .eq("status", "pendente")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 15000,
+  });
+
+  const confirmEmailMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "confirm_email", target_user_id: userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      toast.success("Email confirmado com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao confirmar email.");
+    },
+  });
+
+  const approveSmsVerification = useMutation({
+    mutationFn: async (verificationId: string) => {
+      const { error } = await supabase
+        .from("signup_verifications")
+        .update({ status: "verificado", verified_at: new Date().toISOString(), approved_by: user?.id })
+        .eq("id", verificationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-verifications"] });
+      toast.success("Verificação SMS aprovada manualmente!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao aprovar verificação.");
+    },
+  });
+
   const { data: rankingData = [] } = useQuery({
     queryKey: ["admin-ranking-recargas"],
     queryFn: async () => {
