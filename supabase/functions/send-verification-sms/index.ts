@@ -110,14 +110,19 @@ Deno.serve(async (req) => {
 
     // Best-effort: also send via WhatsApp (UAZAPI) if configured
     try {
-      const { data: uazapiConfig } = await supabase
+      const { data: uazapiRows } = await supabase
         .from("system_config")
-        .select("text_value")
-        .eq("key", "verificacao_whatsapp_token")
-        .maybeSingle();
+        .select("key, text_value")
+        .in("key", ["verificacao_whatsapp_token", "verificacao_whatsapp_template"]);
 
-      const uazapiToken = uazapiConfig?.text_value;
+      const configMap: Record<string, string | null> = {};
+      uazapiRows?.forEach((r: any) => { configMap[r.key] = r.text_value; });
+
+      const uazapiToken = configMap["verificacao_whatsapp_token"];
+      const template = configMap["verificacao_whatsapp_template"] || "{{codigo}} - Use este código para confirmar seu cadastro. Válido por 10 min.";
+
       if (uazapiToken) {
+        const whatsMessage = template.replace(/\{\{codigo\}\}/gi, code);
         console.log("Sending verification WhatsApp to:", formattedPhone);
         const whatsRes = await fetch("https://rushsend.uazapi.com/send/text", {
           method: "POST",
@@ -127,10 +132,11 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             number: formattedPhone,
-            text: `${code} - Use este código para confirmar seu cadastro. Válido por 10 min.`,
+            text: whatsMessage,
           }),
         });
         console.log("WhatsApp API response:", whatsRes.status, await whatsRes.text());
+      }
       }
     } catch (whatsErr) {
       console.error("WhatsApp send failed (non-blocking):", whatsErr);

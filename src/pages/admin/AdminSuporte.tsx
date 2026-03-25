@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,6 +43,7 @@ export default function AdminSuporte() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
+  const [whatsTemplate, setWhatsTemplate] = useState("{{codigo}} - Use este código para confirmar seu cadastro. Válido por 10 min.");
 
   // ── WhatsApp Suporte number ──
   const { data: config, isLoading } = useQuery({
@@ -70,12 +72,16 @@ export default function AdminSuporte() {
           "verificacao_whatsapp_instance",
           "verificacao_whatsapp_status",
           "verificacao_whatsapp_phone",
+          "verificacao_whatsapp_template",
         ]);
       if (error) throw error;
       const map: Record<string, string | null> = {};
       data?.forEach((row: any) => {
         map[row.key] = row.text_value;
       });
+      if (map.verificacao_whatsapp_template) {
+        setWhatsTemplate(map.verificacao_whatsapp_template);
+      }
       return map;
     },
   });
@@ -126,6 +132,21 @@ export default function AdminSuporte() {
       toast.success("Número de suporte atualizado!");
     },
     onError: (err: any) => toast.error(err.message || "Erro ao atualizar."),
+  });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (template: string) => {
+      const { error } = await supabase
+        .from("system_config")
+        .update({ text_value: template, updated_at: new Date().toISOString() } as any)
+        .eq("key", "verificacao_whatsapp_template");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-verificacao-config"] });
+      toast.success("Template salvo!");
+    },
+    onError: (err: any) => toast.error(err.message || "Erro ao salvar template."),
   });
 
   const initMutation = useMutation({
@@ -469,6 +490,33 @@ export default function AdminSuporte() {
                     </p>
                   </div>
                 )}
+
+                {/* Template da mensagem */}
+                <div className="border-t pt-4 space-y-3">
+                  <Label className="text-xs font-medium text-foreground">Template da Mensagem</Label>
+                  <Textarea
+                    value={whatsTemplate}
+                    onChange={(e) => setWhatsTemplate(e.target.value)}
+                    rows={4}
+                    className="bg-muted/30 focus:bg-background text-sm font-mono"
+                    placeholder="{{codigo}} - Sua mensagem aqui..."
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="text-[10px] font-mono">{"{{codigo}}"}</Badge>
+                    <span className="text-[10px] text-muted-foreground self-center">= código de 6 dígitos</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Use <span className="font-mono font-medium">{"{{codigo}}"}</span> onde quiser inserir o código de verificação.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => saveTemplateMutation.mutate(whatsTemplate)}
+                    disabled={saveTemplateMutation.isPending}
+                  >
+                    <Save className="h-4 w-4 mr-1" />
+                    {saveTemplateMutation.isPending ? "Salvando..." : "Salvar Template"}
+                  </Button>
+                </div>
 
                 <p className="text-xs text-muted-foreground">
                   O código de verificação SMS será enviado também por WhatsApp durante o cadastro.
