@@ -752,12 +752,7 @@ export function AuthForm({
         className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {(loading || sendingSms) ? <Loader2 className="h-4 w-4 animate-spin" /> : (
-          authMode === 'login' ? 'Entrar' : (
-            <>
-              <MessageSquare className="h-4 w-4" />
-              Enviar Código SMS
-            </>
-          )
+          authMode === 'login' ? 'Entrar' : 'Criar Conta'
         )}
       </button>
     </div>
