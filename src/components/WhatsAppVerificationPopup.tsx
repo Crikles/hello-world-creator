@@ -23,9 +23,6 @@ export function WhatsAppVerificationPopup() {
   const [code, setCode] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneLoaded, setPhoneLoaded] = useState(false);
-
-  const normalizePhone = (value: string) => value.replace(/\D/g, "");
-  const normalizeEmail = (value: string) => value.trim().toLowerCase();
   const [verificationCompleted, setVerificationCompleted] = useState(false);
 
   // Check if user needs verification
@@ -34,7 +31,7 @@ export function WhatsAppVerificationPopup() {
     queryFn: async () => {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("whatsapp, email")
+        .select("whatsapp, whatsapp_verified")
         .eq("id", authUser!.id)
         .maybeSingle();
 
@@ -44,26 +41,7 @@ export function WhatsAppVerificationPopup() {
         setPhoneLoaded(true);
       }
 
-      const phone = normalizePhone(profile?.whatsapp || "");
-      const email = normalizeEmail(profile?.email || "");
-
-      if (!phone && !email) return true;
-
-      // Robust check to support legacy records with phone formatting differences
-      const { data: verifications } = await supabase
-        .from("signup_verifications")
-        .select("phone, email")
-        .eq("status", "verificado")
-        .order("created_at", { ascending: false })
-        .limit(400);
-
-      const hasVerified = (verifications || []).some((v: any) => {
-        const rowPhone = normalizePhone(v.phone || "");
-        const rowEmail = normalizeEmail(v.email || "");
-        return (phone && rowPhone === phone) || (email && rowEmail === email);
-      });
-
-      return !hasVerified;
+      return !(profile?.whatsapp_verified === true);
     },
     enabled: !!authUser && !verificationCompleted,
   });
@@ -123,18 +101,16 @@ export function WhatsAppVerificationPopup() {
       setCode("");
       toast.success("WhatsApp verificado com sucesso! ✅");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-verification-check", authUser?.id] });
-      queryClient.invalidateQueries({ queryKey: ["admin-pending-verifications"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Código inválido ou expirado.");
     },
   });
 
-  if (verificationCompleted || isLoading || !needsVerification) return null;
+  const showDialog = !verificationCompleted && !isLoading && needsVerification;
 
   return (
-    <Dialog open={true} onOpenChange={() => {}}>
+    <Dialog open={!!showDialog} onOpenChange={() => {}}>
       <DialogContent
         className="max-w-sm [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
