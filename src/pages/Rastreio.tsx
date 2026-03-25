@@ -1994,7 +1994,7 @@ const jlStyles = `
   100% { transform: translateX(-50%); }
 }
 .jl-partners {
-  padding: 0 32px 80px; background: #0f172a;
+  padding: 40px 32px 80px; background: #0f172a;
   text-align: center;
 }
 .jl-partners-title {
@@ -2012,21 +2012,18 @@ const jlStyles = `
 }
 .jl-partners-track:hover { animation-play-state: paused; }
 .jl-partner-card {
-  flex-shrink: 0; background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
-  padding: 20px 32px;
+  flex-shrink: 0; background: rgba(255,255,255,0.95);
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  padding: 20px 32px; min-width: 160px;
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.3s, box-shadow 0.3s;
 }
 .jl-partner-card:hover {
   transform: scale(1.05);
-  box-shadow: 0 8px 24px rgba(99,102,241,0.15);
+  box-shadow: 0 8px 24px rgba(99,102,241,0.25);
 }
 .jl-partner-logo {
-  height: 60px; width: auto; object-fit: contain;
-  filter: brightness(0) invert(1) opacity(0.85);
-}
-.jl-partner-card:hover .jl-partner-logo {
-  filter: brightness(0) invert(1) opacity(1);
+  height: 50px; width: auto; object-fit: contain;
 }
 `;
