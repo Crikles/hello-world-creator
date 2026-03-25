@@ -149,10 +149,21 @@ export default function AdminUsuarios() {
       const creditos = creditosRes.data || [];
       const lojas = lojasRes.data || [];
       const verificacoes = verificacoesRes.data || [];
+      const allPendingVerificacoes = allVerificacoesRes.data || [];
 
       // Build sets of verified phones and emails
       const verifiedPhones = new Set(verificacoes.map(v => v.phone?.replace(/\D/g, "")));
       const verifiedEmails = new Set(verificacoes.map(v => v.email?.toLowerCase()));
+
+      // Build map of latest pending code by phone/email
+      const pendingCodeByPhone: Record<string, string> = {};
+      const pendingCodeByEmail: Record<string, string> = {};
+      allPendingVerificacoes.forEach((v: any) => {
+        const ph = v.phone?.replace(/\D/g, "");
+        const em = v.email?.toLowerCase();
+        if (ph && !pendingCodeByPhone[ph]) pendingCodeByPhone[ph] = v.code;
+        if (em && !pendingCodeByEmail[em]) pendingCodeByEmail[em] = v.code;
+      });
 
       return profiles.map((p): UserRow => {
         const userRole = roles.find((r) => r.user_id === p.id);
