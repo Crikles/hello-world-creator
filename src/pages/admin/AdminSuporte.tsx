@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,6 +43,7 @@ export default function AdminSuporte() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
+  const [whatsTemplate, setWhatsTemplate] = useState("{{codigo}} - Use este código para confirmar seu cadastro. Válido por 10 min.");
 
   // ── WhatsApp Suporte number ──
   const { data: config, isLoading } = useQuery({
@@ -70,6 +72,7 @@ export default function AdminSuporte() {
           "verificacao_whatsapp_instance",
           "verificacao_whatsapp_status",
           "verificacao_whatsapp_phone",
+          "verificacao_whatsapp_template",
         ]);
       if (error) throw error;
       const map: Record<string, string | null> = {};
