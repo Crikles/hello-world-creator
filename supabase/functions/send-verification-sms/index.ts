@@ -6,10 +6,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-function formatPhone(phone: string): string {
-  // Just clean non-digit chars, preserve international prefix as-is
-  const cleaned = phone.replace(/[\s\-\(\)\+\.]/g, "");
-  return cleaned;
+function normalizePhone(phone: string): string {
+  return String(phone ?? "").replace(/\D/g, "");
+}
+
+function normalizeEmail(email: string): string {
+  return String(email ?? "").trim().toLowerCase();
 }
 
 Deno.serve(async (req) => {
