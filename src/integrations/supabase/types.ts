@@ -1116,6 +1116,45 @@ export type Database = {
           },
         ]
       }
+      signup_verifications: {
+        Row: {
+          approved_by: string | null
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          phone: string
+          status: string
+          verified_at: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          code: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          full_name: string
+          id?: string
+          phone: string
+          status?: string
+          verified_at?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          full_name?: string
+          id?: string
+          phone?: string
+          status?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       sms_templates: {
         Row: {
           created_at: string
