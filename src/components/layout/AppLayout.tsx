@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Megaphone, AlertTriangle, MessageCircle, Zap, Square } from "lucide-react";
 import { useBatchProgress } from "@/contexts/BatchProgressContext";
 import { Progress } from "@/components/ui/progress";
-import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
+
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -40,7 +40,6 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
-      <WhatsAppVerificationPopup />
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col relative">
