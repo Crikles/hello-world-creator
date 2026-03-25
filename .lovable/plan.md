@@ -1,40 +1,56 @@
 
 
-## Plan: Fix AUTO bypass — Ensure disabled AUTO never starts new shipments
+## Plan: Cashback Automático para Emails Não Entregues
 
-### Problem
-Users report that with AUTO disabled, new orders from checkouts still get their flow started automatically instead of staying at stage zero (`pendente`). 
+### Conceito
 
-### Root Cause
-The client-side realtime listener on the Envios page uses local React state (`autoEnvio`) to decide whether to auto-start new envios. This creates two vulnerabilities:
-1. **Stale state across tabs**: If AUTO is disabled in one tab, another open tab still holds `autoEnvio = true` in memory
-2. **No server-side re-check**: The client listener trusts its cached state without re-validating against the database before triggering
+Quando um envio completa o fluxo (status "entregue"), o sistema verifica na tabela `postagem_email_log` se **nenhum** email daquele envio teve status `delivered` (confirmado pelo webhook da Resend). Se todos os emails falharam (bounced/failed) ou nenhum foi confirmado como entregue, o sistema devolve automaticamente os créditos cobrados no início do fluxo.
 
-### Solution (2 changes)
+### Por que esperar o fluxo terminar
 
-**1. Client-side fix (`src/pages/Envios.tsx`)**
-In the realtime INSERT listener (the AUTO channel), before calling `triggerNextEmail`, re-fetch `auto_envio` from `postagem_config` to confirm it's still enabled. If it's false/null in the DB, skip the trigger and log it.
+A Resend envia webhooks com status reais (`delivered`, `bounced`, `complained`). Um email pode demorar para ser confirmado. Ao esperar o último evento do fluxo, temos certeza de que todos os emails já tiveram tempo de ser processados e seus status atualizados.
 
-```typescript
-// Before triggering, re-check DB
-const { data: freshConfig } = await supabase
-  .from("postagem_config")
-  .select("auto_envio")
-  .eq("loja_id", loja.id)
-  .maybeSingle();
+### Mudanças
 
-if (!freshConfig?.auto_envio) {
-  console.log("AUTO: skipped — auto_envio disabled in DB");
-  return;
-}
+**1. Nova tabela `cashback_log`** (migração)
+- `id`, `envio_id`, `loja_id`, `user_id`, `valor_devolvido`, `motivo`, `created_at`
+- Registra cada devolução para auditoria e evita cashback duplicado (unique em `envio_id`)
+
+**2. Nova função SQL `process_cashback`** (migração)
+- Recebe `envio_id` e `user_id`
+- Consulta `postagem_email_log` para aquele `envio_id`
+- Se nenhum registro tem status `delivered` ou `opened` ou `clicked`, calcula o valor a devolver
+- Credita de volta na tabela `creditos` e registra em `creditos_transacoes` e `cashback_log`
+- Retorna o valor devolvido (0 se não aplicável)
+
+**3. Edge Function `advance-shipments` (alteração)**
+- Quando o cron avança um envio para status `entregue`, chama `process_cashback` via RPC
+- Log do resultado
+
+**4. Client-side `email-trigger.ts` (alteração)**
+- Quando `triggerNextEmail` resulta em status `entregue`, chama `process_cashback` via RPC
+- Exibe toast informando o cashback se aplicável
+
+**5. Painel Admin — Visualização de cashbacks**
+- Adicionar seção no Dashboard admin ou página dedicada mostrando cashbacks processados (total devolvido, lista recente)
+
+### Lógica de verificação
+
+```text
+Envio chegou a "entregue"
+  └─ Consultar postagem_email_log WHERE envio_id = X
+     └─ Se NENHUM registro com status IN ('delivered','opened','clicked')
+        └─ Devolver créditos (email + taxação + falha, exceto SMS já cobrado à parte)
+        └─ Registrar em cashback_log
+     └─ Se PELO MENOS UM delivered → sem cashback
 ```
 
-**2. Server-side safeguard (`supabase/functions/advance-shipments/index.ts`)**
-The cron already checks `config.auto_envio` before processing pending shipments. However, the config is fetched once per loja per run. Add a comment reinforcing this is correct and ensure the check is explicit (not relying on type coercion for null):
+### Arquivos envolvidos
 
-Change `if ((config as any).auto_envio)` to `if ((config as any).auto_envio === true)` to prevent any truthy edge cases with unexpected values.
-
-### Files to edit
-1. `src/pages/Envios.tsx` — Add DB re-check in the AUTO realtime listener
-2. `supabase/functions/advance-shipments/index.ts` — Stricten the `auto_envio` check to `=== true`
+| Arquivo | Ação |
+|---------|------|
+| Migração SQL | Criar tabela `cashback_log` + função `process_cashback` |
+| `supabase/functions/advance-shipments/index.ts` | Chamar cashback ao atingir "entregue" |
+| `src/lib/email-trigger.ts` | Chamar cashback ao atingir "entregue" |
+| `src/pages/admin/AdminDashboard.tsx` | Card com total de cashbacks |
 
