@@ -68,6 +68,24 @@ interface PasswordStrength {
   };
 }
 
+// Disposable email domains blacklist
+const DISPOSABLE_DOMAINS = [
+  'sharebot.net', 'tempmail.com', 'guerrillamail.com', 'guerrillamail.net',
+  'mailinator.com', 'throwaway.email', 'yopmail.com', 'trashmail.com',
+  'fakeinbox.com', 'sharklasers.com', 'guerrillamailblock.com', 'grr.la',
+  'dispostable.com', 'maildrop.cc', 'mailnesia.com', 'tempail.com',
+  'temp-mail.org', 'mohmal.com', 'getnada.com', 'emailondeck.com',
+  'mintemail.com', '10minutemail.com', 'trashmail.net', 'harakirimail.com',
+  'bugmenot.com', 'mailcatch.com', 'tempr.email', 'discard.email',
+];
+
+const isDisposableEmail = (email: string): boolean => {
+  const domain = email.split('@')[1]?.toLowerCase();
+  return DISPOSABLE_DOMAINS.some(d => domain === d || domain?.endsWith('.' + d));
+};
+
+const hasHtmlChars = (value: string): boolean => /[<>"'&]/.test(value);
+
 const calculatePasswordStrength = (password: string): PasswordStrength => {
   const requirements = {
     length: password.length >= 8,
@@ -177,18 +195,25 @@ export function AuthForm({
     let error = '';
     switch (field) {
       case 'name':
-        if (typeof value === 'string' && authMode === 'signup' && !value.trim()) error = 'Nome é obrigatório';
+        if (typeof value === 'string' && authMode === 'signup') {
+          if (!value.trim()) error = 'Nome é obrigatório';
+          else if (hasHtmlChars(value)) error = 'Nome contém caracteres inválidos';
+          else if (value.length > 60) error = 'Nome muito longo (máx. 60 caracteres)';
+        }
         break;
       case 'phone':
         if (typeof value === 'string' && authMode === 'signup') {
+          const digits = value.replace(/\D/g, '');
           if (!value.trim()) error = 'WhatsApp é obrigatório';
-          else if (!/^\d+$/.test(value.replace(/\D/g, ''))) error = 'Apenas números';
-          else if (value.replace(/\D/g, '').length < 10) error = 'Mínimo 10 dígitos';
+          else if (!/^\d+$/.test(digits)) error = 'Apenas números';
+          else if (digits.length < 10) error = 'Mínimo 10 dígitos';
+          else if (digits.length > 15) error = 'Máximo 15 dígitos';
         }
         break;
       case 'email':
         if (!value || (typeof value === 'string' && !value.trim())) error = 'Email é obrigatório';
         else if (typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Email inválido';
+        else if (typeof value === 'string' && isDisposableEmail(value)) error = 'Domínio de email não permitido';
         break;
       case 'password':
         if (!value) error = 'Senha é obrigatória';
