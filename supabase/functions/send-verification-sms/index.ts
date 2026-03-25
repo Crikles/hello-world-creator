@@ -21,8 +21,10 @@ Deno.serve(async (req) => {
 
   try {
     const { phone, email, full_name, skip_email_check } = await req.json();
+    const normalizedPhone = normalizePhone(phone);
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!phone || !email || !full_name) {
+    if (!normalizedPhone || !normalizedEmail || !full_name) {
       return new Response(
         JSON.stringify({ error: "phone, email e full_name são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -39,7 +41,7 @@ Deno.serve(async (req) => {
     const { count } = await supabase
       .from("signup_verifications")
       .select("*", { count: "exact", head: true })
-      .eq("phone", phone)
+      .eq("phone", normalizedPhone)
       .gte("created_at", tenMinAgo);
 
     if ((count || 0) >= 3) {
@@ -53,7 +55,7 @@ Deno.serve(async (req) => {
     if (!skip_email_check) {
       const { data: existingUsers } = await supabase.auth.admin.listUsers();
       const emailExists = existingUsers?.users?.some(
-        (u) => u.email?.toLowerCase() === email.toLowerCase()
+        (u) => normalizeEmail(u.email || "") === normalizedEmail
       );
       if (emailExists) {
         return new Response(
