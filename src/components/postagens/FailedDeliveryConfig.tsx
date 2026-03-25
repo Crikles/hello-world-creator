@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import DOMPurify from "dompurify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -249,7 +250,7 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
             <div className="flex-1 relative overflow-auto custom-scrollbar bg-slate-100/50 flex">
                 <div className="absolute inset-0 origin-top flex items-start justify-center p-4">
                     <div className="w-full max-w-[600px] shadow-sm transform scale-90 sm:scale-100 origin-top">
-                        <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+                        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent) }} />
                     </div>
                 </div>
             </div>

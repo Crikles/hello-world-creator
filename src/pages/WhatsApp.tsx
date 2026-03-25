@@ -1118,7 +1118,8 @@ export default function WhatsApp() {
                                                                     cliente_email: "joao@email.com",
                                                                     cliente_telefone: "11999999999",
                                                                 })
-                                                        ),
+                                                                })
+                                                        )),
                                                     }}
                                                 />
                                                 {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
