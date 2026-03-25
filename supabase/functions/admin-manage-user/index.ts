@@ -169,6 +169,38 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "confirm_email") {
+      const { error: confirmErr } = await adminClient.auth.admin.updateUserById(target_user_id, {
+        email_confirm: true,
+      });
+      if (confirmErr) throw confirmErr;
+
+      return new Response(JSON.stringify({ success: true, message: "Email confirmado com sucesso." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "approve_sms") {
+      // Mark the latest pending verification for this user as verified by admin
+      const { data: profile } = await adminClient
+        .from("profiles")
+        .select("whatsapp")
+        .eq("id", target_user_id)
+        .maybeSingle();
+
+      if (profile?.whatsapp) {
+        await adminClient
+          .from("signup_verifications")
+          .update({ status: "verificado", verified_at: new Date().toISOString(), approved_by: callerId })
+          .eq("phone", profile.whatsapp)
+          .eq("status", "pendente");
+      }
+
+      return new Response(JSON.stringify({ success: true, message: "Verificação SMS aprovada." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
