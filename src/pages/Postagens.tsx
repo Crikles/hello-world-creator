@@ -894,7 +894,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
     },
   });
 
-  const activeLabel = logisticaProvider === "jadlog" ? "JADLOG" : logisticaProvider === "vetor" ? "Vetor Transportes" : "JL Transportes";
+  const activeLabel = logisticaProvider === "vetor" ? "Vetor Transportes" : "JL Transportes";
 
   return (
     <Card>
@@ -912,7 +912,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
             Transportadora ativa: <strong className="text-primary">{activeLabel}</strong>
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => mutation.mutate("jl")}
             disabled={mutation.isPending}
@@ -923,17 +923,6 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
           >
             <img src="/logojltransportes.png" alt="JL Transportes" className="h-28 mb-3 object-contain" />
             <span className={`font-semibold text-sm ${logisticaProvider === "jl" ? "text-primary" : "text-slate-600"}`}>JL Transportes</span>
-          </button>
-          <button
-            onClick={() => mutation.mutate("jadlog")}
-            disabled={mutation.isPending}
-            className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "jadlog"
-                ? "border-primary ring-2 ring-primary/20"
-                : "border-border hover:border-primary/50"
-              }`}
-          >
-            <img src="/logojadlog.png" alt="JADLOG" className="h-16 mb-3 object-contain" />
-            <span className={`font-semibold text-sm ${logisticaProvider === "jadlog" ? "text-primary" : "text-slate-600"}`}>JADLOG</span>
           </button>
           <button
             onClick={() => mutation.mutate("vetor")}
