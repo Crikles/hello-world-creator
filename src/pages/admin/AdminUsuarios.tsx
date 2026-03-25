@@ -135,12 +135,13 @@ export default function AdminUsuarios() {
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["admin-usuarios"],
     queryFn: async () => {
-      const [profilesRes, rolesRes, creditosRes, lojasRes, verificacoesRes] = await Promise.all([
+      const [profilesRes, rolesRes, creditosRes, lojasRes, verificacoesRes, allVerificacoesRes] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("user_roles").select("*"),
         supabase.from("creditos").select("*"),
         supabase.from("lojas").select("id, user_id"),
         supabase.from("signup_verifications").select("phone, email, status").eq("status", "verificado"),
+        supabase.from("signup_verifications").select("phone, email, code, status, created_at").eq("status", "pendente").order("created_at", { ascending: false }),
       ]);
 
       const profiles = profilesRes.data || [];

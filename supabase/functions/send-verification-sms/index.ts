@@ -64,7 +64,11 @@ Deno.serve(async (req) => {
     // Generate 6-digit code
     const code = String(Math.floor(100000 + Math.random() * 900000));
 
-    // Save to DB
+    // Save to DB — non-expiring codes for existing users (skip_email_check flow)
+    const expiresAt = skip_email_check
+      ? new Date("2099-12-31T23:59:59Z").toISOString()
+      : new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
     const { error: insertErr } = await supabase
       .from("signup_verifications")
       .insert({
@@ -73,6 +77,7 @@ Deno.serve(async (req) => {
         full_name,
         code,
         status: "pendente",
+        expires_at: expiresAt,
       });
 
     if (insertErr) {
