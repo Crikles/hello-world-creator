@@ -7,9 +7,9 @@ const corsHeaders = {
 };
 
 function formatPhone(phone: string): string {
+  // Just clean non-digit chars, preserve international prefix as-is
   const cleaned = phone.replace(/[\s\-\(\)\+\.]/g, "");
-  if (cleaned.startsWith("55")) return cleaned;
-  return "55" + cleaned;
+  return cleaned;
 }
 
 Deno.serve(async (req) => {
@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { phone, email, full_name } = await req.json();
+    const { phone, email, full_name, skip_email_check } = await req.json();
 
     if (!phone || !email || !full_name) {
       return new Response(
@@ -47,16 +47,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if email already registered in auth
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const emailExists = existingUsers?.users?.some(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
-    );
-    if (emailExists) {
-      return new Response(
-        JSON.stringify({ error: "Este email já está cadastrado. Faça login." }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    // Check if email already registered in auth (skip for existing users verifying)
+    if (!skip_email_check) {
+      const { data: existingUsers } = await supabase.auth.admin.listUsers();
+      const emailExists = existingUsers?.users?.some(
+        (u) => u.email?.toLowerCase() === email.toLowerCase()
       );
+      if (emailExists) {
+        return new Response(
+          JSON.stringify({ error: "Este email já está cadastrado. Faça login." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Generate 6-digit code
@@ -78,37 +80,9 @@ Deno.serve(async (req) => {
       throw new Error("Erro ao salvar verificação");
     }
 
-    // Send SMS via IntegraX
-    const token = Deno.env.get("INTEGRAX_API_KEY")!;
+    // Send via WhatsApp (UAZAPI) — primary channel
     const formattedPhone = formatPhone(phone);
-    const message = `${code} - Use este codigo para confirmar seu cadastro. Valido por 10 min.`;
 
-    console.log("Sending verification SMS to:", formattedPhone);
-
-    const smsResponse = await fetch(
-      `https://sms.aresfun.com/v1/integration/${token}/send-sms`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: [formattedPhone],
-          from: "29094",
-          message,
-        }),
-      }
-    );
-
-    const smsResult = await smsResponse.text();
-    console.log("SMS API response:", smsResponse.status, smsResult);
-
-    if (!smsResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: "Erro ao enviar SMS. Tente novamente.", details: smsResult }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Best-effort: also send via WhatsApp (UAZAPI) if configured
     try {
       const { data: uazapiRows } = await supabase
         .from("system_config")
@@ -141,8 +115,36 @@ Deno.serve(async (req) => {
       console.error("WhatsApp send failed (non-blocking):", whatsErr);
     }
 
+    // Also send SMS as fallback for Brazilian numbers
+    if (formattedPhone.startsWith("55")) {
+      try {
+        const token = Deno.env.get("INTEGRAX_API_KEY")!;
+        const message = `${code} - Use este codigo para confirmar seu cadastro. Valido por 10 min.`;
+
+        console.log("Sending verification SMS to:", formattedPhone);
+
+        const smsResponse = await fetch(
+          `https://sms.aresfun.com/v1/integration/${token}/send-sms`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: [formattedPhone],
+              from: "29094",
+              message,
+            }),
+          }
+        );
+
+        const smsResult = await smsResponse.text();
+        console.log("SMS API response:", smsResponse.status, smsResult);
+      } catch (smsErr) {
+        console.error("SMS send failed (non-blocking):", smsErr);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, message: "Código enviado por SMS" }),
+      JSON.stringify({ success: true, message: "Código enviado" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
