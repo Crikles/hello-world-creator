@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
     const { error: insertErr } = await supabase
       .from("signup_verifications")
       .insert({
-        phone,
-        email,
+        phone: normalizedPhone,
+        email: normalizedEmail,
         full_name,
         code,
         status: "pendente",
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
     }
 
     // Send via WhatsApp (UAZAPI) — primary channel
-    const formattedPhone = formatPhone(phone);
+    const formattedPhone = normalizedPhone;
 
     try {
       const { data: uazapiRows } = await supabase
