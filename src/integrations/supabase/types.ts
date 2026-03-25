@@ -54,29 +54,38 @@ export type Database = {
       }
       cashback_log: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
           envio_id: string
           id: string
           loja_id: string
           motivo: string | null
+          status: string
           user_id: string
           valor_devolvido: number
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           envio_id: string
           id?: string
           loja_id: string
           motivo?: string | null
+          status?: string
           user_id: string
           valor_devolvido?: number
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           envio_id?: string
           id?: string
           loja_id?: string
           motivo?: string | null
+          status?: string
           user_id?: string
           valor_devolvido?: number
         }
@@ -1442,6 +1451,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_cashback: {
+        Args: { _admin_id: string; _cashback_id: string }
+        Returns: boolean
+      }
       debit_user_credits: {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
@@ -1456,6 +1469,10 @@ export type Database = {
       process_cashback: {
         Args: { _envio_id: string; _user_id: string }
         Returns: number
+      }
+      reject_cashback: {
+        Args: { _admin_id: string; _cashback_id: string }
+        Returns: boolean
       }
       user_owns_loja: {
         Args: { _loja_id: string; _user_id: string }
