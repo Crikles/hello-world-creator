@@ -1187,6 +1187,7 @@ export type Database = {
           created_at: string
           key: string
           label: string | null
+          text_value: string | null
           updated_at: string
           value: number
         }
@@ -1194,6 +1195,7 @@ export type Database = {
           created_at?: string
           key: string
           label?: string | null
+          text_value?: string | null
           updated_at?: string
           value?: number
         }
@@ -1201,6 +1203,7 @@ export type Database = {
           created_at?: string
           key?: string
           label?: string | null
+          text_value?: string | null
           updated_at?: string
           value?: number
         }
