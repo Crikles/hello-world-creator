@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
-import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn, Trophy } from "lucide-react";
+import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn, Trophy, MessageSquare, MailCheck, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -43,6 +43,56 @@ export default function AdminUsuarios() {
 
   const [userToBlock, setUserToBlock] = useState<UserRow | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserRow | null>(null);
+
+  // Pending SMS verifications
+  const { data: pendingVerifications = [] } = useQuery({
+    queryKey: ["admin-pending-verifications"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("signup_verifications")
+        .select("*")
+        .eq("status", "pendente")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 15000,
+  });
+
+  const confirmEmailMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "confirm_email", target_user_id: userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      toast.success("Email confirmado com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao confirmar email.");
+    },
+  });
+
+  const approveSmsVerification = useMutation({
+    mutationFn: async (verificationId: string) => {
+      const { error } = await supabase
+        .from("signup_verifications")
+        .update({ status: "verificado", verified_at: new Date().toISOString(), approved_by: user?.id })
+        .eq("id", verificationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-verifications"] });
+      toast.success("Verificação SMS aprovada manualmente!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao aprovar verificação.");
+    },
+  });
 
   const { data: rankingData = [] } = useQuery({
     queryKey: ["admin-ranking-recargas"],
@@ -261,7 +311,61 @@ export default function AdminUsuarios() {
     <AdminLayout>
       <h1 className="text-2xl font-bold text-foreground mb-6">Gestão de Usuários</h1>
 
-      {/* Ranking Card */}
+      {/* Pending SMS Verifications */}
+      {pendingVerifications.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              Verificações SMS Pendentes ({pendingVerifications.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Expira em</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingVerifications.map((v: any) => (
+                    <TableRow key={v.id}>
+                      <TableCell className="font-medium">{v.full_name}</TableCell>
+                      <TableCell>{v.phone}</TableCell>
+                      <TableCell>{v.email}</TableCell>
+                      <TableCell>
+                        <code className="bg-muted px-2 py-0.5 rounded text-sm font-mono">{v.code}</code>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {format(new Date(v.expires_at), "dd/MM HH:mm")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-primary"
+                          onClick={() => approveSmsVerification.mutate(v.id)}
+                          disabled={approveSmsVerification.isPending}
+                        >
+                          <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                          Aprovar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {rankingData.length > 0 && (
         <Card className="mb-6">
           <CardHeader className="pb-3">
@@ -391,6 +495,15 @@ export default function AdminUsuarios() {
                           </Button>
                           {u.id !== user?.id && (
                             <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => confirmEmailMutation.mutate(u.id)}
+                                disabled={confirmEmailMutation.isPending}
+                              >
+                                <MailCheck className="h-3.5 w-3.5 mr-1" />
+                                Confirmar Email
+                              </Button>
                               <Button
                                 size="sm"
                                 variant={u.blocked ? "outline" : "secondary"}
