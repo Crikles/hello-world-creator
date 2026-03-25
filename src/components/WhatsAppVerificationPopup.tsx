@@ -25,6 +25,8 @@ export function WhatsAppVerificationPopup() {
   const [phoneLoaded, setPhoneLoaded] = useState(false);
   const [verificationCompleted, setVerificationCompleted] = useState(false);
 
+  const normalizePhone = (value: string) => value.replace(/\D/g, "");
+
   // Check if user needs verification
   const { data: needsVerification, isLoading } = useQuery({
     queryKey: ["whatsapp-verification-check", authUser?.id],
