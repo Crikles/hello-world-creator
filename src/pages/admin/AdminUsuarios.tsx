@@ -28,6 +28,7 @@ interface UserRow {
   custom_prices: Record<string, number> | null;
   blocked: boolean;
   whatsapp_verificado: boolean;
+  pending_code: string | null;
 }
 
 export default function AdminUsuarios() {
@@ -172,6 +173,9 @@ export default function AdminUsuarios() {
         const userPhone = ((p as any).whatsapp || "").replace(/\D/g, "");
         const userEmail = (p.email || "").toLowerCase();
         const isVerified = (userPhone && verifiedPhones.has(userPhone)) || verifiedEmails.has(userEmail);
+        const pendingCode = !isVerified
+          ? (userPhone && pendingCodeByPhone[userPhone]) || pendingCodeByEmail[userEmail] || null
+          : null;
         return {
           id: p.id,
           full_name: p.full_name,
@@ -184,6 +188,7 @@ export default function AdminUsuarios() {
           custom_prices: (p.custom_prices as Record<string, number>) || null,
           blocked: !!(p as any).blocked,
           whatsapp_verificado: !!isVerified,
+          pending_code: pendingCode,
         };
       });
     },
