@@ -29,6 +29,8 @@ interface UserRow {
   blocked: boolean;
   whatsapp_verificado: boolean;
   pending_code: string | null;
+  referral_code: string | null;
+  referred_by_name: string | null;
 }
 
 export default function AdminUsuarios() {
