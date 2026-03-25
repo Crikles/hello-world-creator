@@ -450,6 +450,15 @@ export default function AdminUsuarios() {
                       <TableCell>{u.email || "—"}</TableCell>
                       <TableCell>{u.whatsapp || "—"}</TableCell>
                       <TableCell>
+                        {u.whatsapp_verificado ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium flex items-center gap-1 w-fit">
+                            <CheckCircle className="h-3 w-3" /> Verificado
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Não verificado</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         {u.blocked ? (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive font-medium">Bloqueado</span>
                         ) : (
