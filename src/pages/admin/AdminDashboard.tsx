@@ -87,6 +87,43 @@ export default function AdminDashboard() {
     refetchInterval: 30000,
   });
 
+  // Cashback stats
+  const { data: cashbackStats } = useQuery({
+    queryKey: ["admin-cashback-stats"],
+    queryFn: async () => {
+      const PAGE_SIZE = 1000;
+      let allLogs: { valor_devolvido: number; created_at: string }[] = [];
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: logs } = await supabase
+          .from("cashback_log")
+          .select("valor_devolvido, created_at")
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (logs && logs.length > 0) {
+          allLogs = allLogs.concat(logs as any);
+          offset += PAGE_SIZE;
+          hasMore = logs.length === PAGE_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const total = allLogs.reduce((s, l) => s + (l.valor_devolvido || 0), 0);
+      const count = allLogs.length;
+
+      // Today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayLogs = allLogs.filter(l => new Date(l.created_at) >= today);
+      const totalToday = todayLogs.reduce((s, l) => s + (l.valor_devolvido || 0), 0);
+
+      return { total, count, totalToday, countToday: todayLogs.length };
+    },
+  });
+
   // Dry run count for resend
   const { data: emailCount, isLoading: loadingCount } = useQuery({
     queryKey: ["admin-resend-count"],
