@@ -27,6 +27,7 @@ interface UserRow {
   lojas_count: number;
   custom_prices: Record<string, number> | null;
   blocked: boolean;
+  whatsapp_verificado: boolean;
 }
 
 export default function AdminUsuarios() {
@@ -134,22 +135,31 @@ export default function AdminUsuarios() {
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["admin-usuarios"],
     queryFn: async () => {
-      const [profilesRes, rolesRes, creditosRes, lojasRes] = await Promise.all([
+      const [profilesRes, rolesRes, creditosRes, lojasRes, verificacoesRes] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("user_roles").select("*"),
         supabase.from("creditos").select("*"),
         supabase.from("lojas").select("id, user_id"),
+        supabase.from("signup_verifications").select("phone, email, status").eq("status", "verificado"),
       ]);
 
       const profiles = profilesRes.data || [];
       const roles = rolesRes.data || [];
       const creditos = creditosRes.data || [];
       const lojas = lojasRes.data || [];
+      const verificacoes = verificacoesRes.data || [];
+
+      // Build sets of verified phones and emails
+      const verifiedPhones = new Set(verificacoes.map(v => v.phone?.replace(/\D/g, "")));
+      const verifiedEmails = new Set(verificacoes.map(v => v.email?.toLowerCase()));
 
       return profiles.map((p): UserRow => {
         const userRole = roles.find((r) => r.user_id === p.id);
         const userCredito = creditos.find((c) => c.user_id === p.id);
         const userLojas = lojas.filter((l) => l.user_id === p.id);
+        const userPhone = ((p as any).whatsapp || "").replace(/\D/g, "");
+        const userEmail = (p.email || "").toLowerCase();
+        const isVerified = (userPhone && verifiedPhones.has(userPhone)) || verifiedEmails.has(userEmail);
         return {
           id: p.id,
           full_name: p.full_name,
@@ -161,6 +171,7 @@ export default function AdminUsuarios() {
           lojas_count: userLojas.length,
           custom_prices: (p.custom_prices as Record<string, number>) || null,
           blocked: !!(p as any).blocked,
+          whatsapp_verificado: !!isVerified,
         };
       });
     },
@@ -422,6 +433,7 @@ export default function AdminUsuarios() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>WhatsApp</TableHead>
+                    <TableHead>WA Verificado</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Cadastro</TableHead>
@@ -437,6 +449,15 @@ export default function AdminUsuarios() {
                       <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
                       <TableCell>{u.email || "—"}</TableCell>
                       <TableCell>{u.whatsapp || "—"}</TableCell>
+                      <TableCell>
+                        {u.whatsapp_verificado ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium flex items-center gap-1 w-fit">
+                            <CheckCircle className="h-3 w-3" /> Verificado
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Não verificado</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {u.blocked ? (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive font-medium">Bloqueado</span>

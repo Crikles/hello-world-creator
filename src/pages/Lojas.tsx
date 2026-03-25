@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Package, Plus, Store, LogOut, Shield, Coins, MoreVertical, Pencil, Trash2, Eye } from "lucide-react";
+import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -156,6 +157,7 @@ export default function Lojas() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
+      <WhatsAppVerificationPopup />
       {/* Immersive Background */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_hsla(43,74%,49%,0.04)_0%,_transparent_70%)]" />
