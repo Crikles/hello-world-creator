@@ -232,7 +232,7 @@ export default function AdminSuporte() {
         },
         body: JSON.stringify({
           number: phone,
-          text: "123456 - Mensagem de teste de verificação Magnus. Ignore.",
+          text: whatsTemplate.replace(/\{\{codigo\}\}/gi, "123456") + " (teste)",
         }),
       });
 
