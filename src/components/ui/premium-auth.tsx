@@ -324,7 +324,7 @@ const SmsCodeInput: React.FC<{
           className="flex items-center justify-center gap-1 w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar
+          Voltar e alterar telefone ou email
         </button>
       </div>
     </div>

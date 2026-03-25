@@ -449,7 +449,7 @@ export default function AdminUsuarios() {
                           {u.role}
                         </span>
                       </TableCell>
-                      <TableCell>{format(new Date(u.created_at), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{format(new Date(u.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
                       <TableCell>
                         <span className="flex items-center gap-1">
                           <Coins className="h-3.5 w-3.5 text-primary" />
