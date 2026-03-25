@@ -54,17 +54,33 @@ export default function AdminDashboard() {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
 
-      const { data: logs } = await supabase
-        .from("postagem_email_log")
-        .select("status, custo")
-        .gte("created_at", todayISO);
+      // Fetch all logs with pagination to avoid 1k limit
+      const PAGE_SIZE = 1000;
+      let allLogs: { status: string; custo: number }[] = [];
+      let offset = 0;
+      let hasMore = true;
 
-      const items = logs || [];
-      const total = items.length;
-      const sent = items.filter((l) => l.status === "sent").length;
-      const failed = items.filter((l) => l.status === "failed").length;
-      const pending = items.filter((l) => l.status === "pending").length;
-      const custo = items.reduce((s, l) => s + (l.custo || 0), 0);
+      while (hasMore) {
+        const { data: logs } = await supabase
+          .from("postagem_email_log")
+          .select("status, custo")
+          .gte("created_at", todayISO)
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (logs && logs.length > 0) {
+          allLogs = allLogs.concat(logs);
+          offset += PAGE_SIZE;
+          hasMore = logs.length === PAGE_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const total = allLogs.length;
+      const sent = allLogs.filter((l) => l.status === "sent").length;
+      const failed = allLogs.filter((l) => l.status === "failed").length;
+      const pending = allLogs.filter((l) => l.status === "pending").length;
+      const custo = allLogs.reduce((s, l) => s + (l.custo || 0), 0);
 
       return { total, sent, failed, pending, custo };
     },
