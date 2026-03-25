@@ -311,7 +311,61 @@ export default function AdminUsuarios() {
     <AdminLayout>
       <h1 className="text-2xl font-bold text-foreground mb-6">Gestão de Usuários</h1>
 
-      {/* Ranking Card */}
+      {/* Pending SMS Verifications */}
+      {pendingVerifications.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              Verificações SMS Pendentes ({pendingVerifications.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Expira em</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingVerifications.map((v: any) => (
+                    <TableRow key={v.id}>
+                      <TableCell className="font-medium">{v.full_name}</TableCell>
+                      <TableCell>{v.phone}</TableCell>
+                      <TableCell>{v.email}</TableCell>
+                      <TableCell>
+                        <code className="bg-muted px-2 py-0.5 rounded text-sm font-mono">{v.code}</code>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {format(new Date(v.expires_at), "dd/MM HH:mm")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-primary"
+                          onClick={() => approveSmsVerification.mutate(v.id)}
+                          disabled={approveSmsVerification.isPending}
+                        >
+                          <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                          Aprovar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {rankingData.length > 0 && (
         <Card className="mb-6">
           <CardHeader className="pb-3">
