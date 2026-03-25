@@ -22,6 +22,9 @@ export function WhatsAppVerificationPopup() {
   const [code, setCode] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneLoaded, setPhoneLoaded] = useState(false);
+
+  const normalizePhone = (value: string) => value.replace(/\D/g, "");
+  const normalizeEmail = (value: string) => value.trim().toLowerCase();
   const [verificationCompleted, setVerificationCompleted] = useState(false);
 
   // Check if user needs verification
@@ -40,24 +43,26 @@ export function WhatsAppVerificationPopup() {
         setPhoneLoaded(true);
       }
 
-      const phone = (profile?.whatsapp || "").replace(/\D/g, "");
-      const email = (profile?.email || "").toLowerCase();
+      const phone = normalizePhone(profile?.whatsapp || "");
+      const email = normalizeEmail(profile?.email || "");
 
-      // If no phone AND no email, still show popup to collect phone
       if (!phone && !email) return true;
 
-      const conditions: string[] = [];
-      if (phone) conditions.push(`phone.eq.${phone}`);
-      if (email) conditions.push(`email.eq.${email}`);
-
+      // Robust check to support legacy records with phone formatting differences
       const { data: verifications } = await supabase
         .from("signup_verifications")
-        .select("id")
+        .select("phone, email")
         .eq("status", "verificado")
-        .or(conditions.join(","))
-        .limit(1);
+        .order("created_at", { ascending: false })
+        .limit(400);
 
-      return !(verifications && verifications.length > 0);
+      const hasVerified = (verifications || []).some((v: any) => {
+        const rowPhone = normalizePhone(v.phone || "");
+        const rowEmail = normalizeEmail(v.email || "");
+        return (phone && rowPhone === phone) || (email && rowEmail === email);
+      });
+
+      return !hasVerified;
     },
     enabled: !!user && !verificationCompleted,
   });
