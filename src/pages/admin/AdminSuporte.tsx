@@ -491,6 +491,33 @@ export default function AdminSuporte() {
                   </div>
                 )}
 
+                {/* Template da mensagem */}
+                <div className="border-t pt-4 space-y-3">
+                  <Label className="text-xs font-medium text-foreground">Template da Mensagem</Label>
+                  <Textarea
+                    value={whatsTemplate}
+                    onChange={(e) => setWhatsTemplate(e.target.value)}
+                    rows={4}
+                    className="bg-muted/30 focus:bg-background text-sm font-mono"
+                    placeholder="{{codigo}} - Sua mensagem aqui..."
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="text-[10px] font-mono">{"{{codigo}}"}</Badge>
+                    <span className="text-[10px] text-muted-foreground self-center">= código de 6 dígitos</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Use <span className="font-mono font-medium">{"{{codigo}}"}</span> onde quiser inserir o código de verificação.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => saveTemplateMutation.mutate(whatsTemplate)}
+                    disabled={saveTemplateMutation.isPending}
+                  >
+                    <Save className="h-4 w-4 mr-1" />
+                    {saveTemplateMutation.isPending ? "Salvando..." : "Salvar Template"}
+                  </Button>
+                </div>
+
                 <p className="text-xs text-muted-foreground">
                   O código de verificação SMS será enviado também por WhatsApp durante o cadastro.
                 </p>
