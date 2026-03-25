@@ -16,7 +16,8 @@ import { Smartphone, ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function WhatsAppVerificationPopup() {
-  const { user } = useAuth();
+  const { user, realUser } = useAuth();
+  const authUser = realUser ?? user;
   const queryClient = useQueryClient();
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [code, setCode] = useState("");
@@ -29,12 +30,12 @@ export function WhatsAppVerificationPopup() {
 
   // Check if user needs verification
   const { data: needsVerification, isLoading } = useQuery({
-    queryKey: ["whatsapp-verification-check", user?.id],
+    queryKey: ["whatsapp-verification-check", authUser?.id],
     queryFn: async () => {
       const { data: profile } = await supabase
         .from("profiles")
         .select("whatsapp, email")
-        .eq("id", user!.id)
+        .eq("id", authUser!.id)
         .maybeSingle();
 
       // Pre-fill the phone input
@@ -64,7 +65,7 @@ export function WhatsAppVerificationPopup() {
 
       return !hasVerified;
     },
-    enabled: !!user && !verificationCompleted,
+    enabled: !!authUser && !verificationCompleted,
   });
 
   const sendCodeMutation = useMutation({
@@ -75,14 +76,14 @@ export function WhatsAppVerificationPopup() {
       const { data: profile } = await supabase
         .from("profiles")
         .select("email, full_name")
-        .eq("id", user!.id)
+        .eq("id", authUser!.id)
         .maybeSingle();
 
       // Save the confirmed phone normalized to profile
       await supabase
         .from("profiles")
         .update({ whatsapp: normalizedPhoneInput })
-        .eq("id", user!.id);
+        .eq("id", authUser!.id);
 
       const { data, error } = await supabase.functions.invoke("send-verification-sms", {
         body: {
@@ -121,7 +122,7 @@ export function WhatsAppVerificationPopup() {
       setVerificationCompleted(true);
       setCode("");
       toast.success("WhatsApp verificado com sucesso! ✅");
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-verification-check", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-verification-check", authUser?.id] });
       queryClient.invalidateQueries({ queryKey: ["admin-pending-verifications"] });
       queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
     },
