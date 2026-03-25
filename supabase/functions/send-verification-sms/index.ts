@@ -137,7 +137,6 @@ Deno.serve(async (req) => {
         });
         console.log("WhatsApp API response:", whatsRes.status, await whatsRes.text());
       }
-      }
     } catch (whatsErr) {
       console.error("WhatsApp send failed (non-blocking):", whatsErr);
     }
@@ -146,7 +145,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true, message: "Código enviado por SMS" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("Error in send-verification-sms:", error);
     const msg = error instanceof Error ? error.message : "Erro desconhecido";
     return new Response(
