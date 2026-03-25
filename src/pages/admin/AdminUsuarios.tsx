@@ -96,6 +96,24 @@ export default function AdminUsuarios() {
     },
   });
 
+  const deleteSmsVerification = useMutation({
+    mutationFn: async (verificationId: string) => {
+      const { error } = await supabase
+        .from("signup_verifications")
+        .delete()
+        .eq("id", verificationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-verifications"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      toast.success("Verificação excluída!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao excluir verificação.");
+    },
+  });
+
   const { data: rankingData = [] } = useQuery({
     queryKey: ["admin-ranking-recargas"],
     queryFn: async () => {
@@ -374,16 +392,28 @@ export default function AdminUsuarios() {
                         {format(new Date(v.expires_at), "dd/MM HH:mm")}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-primary"
-                          onClick={() => approveSmsVerification.mutate(v.id)}
-                          disabled={approveSmsVerification.isPending}
-                        >
-                          <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                          Aprovar
-                        </Button>
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-primary"
+                            onClick={() => approveSmsVerification.mutate(v.id)}
+                            disabled={approveSmsVerification.isPending}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                            Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive border-destructive/20 hover:bg-destructive/5"
+                            onClick={() => deleteSmsVerification.mutate(v.id)}
+                            disabled={deleteSmsVerification.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />
+                            Excluir
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
