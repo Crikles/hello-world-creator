@@ -106,6 +106,17 @@ Deno.serve(async (req) => {
       throw new Error("Erro ao atualizar verificação");
     }
 
+    // Mark the user's profile as whatsapp_verified
+    // Find profile by normalized phone
+    const { error: profileErr } = await supabase
+      .from("profiles")
+      .update({ whatsapp_verified: true })
+      .eq("whatsapp", normalizedPhone);
+
+    if (profileErr) {
+      console.error("Profile update error (non-blocking):", profileErr);
+    }
+
     return new Response(
       JSON.stringify({ verified: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

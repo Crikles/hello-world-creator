@@ -901,6 +901,7 @@ export type Database = {
           referral_code: string | null
           referred_by: string | null
           whatsapp: string | null
+          whatsapp_verified: boolean
         }
         Insert: {
           blocked?: boolean
@@ -913,6 +914,7 @@ export type Database = {
           referral_code?: string | null
           referred_by?: string | null
           whatsapp?: string | null
+          whatsapp_verified?: boolean
         }
         Update: {
           blocked?: boolean
@@ -925,6 +927,7 @@ export type Database = {
           referral_code?: string | null
           referred_by?: string | null
           whatsapp?: string | null
+          whatsapp_verified?: boolean
         }
         Relationships: []
       }
