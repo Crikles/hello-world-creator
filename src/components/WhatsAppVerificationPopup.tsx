@@ -18,8 +18,10 @@ import { toast } from "sonner";
 export function WhatsAppVerificationPopup() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<"prompt" | "code">("prompt");
+  const [step, setStep] = useState<"phone" | "code">("phone");
   const [code, setCode] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneLoaded, setPhoneLoaded] = useState(false);
 
   // Check if user needs verification
   const { data: needsVerification, isLoading } = useQuery({
@@ -31,16 +33,27 @@ export function WhatsAppVerificationPopup() {
         .eq("id", user!.id)
         .maybeSingle();
 
-      if (!profile?.whatsapp) return false;
+      // Pre-fill the phone input
+      if (!phoneLoaded) {
+        setPhoneInput(profile?.whatsapp || "");
+        setPhoneLoaded(true);
+      }
 
-      const phone = profile.whatsapp.replace(/\D/g, "");
-      const email = (profile.email || "").toLowerCase();
+      const phone = (profile?.whatsapp || "").replace(/\D/g, "");
+      const email = (profile?.email || "").toLowerCase();
+
+      // If no phone AND no email, still show popup to collect phone
+      if (!phone && !email) return true;
+
+      const conditions: string[] = [];
+      if (phone) conditions.push(`phone.eq.${phone}`);
+      if (email) conditions.push(`email.eq.${email}`);
 
       const { data: verifications } = await supabase
         .from("signup_verifications")
         .select("id")
         .eq("status", "verificado")
-        .or(`phone.eq.${phone},email.eq.${email}`)
+        .or(conditions.join(","))
         .limit(1);
 
       if (verifications && verifications.length > 0) return false;
@@ -52,19 +65,25 @@ export function WhatsAppVerificationPopup() {
 
   const sendCodeMutation = useMutation({
     mutationFn: async () => {
+      if (!phoneInput.trim()) throw new Error("Informe seu WhatsApp.");
+
       const { data: profile } = await supabase
         .from("profiles")
-        .select("whatsapp, email, full_name")
+        .select("email, full_name")
         .eq("id", user!.id)
         .maybeSingle();
 
-      if (!profile?.whatsapp) throw new Error("WhatsApp não cadastrado.");
+      // Save the confirmed phone to profile
+      await supabase
+        .from("profiles")
+        .update({ whatsapp: phoneInput.trim() })
+        .eq("id", user!.id);
 
       const { data, error } = await supabase.functions.invoke("send-verification-sms", {
         body: {
-          phone: profile.whatsapp,
-          email: profile.email,
-          full_name: profile.full_name || "Usuário",
+          phone: phoneInput.trim(),
+          email: profile?.email,
+          full_name: profile?.full_name || "Usuário",
           skip_email_check: true,
         },
       });
@@ -83,15 +102,9 @@ export function WhatsAppVerificationPopup() {
 
   const verifyCodeMutation = useMutation({
     mutationFn: async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("whatsapp")
-        .eq("id", user!.id)
-        .maybeSingle();
-
       const { data, error } = await supabase.functions.invoke("verify-sms-code", {
         body: {
-          phone: profile?.whatsapp,
+          phone: phoneInput.trim(),
           code,
         },
       });
@@ -127,15 +140,24 @@ export function WhatsAppVerificationPopup() {
           </DialogDescription>
         </DialogHeader>
 
-        {step === "prompt" ? (
+        {step === "phone" ? (
           <div className="space-y-4 pt-2">
             <p className="text-sm text-muted-foreground">
-              Enviaremos um código de verificação para o WhatsApp cadastrado na sua conta.
+              Confirme ou atualize seu número de WhatsApp. Enviaremos um código de verificação.
             </p>
+            <div className="space-y-2">
+              <Label>Número do WhatsApp (com DDD e código do país)</Label>
+              <Input
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                placeholder="5511999999999"
+                className="font-mono"
+              />
+            </div>
             <Button
               className="w-full"
               onClick={() => sendCodeMutation.mutate()}
-              disabled={sendCodeMutation.isPending}
+              disabled={sendCodeMutation.isPending || !phoneInput.trim()}
             >
               {sendCodeMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -178,6 +200,14 @@ export function WhatsAppVerificationPopup() {
                 Reenviar
               </Button>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-muted-foreground"
+              onClick={() => { setStep("phone"); setCode(""); }}
+            >
+              Alterar número
+            </Button>
           </div>
         )}
       </DialogContent>

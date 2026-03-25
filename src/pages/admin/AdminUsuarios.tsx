@@ -28,6 +28,7 @@ interface UserRow {
   custom_prices: Record<string, number> | null;
   blocked: boolean;
   whatsapp_verificado: boolean;
+  pending_code: string | null;
 }
 
 export default function AdminUsuarios() {
@@ -135,12 +136,13 @@ export default function AdminUsuarios() {
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["admin-usuarios"],
     queryFn: async () => {
-      const [profilesRes, rolesRes, creditosRes, lojasRes, verificacoesRes] = await Promise.all([
+      const [profilesRes, rolesRes, creditosRes, lojasRes, verificacoesRes, allVerificacoesRes] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("user_roles").select("*"),
         supabase.from("creditos").select("*"),
         supabase.from("lojas").select("id, user_id"),
         supabase.from("signup_verifications").select("phone, email, status").eq("status", "verificado"),
+        supabase.from("signup_verifications").select("phone, email, code, status, created_at").eq("status", "pendente").order("created_at", { ascending: false }),
       ]);
 
       const profiles = profilesRes.data || [];
@@ -148,10 +150,21 @@ export default function AdminUsuarios() {
       const creditos = creditosRes.data || [];
       const lojas = lojasRes.data || [];
       const verificacoes = verificacoesRes.data || [];
+      const allPendingVerificacoes = allVerificacoesRes.data || [];
 
       // Build sets of verified phones and emails
       const verifiedPhones = new Set(verificacoes.map(v => v.phone?.replace(/\D/g, "")));
       const verifiedEmails = new Set(verificacoes.map(v => v.email?.toLowerCase()));
+
+      // Build map of latest pending code by phone/email
+      const pendingCodeByPhone: Record<string, string> = {};
+      const pendingCodeByEmail: Record<string, string> = {};
+      allPendingVerificacoes.forEach((v: any) => {
+        const ph = v.phone?.replace(/\D/g, "");
+        const em = v.email?.toLowerCase();
+        if (ph && !pendingCodeByPhone[ph]) pendingCodeByPhone[ph] = v.code;
+        if (em && !pendingCodeByEmail[em]) pendingCodeByEmail[em] = v.code;
+      });
 
       return profiles.map((p): UserRow => {
         const userRole = roles.find((r) => r.user_id === p.id);
@@ -160,6 +173,9 @@ export default function AdminUsuarios() {
         const userPhone = ((p as any).whatsapp || "").replace(/\D/g, "");
         const userEmail = (p.email || "").toLowerCase();
         const isVerified = (userPhone && verifiedPhones.has(userPhone)) || verifiedEmails.has(userEmail);
+        const pendingCode = !isVerified
+          ? (userPhone && pendingCodeByPhone[userPhone]) || pendingCodeByEmail[userEmail] || null
+          : null;
         return {
           id: p.id,
           full_name: p.full_name,
@@ -172,6 +188,7 @@ export default function AdminUsuarios() {
           custom_prices: (p.custom_prices as Record<string, number>) || null,
           blocked: !!(p as any).blocked,
           whatsapp_verificado: !!isVerified,
+          pending_code: pendingCode,
         };
       });
     },
@@ -455,7 +472,14 @@ export default function AdminUsuarios() {
                             <CheckCircle className="h-3 w-3" /> Verificado
                           </span>
                         ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Não verificado</span>
+                          <div className="space-y-1">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Não verificado</span>
+                            {u.pending_code && (
+                              <div className="text-xs text-muted-foreground">
+                                Código: <code className="bg-muted px-1.5 py-0.5 rounded font-mono font-semibold">{u.pending_code}</code>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>
