@@ -196,6 +196,13 @@ export default function AdminUsuarios() {
         const pendingCode = !isVerified
           ? (userPhone && pendingCodeByPhone[userPhone]) || pendingCodeByEmail[userEmail] || null
           : null;
+        // Resolve referrer name
+        const referrer = p.referred_by
+          ? profiles.find((r) => r.id === p.referred_by)
+          : null;
+        const referred_by_name = referrer
+          ? (referrer.full_name || referrer.email || referrer.id.slice(0, 8))
+          : null;
         return {
           id: p.id,
           full_name: p.full_name,
@@ -209,6 +216,8 @@ export default function AdminUsuarios() {
           blocked: !!(p as any).blocked,
           whatsapp_verificado: !!isVerified,
           pending_code: pendingCode,
+          referral_code: p.referral_code || null,
+          referred_by_name,
         };
       });
     },
