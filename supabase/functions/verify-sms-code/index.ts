@@ -6,6 +6,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function normalizePhone(phone: string): string {
+  return String(phone ?? "").replace(/\D/g, "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -13,8 +17,10 @@ Deno.serve(async (req) => {
 
   try {
     const { phone, code } = await req.json();
+    const normalizedPhone = normalizePhone(phone);
+    const trimmedCode = String(code ?? "").trim();
 
-    if (!phone || !code) {
+    if (!normalizedPhone || !trimmedCode) {
       return new Response(
         JSON.stringify({ error: "phone e code são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -26,19 +32,41 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find the most recent pending verification for this phone
-    const { data: verification, error: fetchErr } = await supabase
+    // First try exact normalized phone match (new records)
+    const { data: exactVerification, error: exactErr } = await supabase
       .from("signup_verifications")
       .select("*")
-      .eq("phone", phone)
+      .eq("phone", normalizedPhone)
       .eq("status", "pendente")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (fetchErr) {
-      console.error("Fetch error:", fetchErr);
+    if (exactErr) {
+      console.error("Fetch error (exact):", exactErr);
       throw new Error("Erro ao buscar verificação");
+    }
+
+    let verification = exactVerification;
+
+    // Fallback for legacy records with formatted phones (spaces, symbols)
+    if (!verification) {
+      const { data: codeCandidates, error: codeErr } = await supabase
+        .from("signup_verifications")
+        .select("*")
+        .eq("status", "pendente")
+        .eq("code", trimmedCode)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (codeErr) {
+        console.error("Fetch error (fallback):", codeErr);
+        throw new Error("Erro ao buscar verificação");
+      }
+
+      verification = (codeCandidates || []).find(
+        (row: any) => normalizePhone(row.phone) === normalizedPhone
+      );
     }
 
     if (!verification) {
@@ -50,7 +78,6 @@ Deno.serve(async (req) => {
 
     // Check expiration
     if (new Date(verification.expires_at) < new Date()) {
-      // Mark as expired
       await supabase
         .from("signup_verifications")
         .update({ status: "expirado" })
@@ -62,15 +89,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check code
-    if (verification.code !== code.trim()) {
+    if (verification.code !== trimmedCode) {
       return new Response(
         JSON.stringify({ error: "Código incorreto." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Mark as verified
     const { error: updateErr } = await supabase
       .from("signup_verifications")
       .update({ status: "verificado", verified_at: new Date().toISOString() })

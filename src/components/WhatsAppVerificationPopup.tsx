@@ -22,6 +22,9 @@ export function WhatsAppVerificationPopup() {
   const [code, setCode] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneLoaded, setPhoneLoaded] = useState(false);
+
+  const normalizePhone = (value: string) => value.replace(/\D/g, "");
+  const normalizeEmail = (value: string) => value.trim().toLowerCase();
   const [verificationCompleted, setVerificationCompleted] = useState(false);
 
   // Check if user needs verification
@@ -40,31 +43,34 @@ export function WhatsAppVerificationPopup() {
         setPhoneLoaded(true);
       }
 
-      const phone = (profile?.whatsapp || "").replace(/\D/g, "");
-      const email = (profile?.email || "").toLowerCase();
+      const phone = normalizePhone(profile?.whatsapp || "");
+      const email = normalizeEmail(profile?.email || "");
 
-      // If no phone AND no email, still show popup to collect phone
       if (!phone && !email) return true;
 
-      const conditions: string[] = [];
-      if (phone) conditions.push(`phone.eq.${phone}`);
-      if (email) conditions.push(`email.eq.${email}`);
-
+      // Robust check to support legacy records with phone formatting differences
       const { data: verifications } = await supabase
         .from("signup_verifications")
-        .select("id")
+        .select("phone, email")
         .eq("status", "verificado")
-        .or(conditions.join(","))
-        .limit(1);
+        .order("created_at", { ascending: false })
+        .limit(400);
 
-      return !(verifications && verifications.length > 0);
+      const hasVerified = (verifications || []).some((v: any) => {
+        const rowPhone = normalizePhone(v.phone || "");
+        const rowEmail = normalizeEmail(v.email || "");
+        return (phone && rowPhone === phone) || (email && rowEmail === email);
+      });
+
+      return !hasVerified;
     },
     enabled: !!user && !verificationCompleted,
   });
 
   const sendCodeMutation = useMutation({
     mutationFn: async () => {
-      if (!phoneInput.trim()) throw new Error("Informe seu WhatsApp.");
+      const normalizedPhoneInput = normalizePhone(phoneInput.trim());
+      if (!normalizedPhoneInput) throw new Error("Informe seu WhatsApp.");
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -72,15 +78,15 @@ export function WhatsAppVerificationPopup() {
         .eq("id", user!.id)
         .maybeSingle();
 
-      // Save the confirmed phone to profile
+      // Save the confirmed phone normalized to profile
       await supabase
         .from("profiles")
-        .update({ whatsapp: phoneInput.trim() })
+        .update({ whatsapp: normalizedPhoneInput })
         .eq("id", user!.id);
 
       const { data, error } = await supabase.functions.invoke("send-verification-sms", {
         body: {
-          phone: phoneInput.trim(),
+          phone: normalizedPhoneInput,
           email: profile?.email,
           full_name: profile?.full_name || "Usuário",
           skip_email_check: true,
@@ -103,7 +109,7 @@ export function WhatsAppVerificationPopup() {
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("verify-sms-code", {
         body: {
-          phone: phoneInput.trim(),
+          phone: normalizePhone(phoneInput.trim()),
           code,
         },
       });
