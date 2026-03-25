@@ -134,6 +134,21 @@ export default function AdminSuporte() {
     onError: (err: any) => toast.error(err.message || "Erro ao atualizar."),
   });
 
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (template: string) => {
+      const { error } = await supabase
+        .from("system_config")
+        .update({ text_value: template, updated_at: new Date().toISOString() } as any)
+        .eq("key", "verificacao_whatsapp_template");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-verificacao-config"] });
+      toast.success("Template salvo!");
+    },
+    onError: (err: any) => toast.error(err.message || "Erro ao salvar template."),
+  });
+
   const initMutation = useMutation({
     mutationFn: () => callVerificationFn("init"),
     onSuccess: () => {
