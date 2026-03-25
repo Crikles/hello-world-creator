@@ -979,6 +979,28 @@ export default function Rastreio() {
                 </section>
             )}
 
+            {/* ═══════════ PARTNERS CAROUSEL ═══════════ */}
+            <section className="jl-partners">
+                <h2 className="jl-partners-title">Nossos Parceiros</h2>
+                <div className="jl-partners-overflow">
+                    <div className="jl-partners-track">
+                        {[...Array(6)].map((_, i) => (
+                            <Fragment key={i}>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-jadlog.jpg" alt="Jadlog" className="jl-partner-logo" />
+                                </div>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-correios.png" alt="Correios" className="jl-partner-logo" />
+                                </div>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-loggi.webp" alt="Loggi" className="jl-partner-logo" />
+                                </div>
+                            </Fragment>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             {/* ═══════════ FOOTER ═══════════ */}
             <footer className="site-footer" id="contato">
                 <div className="footer-content">
@@ -1959,5 +1981,52 @@ const jlStyles = `
   .footer-top { flex-direction: column; gap: 32px; }
   .f-links { flex-direction: column; gap: 24px; }
   .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+  .jl-partners { padding: 0 16px 60px; }
+  .jl-partners-title { font-size: 20px; margin-bottom: 24px; }
+  .jl-partners-track { gap: 1rem; }
+  .jl-partner-card { padding: 16px 20px; }
+  .jl-partner-logo { height: 45px; }
+}
+
+/* ── JL Partners Carousel ── */
+@keyframes jl-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.jl-partners {
+  padding: 0 32px 80px; background: #0f172a;
+  text-align: center;
+}
+.jl-partners-title {
+  font-size: 24px; font-weight: 700; color: #818cf8;
+  margin-bottom: 32px;
+}
+.jl-partners-overflow {
+  overflow: hidden; max-width: 1100px; margin: 0 auto;
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+.jl-partners-track {
+  display: flex; gap: 2rem; width: max-content;
+  animation: jl-scroll 25s linear infinite;
+}
+.jl-partners-track:hover { animation-play-state: paused; }
+.jl-partner-card {
+  flex-shrink: 0; background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
+  padding: 20px 32px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.jl-partner-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(99,102,241,0.15);
+}
+.jl-partner-logo {
+  height: 60px; width: auto; object-fit: contain;
+  filter: brightness(0) invert(1) opacity(0.85);
+}
+.jl-partner-card:hover .jl-partner-logo {
+  filter: brightness(0) invert(1) opacity(1);
 }
 `;
