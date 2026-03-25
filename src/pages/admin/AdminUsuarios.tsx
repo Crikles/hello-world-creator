@@ -472,7 +472,14 @@ export default function AdminUsuarios() {
                             <CheckCircle className="h-3 w-3" /> Verificado
                           </span>
                         ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Não verificado</span>
+                          <div className="space-y-1">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Não verificado</span>
+                            {u.pending_code && (
+                              <div className="text-xs text-muted-foreground">
+                                Código: <code className="bg-muted px-1.5 py-0.5 rounded font-mono font-semibold">{u.pending_code}</code>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>
