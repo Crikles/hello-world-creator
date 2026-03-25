@@ -108,6 +108,34 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Best-effort: also send via WhatsApp (UAZAPI) if configured
+    try {
+      const { data: uazapiConfig } = await supabase
+        .from("system_config")
+        .select("text_value")
+        .eq("key", "verificacao_whatsapp_token")
+        .maybeSingle();
+
+      const uazapiToken = uazapiConfig?.text_value;
+      if (uazapiToken) {
+        console.log("Sending verification WhatsApp to:", formattedPhone);
+        const whatsRes = await fetch("https://rushsend.uazapi.com/send/text", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${uazapiToken}`,
+          },
+          body: JSON.stringify({
+            number: formattedPhone,
+            text: `${code} - Use este código para confirmar seu cadastro. Válido por 10 min.`,
+          }),
+        });
+        console.log("WhatsApp API response:", whatsRes.status, await whatsRes.text());
+      }
+    } catch (whatsErr) {
+      console.error("WhatsApp send failed (non-blocking):", whatsErr);
+    }
+
     return new Response(
       JSON.stringify({ success: true, message: "Código enviado por SMS" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
