@@ -1040,7 +1040,7 @@ export default function Envios() {
                   </div>
 
                   {/* Name + Email */}
-                   <div className="min-w-0 w-40 md:w-52 shrink-0">
+                   <div className="min-w-0 w-48 md:w-64 shrink-0">
                     <p className="text-sm font-medium text-foreground truncate leading-tight">{envio.cliente_nome}</p>
                     <p className="text-[10px] text-muted-foreground truncate">
                       {envio.cliente_email}{envio.cliente_telefone ? ` · ${envio.cliente_telefone}` : ''}
