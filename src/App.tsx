@@ -10,6 +10,7 @@ import { LojaProvider } from "@/contexts/LojaContext";
 import { BatchProgressProvider } from "@/contexts/BatchProgressContext";
 import { isLogisticsDomain, getLogisticsProvider } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Lojas from "./pages/Lojas";
@@ -76,6 +77,7 @@ function LogisticsRoutes() {
 function PanelRoutes() {
   return (
     <AuthProvider>
+      <WhatsAppVerificationPopup />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
