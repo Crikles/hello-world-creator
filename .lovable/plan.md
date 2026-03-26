@@ -1,19 +1,23 @@
 
 
-## Plan: Corrigir template "Nacional Falha na Entrega" mostrando 0 eventos
+## Análise: Impacto da publicação nos clientes existentes
 
-### Problema
-A query de eventos do sistema em `src/pages/Postagens.tsx` ainda referencia o ID antigo do template Expressa (`000...0003`) que foi deletado, em vez do novo template Falha na Entrega (`000...0004`). Por isso os 9 eventos não são carregados e o card mostra "0 eventos".
+### Resultado: **Nenhum impacto negativo. Pode publicar com segurança.**
 
-### Alteração
+### Por que está tudo ok
 
-**`src/pages/Postagens.tsx` (linha 183)**
-- Trocar `"00000000-0000-0000-0000-000000000003"` por `"00000000-0000-0000-0000-000000000004"`
+1. **Nenhuma referência ao template Expressa deletado** — o ID `...0003` foi completamente removido do código. Nenhum arquivo frontend ou edge function o menciona.
 
-Isso faz com que os 9 eventos do template "Nacional Falha na Entrega" sejam carregados e exibidos corretamente no card, permitindo aplicar o template e ver os badges de status (Postado, Coletado, Em Trânsito, Centro Local, Saiu para Entrega, Falha Entrega, Reenvio Pago, Reenvio Saiu, Entregue).
+2. **Templates são congelados por envio** — cada envio grava o `postagem_template_id` no momento da criação. Envios em trânsito continuam usando o template que tinham, independente de mudanças na configuração da loja.
 
-### O que não muda
-- Lógica de aplicação do template (já funciona genericamente)
-- Templates Padrão e Taxação
-- Backend / banco de dados
+3. **O sistema é genérico** — o `advance-shipments`, `rastreio-info`, `send-email` e todas as edge functions leem eventos dinamicamente pelo `template_id` do envio. Não há lógica hardcoded para nenhum template específico.
+
+4. **Clientes com template Padrão ativo** — continuam funcionando normalmente. O Padrão agora tem 6 eventos (sem falha/reenvio), mas envios antigos que usavam o Padrão com 9 eventos já congelaram esse fluxo no `postagem_template_id`.
+
+5. **Novo template Falha na Entrega** — disponível para seleção. Nenhum cliente o tem ativo automaticamente; precisam selecionar manualmente em Postagens.
+
+6. **Nenhum cliente usava o Expressa** — verificado anteriormente que zero lojas tinham `template_ativo_id` apontando para o Expressa.
+
+### Conclusão
+Não há necessidade de nenhuma alteração de código. A publicação é segura.
 
