@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -700,6 +700,47 @@ export default function Envios() {
     return pages;
   };
 
+  const handleExportCSV = useCallback(() => {
+    if (filteredEnvios.length === 0) {
+      toast.info("Nenhum envio para exportar.");
+      return;
+    }
+    const headers = ["Nome", "Email", "Telefone", "Produto", "Valor", "Código Rastreio", "Link Rastreio", "Status", "Data"];
+    const escapeCSV = (val: string) => {
+      if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+    const rows = filteredEnvios.map((e) => {
+      const trackingUrl = e.codigo_rastreio
+        ? `https://${getTrackingDomain(e)}/rastreio?codigo=${e.codigo_rastreio}`
+        : "";
+      const displayStatus = e.status_label || statusLabels[e.status] || e.status;
+      return [
+        e.cliente_nome,
+        e.cliente_email,
+        e.cliente_telefone || "",
+        formatProduto(e.produto),
+        e.valor.toFixed(2).replace(".", ","),
+        e.codigo_rastreio || "",
+        trackingUrl,
+        displayStatus,
+        format(new Date(e.created_at), "dd/MM/yyyy HH:mm"),
+      ].map(escapeCSV).join(",");
+    });
+    const bom = "\uFEFF";
+    const csv = bom + headers.join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `envios_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filteredEnvios.length} envio(s) exportado(s)!`);
+  }, [filteredEnvios, getTrackingDomain]);
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -967,6 +1008,9 @@ export default function Envios() {
                   <SelectItem value="api_externa">API Externa</SelectItem>
                 </SelectContent>
               </Select>
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleExportCSV}>
+                <Download className="h-3.5 w-3.5 mr-1" /> Exportar
+              </Button>
               {loja && <ImportarPlanilha lojaId={loja.id} />}
               <Button
                 size="sm"
