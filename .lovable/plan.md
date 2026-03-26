@@ -1,36 +1,53 @@
 
 
-## Plan: Remove JADLOG Option & Migrate Users to VETOR
+## Plan: Fix API Documentation & Add Robustness
 
-### What
-1. Remove JADLOG as a selectable logistics provider for future shipments
-2. Migrate all stores currently using JADLOG (`logistica_provider = 'jadlog'`) to VETOR
-3. Keep existing JADLOG shipments untouched (their `transportadora` and `codigo_rastreio` remain as-is, so branding on tracking pages still works)
+### Problem
+The PHP and Python code examples in the public documentation have syntax issues that would cause failures when copied by an AI or non-developer. The API also lacks a graceful error for missing/invalid Content-Type.
 
-### How
+### Changes
 
-**1. Database migration — Transfer all JADLOG stores to VETOR**
+**1. Fix PHP example in `src/pages/DocumentacaoPublica.tsx`**
 
-Run SQL via migration tool:
-```sql
-UPDATE lojas SET logistica_provider = 'vetor' WHERE logistica_provider = 'jadlog';
+Replace the invalid PHP object syntax with a proper associative array:
+```php
+$data = [
+    "customer" => ["name" => "João Silva", "email" => "joao@email.com", ...],
+    "items" => [["name" => "Produto X", "quantity" => 2, "price" => 49.90]],
+    "total" => 99.80
+];
 ```
 
-This changes the default provider for future shipments only. Existing `envios` rows keep their `transportadora = 'JADLOG Logística'` and `JD` suffix codes.
+**2. Fix Python example in both `DocumentacaoPublica.tsx` and `ApiDocs.tsx`**
 
-**2. Update `src/pages/Postagens.tsx` — Remove JADLOG card**
+Use a proper Python dict variable instead of inlining raw JSON:
+```python
+import requests, json
 
-- Remove the JADLOG button from the `LogisticaTab` grid (lines 927-937)
-- Change grid from `grid-cols-3` to `grid-cols-2`
-- Update the mutation type from `"jl" | "jadlog" | "vetor"` to `"jl" | "vetor"`
-- Update `activeLabel` to remove the jadlog case (fallback any residual jadlog to "Vetor Transportes")
+payload = {
+    "customer": {"name": "João Silva", "email": "joao@email.com"},
+    ...
+}
 
-**3. Update `generate_tracking_code()` DB function**
+response = requests.post(url, json=payload)
+```
 
-Update the function so that if somehow `logistica_provider = 'jadlog'` still exists, it falls back to VETOR suffix (`VT`) instead of `JD`. This is a safety net.
+**3. Add Content-Type validation in `supabase/functions/api-external/index.ts`**
+
+Before `req.json()`, check Content-Type header. If missing or not JSON, return a clear 400 error:
+```
+{ "error": "Content-Type must be application/json" }
+```
+
+This prevents a cryptic 500 error when someone forgets the header.
+
+**4. Fix PHP example in `ApiDocs.tsx` (internal docs)**
+
+Apply the same PHP syntax fix to the internal documentation page.
 
 ### What stays unchanged
-- All existing JADLOG shipments keep their branding (tracking page, emails, badges in Envios list)
-- The `isJadlog()` detection in `Envios.tsx`, `Rastreio.tsx`, `send-email`, and `PushNotificationPrompt` remain — they display correctly for historical shipments
-- No data is lost
+- API logic (validation, pedido/envio creation, tracking code generation)
+- cURL and JavaScript examples (already correct)
+- Sandbox testing feature
+- All edge function config
 
