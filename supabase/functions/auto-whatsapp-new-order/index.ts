@@ -2,6 +2,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const UAZAPI_BASE = "https://apikas.uazapi.com";
 
+/**
+ * Normalizes a phone number for UAZAPI delivery.
+ * Brazilian numbers (10-11 digits) get "55" prepended.
+ * Numbers already with country code (12-13 digits starting with 55) are kept.
+ * International numbers (12+ digits not starting with 55) are kept as-is.
+ */
+function normalizeBrazilianPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  // Brazilian local number: 10 digits (landline) or 11 digits (mobile with 9)
+  if (digits.length === 10 || digits.length === 11) {
+    return "55" + digits;
+  }
+  // Already has country code (55 + 10-11 digits = 12-13 digits)
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    return digits;
+  }
+  // International or other format — return as-is
+  return digits;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
@@ -88,9 +108,7 @@ Deno.serve(async (req) => {
       .replace(/\{\{valor\}\}/g, Number(envio.valor || 0).toFixed(2))
       .replace(/\{\{codigo_rastreio\}\}/g, envio.codigo_rastreio || "");
 
-    const number = envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
-      ? envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
-      : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
+    const number = normalizeBrazilianPhone(envio.cliente_telefone);
 
     const btnText = config.whatsapp_btn_text || "📦 Rastrear Pedido";
     const trackingUrl = `${supabaseUrl}/functions/v1/redirect?c=${envio.codigo_rastreio || ""}`;
