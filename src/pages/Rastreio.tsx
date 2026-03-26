@@ -141,6 +141,7 @@ export default function Rastreio() {
                 setTotalEventos(result.totalEventos || 0);
                 setOrigem(result.origem || { cidade: null, estado: null });
                 if (result.cor_primaria) setCustomPrimaryColor(result.cor_primaria);
+                setAtivarVizinho(result.ativar_vizinho ?? true);
                 if (!result.envio) setError("Certifique-se de que o código está correto");
             }
         } catch {
