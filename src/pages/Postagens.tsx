@@ -473,6 +473,17 @@ export default function Postagens() {
       cost: systemConfigValues?.custo_falha_entrega ?? 1,
       toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_falha_entrega: !prev.ativar_falha_entrega } : prev),
     },
+    {
+      key: "ativar_vizinho",
+      label: "Recebido por Vizinho",
+      desc: localConfig.ativar_vizinho
+        ? "Mostra dados fictícios de um vizinho como recebedor na entrega."
+        : "Exibe apenas "Pedido entregue ao destinatário" sem dados de vizinho.",
+      icon: CheckCircle2,
+      checked: localConfig.ativar_vizinho ?? true,
+      cost: 0,
+      toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_vizinho: !prev.ativar_vizinho } : prev),
+    },
   ] : [];
 
   return (
