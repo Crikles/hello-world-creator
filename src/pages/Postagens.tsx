@@ -478,7 +478,7 @@ export default function Postagens() {
       label: "Recebido por Vizinho",
       desc: localConfig.ativar_vizinho
         ? "Mostra dados fictícios de um vizinho como recebedor na entrega."
-        : "Exibe apenas "Pedido entregue ao destinatário" sem dados de vizinho.",
+        : 'Exibe apenas "Pedido entregue ao destinatário" sem dados de vizinho.',
       icon: CheckCircle2,
       checked: localConfig.ativar_vizinho ?? true,
       cost: 0,
