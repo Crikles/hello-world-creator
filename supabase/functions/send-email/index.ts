@@ -178,8 +178,50 @@ async function generateDanfePdfServerSide(empresa: any, envio: any): Promise<Uin
 const DEFAULT_TRANSPORTADORA = "JL Transportadora e Logística LTDA";
 
 // ============ Vizinho (Neighbor) deterministic logic ============
-const VIZINHO_NOMES = ["Maria Aparecida", "José Carlos", "Ana Paula", "Carlos Eduardo", "Fernanda Silva"];
-const VIZINHO_CPFS = ["***.234.567-**", "***.891.012-**", "***.456.789-**", "***.123.654-**", "***.987.321-**"];
+const VIZINHO_NOMES = [
+  "Maria Aparecida","José Carlos","Ana Paula","Carlos Eduardo","Fernanda Silva",
+  "Mariana Oliveira","Roberto Souza","Patrícia Lima","Lucas Ferreira","Juliana Costa",
+  "André Mendes","Beatriz Almeida","Rafael Santos","Camila Ribeiro","Thiago Pereira",
+  "Larissa Barbosa","Gustavo Rocha","Isabela Cardoso","Diego Martins","Vanessa Araújo",
+  "Felipe Nascimento","Tatiana Moreira","Bruno Teixeira","Priscila Correia","Rodrigo Pinto",
+  "Aline Monteiro","Marcelo Duarte","Renata Farias","Leandro Machado","Gabriela Nunes",
+  "Eduardo Vieira","Sandra Carvalho","Henrique Dias","Elaine Castro","Marcos Lopes",
+  "Cláudia Ramos","Alexandre Gonçalves","Luciana Freitas","Paulo Nogueira","Adriana Campos",
+  "Fábio Azevedo","Cristiane Melo","Ricardo Guimarães","Simone Borges","Vinícius Cunha",
+  "Daniele Moraes","Sérgio Cavalcanti","Andréa Pires","Cássio Braga","Lúcia Fontes",
+  "Peterson Reis","Elisa Tavares","Willian Amaral","Débora Siqueira","Reginaldo Batista",
+  "Jéssica Gomes","Rogério Xavier","Monique Miranda","Otávio Coelho","Carolina Sampaio",
+  "Matheus Andrade","Viviane Passos","Leonardo Medeiros","Rosana Rezende","Jorge Figueiredo",
+  "Bianca Peixoto","Daniel Alencar","Flávia Assis","Maurício Sales","Eliane Barros",
+  "Caio Bittencourt","Karina Bastos","Raul Queiroz","Natália Marques","César Leal",
+  "Amanda Esteves","Ronaldo Lacerda","Ingrid Rangel","Augusto Brandão","Sabrina Aguiar",
+  "Luís Henrique","Tereza Silveira","Thales Pacheco","Lia Domingues","Nelson Valente",
+  "Letícia Vasconcelos","Ítalo Bezerra","Miriam Paiva","Otton Coutinho","Raquel Trindade",
+  "Wendel Magalhães","Heloísa Barreto","Caetano Soares","Milena Sá","Josué Maciel",
+  "Lorena Dornelas","Murilo Carneiro","Sueli Torres","Davi Ferraz","Fabiana Bonfim"
+];
+const VIZINHO_CPFS = [
+  "***.234.567-**","***.891.012-**","***.456.789-**","***.123.654-**","***.987.321-**",
+  "***.412.553-**","***.882.119-**","***.321.774-**","***.675.238-**","***.194.667-**",
+  "***.548.391-**","***.763.825-**","***.217.946-**","***.836.512-**","***.459.173-**",
+  "***.628.347-**","***.185.729-**","***.974.163-**","***.342.586-**","***.716.438-**",
+  "***.293.851-**","***.567.214-**","***.831.479-**","***.148.635-**","***.479.362-**",
+  "***.654.128-**","***.218.543-**","***.965.271-**","***.537.894-**","***.183.426-**",
+  "***.742.615-**","***.316.958-**","***.894.237-**","***.461.573-**","***.825.149-**",
+  "***.573.461-**","***.149.826-**","***.638.274-**","***.271.938-**","***.486.152-**",
+  "***.952.347-**","***.314.568-**","***.768.423-**","***.527.196-**","***.693.814-**",
+  "***.241.679-**","***.856.312-**","***.419.753-**","***.782.146-**","***.365.827-**",
+  "***.128.594-**","***.974.263-**","***.543.817-**","***.617.342-**","***.286.951-**",
+  "***.831.624-**","***.472.158-**","***.615.439-**","***.359.872-**","***.724.516-**",
+  "***.196.743-**","***.843.269-**","***.567.391-**","***.231.684-**","***.918.527-**",
+  "***.684.213-**","***.352.978-**","***.719.345-**","***.463.891-**","***.297.536-**",
+  "***.836.174-**","***.571.429-**","***.148.763-**","***.925.618-**","***.413.952-**",
+  "***.769.384-**","***.284.537-**","***.651.829-**","***.937.146-**","***.512.673-**",
+  "***.346.291-**","***.879.534-**","***.423.867-**","***.198.745-**","***.764.312-**",
+  "***.531.498-**","***.847.623-**","***.275.981-**","***.618.357-**","***.493.712-**",
+  "***.156.849-**","***.729.436-**","***.384.571-**","***.962.183-**","***.517.264-**",
+  "***.643.918-**","***.238.475-**","***.871.532-**","***.426.197-**","***.793.648-**"
+];
 
 function simpleHash(str: string): number {
   let hash = 0;
