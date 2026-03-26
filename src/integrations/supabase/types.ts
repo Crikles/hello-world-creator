@@ -625,6 +625,7 @@ export type Database = {
           ativar_falha_entrega: boolean
           ativar_site_rastreio: boolean
           ativar_taxacao: boolean
+          ativar_vizinho: boolean
           auto_envio: boolean | null
           checkout_url_falha: string | null
           cor_botao_cta: string | null
@@ -656,6 +657,7 @@ export type Database = {
           ativar_falha_entrega?: boolean
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
+          ativar_vizinho?: boolean
           auto_envio?: boolean | null
           checkout_url_falha?: string | null
           cor_botao_cta?: string | null
@@ -687,6 +689,7 @@ export type Database = {
           ativar_falha_entrega?: boolean
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
+          ativar_vizinho?: boolean
           auto_envio?: boolean | null
           checkout_url_falha?: string | null
           cor_botao_cta?: string | null
