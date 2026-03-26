@@ -1,25 +1,29 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const UAZAPI_BASE = "https://apikas.uazapi.com";
+const UAZAPI_BASE = "https://rushsend.uazapi.com";
 
 /**
  * Normalizes a phone number for UAZAPI delivery.
- * Brazilian numbers (10-11 digits) get "55" prepended.
- * Numbers already with country code (12-13 digits starting with 55) are kept.
- * International numbers (12+ digits not starting with 55) are kept as-is.
  */
 function normalizeBrazilianPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
-  // Brazilian local number: 10 digits (landline) or 11 digits (mobile with 9)
-  if (digits.length === 10 || digits.length === 11) {
-    return "55" + digits;
-  }
-  // Already has country code (55 + 10-11 digits = 12-13 digits)
-  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
-    return digits;
-  }
-  // International or other format — return as-is
+  if (digits.length === 10 || digits.length === 11) return "55" + digits;
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
   return digits;
+}
+
+/** Check real instance status via UAZAPI API */
+async function checkInstanceStatus(token: string): Promise<string> {
+  try {
+    const res = await fetch(`${UAZAPI_BASE}/instance/status`, {
+      method: "GET",
+      headers: { Accept: "application/json", token },
+    });
+    const data = await res.json();
+    return data.instance?.status || data.status || data.state || "disconnected";
+  } catch {
+    return "disconnected";
+  }
 }
 
 Deno.serve(async (req) => {
@@ -91,10 +95,38 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, skipped: true, reason: "no_active_instances" }), { status: 200 });
     }
 
-    // Round-robin: pick random instance for simplicity (no counter in stateless function)
-    const inst = activeInstances[Math.floor(Math.random() * activeInstances.length)];
+    // 5. Validate instance status via API and filter out disconnected ones
+    const verifiedInstances: any[] = [];
+    for (const inst of activeInstances) {
+      const realStatus = await checkInstanceStatus(inst.instance_token);
+      if (realStatus === "connected") {
+        verifiedInstances.push(inst);
+      } else {
+        // Update stale status in DB
+        await supabase
+          .from("whatsapp_instances")
+          .update({ status: realStatus, updated_at: new Date().toISOString() })
+          .eq("id", inst.id);
+        console.log(`[auto-whatsapp] Instance ${inst.instance_name} is ${realStatus}, removed from rotation`);
+      }
+    }
 
-    // 5. Build message from template
+    if (verifiedInstances.length === 0) {
+      // Log the failure with reason
+      await supabase.from("whatsapp_message_log").insert({
+        envio_id,
+        loja_id,
+        status: "failed",
+        error_reason: "Todas as instâncias estão desconectadas",
+        http_status: 0,
+      });
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: "all_instances_disconnected" }), { status: 200 });
+    }
+
+    // Round-robin: pick random verified instance
+    const inst = verifiedInstances[Math.floor(Math.random() * verifiedInstances.length)];
+
+    // 6. Build message from template
     let produtoNome = envio.produto;
     try {
       const parsed = JSON.parse(envio.produto);
@@ -132,7 +164,7 @@ Deno.serve(async (req) => {
     if (imageUrl) sendBody.imageButton = imageUrl;
     if (footerText) sendBody.footerText = footerText;
 
-    // 6. Send via UAZAPI
+    // 7. Send via UAZAPI
     const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
       method: "POST",
       headers: {
@@ -143,17 +175,22 @@ Deno.serve(async (req) => {
       body: JSON.stringify(sendBody),
     });
 
+    const resBody = await res.json();
     const waStatus = res.ok ? "sent" : "failed";
+    const errorReason = res.ok ? null : (resBody?.message || resBody?.error || JSON.stringify(resBody).slice(0, 200));
 
-    // 7. Log message
+    // 8. Log message with error details
     await supabase.from("whatsapp_message_log").insert({
       envio_id,
       loja_id,
       instance_id: inst.id,
       status: waStatus,
+      error_reason: errorReason,
+      provider_response: resBody,
+      http_status: res.status,
     });
 
-    console.log(`[auto-whatsapp] ${waStatus} for envio ${envio_id} via ${inst.instance_name}`);
+    console.log(`[auto-whatsapp] ${waStatus} for envio ${envio_id} via ${inst.instance_name}${errorReason ? ` | reason: ${errorReason}` : ""}`);
 
     return new Response(JSON.stringify({ success: true, status: waStatus }), { status: 200 });
   } catch (error) {

@@ -477,12 +477,15 @@ Deno.serve(async (req) => {
         }
 
         // ── Helper: log message to whatsapp_message_log ──
-        async function logMessage(envioId: string, instanceId: string, status: string) {
+        async function logMessage(envioId: string, instanceId: string, status: string, errorReason?: string, providerResponse?: any, httpStatus?: number) {
             await supabaseAdmin.from("whatsapp_message_log").insert({
                 envio_id: envioId,
                 loja_id,
                 instance_id: instanceId,
                 status,
+                error_reason: errorReason || null,
+                provider_response: providerResponse || null,
+                http_status: httpStatus || null,
             });
         }
 
@@ -527,11 +530,13 @@ Deno.serve(async (req) => {
             const data = await res.json();
             console.log("UAZAPI send response:", JSON.stringify(data));
 
+            const errorReason = res.ok ? undefined : (data?.message || data?.error || JSON.stringify(data).slice(0, 200));
+
             if (envio_id) {
-                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed");
+                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed", errorReason, data, res.status);
             }
 
-            if (!res.ok) return jsonResp({ error: "Send failed", details: data }, 500);
+            if (!res.ok) return jsonResp({ error: "Send failed", details: data, error_reason: errorReason }, 500);
 
             return jsonResp({ success: true, ...data });
         }
@@ -558,12 +563,13 @@ Deno.serve(async (req) => {
             });
 
             const data = await res.json();
+            const errorReason = res.ok ? undefined : (data?.message || data?.error || JSON.stringify(data).slice(0, 200));
 
             if (envio_id) {
-                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed");
+                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed", errorReason, data, res.status);
             }
 
-            if (!res.ok) return jsonResp({ error: "Send failed", details: data }, 500);
+            if (!res.ok) return jsonResp({ error: "Send failed", details: data, error_reason: errorReason }, 500);
 
             return jsonResp({ success: true, ...data });
         }

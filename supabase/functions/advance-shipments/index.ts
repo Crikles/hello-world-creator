@@ -480,17 +480,74 @@ Deno.serve(async (req) => {
             // Get instance token
             const { data: inst } = await supabase
               .from("whatsapp_instances")
-              .select("instance_token, instance_name, id, expires_at")
+              .select("instance_token, instance_name, id, expires_at, loja_id")
               .eq("id", item.instance_id)
               .maybeSingle();
 
             if (!inst || !inst.instance_token || !inst.expires_at || new Date(inst.expires_at) < new Date()) {
-              // Instance invalid or expired — mark as failed
+              // Try fallback: find another active connected instance for this loja
+              const { data: fallbackInsts } = await supabase
+                .from("whatsapp_instances")
+                .select("instance_token, instance_name, id, expires_at")
+                .eq("loja_id", item.loja_id)
+                .eq("status", "connected")
+                .gt("expires_at", new Date().toISOString());
+
+              const fallback = fallbackInsts?.[0];
+              if (!fallback) {
+                const reason = !inst ? "Instância não encontrada" : "Instância expirada";
+                await supabase
+                  .from("whatsapp_send_queue")
+                  .update({ status: "failed", processed_at: new Date().toISOString(), error_reason: reason, http_status: 0 })
+                  .eq("id", item.id);
+                continue;
+              }
+              // Use fallback instance
+              Object.assign(inst || {}, fallback);
+            }
+
+            // Validate real instance status via UAZAPI API
+            let realStatus = "connected";
+            try {
+              const statusRes = await fetch(`${UAZAPI_BASE}/instance/status`, {
+                method: "GET",
+                headers: { Accept: "application/json", token: inst!.instance_token },
+              });
+              const statusData = await statusRes.json();
+              realStatus = statusData.instance?.status || statusData.status || statusData.state || "disconnected";
+            } catch { realStatus = "disconnected"; }
+
+            if (realStatus !== "connected") {
+              // Update DB status
               await supabase
-                .from("whatsapp_send_queue")
-                .update({ status: "failed", processed_at: new Date().toISOString() })
-                .eq("id", item.id);
-              continue;
+                .from("whatsapp_instances")
+                .update({ status: realStatus, updated_at: new Date().toISOString() })
+                .eq("id", inst!.id);
+
+              // Try another instance
+              const { data: altInsts } = await supabase
+                .from("whatsapp_instances")
+                .select("instance_token, instance_name, id, expires_at")
+                .eq("loja_id", item.loja_id)
+                .eq("status", "connected")
+                .neq("id", inst!.id)
+                .gt("expires_at", new Date().toISOString());
+
+              if (!altInsts || altInsts.length === 0) {
+                const reason = `Instância ${inst!.instance_name} está ${realStatus}`;
+                await supabase
+                  .from("whatsapp_send_queue")
+                  .update({ status: "failed", processed_at: new Date().toISOString(), error_reason: reason, http_status: 0 })
+                  .eq("id", item.id);
+                await supabase.from("whatsapp_message_log").insert({
+                  envio_id: item.envio_id, loja_id: item.loja_id, instance_id: inst!.id,
+                  status: "failed", error_reason: reason, http_status: 0,
+                });
+                console.log(`Queue failed: envio ${item.envio_id} — ${reason}`);
+                continue;
+              }
+              // Use alternative instance
+              Object.assign(inst!, altInsts[0]);
             }
 
             // Parse choices
@@ -514,37 +571,49 @@ Deno.serve(async (req) => {
               headers: {
                 "Content-Type": "application/json",
                 Accept: "application/json",
-                token: inst.instance_token,
+                token: inst!.instance_token,
               },
               body: JSON.stringify(sendBody),
             });
 
+            const resBody = await res.json();
             const waStatus = res.ok ? "sent" : "failed";
+            const errorReason = res.ok ? null : (resBody?.message || resBody?.error || JSON.stringify(resBody).slice(0, 200));
 
-            // Update queue item
+            // Update queue item with error details
             await supabase
               .from("whatsapp_send_queue")
-              .update({ status: waStatus, processed_at: new Date().toISOString() })
+              .update({
+                status: waStatus,
+                processed_at: new Date().toISOString(),
+                error_reason: errorReason,
+                provider_response: resBody,
+                http_status: res.status,
+              })
               .eq("id", item.id);
 
-            // Log to whatsapp_message_log
+            // Log to whatsapp_message_log with error details
             await supabase.from("whatsapp_message_log").insert({
               envio_id: item.envio_id,
               loja_id: item.loja_id,
-              instance_id: inst.id,
+              instance_id: inst!.id,
               status: waStatus,
+              error_reason: errorReason,
+              provider_response: resBody,
+              http_status: res.status,
             });
 
             queueProcessed++;
-            console.log(`Queue ${waStatus}: envio ${item.envio_id} via ${inst.instance_name}`);
+            console.log(`Queue ${waStatus}: envio ${item.envio_id} via ${inst!.instance_name}${errorReason ? ` | ${errorReason}` : ""}`);
 
             // Small delay between sends to avoid rate limiting
             await new Promise(r => setTimeout(r, 500));
           } catch (qErr) {
             console.error(`Queue item ${item.id} failed:`, qErr);
+            const errMsg = qErr instanceof Error ? qErr.message : "Unknown error";
             await supabase
               .from("whatsapp_send_queue")
-              .update({ status: "failed", processed_at: new Date().toISOString() })
+              .update({ status: "failed", processed_at: new Date().toISOString(), error_reason: errMsg })
               .eq("id", item.id);
           }
         }
