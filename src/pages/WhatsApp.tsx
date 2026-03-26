@@ -1530,10 +1530,25 @@ export default function WhatsApp() {
 
                                             {/* Status / Actions */}
                                             <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                                                {sendSubTab === "enviados" && (
+                                                {sendSubTab === "enviados" && logEntry?.status === "sent" && (
                                                     <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
                                                         <Check className="h-3 w-3 mr-0.5" /> Enviado
                                                     </Badge>
+                                                )}
+
+                                                {sendSubTab === "enviados" && logEntry?.status === "failed" && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Badge variant="secondary" className="bg-red-500/20 text-red-400 text-[9px] px-1.5 py-0 h-5 cursor-help">
+                                                                <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left" className="max-w-[300px] text-xs">
+                                                            <p className="font-medium mb-1">Motivo da falha:</p>
+                                                            <p>{(logEntry as any)?.error_reason || "Falha no envio da mensagem via UAZAPI"}</p>
+                                                            {actionTime && <p className="mt-1 text-muted-foreground">Falhou em: {formatTime(actionTime)}</p>}
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 )}
 
                                                 {sendSubTab === "pendentes" && isFailed && (
@@ -1548,7 +1563,7 @@ export default function WhatsApp() {
                                                         </TooltipTrigger>
                                                         <TooltipContent side="left" className="max-w-[300px] text-xs">
                                                             <p className="font-medium mb-1">Motivo da falha:</p>
-                                                            <p>{failReasons[envio.id] || "Falha no envio da mensagem via UAZAPI"}</p>
+                                                            <p>{failReasons[envio.id] || (logEntry as any)?.error_reason || "Falha no envio da mensagem via UAZAPI"}</p>
                                                             {actionTime && <p className="mt-1 text-muted-foreground">Falhou em: {formatTime(actionTime)}</p>}
                                                         </TooltipContent>
                                                     </Tooltip>
