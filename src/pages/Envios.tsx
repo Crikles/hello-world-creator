@@ -1008,6 +1008,9 @@ export default function Envios() {
                   <SelectItem value="api_externa">API Externa</SelectItem>
                 </SelectContent>
               </Select>
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleExportCSV}>
+                <Download className="h-3.5 w-3.5 mr-1" /> Exportar
+              </Button>
               {loja && <ImportarPlanilha lojaId={loja.id} />}
               <Button
                 size="sm"
