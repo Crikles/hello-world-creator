@@ -264,7 +264,7 @@ export default function WhatsApp() {
             if (!loja?.id) return [];
             const { data } = await supabase
                 .from("whatsapp_message_log")
-                .select("envio_id, status, created_at")
+                .select("envio_id, status, created_at, error_reason")
                 .eq("loja_id", loja.id);
             return data || [];
         },
@@ -274,7 +274,7 @@ export default function WhatsApp() {
     const sentEnvioIds = new Set(messageLogs.filter((l) => l.status === "sent").map((l) => l.envio_id));
     const failedEnvioIds = new Set(messageLogs.filter((l) => l.status === "failed").map((l) => l.envio_id));
     const messageLogMap = Object.fromEntries(
-        messageLogs.map((l) => [l.envio_id, { status: l.status, created_at: l.created_at }])
+        messageLogs.map((l: any) => [l.envio_id, { status: l.status, created_at: l.created_at, error_reason: l.error_reason }])
     );
 
     // ── Config (template + auto-send) ──
