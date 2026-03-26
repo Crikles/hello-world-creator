@@ -8,6 +8,13 @@ const corsHeaders = {
 
 const UAZAPI_BASE = "https://rushsend.uazapi.com";
 
+function normalizeBrazilianPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10 || digits.length === 11) return "55" + digits;
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+  return digits;
+}
+
 function jsonResp(body: unknown, status = 200) {
     return new Response(JSON.stringify(body), {
         status,
