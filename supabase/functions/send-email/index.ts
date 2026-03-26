@@ -233,7 +233,7 @@ function simpleHash(str: string): number {
 }
 
 function getVizinhoExtras(envioId: string, clienteNome: string): Record<string, string> {
-  const idx = simpleHash(envioId) % 5;
+  const idx = simpleHash(envioId) % VIZINHO_NOMES.length;
   const primeiroNome = clienteNome.split(" ")[0];
   return {
     recebedor_nome: VIZINHO_NOMES[idx],

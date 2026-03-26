@@ -78,7 +78,7 @@ function simpleHash(str: string): number {
 }
 
 function getVizinhoData(envioId: string, clienteNome: string) {
-    const idx = simpleHash(envioId) % 5;
+    const idx = simpleHash(envioId) % VIZINHO_NOMES.length;
     const primeiroNome = clienteNome.split(" ")[0];
     return {
         nome: VIZINHO_NOMES[idx],
