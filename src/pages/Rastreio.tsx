@@ -112,6 +112,7 @@ export default function Rastreio() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [origem, setOrigem] = useState<OrigemData>({ cidade: null, estado: null });
     const [customPrimaryColor, setCustomPrimaryColor] = useState<string | null>(null);
+    const [ativarVizinho, setAtivarVizinho] = useState(true);
 
     const fetchData = useCallback(async (trackingCode: string) => {
         if (!trackingCode || trackingCode.trim().length < 3) return;
@@ -140,6 +141,7 @@ export default function Rastreio() {
                 setTotalEventos(result.totalEventos || 0);
                 setOrigem(result.origem || { cidade: null, estado: null });
                 if (result.cor_primaria) setCustomPrimaryColor(result.cor_primaria);
+                setAtivarVizinho(result.ativar_vizinho ?? true);
                 if (!result.envio) setError("Certifique-se de que o código está correto");
             }
         } catch {
@@ -414,7 +416,7 @@ export default function Rastreio() {
                                                         default: locationText = ev.descricao || ev.status_label || null;
                                                     }
 
-                                                    const vizinhoData = ev.status_label === "Entregue" ? getVizinhoData(envio.id, envio.cliente_nome) : null;
+                                                    const vizinhoData = (ev.status_label === "Entregue" && ativarVizinho) ? getVizinhoData(envio.id, envio.cliente_nome) : null;
 
                                                     return (
                                                         <div key={ev.ordem} className={`vt-tl-item ${isFirst ? 'vt-tl-active' : ''}`}>
@@ -688,7 +690,7 @@ export default function Rastreio() {
                                                         default: locationText = ev.descricao || ev.status_label || null;
                                                     }
 
-                                                    const vizinhoData = ev.status_label === "Entregue" ? getVizinhoData(envio.id, envio.cliente_nome) : null;
+                                                    const vizinhoData = (ev.status_label === "Entregue" && ativarVizinho) ? getVizinhoData(envio.id, envio.cliente_nome) : null;
 
                                                     return (
                                                         <div key={ev.ordem} className={`jd-tl-item ${isFirst ? 'jd-tl-active' : ''}`}>
@@ -937,7 +939,7 @@ export default function Rastreio() {
                                                     default: locationText = ev.descricao || ev.status_label || null;
                                                 }
 
-                                                const vizinhoData = ev.status_label === "Entregue" ? getVizinhoData(envio.id, envio.cliente_nome) : null;
+                                                const vizinhoData = (ev.status_label === "Entregue" && ativarVizinho) ? getVizinhoData(envio.id, envio.cliente_nome) : null;
                                                 return (
                                                     <div key={ev.ordem} className="journey-point-correios">
                                                         <div className="point-indicator-correios">
