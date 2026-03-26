@@ -167,17 +167,56 @@ console.log(data.codigo_rastreio);`;
 
   const pythonExample = `import requests
 
-response = requests.post(
-    "${fullUrl}",
-    json=${payloadJson}
-)
+payload = {
+    "customer": {
+        "name": "João Silva",
+        "email": "joao@email.com",
+        "document": "12345678900",
+        "phone": "11999999999"
+    },
+    "address": {
+        "street": "Rua Example",
+        "number": "123",
+        "neighborhood": "Centro",
+        "city": "São Paulo",
+        "state": "SP",
+        "zipcode": "01001000",
+        "complement": "Apto 1"
+    },
+    "items": [
+        {"name": "Produto X", "quantity": 2, "price": 49.90}
+    ],
+    "total": 99.80
+}
 
+response = requests.post("${fullUrl}", json=payload)
 data = response.json()
 print(data["codigo_rastreio"])`;
 
   const phpExample = `<?php
 $url = "${fullUrl}";
-$data = ${payloadJson};
+
+$data = [
+    "customer" => [
+        "name" => "João Silva",
+        "email" => "joao@email.com",
+        "document" => "12345678900",
+        "phone" => "11999999999"
+    ],
+    "address" => [
+        "street" => "Rua Example",
+        "number" => "123",
+        "neighborhood" => "Centro",
+        "city" => "São Paulo",
+        "state" => "SP",
+        "zipcode" => "01001000",
+        "complement" => "Apto 1"
+    ],
+    "items" => [
+        ["name" => "Produto X", "quantity" => 2, "price" => 49.90]
+    ],
+    "total" => 99.80
+];
 
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
