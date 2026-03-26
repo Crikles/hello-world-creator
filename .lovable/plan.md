@@ -1,26 +1,31 @@
 
 
-## Plan: Expandir lista de nomes e CPFs fictícios para 100+
+## Plan: Reorganizar Templates do Sistema
+
+### Situação Atual
+- **Nacional Padrão** (9 eventos) — inclui Falha na Entrega + Reenvio Pago + Reenvio Saiu
+- **Nacional Taxação** (11 eventos) — inclui Taxação + Falha + Reenvio
+- **Nacional Expressa** (3 eventos) — será removida
 
 ### O que muda
-Substituir as 5 entradas atuais de `VIZINHO_NOMES` e `VIZINHO_CPFS` por ~100 nomes brasileiros realistas e CPFs mascarados únicos, nos dois arquivos onde são definidos.
+Remover Expressa, criar "Nacional Falha na Entrega", e limpar o Padrão:
 
-### Alterações
+1. **Nacional Padrão** (6 eventos): Postado → Coletado → Em Trânsito → Centro Local → Saiu para Entrega → Entregue
+2. **Nacional Falha na Entrega** (9 eventos — novo): Postado → Coletado → Em Trânsito → Centro Local → Saiu para Entrega → Falha Entrega → Reenvio Pago → Reenvio Saiu → Entregue
+3. **Nacional Taxação** (11 eventos): sem alteração
 
-**1. `src/pages/Rastreio.tsx` (linhas 26-27)**
-- Substituir os arrays `VIZINHO_NOMES` e `VIZINHO_CPFS` por 100 entradas cada
-- Ajustar o módulo no hash: `idx = hash % 100` (ao invés de `% 5`)
+### Migração SQL
 
-**2. `supabase/functions/send-email/index.ts` (linhas 181-182)**
-- Mesma substituição dos arrays com 100 entradas
-- Ajustar o módulo no hash: `idx = hash % 100`
+1. **Deletar** o template Expressa (`00000000-...0003`) e seus eventos (cascade)
+2. **Remover** os eventos Falha Entrega, Reenvio Pago, Reenvio Saiu do Nacional Padrão (`00000000-...0001`) e reordenar (1-6)
+3. **Criar** novo template "Nacional Falha na Entrega" (`00000000-...0004`) com `is_system = true`, tipo `falha_entrega`
+4. **Inserir** 9 eventos para o novo template, copiando assuntos/corpos de email dos eventos existentes do Padrão
 
-### Dados
-- **Nomes**: 100 nomes brasileiros comuns variados (masculinos e femininos), como "Mariana Oliveira", "Roberto Souza", "Patrícia Lima", etc.
-- **CPFs**: 100 CPFs mascarados únicos no formato `***.XXX.XXX-**` com dígitos aleatórios diferentes
+### Frontend (`src/pages/Postagens.tsx`)
+- Sem mudanças de código necessárias — a listagem de templates já é dinâmica via query ao banco. A UI dos badges de status já cobre todos os status_labels usados.
 
 ### O que não muda
-- Lógica de hash determinístico (mesmo envio = mesmo vizinho)
-- Toggle `ativar_vizinho`
-- Templates de email
+- Nacional Taxação permanece igual
+- Lógica de envio de emails, rastreio, advance-shipments
+- Nenhuma loja usa o template Expressa (verificado)
 
