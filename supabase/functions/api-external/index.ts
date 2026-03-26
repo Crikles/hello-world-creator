@@ -29,6 +29,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      return new Response(
+        JSON.stringify({ error: "Content-Type must be application/json. Add the header: Content-Type: application/json" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const payload = await req.json();
     const { customer, address, items, total } = payload;
 
