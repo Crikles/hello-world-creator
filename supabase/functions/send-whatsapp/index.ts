@@ -637,9 +637,7 @@ Deno.serve(async (req) => {
                     .replace(/\{\{valor\}\}/g, Number(envio.valor || 0).toFixed(2))
                     .replace(/\{\{codigo_rastreio\}\}/g, envio.codigo_rastreio || "");
 
-                const number = envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
-                    ? envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
-                    : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
+                const number = normalizeBrazilianPhone(envio.cliente_telefone);
 
                 const choices: string[] = [];
                 if (btn_text && btn_url_template) {

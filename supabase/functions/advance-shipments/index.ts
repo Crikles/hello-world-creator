@@ -836,9 +836,7 @@ async function advanceShipment(
               .replace(/\{\{valor\}\}/g, Number(shipment.valor || 0).toFixed(2))
               .replace(/\{\{codigo_rastreio\}\}/g, shipment.codigo_rastreio || "");
 
-            const number = shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
-              ? shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
-              : "55" + shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
+            const number = normalizeBrazilianPhone(shipment.cliente_telefone);
 
             const btnText = config.whatsapp_btn_text || "📦 Rastrear Pedido";
             const waRedirectUrl = Deno.env.get("SUPABASE_URL") || "";
