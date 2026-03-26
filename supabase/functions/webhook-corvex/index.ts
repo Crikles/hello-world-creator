@@ -221,6 +221,11 @@ Deno.serve(async (req) => {
           .from("pedidos")
           .update({ envio_id: newEnvio.id })
           .eq("id", pedidoId);
+
+        // Fire-and-forget WhatsApp for new order
+        supabase.functions.invoke("auto-whatsapp-new-order", {
+          body: { envio_id: newEnvio.id, loja_id: lojaId }
+        }).catch(() => {});
       }
     }
 

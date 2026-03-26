@@ -795,7 +795,9 @@ async function advanceShipment(
     }
 
     // WhatsApp auto-send with round-robin instance rotation
+    // Skip on first advance (currentOrdem === 0) — already sent at creation time by auto-whatsapp-new-order
     if (
+      currentOrdem > 0 &&
       config.whatsapp_auto_send &&
       shipment.cliente_telefone &&
       !nextEvent.enviar_nfe_pdf
