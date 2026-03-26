@@ -1347,25 +1347,34 @@ export type Database = {
         Row: {
           created_at: string
           envio_id: string
+          error_reason: string | null
+          http_status: number | null
           id: string
           instance_id: string | null
           loja_id: string
+          provider_response: Json | null
           status: string
         }
         Insert: {
           created_at?: string
           envio_id: string
+          error_reason?: string | null
+          http_status?: number | null
           id?: string
           instance_id?: string | null
           loja_id: string
+          provider_response?: Json | null
           status?: string
         }
         Update: {
           created_at?: string
           envio_id?: string
+          error_reason?: string | null
+          http_status?: number | null
           id?: string
           instance_id?: string | null
           loja_id?: string
+          provider_response?: Json | null
           status?: string
         }
         Relationships: [
@@ -1397,7 +1406,9 @@ export type Database = {
           choices: Json | null
           created_at: string
           envio_id: string
+          error_reason: string | null
           footer_text: string | null
+          http_status: number | null
           id: string
           image_url: string | null
           instance_id: string | null
@@ -1405,6 +1416,8 @@ export type Database = {
           msg_text: string
           number: string
           processed_at: string | null
+          provider_response: Json | null
+          retry_count: number
           scheduled_at: string
           status: string
         }
@@ -1412,7 +1425,9 @@ export type Database = {
           choices?: Json | null
           created_at?: string
           envio_id: string
+          error_reason?: string | null
           footer_text?: string | null
+          http_status?: number | null
           id?: string
           image_url?: string | null
           instance_id?: string | null
@@ -1420,6 +1435,8 @@ export type Database = {
           msg_text: string
           number: string
           processed_at?: string | null
+          provider_response?: Json | null
+          retry_count?: number
           scheduled_at?: string
           status?: string
         }
@@ -1427,7 +1444,9 @@ export type Database = {
           choices?: Json | null
           created_at?: string
           envio_id?: string
+          error_reason?: string | null
           footer_text?: string | null
+          http_status?: number | null
           id?: string
           image_url?: string | null
           instance_id?: string | null
@@ -1435,6 +1454,8 @@ export type Database = {
           msg_text?: string
           number?: string
           processed_at?: string | null
+          provider_response?: Json | null
+          retry_count?: number
           scheduled_at?: string
           status?: string
         }
