@@ -513,8 +513,10 @@ export default function WhatsApp() {
     // ── Send message ──
     const sendMessage = useCallback(async (envio: any) => {
         if (!envio.cliente_telefone) {
-            toast.error(`${envio.cliente_nome}: sem telefone cadastrado`);
+            const reason = "Sem telefone cadastrado";
+            toast.error(`${envio.cliente_nome}: ${reason}`);
             setFailedIds((prev) => new Set(prev).add(envio.id));
+            setFailReasons((prev) => ({ ...prev, [envio.id]: reason }));
             return;
         }
 
@@ -545,8 +547,10 @@ export default function WhatsApp() {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
             toast.success(`Mensagem enviada para ${envio.cliente_nome}!`);
         } catch (err: any) {
+            const reason = err.message || "Erro desconhecido";
             setFailedIds((prev) => new Set(prev).add(envio.id));
-            toast.error(`Erro ao enviar para ${envio.cliente_nome}: ${err.message}`);
+            setFailReasons((prev) => ({ ...prev, [envio.id]: reason }));
+            toast.error(`Erro ao enviar para ${envio.cliente_nome}: ${reason}`);
         } finally {
             setSendingIds((prev) => {
                 const next = new Set(prev);
