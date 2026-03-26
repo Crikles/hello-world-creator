@@ -40,9 +40,13 @@ Seu pedido *{{produto}}* no valor de *R$ {{valor}}* foi despachado!
 Clique no botão abaixo para acompanhar a entrega em tempo real:`;
 
 function formatPhone(phone: string): string {
-    const cleaned = phone.replace(/[\s\-\(\)\+\.]/g, "");
-    if (cleaned.startsWith("55")) return cleaned;
-    return "55" + cleaned;
+    const digits = phone.replace(/\D/g, "");
+    // Brazilian local number (10-11 digits) → prepend 55
+    if (digits.length === 10 || digits.length === 11) return "55" + digits;
+    // Already has country code (12-13 digits starting with 55)
+    if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+    // International or other → return as-is
+    return digits;
 }
 
 function buildFullAddress(envio: any): string {
