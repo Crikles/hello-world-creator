@@ -68,6 +68,7 @@ interface PostagemConfig {
   ativar_site_rastreio: boolean;
   ativar_taxacao: boolean;
   ativar_falha_entrega: boolean;
+  ativar_vizinho: boolean;
   origem_cidade: string | null;
   origem_estado: string | null;
   whatsapp_vendedor: string | null;
@@ -282,7 +283,8 @@ export default function Postagens() {
       (config as any).origem_estado !== localConfig.origem_estado ||
       (config as any).whatsapp_vendedor !== localConfig.whatsapp_vendedor ||
       (config as any).cor_primaria !== localConfig.cor_primaria ||
-      (config as any).cor_botao_cta !== localConfig.cor_botao_cta;
+      (config as any).cor_botao_cta !== localConfig.cor_botao_cta ||
+      (config as any).ativar_vizinho !== localConfig.ativar_vizinho;
     const delaysChanged = activeEventos?.some(
       e => localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas
     );
@@ -391,6 +393,7 @@ export default function Postagens() {
           ativar_site_rastreio: localConfig.ativar_site_rastreio,
           ativar_taxacao: localConfig.ativar_taxacao,
           ativar_falha_entrega: localConfig.ativar_falha_entrega,
+          ativar_vizinho: localConfig.ativar_vizinho,
           origem_cidade: localConfig.origem_cidade,
           origem_estado: localConfig.origem_estado,
           whatsapp_vendedor: localConfig.whatsapp_vendedor || null,
