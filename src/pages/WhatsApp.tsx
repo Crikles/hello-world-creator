@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
     MessageCircle, Wifi, WifiOff, QrCode, Trash2, Send, Search,
     Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply, Pencil, X, Save
@@ -40,9 +41,13 @@ Seu pedido *{{produto}}* no valor de *R$ {{valor}}* foi despachado!
 Clique no botão abaixo para acompanhar a entrega em tempo real:`;
 
 function formatPhone(phone: string): string {
-    const cleaned = phone.replace(/[\s\-\(\)\+\.]/g, "");
-    if (cleaned.startsWith("55")) return cleaned;
-    return "55" + cleaned;
+    const digits = phone.replace(/\D/g, "");
+    // Brazilian local number (10-11 digits) → prepend 55
+    if (digits.length === 10 || digits.length === 11) return "55" + digits;
+    // Already has country code (12-13 digits starting with 55)
+    if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+    // International or other → return as-is
+    return digits;
 }
 
 function buildFullAddress(envio: any): string {
@@ -155,6 +160,7 @@ export default function WhatsApp() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+    const [failReasons, setFailReasons] = useState<Record<string, string>>({});
     const [previewEnvio, setPreviewEnvio] = useState<any>(null);
     const [copiedVar, setCopiedVar] = useState<string | null>(null);
     const [connectData, setConnectData] = useState<{ instanceId: string; qrCode?: string; pairingCode?: string } | null>(null);
@@ -508,8 +514,10 @@ export default function WhatsApp() {
     // ── Send message ──
     const sendMessage = useCallback(async (envio: any) => {
         if (!envio.cliente_telefone) {
-            toast.error(`${envio.cliente_nome}: sem telefone cadastrado`);
+            const reason = "Sem telefone cadastrado";
+            toast.error(`${envio.cliente_nome}: ${reason}`);
             setFailedIds((prev) => new Set(prev).add(envio.id));
+            setFailReasons((prev) => ({ ...prev, [envio.id]: reason }));
             return;
         }
 
@@ -540,8 +548,10 @@ export default function WhatsApp() {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
             toast.success(`Mensagem enviada para ${envio.cliente_nome}!`);
         } catch (err: any) {
+            const reason = err.message || "Erro desconhecido";
             setFailedIds((prev) => new Set(prev).add(envio.id));
-            toast.error(`Erro ao enviar para ${envio.cliente_nome}: ${err.message}`);
+            setFailReasons((prev) => ({ ...prev, [envio.id]: reason }));
+            toast.error(`Erro ao enviar para ${envio.cliente_nome}: ${reason}`);
         } finally {
             setSendingIds((prev) => {
                 const next = new Set(prev);
@@ -1498,9 +1508,16 @@ export default function WhatsApp() {
                                                 )}
 
                                                 {sendSubTab === "pendentes" && isFailed && (
-                                                    <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5">
-                                                        <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
-                                                    </Badge>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5 cursor-help">
+                                                                <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left" className="max-w-[300px] text-xs">
+                                                            {failReasons[envio.id] || "Falha no envio da mensagem via UAZAPI"}
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 )}
 
                                                 {sendSubTab === "pendentes" && (
