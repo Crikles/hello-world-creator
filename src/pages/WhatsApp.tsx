@@ -1507,9 +1507,16 @@ export default function WhatsApp() {
                                                 )}
 
                                                 {sendSubTab === "pendentes" && isFailed && (
-                                                    <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5">
-                                                        <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
-                                                    </Badge>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5 cursor-help">
+                                                                <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left" className="max-w-[300px] text-xs">
+                                                            {failReasons[envio.id] || "Falha no envio da mensagem via UAZAPI"}
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 )}
 
                                                 {sendSubTab === "pendentes" && (
