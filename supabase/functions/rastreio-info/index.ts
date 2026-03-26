@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         if (envio.loja_id) {
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao, ativar_falha_entrega, origem_cidade, origem_estado, cor_primaria")
+                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao, ativar_falha_entrega, origem_cidade, origem_estado, cor_primaria, ativar_vizinho")
                 .eq("loja_id", envio.loja_id)
                 .maybeSingle();
 

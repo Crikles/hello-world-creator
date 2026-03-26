@@ -1050,7 +1050,7 @@ Deno.serve(async (req) => {
 
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha")
+      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
@@ -1107,9 +1107,10 @@ Deno.serve(async (req) => {
       whatsapp_vendedor: whatsappVendedor,
     };
 
-    // Add vizinho (neighbor) data for "Entregue" events
+    // Add vizinho (neighbor) data for "Entregue" events — only if ativar_vizinho is enabled
     const statusLabel = (evento.status_label as string) || "";
-    if (statusLabel === "Entregue") {
+    const ativarVizinho = config?.ativar_vizinho ?? true;
+    if (statusLabel === "Entregue" && ativarVizinho) {
       const vizinhoExtras = getVizinhoExtras(envio.id, envio.cliente_nome || "");
       Object.assign(extras, vizinhoExtras);
     }
