@@ -700,6 +700,47 @@ export default function Envios() {
     return pages;
   };
 
+  const handleExportCSV = useCallback(() => {
+    if (filteredEnvios.length === 0) {
+      toast.info("Nenhum envio para exportar.");
+      return;
+    }
+    const headers = ["Nome", "Email", "Telefone", "Produto", "Valor", "Código Rastreio", "Link Rastreio", "Status", "Data"];
+    const escapeCSV = (val: string) => {
+      if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+    const rows = filteredEnvios.map((e) => {
+      const trackingUrl = e.codigo_rastreio
+        ? `https://${getTrackingDomain(e)}/rastreio?codigo=${e.codigo_rastreio}`
+        : "";
+      const displayStatus = e.status_label || statusLabels[e.status] || e.status;
+      return [
+        e.cliente_nome,
+        e.cliente_email,
+        e.cliente_telefone || "",
+        formatProduto(e.produto),
+        e.valor.toFixed(2).replace(".", ","),
+        e.codigo_rastreio || "",
+        trackingUrl,
+        displayStatus,
+        format(new Date(e.created_at), "dd/MM/yyyy HH:mm"),
+      ].map(escapeCSV).join(",");
+    });
+    const bom = "\uFEFF";
+    const csv = bom + headers.join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `envios_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filteredEnvios.length} envio(s) exportado(s)!`);
+  }, [filteredEnvios, getTrackingDomain]);
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
