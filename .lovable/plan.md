@@ -1,44 +1,55 @@
 
+Objetivo: eliminar as falhas de WhatsApp e expor o motivo real de cada erro, para ficar estável para todos os usuários.
 
-## Plan: Corrigir mapeamento de templates ativos para todos os usuários
+Diagnóstico confirmado (com dados reais):
+1) Falha sistêmica no envio automático de “novo pedido”
+- Janela de auto-disparo (até 10s após criação do envio): 29 falhas / 0 sucessos (24h).
+- Esse fluxo usa a função `auto-whatsapp-new-order`.
+- Ela está com endpoint diferente: `https://apikas.uazapi.com`, enquanto os outros envios que funcionam usam `https://rushsend.uazapi.com`.
+- Resultado: os disparos automáticos nascem “failed”.
 
-### Problema
-1. **Usuários com "Nacional Padrão" antigo (9 eventos com Falha)**: O `tipo` deles é `padrao`, então o badge "ATIVO" aparece no card "Nacional Padrão" (que agora tem 6 eventos), mas os eventos exibidos abaixo são 9 — inconsistência visual.
-2. **Usuários com "Nacional Expressa" (3 eventos)**: O template de sistema foi deletado, então nenhum card mostra "ATIVO" — o fluxo funciona mas a UI fica confusa.
+2) Instância desconectada sendo tratada como conectada
+- A instância `mi11 lite -busines` (`13c1bf1f...`) concentra falhas no fluxo de fila.
+- Teste de status retornou `disconnected`, e testes de envio retornaram `WhatsApp disconnected`.
+- Como o sistema usa status salvo no banco, uma instância stale pode continuar na rotação e gerar falhas.
 
-### Dados reais encontrados
-- **3 lojas** usam cópias de "Nacional Expressa" (Magnus, Mega Loja, Mercado livre) — `tipo = 'expressa'`
-- **~15 lojas** usam cópias de "Nacional Padrão" com 9 eventos (incluindo Falha) — `tipo = 'padrao'`
-- **1 loja** (My loja) já usa "Nacional Falha na Entrega" corretamente — `tipo = 'falha_entrega'`
+3) Falta rastreabilidade do erro
+- `whatsapp_message_log` e `whatsapp_send_queue` não guardam motivo/retorno do provedor.
+- UI mostra “Falha no envio”, sem causa técnica confiável para suporte.
 
-### Solução
+Plano de correção:
+1) Padronizar endpoint da UAZAPI (correção principal)
+- Arquivo: `supabase/functions/auto-whatsapp-new-order/index.ts`
+- Trocar `UAZAPI_BASE` para `https://rushsend.uazapi.com` (mesmo padrão dos outros fluxos).
+- Melhorar logs dessa função para registrar status HTTP e payload de erro do provedor.
 
-**1. Migração SQL — reclassificar templates de usuário existentes**
+2) Blindar rotação contra instâncias desconectadas
+- Arquivos:
+  - `supabase/functions/auto-whatsapp-new-order/index.ts`
+  - `supabase/functions/send-whatsapp/index.ts` (send/send-queue)
+  - `supabase/functions/advance-shipments/index.ts` (processador da fila)
+- Antes de enviar, validar status real da instância via API e atualizar `whatsapp_instances.status`.
+- Excluir da rotação as que estiverem `disconnected`.
+- Se uma instância falhar por desconexão no processamento da fila, tentar fallback automático em outra instância ativa (sem perder o item).
 
-- Templates com `tipo = 'padrao'` que **contêm** eventos "Falha Entrega" → atualizar para `tipo = 'falha_entrega'` e `nome = 'Nacional Falha na Entrega'`
-- Templates com `tipo = 'padrao'` que **não contêm** "Falha Entrega" → manter como estão (já corretos com 6 eventos)
-- Templates com `tipo = 'expressa'` → não há mais template de sistema correspondente. Opções:
-  - Manter funcionando (envios existentes usam o template congelado)
-  - O card simplesmente não mostra "ATIVO" em nenhum system template — aceitável
+3) Persistir motivo real de falha no banco
+- Migration em:
+  - `whatsapp_message_log`: adicionar `error_reason`, `provider_response` (jsonb), `http_status`.
+  - `whatsapp_send_queue`: adicionar `error_reason`, `provider_response` (jsonb), `http_status`, `retry_count`.
+- Em todos os fluxos de envio, salvar o detalhe real retornado pela UAZAPI.
 
-```sql
--- Reclassificar cópias do antigo Padrão que têm eventos de Falha
-UPDATE postagem_templates pt
-SET tipo = 'falha_entrega', nome = 'Nacional Falha na Entrega'
-WHERE pt.is_system = false
-  AND pt.tipo = 'padrao'
-  AND EXISTS (
-    SELECT 1 FROM postagem_eventos pe 
-    WHERE pe.template_id = pt.id 
-    AND pe.status_label = 'Falha Entrega'
-  );
-```
+4) Exibir o motivo real na tela de WhatsApp
+- Arquivo: `src/pages/WhatsApp.tsx`
+- Ajustar query de logs para buscar os novos campos de erro.
+- Tooltip/label de falha passa a mostrar mensagem técnica real (ex.: “WhatsApp disconnected”, “número inválido”, etc.), não só texto genérico.
 
-**2. Nenhuma alteração de código frontend necessária**
-A lógica `activeTemplate?.tipo === template.tipo` já funciona corretamente — após a migração, os templates com falha terão `tipo = 'falha_entrega'` e vão alinhar com o card correto.
+5) Auditoria global pós-fix (todos os usuários)
+- Rodar verificação geral de taxa de falha por loja/instância.
+- Confirmar que envios automáticos de novo pedido voltaram a ter sucesso.
+- Identificar e marcar automaticamente instâncias problemáticas para fora da rotação.
 
-### O que não muda
-- Templates de envios já em trânsito (congelados por `postagem_template_id`)
-- Lojas com "Expressa" continuam funcionando, apenas sem badge "ATIVO" na UI (podem aplicar um novo template quando quiserem)
-- Lógica de avanço, emails, rastreio
-
+Critério de sucesso:
+- Auto-disparo de novo pedido deixa de ficar 100% em falha.
+- Instância desconectada não entra mais em rotação.
+- Cada falha passa a ter motivo explícito no banco e na UI.
+- Comportamento consistente para todos os usuários, não só para uma loja.
