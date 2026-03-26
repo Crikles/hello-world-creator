@@ -264,7 +264,7 @@ export default function WhatsApp() {
             if (!loja?.id) return [];
             const { data } = await supabase
                 .from("whatsapp_message_log")
-                .select("envio_id, status")
+                .select("envio_id, status, created_at")
                 .eq("loja_id", loja.id);
             return data || [];
         },
@@ -273,6 +273,9 @@ export default function WhatsApp() {
 
     const sentEnvioIds = new Set(messageLogs.filter((l) => l.status === "sent").map((l) => l.envio_id));
     const failedEnvioIds = new Set(messageLogs.filter((l) => l.status === "failed").map((l) => l.envio_id));
+    const messageLogMap = Object.fromEntries(
+        messageLogs.map((l) => [l.envio_id, { status: l.status, created_at: l.created_at }])
+    );
 
     // ── Config (template + auto-send) ──
     const { data: config } = useQuery({
@@ -1456,6 +1459,17 @@ export default function WhatsApp() {
                                 const isFailed = failedEnvioIds.has(envio.id) || failedIds.has(envio.id);
                                 const hasPhone = !!envio.cliente_telefone;
                                 const anyInstanceReady = connectedInstances.length > 0;
+                                const logEntry = messageLogMap[envio.id];
+                                const entryTime = envio.created_at ? new Date(envio.created_at) : null;
+                                const actionTime = logEntry?.created_at ? new Date(logEntry.created_at) : null;
+
+                                const formatTime = (d: Date) => {
+                                    const day = String(d.getDate()).padStart(2, "0");
+                                    const mon = String(d.getMonth() + 1).padStart(2, "0");
+                                    const h = String(d.getHours()).padStart(2, "0");
+                                    const m = String(d.getMinutes()).padStart(2, "0");
+                                    return `${day}/${mon} ${h}:${m}`;
+                                };
 
                                 return (
                                     <div
@@ -1499,8 +1513,23 @@ export default function WhatsApp() {
                                                 R$ {Number(envio.valor).toFixed(2)}
                                             </span>
 
+                                            {/* Timestamps */}
+                                            <div className="hidden xl:flex flex-col items-end gap-0.5 shrink-0 min-w-[100px]">
+                                                {entryTime && (
+                                                    <span className="text-[9px] text-muted-foreground flex items-center gap-1" title="Entrou no painel">
+                                                        <Clock className="h-2.5 w-2.5" /> {formatTime(entryTime)}
+                                                    </span>
+                                                )}
+                                                {actionTime && (
+                                                    <span className={`text-[9px] flex items-center gap-1 ${logEntry?.status === "sent" ? "text-green-500" : "text-red-400"}`} title={logEntry?.status === "sent" ? "Enviado em" : "Falhou em"}>
+                                                        {logEntry?.status === "sent" ? <Check className="h-2.5 w-2.5" /> : <AlertCircle className="h-2.5 w-2.5" />}
+                                                        {formatTime(actionTime)}
+                                                    </span>
+                                                )}
+                                            </div>
+
                                             {/* Status / Actions */}
-                                            <div className="flex items-center gap-2 ml-auto shrink-0">
+                                            <div className="flex items-center gap-1.5 ml-auto shrink-0">
                                                 {sendSubTab === "enviados" && (
                                                     <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
                                                         <Check className="h-3 w-3 mr-0.5" /> Enviado
@@ -1510,12 +1539,17 @@ export default function WhatsApp() {
                                                 {sendSubTab === "pendentes" && isFailed && (
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5 cursor-help">
-                                                                <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
-                                                            </Badge>
+                                                            <span className="inline-flex items-center gap-1 text-[9px] text-red-400 cursor-help">
+                                                                <AlertCircle className="h-3 w-3" />
+                                                                <span className="hidden sm:inline max-w-[120px] truncate">
+                                                                    {failReasons[envio.id] || "Falha no envio"}
+                                                                </span>
+                                                            </span>
                                                         </TooltipTrigger>
                                                         <TooltipContent side="left" className="max-w-[300px] text-xs">
-                                                            {failReasons[envio.id] || "Falha no envio da mensagem via UAZAPI"}
+                                                            <p className="font-medium mb-1">Motivo da falha:</p>
+                                                            <p>{failReasons[envio.id] || "Falha no envio da mensagem via UAZAPI"}</p>
+                                                            {actionTime && <p className="mt-1 text-muted-foreground">Falhou em: {formatTime(actionTime)}</p>}
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 )}
