@@ -289,6 +289,30 @@ export default function Integracoes() {
           </div>
         </div>
 
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Token</label>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-xs glass border-primary/10 px-3 py-2.5 rounded-lg truncate text-foreground font-mono">
+              {loja?.webhook_token || "—"}
+            </code>
+            <Button
+              variant="outline"
+              size="icon"
+              className="shrink-0 glass border-primary/20 hover:border-primary/40 h-9 w-9"
+              onClick={() => {
+                if (loja?.webhook_token) {
+                  navigator.clipboard.writeText(loja.webhook_token);
+                  setCopiedId("api-token");
+                  toast({ title: "Token copiado!" });
+                  setTimeout(() => setCopiedId(null), 2000);
+                }
+              }}
+            >
+              {copiedId === "api-token" ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+
         <Button
           variant="outline"
           className="w-full glass border-primary/20 hover:border-primary/40 gap-2"
