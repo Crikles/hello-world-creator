@@ -355,6 +355,7 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
