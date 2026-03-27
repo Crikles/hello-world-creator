@@ -1,36 +1,33 @@
 
 
-## Plan: Preview completo do email com bloco de upsell dinâmico
+## Plan: Preview do email com logo e nome real da empresa do usuário
 
-### O que muda
-
-Substituir o preview isolado do bloco de upsell por um **preview completo do email** usando a mesma função `buildEmailHtml` do `emailTemplates.ts`, com o bloco de upsell injetado dentro do HTML.
+### Problema
+1. O preview usa `dadosExemplo` com "Minha Loja" hardcoded e sem `empresa_logo_url`
+2. A função `replaceVariables` não processa a sintaxe condicional `{{#empresa_logo_url}}...{{/empresa_logo_url}}`, resultando em texto cru visível no preview
 
 ### Alterações
 
-**1. `src/components/postagens/emailTemplates.ts` — Aceitar upsell opcional no `buildEmailHtml`**
-- Adicionar parâmetro opcional `upsellHtml?: string` na função `buildEmailHtml`
-- Inserir o bloco entre o WhatsApp e o Footer (após `${whatsappBlock}`)
-- Se `upsellHtml` for vazio/undefined, nada muda
+**1. `src/pages/Upsell.tsx` — Buscar dados da empresa e usar no preview**
+- Adicionar query para buscar `empresas` da loja atual (`nome_fantasia`, `razao_social`, `logo_url`)
+- No `FullEmailPreview`, substituir `dadosExemplo` por um objeto mesclado que inclui:
+  - `empresa_nome`: `nome_fantasia || razao_social || "Minha Loja"`
+  - `empresa_logo_url`: `logo_url || ""`
+- Passar esse objeto para `replaceVariables`
 
-**2. `src/pages/Upsell.tsx` — Trocar preview por email completo em iframe**
-- Importar `buildEmailHtml`, `replaceVariables`, `dadosExemplo`, `defaultSectionsByEvent`
-- Gerar o HTML do upsell como string (table-based, mesmo padrão do `send-email`)
-- Chamar `buildEmailHtml(sections, "#6366f1", eventName, undefined, upsellHtmlString)` para montar o email completo
-- Renderizar em um `<iframe>` (mesmo padrão do `EmailPreview.tsx`)
-- Quando `form.ativo === false`, passar `upsellHtml` como `undefined` — o bloco some do preview
-- Usar `eventName = "Postado"` para tipo `nfe` e `"Coletado"` para tipo `coletado`
-- Usar `defaultSectionsByEvent["Postado"]` / `defaultSectionsByEvent["Coletado"]` como sections de exemplo
+**2. `src/components/postagens/emailTemplates.ts` — Processar condicionais mustache**
+- Atualizar `replaceVariables` (ou criar helper) para processar `{{#key}}...{{/key}}`:
+  - Se o valor da variável existe e não é vazio → manter o conteúdo entre as tags
+  - Se vazio/undefined → remover o bloco inteiro (incluindo as tags)
+- Isso garante que se não houver logo, a seção inteira do logo é removida limpamente
 
-**3. Manter o `UpsellPreview` existente** como fallback visual no card de edição, mas o card de "Preview no E-mail" passa a ser o email completo.
-
-### Comportamento
-- Toggle **ativado** → email completo com bloco de upsell visível
-- Toggle **desativado** → email completo sem o bloco (exatamente como o cliente receberia)
-- Cores, textos e imagem atualizados em tempo real no preview
+### Resultado
+- Cada usuário verá sua própria logo (circular, com sombra) e nome da empresa no preview
+- Sem logo configurada → seção do logo some do preview (sem texto cru)
+- Funciona independentemente por conta/loja
 
 ### O que não muda
-- `EmailPreview.tsx` (usado em Postagens, intocado)
-- `send-email/index.ts` (backend)
-- Banco de dados
+- `buildEmailHtml` (template HTML intacto)
+- Backend `send-email` (já busca dados reais da empresa)
+- Formulário de configuração do upsell
 
