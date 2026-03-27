@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLoja } from "@/contexts/LojaContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -87,12 +87,21 @@ function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: Upse
   const eventName = tipo === "nfe" ? "Postado" : "Coletado";
   const sections = defaultSectionsByEvent[eventName];
 
+  // Debounce data to avoid rewriting iframe on every color drag tick
+  const [debouncedData, setDebouncedData] = useState(data);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    timerRef.current = setTimeout(() => setDebouncedData(data), 150);
+    return () => clearTimeout(timerRef.current);
+  }, [data]);
+
   const fullHtml = useMemo(() => {
-    const upsellBlock = data.ativo ? buildUpsellBlockHtml(data) : undefined;
+    const upsellBlock = debouncedData.ativo ? buildUpsellBlockHtml(debouncedData) : undefined;
     const raw = buildEmailHtml(sections, "#6366f1", eventName, undefined, upsellBlock);
     const previewData = { ...dadosExemplo, empresa_nome: empresaNome, empresa_logo_url: empresaLogo };
     return replaceVariables(raw, previewData);
-  }, [data, sections, eventName, empresaNome, empresaLogo]);
+  }, [debouncedData, sections, eventName, empresaNome, empresaLogo]);
 
   useEffect(() => {
     if (iframeRef.current) {
@@ -101,7 +110,6 @@ function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: Upse
         doc.open();
         doc.write(fullHtml);
         doc.close();
-        // Auto-resize iframe to content height
         const resize = () => {
           if (iframeRef.current && doc.body) {
             iframeRef.current.style.height = doc.body.scrollHeight + "px";
