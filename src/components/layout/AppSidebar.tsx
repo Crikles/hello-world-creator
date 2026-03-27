@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isLogisticsDomain } from "@/lib/domain-config";
-import { Gauge, SendHorizonal, Megaphone, ShieldAlert, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy, PackageX, Users, MessageCircle } from "lucide-react";
+import { Gauge, SendHorizonal, Megaphone, ShieldAlert, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy, PackageX, Users, MessageCircle, Sparkles } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
@@ -75,6 +75,7 @@ export function AppSidebar() {
       items: [
         { title: "Envios", url: `${base}/envios`, icon: SendHorizonal },
         { title: "Postagens", url: `${base}/postagens`, icon: Megaphone },
+        { title: "Upsell", url: `${base}/upsell`, icon: Sparkles },
         { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
         { title: "Falha na Entrega", url: `${base}/falha-entrega`, icon: PackageX },
       ],
