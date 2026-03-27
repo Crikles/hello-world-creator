@@ -629,8 +629,28 @@ Deno.serve(async (req) => {
             const cfgBtn2Url = queueBtn2Url || configData?.whatsapp_btn2_url || null;
 
             // Build queue items with staggered scheduled_at and round-robin instance assignment
+            // Check existing pending items to avoid overlapping schedules
+            const { data: lastQueued } = await supabaseAdmin
+                .from("whatsapp_send_queue")
+                .select("scheduled_at")
+                .eq("loja_id", loja_id)
+                .eq("status", "pending")
+                .order("scheduled_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            const now = Date.now();
+            let baseTime: number;
+
+            if (lastQueued?.scheduled_at) {
+                const lastTime = new Date(lastQueued.scheduled_at).getTime();
+                const nextTime = lastTime + delaySeconds * 1000;
+                baseTime = Math.max(now, nextTime);
+            } else {
+                baseTime = now;
+            }
+
             const queueItems: any[] = [];
-            const baseTime = Date.now();
 
             for (let i = 0; i < enviosData.length; i++) {
                 const envio = enviosData[i];
