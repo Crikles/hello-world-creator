@@ -82,7 +82,7 @@ function buildUpsellBlockHtml(data: UpsellData): string {
   </table>`;
 }
 
-function FullEmailPreview({ data, tipo }: { data: UpsellData; tipo: string }) {
+function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: UpsellData; tipo: string; empresaNome: string; empresaLogo: string }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const eventName = tipo === "nfe" ? "Postado" : "Coletado";
   const sections = defaultSectionsByEvent[eventName];
@@ -90,8 +90,9 @@ function FullEmailPreview({ data, tipo }: { data: UpsellData; tipo: string }) {
   const fullHtml = useMemo(() => {
     const upsellBlock = data.ativo ? buildUpsellBlockHtml(data) : undefined;
     const raw = buildEmailHtml(sections, "#6366f1", eventName, undefined, upsellBlock);
-    return replaceVariables(raw, dadosExemplo);
-  }, [data, sections, eventName]);
+    const previewData = { ...dadosExemplo, empresa_nome: empresaNome, empresa_logo_url: empresaLogo };
+    return replaceVariables(raw, previewData);
+  }, [data, sections, eventName, empresaNome, empresaLogo]);
 
   useEffect(() => {
     if (iframeRef.current) {
@@ -137,6 +138,22 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
   const { loja } = useLoja();
   const queryClient = useQueryClient();
   const lojaId = loja?.id || "";
+
+  const { data: empresa } = useQuery({
+    queryKey: ["empresa-preview", lojaId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("empresas")
+        .select("nome_fantasia, razao_social, logo_url")
+        .eq("loja_id", lojaId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!lojaId,
+  });
+
+  const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Minha Loja";
+  const empresaLogo = empresa?.logo_url || "";
 
   const { data: saved, isLoading } = useQuery({
     queryKey: ["upsell-config", lojaId, tipo],
@@ -304,7 +321,7 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
         </CardHeader>
         <CardContent>
           <div className="rounded-xl overflow-hidden border border-border/30">
-            <FullEmailPreview data={form} tipo={tipo} />
+            <FullEmailPreview data={form} tipo={tipo} empresaNome={empresaNome} empresaLogo={empresaLogo} />
           </div>
         </CardContent>
       </Card>
