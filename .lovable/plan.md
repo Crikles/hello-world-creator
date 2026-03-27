@@ -1,33 +1,25 @@
 
 
-## Plan: Preview do email com logo e nome real da empresa do usuário
+## Plan: Card de aviso sobre boas práticas de copy no Upsell
 
-### Problema
-1. O preview usa `dadosExemplo` com "Minha Loja" hardcoded e sem `empresa_logo_url`
-2. A função `replaceVariables` não processa a sintaxe condicional `{{#empresa_logo_url}}...{{/empresa_logo_url}}`, resultando em texto cru visível no preview
+### Alteração
 
-### Alterações
+**`src/pages/Upsell.tsx`** — Adicionar um card de alerta informativo acima do formulário (dentro do `UpsellForm`, antes do grid de 2 colunas), com ícone de alerta/info e texto orientando o usuário.
 
-**1. `src/pages/Upsell.tsx` — Buscar dados da empresa e usar no preview**
-- Adicionar query para buscar `empresas` da loja atual (`nome_fantasia`, `razao_social`, `logo_url`)
-- No `FullEmailPreview`, substituir `dadosExemplo` por um objeto mesclado que inclui:
-  - `empresa_nome`: `nome_fantasia || razao_social || "Minha Loja"`
-  - `empresa_logo_url`: `logo_url || ""`
-- Passar esse objeto para `replaceVariables`
+### Conteúdo do card
 
-**2. `src/components/postagens/emailTemplates.ts` — Processar condicionais mustache**
-- Atualizar `replaceVariables` (ou criar helper) para processar `{{#key}}...{{/key}}`:
-  - Se o valor da variável existe e não é vazio → manter o conteúdo entre as tags
-  - Se vazio/undefined → remover o bloco inteiro (incluindo as tags)
-- Isso garante que se não houver logo, a seção inteira do logo é removida limpamente
+- Ícone `AlertTriangle` ou `Info` do lucide-react
+- Título: "Dica importante sobre a copy do seu Upsell"
+- Texto orientativo:
+  - Evitar palavras agressivas como "GRÁTIS", "URGENTE", "COMPRE AGORA", "ÚLTIMA CHANCE", excesso de letras maiúsculas e pontuação (!!!)
+  - Usar linguagem leve e natural, como se estivesse recomendando algo a um amigo
+  - Copies agressivas podem fazer o e-mail cair no spam ou nem chegar ao destinatário
+  - Sugestão: usar frases como "Você também pode gostar de...", "Selecionamos algo especial para você"
 
-### Resultado
-- Cada usuário verá sua própria logo (circular, com sombra) e nome da empresa no preview
-- Sem logo configurada → seção do logo some do preview (sem texto cru)
-- Funciona independentemente por conta/loja
+### Visual
+- Card com estilo `bg-amber-500/10 border-amber-500/30` (tom de aviso suave, compatível com tema escuro)
+- Posicionado logo acima do grid form + preview, visível em ambas as tabs
 
-### O que não muda
-- `buildEmailHtml` (template HTML intacto)
-- Backend `send-email` (já busca dados reais da empresa)
-- Formulário de configuração do upsell
+### Arquivo alterado
+- `src/pages/Upsell.tsx` (apenas)
 
