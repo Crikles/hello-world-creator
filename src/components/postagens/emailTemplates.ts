@@ -243,7 +243,7 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
           <!-- Logo Section -->
           <tr>
             <td style="background-color:#f5f5f5;padding:36px 40px 20px;text-align:center;">
-              {{#empresa_logo_url}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 16px;"><tr><td style="width:90px;height:90px;border-radius:50%;background:#ffffff;text-align:center;vertical-align:middle;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><img src="{{empresa_logo_url}}" alt="{{empresa_nome}}" style="max-height:60px;max-width:60px;vertical-align:middle;" /></td></tr></table>{{/empresa_logo_url}}
+              {{#empresa_logo_url}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 16px;"><tr><td style="width:90px;height:90px;border-radius:50%;background:#ffffff;text-align:center;vertical-align:middle;box-shadow:0 4px 12px rgba(0,0,0,0.15);overflow:hidden;"><img src="{{empresa_logo_url}}" alt="{{empresa_nome}}" style="width:90px;height:90px;object-fit:cover;border-radius:50%;display:block;" /></td></tr></table>{{/empresa_logo_url}}
               <p style="margin:0;color:#666;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">{{empresa_nome}}</p>
             </td>
           </tr>
