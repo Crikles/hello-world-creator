@@ -139,6 +139,22 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
   const queryClient = useQueryClient();
   const lojaId = loja?.id || "";
 
+  const { data: empresa } = useQuery({
+    queryKey: ["empresa-preview", lojaId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("empresas")
+        .select("nome_fantasia, razao_social, logo_url")
+        .eq("loja_id", lojaId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!lojaId,
+  });
+
+  const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Minha Loja";
+  const empresaLogo = empresa?.logo_url || "";
+
   const { data: saved, isLoading } = useQuery({
     queryKey: ["upsell-config", lojaId, tipo],
     queryFn: async () => {
@@ -305,7 +321,7 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
         </CardHeader>
         <CardContent>
           <div className="rounded-xl overflow-hidden border border-border/30">
-            <FullEmailPreview data={form} tipo={tipo} />
+            <FullEmailPreview data={form} tipo={tipo} empresaNome={empresaNome} empresaLogo={empresaLogo} />
           </div>
         </CardContent>
       </Card>
