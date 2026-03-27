@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Sparkles, Save, Eye, FileText, Package } from "lucide-react";
+import { Sparkles, Save, Eye, FileText, Package, AlertTriangle } from "lucide-react";
 import { buildEmailHtml, replaceVariables, dadosExemplo, defaultSectionsByEvent } from "@/components/postagens/emailTemplates";
 
 interface UpsellData {
@@ -246,7 +246,20 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="space-y-4">
+      <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+        <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-amber-500">Dica importante sobre a copy do seu Upsell</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Evite palavras agressivas como <strong>"GRÁTIS"</strong>, <strong>"URGENTE"</strong>, <strong>"COMPRE AGORA"</strong>, <strong>"ÚLTIMA CHANCE"</strong>, excesso de letras maiúsculas e pontuação (!!!). Copies agressivas podem fazer o e-mail <strong>cair no spam</strong> ou nem chegar ao destinatário.
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Use linguagem leve e natural, como se estivesse recomendando algo a um amigo. Exemplos: <em>"Você também pode gostar de..."</em>, <em>"Selecionamos algo especial para você"</em>.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
       {/* Form */}
       <Card className="glass glow-border">
         <CardHeader className="pb-4">
@@ -342,6 +355,7 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
