@@ -1221,7 +1221,58 @@ Deno.serve(async (req) => {
     const appBaseUrl = `${supabaseUrl}/functions/v1/redirect`;
 
     const primaryColor = isJadlog ? "#e10526" : isVetor ? "#1B5E20" : corPrimaria;
-    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);
+
+    // Fetch upsell config if applicable (only for NF-e/Postado or Coletado events)
+    let upsellData: UpsellConfig | null = null;
+    let upsellCharged = false;
+    const upsellTipoMap: Record<string, string> = {
+      "Postado": "nfe",
+      "Nota Fiscal Emitida": "nfe",
+      "Coletado": "coletado",
+    };
+    const upsellTipo = upsellTipoMap[statusLabel] || null;
+    if (upsellTipo) {
+      const { data: upsellRow } = await supabase
+        .from("upsell_config")
+        .select("*")
+        .eq("loja_id", loja_id)
+        .eq("tipo", upsellTipo)
+        .eq("ativo", true)
+        .maybeSingle();
+      if (upsellRow) {
+        // Try to charge 0.10 moedas — get cost from system_config
+        const { data: custoRow } = await supabase
+          .from("system_config")
+          .select("value")
+          .eq("key", "custo_upsell_email")
+          .maybeSingle();
+        const custoUpsell = custoRow?.value ?? 0.10;
+
+        // Get loja owner
+        const { data: lojaRow } = await supabase
+          .from("lojas")
+          .select("user_id")
+          .eq("id", loja_id)
+          .single();
+
+        if (lojaRow?.user_id) {
+          const { data: debitOk } = await supabase.rpc("debit_user_credits", {
+            _user_id: lojaRow.user_id,
+            _quantidade: custoUpsell,
+            _descricao: `Upsell no e-mail - ${statusLabel}`,
+          });
+          if (debitOk) {
+            upsellData = upsellRow as unknown as UpsellConfig;
+            upsellCharged = true;
+            console.log("Upsell block included, charged", custoUpsell, "moedas");
+          } else {
+            console.warn("Insufficient credits for upsell, skipping block");
+          }
+        }
+      }
+    }
+
+    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined, upsellData);
 
     // Resolve PDF attachment: prefer storage path, then server-side generation, fallback to inline base64
     let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;
