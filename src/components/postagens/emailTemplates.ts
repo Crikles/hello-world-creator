@@ -154,6 +154,13 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
 
 export function replaceVariables(text: string, data: Record<string, string> = dadosExemplo): string {
   let result = text;
+
+  // Process mustache conditionals {{#key}}...{{/key}}
+  result = result.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_match, key, content) => {
+    return data[key] && data[key].trim() !== "" ? content : "";
+  });
+
+  // Replace simple variables {{key}}
   for (const [key, value] of Object.entries(data)) {
     result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
   }

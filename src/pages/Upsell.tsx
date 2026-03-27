@@ -82,7 +82,7 @@ function buildUpsellBlockHtml(data: UpsellData): string {
   </table>`;
 }
 
-function FullEmailPreview({ data, tipo }: { data: UpsellData; tipo: string }) {
+function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: UpsellData; tipo: string; empresaNome: string; empresaLogo: string }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const eventName = tipo === "nfe" ? "Postado" : "Coletado";
   const sections = defaultSectionsByEvent[eventName];
@@ -90,8 +90,9 @@ function FullEmailPreview({ data, tipo }: { data: UpsellData; tipo: string }) {
   const fullHtml = useMemo(() => {
     const upsellBlock = data.ativo ? buildUpsellBlockHtml(data) : undefined;
     const raw = buildEmailHtml(sections, "#6366f1", eventName, undefined, upsellBlock);
-    return replaceVariables(raw, dadosExemplo);
-  }, [data, sections, eventName]);
+    const previewData = { ...dadosExemplo, empresa_nome: empresaNome, empresa_logo_url: empresaLogo };
+    return replaceVariables(raw, previewData);
+  }, [data, sections, eventName, empresaNome, empresaLogo]);
 
   useEffect(() => {
     if (iframeRef.current) {
