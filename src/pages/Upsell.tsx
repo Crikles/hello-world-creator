@@ -101,6 +101,14 @@ function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: Upse
         doc.open();
         doc.write(fullHtml);
         doc.close();
+        // Auto-resize iframe to content height
+        const resize = () => {
+          if (iframeRef.current && doc.body) {
+            iframeRef.current.style.height = doc.body.scrollHeight + "px";
+          }
+        };
+        setTimeout(resize, 100);
+        setTimeout(resize, 500);
       }
     }
   }, [fullHtml]);
@@ -111,7 +119,8 @@ function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: Upse
       title="Email Preview"
       className="w-full border-0 rounded-xl"
       sandbox="allow-same-origin"
-      style={{ minHeight: 700, height: 700 }}
+      style={{ minHeight: 400, overflow: "hidden" }}
+      scrolling="no"
     />
   );
 }
