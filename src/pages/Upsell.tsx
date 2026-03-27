@@ -232,7 +232,7 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["upsell-config", lojaId, tipo] });
-      toast({ title: "Salvo!", description: `Upsell ${label} atualizado com sucesso.` });
+      toast({ title: "Salvo!", description: `${label} atualizado com sucesso.` });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
