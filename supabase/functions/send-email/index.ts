@@ -396,6 +396,57 @@ function buildWhatsAppButton(whatsapp: string): string {
   </table>`;
 }
 
+// ============ Upsell Block Builder ============
+interface UpsellConfig {
+  ativo: boolean;
+  headline: string;
+  sub_headline: string;
+  produto_nome: string;
+  produto_descricao: string;
+  produto_valor: string;
+  produto_imagem_url: string;
+  botao_texto: string;
+  botao_url: string;
+  cor_headline: string;
+  cor_sub_headline: string;
+  cor_nome_produto: string;
+  cor_descricao: string;
+  cor_valor: string;
+  cor_botao_bg: string;
+  cor_botao_texto: string;
+  cor_fundo: string;
+}
+
+function buildUpsellHtml(u: UpsellConfig): string {
+  const imageBlock = u.produto_imagem_url
+    ? `<td width="120" style="padding-right:16px;vertical-align:top;">
+        <img src="${u.produto_imagem_url}" alt="${u.produto_nome}" width="120" height="120" style="width:120px;height:120px;object-fit:cover;border-radius:12px;display:block;" />
+      </td>`
+    : "";
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+    <tr><td style="background-color:${u.cor_fundo};border-radius:16px;padding:24px;">
+      <p style="margin:0 0 4px;font-size:20px;font-weight:800;color:${u.cor_headline};text-align:center;">${u.headline || ""}</p>
+      <p style="margin:0 0 16px;font-size:13px;color:${u.cor_sub_headline};text-align:center;">${u.sub_headline || ""}</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          ${imageBlock}
+          <td style="vertical-align:top;">
+            <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:${u.cor_nome_produto};">${u.produto_nome || ""}</p>
+            <p style="margin:0 0 8px;font-size:12px;color:${u.cor_descricao};line-height:1.4;">${u.produto_descricao || ""}</p>
+            <p style="margin:0;font-size:18px;font-weight:800;color:${u.cor_valor};">${u.produto_valor || ""}</p>
+          </td>
+        </tr>
+      </table>
+      ${u.botao_url ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px auto 0;">
+        <tr><td style="background-color:${u.cor_botao_bg};border-radius:50px;box-shadow:0 4px 16px ${u.cor_botao_bg}44;">
+          <a href="${u.botao_url}" style="display:inline-block;color:${u.cor_botao_texto};text-decoration:none;padding:12px 36px;font-size:14px;font-weight:700;letter-spacing:0.3px;">${u.botao_texto || "Comprar Agora"}</a>
+        </td></tr>
+      </table>` : ""}
+    </td></tr>
+  </table>`;
+}
+
 function buildEmailHtml(
   evento: Record<string, unknown>,
   envio: Record<string, unknown>,
@@ -403,7 +454,8 @@ function buildEmailHtml(
   primaryColor = "#6366f1",
   appBaseUrl = "https://rastreio.jltransportelogistica.com",
   ctaColor = "#1a1a1a",
-  postagemConfig?: Record<string, unknown>
+  postagemConfig?: Record<string, unknown>,
+  upsellConfig?: UpsellConfig | null
 ): string {
   // --- Check for Taxação-specific settings ---
   const statusLabel = (evento.status_label as string) || "";
@@ -650,6 +702,7 @@ function buildEmailHtml(
             ${infoBlock}
             ${ctaBlock}
             ${whatsappBlock}
+            ${upsellConfig?.ativo ? buildUpsellHtml(upsellConfig) : ""}
           </td>
         </tr>
 
@@ -1168,7 +1221,58 @@ Deno.serve(async (req) => {
     const appBaseUrl = `${supabaseUrl}/functions/v1/redirect`;
 
     const primaryColor = isJadlog ? "#e10526" : isVetor ? "#1B5E20" : corPrimaria;
-    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined);
+
+    // Fetch upsell config if applicable (only for NF-e/Postado or Coletado events)
+    let upsellData: UpsellConfig | null = null;
+    let upsellCharged = false;
+    const upsellTipoMap: Record<string, string> = {
+      "Postado": "nfe",
+      "Nota Fiscal Emitida": "nfe",
+      "Coletado": "coletado",
+    };
+    const upsellTipo = upsellTipoMap[statusLabel] || null;
+    if (upsellTipo) {
+      const { data: upsellRow } = await supabase
+        .from("upsell_config")
+        .select("*")
+        .eq("loja_id", loja_id)
+        .eq("tipo", upsellTipo)
+        .eq("ativo", true)
+        .maybeSingle();
+      if (upsellRow) {
+        // Try to charge 0.10 moedas — get cost from system_config
+        const { data: custoRow } = await supabase
+          .from("system_config")
+          .select("value")
+          .eq("key", "custo_upsell_email")
+          .maybeSingle();
+        const custoUpsell = custoRow?.value ?? 0.10;
+
+        // Get loja owner
+        const { data: lojaRow } = await supabase
+          .from("lojas")
+          .select("user_id")
+          .eq("id", loja_id)
+          .single();
+
+        if (lojaRow?.user_id) {
+          const { data: debitOk } = await supabase.rpc("debit_user_credits", {
+            _user_id: lojaRow.user_id,
+            _quantidade: custoUpsell,
+            _descricao: `Upsell no e-mail - ${statusLabel}`,
+          });
+          if (debitOk) {
+            upsellData = upsellRow as unknown as UpsellConfig;
+            upsellCharged = true;
+            console.log("Upsell block included, charged", custoUpsell, "moedas");
+          } else {
+            console.warn("Insufficient credits for upsell, skipping block");
+          }
+        }
+      }
+    }
+
+    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined, upsellData);
 
     // Resolve PDF attachment: prefer storage path, then server-side generation, fallback to inline base64
     let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;
