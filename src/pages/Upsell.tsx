@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLoja } from "@/contexts/LojaContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Sparkles, Save, Eye, FileText, Package } from "lucide-react";
+import { buildEmailHtml, replaceVariables, dadosExemplo, defaultSectionsByEvent } from "@/components/postagens/emailTemplates";
 
 interface UpsellData {
   id?: string;
