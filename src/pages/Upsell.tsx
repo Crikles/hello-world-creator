@@ -296,15 +296,15 @@ function UpsellForm({ tipo, label, icon }: { tipo: string; label: string; icon: 
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <Eye className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Preview no E-mail</CardTitle>
+            <CardTitle className="text-base">Preview Completo do E-mail</CardTitle>
           </div>
           <CardDescription className="text-xs">
-            Visualização em tempo real de como o bloco de upsell aparecerá no e-mail
+            {form.ativo ? "E-mail com bloco de upsell ativo" : "E-mail sem upsell (desativado)"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="bg-[#f1f5f9] rounded-xl p-6">
-            <UpsellPreview data={form} />
+          <div className="rounded-xl overflow-hidden border border-border/30">
+            <FullEmailPreview data={form} tipo={tipo} />
           </div>
         </CardContent>
       </Card>
