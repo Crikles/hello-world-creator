@@ -58,64 +58,60 @@ const defaultData = (lojaId: string, tipo: string): UpsellData => ({
   cor_fundo: "#f8fafc",
 });
 
-function UpsellPreview({ data }: { data: UpsellData }) {
+function buildUpsellBlockHtml(data: UpsellData): string {
+  const imgBlock = data.produto_imagem_url
+    ? `<td style="width:120px;vertical-align:top;"><img src="${data.produto_imagem_url}" alt="${data.produto_nome}" style="width:120px;height:120px;object-fit:cover;border-radius:12px;" /></td>`
+    : `<td style="width:120px;vertical-align:top;"><div style="width:120px;height:120px;border-radius:12px;background-color:#e2e8f0;"></div></td>`;
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;border-radius:16px;overflow:hidden;background-color:${data.cor_fundo};">
+    <tr><td style="padding:24px;">
+      <p style="margin:0 0 4px;text-align:center;font-size:20px;font-weight:800;color:${data.cor_headline};">${data.headline || "Headline"}</p>
+      <p style="margin:0 0 16px;text-align:center;font-size:13px;color:${data.cor_sub_headline};">${data.sub_headline || "Sub headline"}</p>
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        ${imgBlock}
+        <td style="vertical-align:top;padding-left:16px;">
+          <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:${data.cor_nome_produto};">${data.produto_nome || "Nome do Produto"}</p>
+          <p style="margin:0 0 8px;font-size:12px;line-height:1.4;color:${data.cor_descricao};">${data.produto_descricao || "Descrição do produto"}</p>
+          <p style="margin:0;font-size:18px;font-weight:800;color:${data.cor_valor};">${data.produto_valor || "R$ 0,00"}</p>
+        </td>
+      </tr></table>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 0;"><tr><td align="center">
+        <a href="${data.botao_url || "#"}" style="display:inline-block;background-color:${data.cor_botao_bg};color:${data.cor_botao_texto};padding:12px 36px;border-radius:50px;font-weight:700;font-size:14px;text-decoration:none;letter-spacing:0.3px;">${data.botao_texto || "Comprar Agora"}</a>
+      </td></tr></table>
+    </td></tr>
+  </table>`;
+}
+
+function FullEmailPreview({ data, tipo }: { data: UpsellData; tipo: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const eventName = tipo === "nfe" ? "Postado" : "Coletado";
+  const sections = defaultSectionsByEvent[eventName];
+
+  const fullHtml = useMemo(() => {
+    const upsellBlock = data.ativo ? buildUpsellBlockHtml(data) : undefined;
+    const raw = buildEmailHtml(sections, "#6366f1", eventName, undefined, upsellBlock);
+    return replaceVariables(raw, dadosExemplo);
+  }, [data, sections, eventName]);
+
+  useEffect(() => {
+    if (iframeRef.current) {
+      const doc = iframeRef.current.contentDocument;
+      if (doc) {
+        doc.open();
+        doc.write(fullHtml);
+        doc.close();
+      }
+    }
+  }, [fullHtml]);
+
   return (
-    <div
-      style={{ backgroundColor: data.cor_fundo, borderRadius: 16, padding: 24, maxWidth: 480, margin: "0 auto" }}
-      className="border border-border/30"
-    >
-      <h3 style={{ color: data.cor_headline, fontSize: 20, fontWeight: 800, margin: "0 0 4px", textAlign: "center" }}>
-        {data.headline || "Headline"}
-      </h3>
-      <p style={{ color: data.cor_sub_headline, fontSize: 13, margin: "0 0 16px", textAlign: "center" }}>
-        {data.sub_headline || "Sub headline"}
-      </p>
-
-      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-        {data.produto_imagem_url ? (
-          <img
-            src={data.produto_imagem_url}
-            alt={data.produto_nome}
-            style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 12, flexShrink: 0 }}
-          />
-        ) : (
-          <div style={{ width: 120, height: 120, borderRadius: 12, backgroundColor: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Package className="h-8 w-8 text-muted-foreground" />
-          </div>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ color: data.cor_nome_produto, fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>
-            {data.produto_nome || "Nome do Produto"}
-          </p>
-          <p style={{ color: data.cor_descricao, fontSize: 12, margin: "0 0 8px", lineHeight: 1.4 }}>
-            {data.produto_descricao || "Descrição do produto"}
-          </p>
-          <p style={{ color: data.cor_valor, fontSize: 18, fontWeight: 800, margin: 0 }}>
-            {data.produto_valor || "R$ 0,00"}
-          </p>
-        </div>
-      </div>
-
-      <div style={{ textAlign: "center", marginTop: 16 }}>
-        <a
-          href="#"
-          onClick={(e) => e.preventDefault()}
-          style={{
-            display: "inline-block",
-            backgroundColor: data.cor_botao_bg,
-            color: data.cor_botao_texto,
-            padding: "12px 36px",
-            borderRadius: 50,
-            fontWeight: 700,
-            fontSize: 14,
-            textDecoration: "none",
-            letterSpacing: 0.3,
-          }}
-        >
-          {data.botao_texto || "Comprar Agora"}
-        </a>
-      </div>
-    </div>
+    <iframe
+      ref={iframeRef}
+      title="Email Preview"
+      className="w-full border-0 rounded-xl"
+      sandbox="allow-same-origin"
+      style={{ minHeight: 700, height: 700 }}
+    />
   );
 }
 
