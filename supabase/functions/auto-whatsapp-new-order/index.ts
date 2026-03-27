@@ -1,7 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const UAZAPI_BASE = "https://rushsend.uazapi.com";
-
 /**
  * Normalizes a phone number for UAZAPI delivery.
  */
@@ -10,20 +8,6 @@ function normalizeBrazilianPhone(raw: string): string {
   if (digits.length === 10 || digits.length === 11) return "55" + digits;
   if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
   return digits;
-}
-
-/** Check real instance status via UAZAPI API */
-async function checkInstanceStatus(token: string): Promise<string> {
-  try {
-    const res = await fetch(`${UAZAPI_BASE}/instance/status`, {
-      method: "GET",
-      headers: { Accept: "application/json", token },
-    });
-    const data = await res.json();
-    return data.instance?.status || data.status || data.state || "disconnected";
-  } catch {
-    return "disconnected";
-  }
 }
 
 Deno.serve(async (req) => {
@@ -41,10 +25,10 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // 1. Check if whatsapp_auto_send is ON
+    // 1. Check if whatsapp_auto_send is ON and get delay config
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("whatsapp_auto_send, whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url")
+      .select("whatsapp_auto_send, whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url, whatsapp_delay_seconds")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
@@ -52,16 +36,26 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, skipped: true, reason: "whatsapp_auto_send is OFF" }), { status: 200 });
     }
 
-    // 2. Check if already sent for this envio (duplicate guard)
+    // 2. Check if already queued/sent for this envio (duplicate guard)
     const { data: existingLog } = await supabase
-      .from("whatsapp_message_log")
+      .from("whatsapp_send_queue")
       .select("id")
       .eq("envio_id", envio_id)
       .limit(1)
       .maybeSingle();
 
     if (existingLog) {
-      return new Response(JSON.stringify({ success: true, skipped: true, reason: "already_sent" }), { status: 200 });
+      // Also check message_log
+      const { data: existingMsg } = await supabase
+        .from("whatsapp_message_log")
+        .select("id")
+        .eq("envio_id", envio_id)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingMsg || existingLog) {
+        return new Response(JSON.stringify({ success: true, skipped: true, reason: "already_queued" }), { status: 200 });
+      }
     }
 
     // 3. Fetch envio data
@@ -75,58 +69,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, skipped: true, reason: "no_phone" }), { status: 200 });
     }
 
-    // 4. Fetch connected instances with active subscriptions
-    const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN");
-    if (!ADMIN_TOKEN) {
-      return new Response(JSON.stringify({ success: true, skipped: true, reason: "no_uazapi_token" }), { status: 200 });
-    }
-
-    const { data: waInstances } = await supabase
-      .from("whatsapp_instances")
-      .select("*")
-      .eq("loja_id", loja_id)
-      .eq("status", "connected");
-
-    const activeInstances = (waInstances || []).filter(
-      (i: any) => i.expires_at && new Date(i.expires_at) > new Date()
-    );
-
-    if (activeInstances.length === 0) {
-      return new Response(JSON.stringify({ success: true, skipped: true, reason: "no_active_instances" }), { status: 200 });
-    }
-
-    // 5. Validate instance status via API and filter out disconnected ones
-    const verifiedInstances: any[] = [];
-    for (const inst of activeInstances) {
-      const realStatus = await checkInstanceStatus(inst.instance_token);
-      if (realStatus === "connected") {
-        verifiedInstances.push(inst);
-      } else {
-        // Update stale status in DB
-        await supabase
-          .from("whatsapp_instances")
-          .update({ status: realStatus, updated_at: new Date().toISOString() })
-          .eq("id", inst.id);
-        console.log(`[auto-whatsapp] Instance ${inst.instance_name} is ${realStatus}, removed from rotation`);
-      }
-    }
-
-    if (verifiedInstances.length === 0) {
-      // Log the failure with reason
-      await supabase.from("whatsapp_message_log").insert({
-        envio_id,
-        loja_id,
-        status: "failed",
-        error_reason: "Todas as instâncias estão desconectadas",
-        http_status: 0,
-      });
-      return new Response(JSON.stringify({ success: true, skipped: true, reason: "all_instances_disconnected" }), { status: 200 });
-    }
-
-    // Round-robin: pick random verified instance
-    const inst = verifiedInstances[Math.floor(Math.random() * verifiedInstances.length)];
-
-    // 6. Build message from template
+    // 4. Build message from template
     let produtoNome = envio.produto;
     try {
       const parsed = JSON.parse(envio.produto);
@@ -155,44 +98,50 @@ Deno.serve(async (req) => {
     if (btn2Text && btn2Url) choices.push(`${btn2Text}|${btn2Url}`);
     if (replyText) choices.push(replyText);
 
-    const sendBody: Record<string, unknown> = {
-      number,
-      type: "button",
-      text: imageUrl ? `\n${text}` : text,
-      choices,
-    };
-    if (imageUrl) sendBody.imageButton = imageUrl;
-    if (footerText) sendBody.footerText = footerText;
+    // 5. Calculate scheduled_at respecting delay
+    const delaySeconds = config.whatsapp_delay_seconds || 300; // default 5 min
 
-    // 7. Send via UAZAPI
-    const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        token: inst.instance_token,
-      },
-      body: JSON.stringify(sendBody),
-    });
+    const { data: lastQueued } = await supabase
+      .from("whatsapp_send_queue")
+      .select("scheduled_at")
+      .eq("loja_id", loja_id)
+      .eq("status", "pending")
+      .order("scheduled_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const resBody = await res.json();
-    const waStatus = res.ok ? "sent" : "failed";
-    const errorReason = res.ok ? null : (resBody?.message || resBody?.error || JSON.stringify(resBody).slice(0, 200));
+    const now = new Date();
+    let scheduledAt: Date;
 
-    // 8. Log message with error details
-    await supabase.from("whatsapp_message_log").insert({
+    if (lastQueued?.scheduled_at) {
+      const lastTime = new Date(lastQueued.scheduled_at).getTime();
+      const nextTime = lastTime + delaySeconds * 1000;
+      scheduledAt = new Date(Math.max(now.getTime(), nextTime));
+    } else {
+      scheduledAt = now;
+    }
+
+    // 6. Insert into queue instead of sending directly
+    const { error: queueErr } = await supabase.from("whatsapp_send_queue").insert({
       envio_id,
-      loja_id,
-      instance_id: inst.id,
-      status: waStatus,
-      error_reason: errorReason,
-      provider_response: resBody,
-      http_status: res.status,
+      loja_id: loja_id,
+      number,
+      msg_text: imageUrl ? `\n${text}` : text,
+      image_url: imageUrl,
+      footer_text: footerText || null,
+      choices,
+      scheduled_at: scheduledAt.toISOString(),
+      status: "pending",
     });
 
-    console.log(`[auto-whatsapp] ${waStatus} for envio ${envio_id} via ${inst.instance_name}${errorReason ? ` | reason: ${errorReason}` : ""}`);
+    if (queueErr) {
+      console.error(`[auto-whatsapp] Failed to queue message for envio ${envio_id}:`, queueErr);
+      return new Response(JSON.stringify({ error: "Failed to queue" }), { status: 500 });
+    }
 
-    return new Response(JSON.stringify({ success: true, status: waStatus }), { status: 200 });
+    console.log(`[auto-whatsapp] Queued for envio ${envio_id}, scheduled_at: ${scheduledAt.toISOString()}`);
+
+    return new Response(JSON.stringify({ success: true, queued: true, scheduled_at: scheduledAt.toISOString() }), { status: 200 });
   } catch (error) {
     console.error("[auto-whatsapp] Error:", error);
     return new Response(JSON.stringify({ error: "Internal error" }), { status: 500 });

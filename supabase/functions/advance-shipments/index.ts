@@ -870,8 +870,8 @@ async function advanceShipment(
       }
     }
 
-    // WhatsApp auto-send with round-robin instance rotation
-    // Skip on first advance (currentOrdem === 0) — already sent at creation time by auto-whatsapp-new-order
+    // WhatsApp auto-send — enqueue with delay instead of sending directly
+    // Skip on first advance (currentOrdem === 0) — already queued at creation time by auto-whatsapp-new-order
     if (
       currentOrdem > 0 &&
       config.whatsapp_auto_send &&
@@ -879,89 +879,74 @@ async function advanceShipment(
       !nextEvent.enviar_nfe_pdf
     ) {
       try {
-        const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN");
-        if (ADMIN_TOKEN) {
-          // Fetch connected instances with active subscriptions
-          const { data: waInstances } = await supabase
-            .from("whatsapp_instances")
-            .select("*")
-            .eq("loja_id", lojaId)
-            .eq("status", "connected");
+        // Build message from template
+        let produtoNome = shipment.produto;
+        try {
+          const parsed = JSON.parse(shipment.produto);
+          if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
+        } catch { /* not JSON */ }
 
-          const activeWaInstances = (waInstances || []).filter(
-            (i: any) => i.expires_at && new Date(i.expires_at) > new Date()
-          );
+        const msgTemplate = config.whatsapp_msg_template || "Olá {{nome}}! Seu pedido foi atualizado.";
+        let text = msgTemplate
+          .replace(/\{\{nome\}\}/g, shipment.cliente_nome || "")
+          .replace(/\{\{produto\}\}/g, produtoNome)
+          .replace(/\{\{valor\}\}/g, Number(shipment.valor || 0).toFixed(2))
+          .replace(/\{\{codigo_rastreio\}\}/g, shipment.codigo_rastreio || "");
 
-          if (activeWaInstances.length > 0) {
-            // Round-robin rotation per loja
-            if (!whatsappCounters[lojaId]) whatsappCounters[lojaId] = 0;
-            const inst = activeWaInstances[whatsappCounters[lojaId] % activeWaInstances.length];
-            whatsappCounters[lojaId]++;
+        const number = normalizeBrazilianPhone(shipment.cliente_telefone);
 
-            // Build message from template
-            let produtoNome = shipment.produto;
-            try {
-              const parsed = JSON.parse(shipment.produto);
-              if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
-            } catch { /* not JSON */ }
+        const btnText = config.whatsapp_btn_text || "📦 Rastrear Pedido";
+        const waRedirectUrl = Deno.env.get("SUPABASE_URL") || "";
+        const trackingUrl = `${waRedirectUrl}/functions/v1/redirect?c=${shipment.codigo_rastreio || ""}`;
+        const footerText = config.whatsapp_footer || "";
+        const imageUrl = config.whatsapp_image_url || null;
+        const replyText = config.whatsapp_reply_text || null;
+        const btn2Text = config.whatsapp_btn2_text || null;
+        const btn2Url = config.whatsapp_btn2_url || null;
 
-            const msgTemplate = config.whatsapp_msg_template || "Olá {{nome}}! Seu pedido foi atualizado.";
-            let text = msgTemplate
-              .replace(/\{\{nome\}\}/g, shipment.cliente_nome || "")
-              .replace(/\{\{produto\}\}/g, produtoNome)
-              .replace(/\{\{valor\}\}/g, Number(shipment.valor || 0).toFixed(2))
-              .replace(/\{\{codigo_rastreio\}\}/g, shipment.codigo_rastreio || "");
+        const choices: string[] = [];
+        if (btnText && trackingUrl) choices.push(`${btnText}|${trackingUrl}`);
+        if (btn2Text && btn2Url) choices.push(`${btn2Text}|${btn2Url}`);
+        if (replyText) choices.push(replyText);
 
-            const number = normalizeBrazilianPhone(shipment.cliente_telefone);
+        // Calculate scheduled_at respecting delay
+        const delaySeconds = config.whatsapp_delay_seconds || 300;
 
-            const btnText = config.whatsapp_btn_text || "📦 Rastrear Pedido";
-            const waRedirectUrl = Deno.env.get("SUPABASE_URL") || "";
-            const trackingUrl = `${waRedirectUrl}/functions/v1/redirect?c=${shipment.codigo_rastreio || ""}`;
-            const footerText = config.whatsapp_footer || "";
-            const imageUrl = config.whatsapp_image_url || null;
-            const replyText = config.whatsapp_reply_text || null;
-            const btn2Text = config.whatsapp_btn2_text || null;
-            const btn2Url = config.whatsapp_btn2_url || null;
+        const { data: lastQueued } = await supabase
+          .from("whatsapp_send_queue")
+          .select("scheduled_at")
+          .eq("loja_id", lojaId)
+          .eq("status", "pending")
+          .order("scheduled_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-            const choices: string[] = [];
-            if (btnText && trackingUrl) choices.push(`${btnText}|${trackingUrl}`);
-            if (btn2Text && btn2Url) choices.push(`${btn2Text}|${btn2Url}`);
-            if (replyText) choices.push(replyText);
+        const nowMs = Date.now();
+        let scheduledAt: Date;
 
-            const sendBody: Record<string, unknown> = {
-              number,
-              type: "button",
-              text: imageUrl ? `\n${text}` : text,
-              choices,
-            };
-            if (imageUrl) sendBody.imageButton = imageUrl;
-            if (footerText) sendBody.footerText = footerText;
-
-            const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                token: inst.instance_token,
-              },
-              body: JSON.stringify(sendBody),
-            });
-
-            const waStatus = res.ok ? "sent" : "failed";
-
-            // Log message
-            await supabase.from("whatsapp_message_log").insert({
-              envio_id: envioId,
-              loja_id: lojaId,
-              instance_id: inst.id,
-              status: waStatus,
-            });
-
-            console.log(`WhatsApp ${waStatus} for envio ${envioId} via instance ${inst.instance_name}`);
-          }
+        if (lastQueued?.scheduled_at) {
+          const lastTime = new Date(lastQueued.scheduled_at).getTime();
+          const nextTime = lastTime + delaySeconds * 1000;
+          scheduledAt = new Date(Math.max(nowMs, nextTime));
+        } else {
+          scheduledAt = new Date(nowMs);
         }
+
+        await supabase.from("whatsapp_send_queue").insert({
+          envio_id: envioId,
+          loja_id: lojaId,
+          number,
+          msg_text: imageUrl ? `\n${text}` : text,
+          image_url: imageUrl,
+          footer_text: footerText || null,
+          choices,
+          scheduled_at: scheduledAt.toISOString(),
+          status: "pending",
+        });
+
+        console.log(`WhatsApp queued for envio ${envioId}, scheduled_at: ${scheduledAt.toISOString()}`);
       } catch (waErr) {
-        console.error(`WhatsApp auto-send failed for envio ${envioId}:`, waErr);
+        console.error(`WhatsApp queue failed for envio ${envioId}:`, waErr);
       }
     }
 
