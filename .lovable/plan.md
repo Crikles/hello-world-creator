@@ -1,37 +1,30 @@
 
 
-## Plan: Respeitar delay de WhatsApp em todos os fluxos de envio
+## Plan: Bulk send ("Enviar Todos") deve respeitar delay e consultar fila existente
 
 ### Problema
-O `whatsapp_delay_seconds` (ex: 5 minutos) só é respeitado no disparo em massa manual (bulk queue via `send-whatsapp`). Nos outros dois fluxos — novo pedido (`auto-whatsapp-new-order`) e avanço automático (`advance-shipments`) — as mensagens são enviadas **imediatamente**, sem nenhum intervalo. Quando vários pedidos chegam juntos ou o cron processa vários envios, todas as mensagens disparam ao mesmo tempo.
+O fluxo de envio em massa (`send-queue` no `send-whatsapp`) calcula o escalonamento a partir de `Date.now()` sem verificar itens já pendentes na fila. Se já existem mensagens agendadas (de novos pedidos ou avanços automáticos), o bulk send sobrepõe os horários, quebrando o intervalo configurado.
 
-### Solução
-Em vez de enviar direto pela UAZAPI, ambos os fluxos passam a **enfileirar** na tabela `whatsapp_send_queue` com `scheduled_at` escalonado. O cron já processa essa fila a cada 5 minutos — basta inserir corretamente.
+### Alteração
 
-### Alterações
+**Arquivo: `supabase/functions/send-whatsapp/index.ts` (ação `send-queue`, linhas ~631-663)**
 
-**1. `supabase/functions/auto-whatsapp-new-order/index.ts`**
-- Remover o envio direto via UAZAPI (`fetch send/menu`)
-- Em vez disso, calcular o `scheduled_at` baseado no último item da fila daquela loja + `whatsapp_delay_seconds`
-- Inserir na `whatsapp_send_queue` com status `pending`
-- Buscar `whatsapp_delay_seconds` do `postagem_config` (hoje não é lido)
+Antes de montar os `queueItems`, buscar o último `scheduled_at` pendente da loja na `whatsapp_send_queue` (mesmo padrão que `auto-whatsapp-new-order` já faz). Usar esse valor como base do escalonamento:
 
-**2. `supabase/functions/advance-shipments/index.ts` (linhas ~873-970)**
-- Substituir o envio direto por inserção na `whatsapp_send_queue`
-- Mesmo cálculo de `scheduled_at`: último item pendente da fila da loja + delay
-- Manter a lógica de skip no primeiro avanço (já enviado pelo new-order)
-
-### Lógica de escalonamento
 ```text
-1. Buscar último scheduled_at pendente da loja na fila
-2. Se não existe, usar now()
-3. Novo scheduled_at = max(now(), último_scheduled_at + delay_seconds)
-4. Inserir na whatsapp_send_queue
+1. Buscar último scheduled_at pendente da loja
+2. baseTime = max(now, último_scheduled_at + delaySeconds)
+3. Cada item subsequente: baseTime + (i * delaySeconds)
 ```
 
+Isso garante que:
+- Mensagens em massa respeitam o delay entre si
+- Não sobrepõem mensagens já agendadas por outros fluxos
+- Intercalam instâncias via round-robin (já implementado)
+
 ### O que não muda
-- Processamento da fila pelo cron (já funciona)
-- Disparo em massa manual (já usa a fila corretamente)
-- Configuração do delay na UI (já salva `whatsapp_delay_seconds`)
-- Validação de instância e fallback (feitos no processamento da fila)
+- `auto-whatsapp-new-order` (já consulta a fila)
+- `advance-shipments` (já consulta a fila)
+- Processamento do cron
+- UI do WhatsApp
 
