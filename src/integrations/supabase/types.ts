@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_cashback_processed: {
+        Row: {
+          destinatarios: Json
+          id: string
+          period_end: string
+          period_start: string
+          processed_at: string
+          processed_by: string
+          total_cashback: number
+          total_clients: number
+          user_id: string
+        }
+        Insert: {
+          destinatarios?: Json
+          id?: string
+          period_end: string
+          period_start: string
+          processed_at?: string
+          processed_by: string
+          total_cashback?: number
+          total_clients?: number
+          user_id: string
+        }
+        Update: {
+          destinatarios?: Json
+          id?: string
+          period_end?: string
+          period_start?: string
+          processed_at?: string
+          processed_by?: string
+          total_cashback?: number
+          total_clients?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       batch_progress: {
         Row: {
           cancelled: boolean
