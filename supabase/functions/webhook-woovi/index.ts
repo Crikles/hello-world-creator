@@ -223,6 +223,42 @@ Deno.serve(async (req) => {
 
         console.log("Payment processed:", pixPayment.id, "User:", pixPayment.user_id, "Moedas:", pixPayment.moedas);
 
+        // Dispatch notification webhooks (fire-and-forget)
+        try {
+          const { data: activeWebhooks } = await supabase
+            .from("admin_payment_webhooks")
+            .select("url")
+            .eq("ativo", true);
+
+          if (activeWebhooks && activeWebhooks.length > 0) {
+            const { data: userProfile } = await supabase
+              .from("profiles")
+              .select("full_name, email")
+              .eq("id", pixPayment.user_id)
+              .maybeSingle();
+
+            const webhookPayload = {
+              evento: "recarga_pix",
+              usuario: userProfile?.full_name || "Desconhecido",
+              email: userProfile?.email || "",
+              valor: `R$ ${(pixPayment.amount_cents / 100).toFixed(2).replace(".", ",")}`,
+              moedas: Number(pixPayment.moedas),
+              data: new Date().toISOString(),
+            };
+
+            for (const wh of activeWebhooks) {
+              fetch(wh.url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(webhookPayload),
+              }).catch((err) => console.error("Webhook dispatch error:", wh.url, err));
+            }
+            console.log(`Dispatched ${activeWebhooks.length} notification webhooks`);
+          }
+        } catch (whErr) {
+          console.error("Error dispatching notification webhooks:", whErr);
+        }
+
         return new Response(
             JSON.stringify({ success: true, message: "Payment processed" }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
