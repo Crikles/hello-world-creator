@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import {
   AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, ShieldAlert,
-  CalendarIcon, RefreshCw, Send, CircleAlert, CircleX,
+  CalendarIcon, RefreshCw, Send, CircleAlert, CircleX, Download, Users,
 } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -54,6 +54,7 @@ interface Evento {
   id: string;
   nome: string;
   status_label: string | null;
+  ordem: number;
 }
 
 interface TodayFailure {
@@ -200,7 +201,7 @@ export default function AdminEmailSaude() {
   const { data: eventos } = useQuery({
     queryKey: ["admin-all-eventos"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("postagem_eventos").select("id, nome, status_label");
+      const { data, error } = await supabase.from("postagem_eventos").select("id, nome, status_label, ordem");
       if (error) throw error;
       return data as Evento[];
     },
@@ -225,16 +226,48 @@ export default function AdminEmailSaude() {
     return m;
   }, [eventos]);
 
-  // Group by user_id
+  // Set of evento IDs that are in the first 3 stages (ordem <= 3)
+  const first3EventoIds = useMemo(() => {
+    const s = new Set<string>();
+    eventos?.forEach((e) => { if (e.ordem <= 3) s.add(e.id); });
+    return s;
+  }, [eventos]);
+
+  // Group by user_id — track cashback-eligible clients (failed all 3 first stages)
   const userStats = useMemo(() => {
     if (!negativeLogs || !lojas) return [];
+
+    // First pass: track per loja+destinatario which of the first 3 stages failed
+    const destStages = new Map<string, { lojaId: string; stages: Set<number> }>();
+    for (const log of negativeLogs) {
+      if (!log.evento_id || !first3EventoIds.has(log.evento_id)) continue;
+      const evento = eventoMap.get(log.evento_id);
+      if (!evento) continue;
+      const key = `${log.loja_id}__${log.destinatario}`;
+      if (!destStages.has(key)) {
+        destStages.set(key, { lojaId: log.loja_id, stages: new Set() });
+      }
+      destStages.get(key)!.stages.add(evento.ordem);
+    }
+
+    // Identify cashback-eligible destinatarios (failed all 3 first stages)
+    const cashbackEligible = new Map<string, Set<string>>(); // lojaId -> Set<destinatario>
+    for (const [key, info] of destStages) {
+      if (info.stages.size >= 3) {
+        const dest = key.split("__")[1];
+        if (!cashbackEligible.has(info.lojaId)) cashbackEligible.set(info.lojaId, new Set());
+        cashbackEligible.get(info.lojaId)!.add(dest);
+      }
+    }
 
     const byUser = new Map<string, {
       userId: string;
       userName: string;
       userEmail: string;
       lojaNames: Set<string>;
+      lojaIds: Set<string>;
       uniqueDestinatarios: Set<string>;
+      cashbackEligible: Set<string>;
       bounced: number;
       complained: number;
       failed: number;
@@ -255,7 +288,9 @@ export default function AdminEmailSaude() {
           userName: profile?.full_name || "Sem nome",
           userEmail: profile?.email || "",
           lojaNames: new Set(),
+          lojaIds: new Set(),
           uniqueDestinatarios: new Set(),
+          cashbackEligible: new Set(),
           bounced: 0, complained: 0, failed: 0, delivery_delayed: 0, total: 0,
           byEvento: new Map(),
         });
@@ -263,8 +298,14 @@ export default function AdminEmailSaude() {
 
       const entry = byUser.get(userId)!;
       entry.lojaNames.add(loja.nome);
+      entry.lojaIds.add(loja.id);
       entry.total++;
       entry.uniqueDestinatarios.add(log.destinatario);
+
+      // Check if this destinatario is cashback eligible for this loja
+      if (cashbackEligible.get(log.loja_id)?.has(log.destinatario)) {
+        entry.cashbackEligible.add(log.destinatario);
+      }
 
       if (log.status === "bounced") entry.bounced++;
       else if (log.status === "complained") entry.complained++;
@@ -283,8 +324,8 @@ export default function AdminEmailSaude() {
       }
     }
 
-    return Array.from(byUser.values()).sort((a, b) => b.uniqueDestinatarios.size - a.uniqueDestinatarios.size);
-  }, [negativeLogs, lojaMap, profileMap, eventoMap, lojas]);
+    return Array.from(byUser.values()).sort((a, b) => b.cashbackEligible.size - a.cashbackEligible.size);
+  }, [negativeLogs, lojaMap, profileMap, eventoMap, lojas, first3EventoIds]);
 
   // Summary stats
   const stats = useMemo(() => {
@@ -307,6 +348,115 @@ export default function AdminEmailSaude() {
       return next;
     });
   };
+
+  // CSV export for cashback-eligible leads
+  const handleExportCSV = useCallback(async () => {
+    // Collect all cashback-eligible destinatarios across all users
+    const allEligible: { destinatario: string; lojaIds: string[] }[] = [];
+    for (const user of userStats) {
+      if (user.cashbackEligible.size === 0) continue;
+      for (const dest of user.cashbackEligible) {
+        const lojaIds = Array.from(user.lojaIds);
+        allEligible.push({ destinatario: dest, lojaIds });
+      }
+    }
+
+    if (allEligible.length === 0) {
+      toast.info("Nenhum cliente elegível para cashback no período");
+      return;
+    }
+
+    toast.loading("Gerando relatório...", { id: "csv-export" });
+
+    try {
+      // Fetch leads data for these destinatarios
+      const allEmails = allEligible.map(e => e.destinatario);
+      // Fetch in batches of 100
+      const allLeads: any[] = [];
+      for (let i = 0; i < allEmails.length; i += 100) {
+        const batch = allEmails.slice(i, i + 100);
+        const { data } = await supabase
+          .from("leads")
+          .select("nome, email, cpf, telefone, produto, valor, endereco, numero, bairro, complemento, cidade, estado, cep, loja_id")
+          .in("email", batch);
+        if (data) allLeads.push(...data);
+      }
+
+      // Build CSV rows
+      const header = "Nome,Email,CPF,Telefone,Produto,Valor,Endereço,Número,Bairro,Complemento,Cidade,Estado,CEP,Loja,Etapas Falhadas";
+      const csvRows = [header];
+
+      for (const lead of allLeads) {
+        const loja = lead.loja_id ? lojaMap.get(lead.loja_id) : null;
+        // Find which stages failed for this lead
+        const failedStages: string[] = [];
+        if (negativeLogs) {
+          const stageSet = new Set<string>();
+          for (const log of negativeLogs) {
+            if (log.destinatario === lead.email && log.evento_id) {
+              const ev = eventoMap.get(log.evento_id);
+              if (ev && ev.ordem <= 3 && !stageSet.has(ev.status_label || ev.nome)) {
+                stageSet.add(ev.status_label || ev.nome);
+              }
+            }
+          }
+          failedStages.push(...stageSet);
+        }
+
+        const escape = (v: any) => {
+          const s = String(v ?? "").replace(/"/g, '""');
+          return `"${s}"`;
+        };
+
+        csvRows.push([
+          escape(lead.nome),
+          escape(lead.email),
+          escape(lead.cpf),
+          escape(lead.telefone),
+          escape(lead.produto),
+          escape(lead.valor),
+          escape(lead.endereco),
+          escape(lead.numero),
+          escape(lead.bairro),
+          escape(lead.complemento),
+          escape(lead.cidade),
+          escape(lead.estado),
+          escape(lead.cep),
+          escape(loja?.nome),
+          escape(failedStages.join(", ")),
+        ].join(","));
+      }
+
+      // Also add eligible destinatarios not found in leads
+      const leadEmails = new Set(allLeads.map((l: any) => l.email));
+      for (const e of allEligible) {
+        if (!leadEmails.has(e.destinatario)) {
+          const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+          csvRows.push([
+            escape(""),
+            escape(e.destinatario),
+            escape(""), escape(""), escape(""), escape(""),
+            escape(""), escape(""), escape(""), escape(""),
+            escape(""), escape(""), escape(""),
+            escape(e.lojaIds.map(id => lojaMap.get(id)?.nome || "").join(", ")),
+            escape("Postado, Coletado, Em Trânsito"),
+          ].join(","));
+        }
+      }
+
+      const blob = new Blob(["\uFEFF" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `clientes-cashback-${format(new Date(), "yyyy-MM-dd")}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success(`Relatório exportado com ${csvRows.length - 1} clientes`, { id: "csv-export" });
+    } catch (e) {
+      toast.error("Erro ao gerar relatório: " + (e as Error).message, { id: "csv-export" });
+    }
+  }, [userStats, lojaMap, eventoMap, negativeLogs]);
 
   const handleResendFailed = async () => {
     setIsResending(true);
@@ -622,8 +772,25 @@ export default function AdminEmailSaude() {
 
         {/* User ranking table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Usuários com Problemas de Entrega</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Usuários com Problemas de Entrega</CardTitle>
+              {userStats.length > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  <Users className="inline h-4 w-4 mr-1" />
+                  {userStats.reduce((sum, u) => sum + u.cashbackEligible.size, 0)} clientes elegíveis para cashback (3 primeiras etapas falharam)
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={userStats.reduce((sum, u) => sum + u.cashbackEligible.size, 0) === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar Leads Afetados
+            </Button>
           </CardHeader>
           <CardContent>
             {logsLoading ? (
@@ -659,7 +826,12 @@ export default function AdminEmailSaude() {
                               {Array.from(user.lojaNames).join(", ")}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                            {user.cashbackEligible.size > 0 && (
+                              <Badge className="bg-amber-500 hover:bg-amber-600 text-black">
+                                💰 {user.cashbackEligible.size} cashback
+                              </Badge>
+                            )}
                             <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground">
                               {user.uniqueDestinatarios.size} {user.uniqueDestinatarios.size === 1 ? "cliente afetado" : "clientes afetados"}
                             </Badge>
