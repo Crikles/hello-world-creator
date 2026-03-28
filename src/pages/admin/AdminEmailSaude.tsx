@@ -201,7 +201,7 @@ export default function AdminEmailSaude() {
   const { data: eventos } = useQuery({
     queryKey: ["admin-all-eventos"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("postagem_eventos").select("id, nome, status_label");
+      const { data, error } = await supabase.from("postagem_eventos").select("id, nome, status_label, ordem");
       if (error) throw error;
       return data as Evento[];
     },
