@@ -18,6 +18,7 @@ import {
 import {
   AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, ShieldAlert,
   CalendarIcon, RefreshCw, Send, CircleAlert, CircleX, Download, Users,
+  Check, Loader2,
 } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
