@@ -1,45 +1,27 @@
 
 
-## Plan: Métrica de clientes únicos afetados (ao invés de total de emails)
-
-### Problema atual
-As métricas contam **total de emails com problema** (ex: 230 total). Se um cliente não recebeu 3 etapas (Postado, Coletado, Em Trânsito), conta como 3. O correto seria contar **1 cliente único** com 3 etapas afetadas.
+## Plan: Filtro de datas na página de Pagamentos PIX
 
 ### Alteração
 
-**`src/pages/admin/AdminEmailSaude.tsx`** — Ajustar o `userStats` e a UI:
+**`src/pages/admin/AdminPagamentos.tsx`** — Adicionar filtro de período com atalhos rápidos e date pickers.
 
-1. **Adicionar contagem de destinatários únicos** no `useMemo` de `userStats`:
-   - Criar um `Set<string>` de `destinatario` por usuário para contar clientes únicos
-   - Manter o `total` atual (total de emails) como informação secundária
+1. **Adicionar estados de data**: `dateFrom` e `dateTo` (tipo `Date | undefined`), inicializando com "Hoje" como padrão
+2. **Atalhos rápidos**: Botões "Hoje", "7 dias", "30 dias", "Todos" que setam `dateFrom`/`dateTo` automaticamente
+3. **Date pickers**: Dois `Popover` + `Calendar` para selecionar datas customizadas (De / Até)
+4. **Filtro client-side**: Filtrar `payments` por `created_at` dentro do range antes de calcular as métricas (receita, moedas, pagos, pendentes) e a tabela
+5. **Métricas reativas**: Os 4 cards de resumo recalculam com base nos pagamentos filtrados por data + status
 
-2. **Ajustar `byEvento`** para também rastrear destinatários únicos por etapa:
-   - Cada etapa mostra "X clientes únicos" ao invés de "X problemas"
-   - Manter total de registros como detalhe secundário
+### Visual
+- Linha de filtro entre o título e os cards, com botões de atalho + dois seletores de data lado a lado
+- Botão ativo destacado com variante `default`, demais com `outline`
 
-3. **Atualizar os badges no header do usuário**:
-   - Exibir "X clientes afetados" como métrica principal (novo badge)
-   - Manter badges de bounced/failed/delivery_delayed com contagem de emails como detalhe
-
-4. **Atualizar o header da tabela expandida**:
-   - "Qtd. Clientes Únicos" ao invés de "Qtd. Problemas"
-
-### Estrutura de dados ajustada
+### Fluxo de dados
 ```text
-byUser entry:
-  + uniqueDestinatarios: Set<string>     // clientes únicos afetados
-  byEvento:
-    + uniqueDestinatarios: Set<string>   // clientes únicos por etapa
-    count: number                         // total de registros (mantido)
-```
-
-### Visual resultante
-```text
-mario  |  [83 clientes afetados]  219 bounced  4 failed  7 delivery_delayed  230 emails total
-  Postado      → 83 registros / X clientes únicos
-  Coletado     → 64 registros / Y clientes únicos
+payments (todos) → filteredByDate (dateFrom/dateTo) → cards usam filteredByDate
+                                                     → filteredByDate + tab → tabela
 ```
 
 ### Arquivo alterado
-- `src/pages/admin/AdminEmailSaude.tsx` (apenas)
+- `src/pages/admin/AdminPagamentos.tsx` (apenas)
 
