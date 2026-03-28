@@ -458,6 +458,7 @@ export default function AdminEmailSaude() {
     }
   }, [userStats, lojaMap, eventoMap, negativeLogs]);
 
+  const handleResendFailed = async () => {
     setIsResending(true);
     setResendResults(null);
     try {
