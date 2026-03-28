@@ -85,7 +85,38 @@ export default function AdminPagamentos() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-foreground">Pagamentos PIX</h1>
 
-        {/* Summary cards */}
+        {/* Date filter bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {([["today", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["all", "Todos"]] as const).map(([key, label]) => (
+            <Button key={key} size="sm" variant={preset === key ? "default" : "outline"} onClick={() => applyPreset(key)}>
+              {label}
+            </Button>
+          ))}
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "De"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d ? startOfDay(d) : undefined); setPreset("all"); }} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateTo ? format(dateTo, "dd/MM/yyyy") : "Até"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d ? endOfDay(d) : undefined); setPreset("all"); }} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
