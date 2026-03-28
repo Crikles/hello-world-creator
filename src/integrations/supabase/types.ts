@@ -50,6 +50,30 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_payment_webhooks: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          label: string | null
+          url: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          label?: string | null
+          url: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          label?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
       batch_progress: {
         Row: {
           cancelled: boolean

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,11 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, Coins, CheckCircle, Clock, CalendarIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { DollarSign, Coins, CheckCircle, Clock, CalendarIcon, Webhook, Trash2, Plus } from "lucide-react";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type PixPaymentRow = {
   id: string;
@@ -229,7 +232,127 @@ export default function AdminPagamentos() {
             </Card>
           </TabsContent>
         </Tabs>
+        {/* Webhooks Section */}
+        <WebhooksSection />
       </div>
     </AdminLayout>
+  );
+}
+
+function WebhooksSection() {
+  const queryClient = useQueryClient();
+  const [newUrl, setNewUrl] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+
+  const { data: webhooks = [] } = useQuery({
+    queryKey: ["admin-payment-webhooks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("admin_payment_webhooks")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("admin_payment_webhooks")
+        .insert({ url: newUrl.trim(), label: newLabel.trim() || null });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-payment-webhooks"] });
+      setNewUrl("");
+      setNewLabel("");
+      toast.success("Webhook adicionado");
+    },
+    onError: () => toast.error("Erro ao adicionar webhook"),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, ativo }: { id: string; ativo: boolean }) => {
+      const { error } = await supabase
+        .from("admin_payment_webhooks")
+        .update({ ativo })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-payment-webhooks"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("admin_payment_webhooks")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-payment-webhooks"] });
+      toast.success("Webhook removido");
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-foreground">
+          <Webhook className="h-5 w-5" />
+          Webhooks de Notificação
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">Receba notificações externas quando uma recarga PIX for confirmada.</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Add new */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            placeholder="Label (opcional)"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            className="sm:w-48"
+          />
+          <Input
+            placeholder="https://..."
+            value={newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            className="flex-1"
+          />
+          <Button
+            size="sm"
+            disabled={!newUrl.trim().startsWith("http") || addMutation.isPending}
+            onClick={() => addMutation.mutate()}
+          >
+            <Plus className="h-4 w-4 mr-1" /> Adicionar
+          </Button>
+        </div>
+
+        {/* List */}
+        {webhooks.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhum webhook configurado.</p>
+        ) : (
+          <div className="space-y-2">
+            {webhooks.map((wh) => (
+              <div key={wh.id} className="flex items-center gap-3 rounded-md border border-border p-3">
+                <Switch
+                  checked={wh.ativo}
+                  onCheckedChange={(checked) => toggleMutation.mutate({ id: wh.id, ativo: checked })}
+                />
+                <div className="flex-1 min-w-0">
+                  {wh.label && <span className="text-sm font-medium text-foreground mr-2">{wh.label}</span>}
+                  <span className="text-xs text-muted-foreground break-all">{wh.url}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(wh.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
