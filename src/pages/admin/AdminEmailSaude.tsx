@@ -234,6 +234,31 @@ export default function AdminEmailSaude() {
     return s;
   }, [eventos]);
 
+  // Fetch already-processed cashback batches for this period
+  const { data: processedBatches, refetch: refetchProcessed } = useQuery({
+    queryKey: ["admin-cashback-processed", since, until],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("admin_cashback_processed")
+        .select("*")
+        .gte("period_start", since)
+        .lte("period_end", until);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Set of destinatarios already processed in this period (per user)
+  const processedDestinatarios = useMemo(() => {
+    const m = new Map<string, Set<string>>(); // userId -> Set<destinatario>
+    processedBatches?.forEach((b: any) => {
+      if (!m.has(b.user_id)) m.set(b.user_id, new Set());
+      const dests = b.destinatarios as string[];
+      dests?.forEach((d: string) => m.get(b.user_id)!.add(d));
+    });
+    return m;
+  }, [processedBatches]);
+
   // Group by user_id — track cashback-eligible clients (failed all 3 first stages)
   const userStats = useMemo(() => {
     if (!negativeLogs || !lojas) return [];
@@ -252,7 +277,7 @@ export default function AdminEmailSaude() {
     }
 
     // Identify cashback-eligible destinatarios (failed all 3 first stages)
-    const cashbackEligible = new Map<string, Set<string>>(); // lojaId -> Set<destinatario>
+    const cashbackEligible = new Map<string, Set<string>>();
     for (const [key, info] of destStages) {
       if (info.stages.size >= 3) {
         const dest = key.split("__")[1];
@@ -267,19 +292,15 @@ export default function AdminEmailSaude() {
       userEmail: string;
       lojaNames: Set<string>;
       lojaIds: Set<string>;
-      uniqueDestinatarios: Set<string>;
       cashbackEligible: Set<string>;
-      bounced: number;
-      complained: number;
-      failed: number;
-      delivery_delayed: number;
       total: number;
-      byEvento: Map<string, { nome: string; count: number; uniqueDestinatarios: Set<string> }>;
     }>();
 
     for (const log of negativeLogs) {
       const loja = lojaMap.get(log.loja_id);
       if (!loja) continue;
+      if (!cashbackEligible.get(log.loja_id)?.has(log.destinatario)) continue;
+      
       const userId = loja.user_id;
       const profile = profileMap.get(userId);
 
@@ -290,43 +311,30 @@ export default function AdminEmailSaude() {
           userEmail: profile?.email || "",
           lojaNames: new Set(),
           lojaIds: new Set(),
-          uniqueDestinatarios: new Set(),
           cashbackEligible: new Set(),
-          bounced: 0, complained: 0, failed: 0, delivery_delayed: 0, total: 0,
-          byEvento: new Map(),
+          total: 0,
         });
       }
 
       const entry = byUser.get(userId)!;
       entry.lojaNames.add(loja.nome);
       entry.lojaIds.add(loja.id);
+      entry.cashbackEligible.add(log.destinatario);
       entry.total++;
-      entry.uniqueDestinatarios.add(log.destinatario);
-
-      // Check if this destinatario is cashback eligible for this loja
-      if (cashbackEligible.get(log.loja_id)?.has(log.destinatario)) {
-        entry.cashbackEligible.add(log.destinatario);
-      }
-
-      if (log.status === "bounced") entry.bounced++;
-      else if (log.status === "complained") entry.complained++;
-      else if (log.status === "failed") entry.failed++;
-      else if (log.status === "delivery_delayed") entry.delivery_delayed++;
-
-      if (log.evento_id) {
-        const evento = eventoMap.get(log.evento_id);
-        const eventoNome = evento?.status_label || evento?.nome || "Desconhecido";
-        if (!entry.byEvento.has(log.evento_id)) {
-          entry.byEvento.set(log.evento_id, { nome: eventoNome, count: 0, uniqueDestinatarios: new Set() });
-        }
-        const ev = entry.byEvento.get(log.evento_id)!;
-        ev.count++;
-        ev.uniqueDestinatarios.add(log.destinatario);
-      }
     }
 
-    return Array.from(byUser.values()).sort((a, b) => b.cashbackEligible.size - a.cashbackEligible.size);
-  }, [negativeLogs, lojaMap, profileMap, eventoMap, lojas, first3EventoIds]);
+    // Filter out already-processed destinatarios
+    const result = Array.from(byUser.values()).map((user) => {
+      const processed = processedDestinatarios.get(user.userId);
+      const pendingCashback = new Set<string>();
+      for (const d of user.cashbackEligible) {
+        if (!processed?.has(d)) pendingCashback.add(d);
+      }
+      return { ...user, pendingCashback };
+    }).filter(u => u.pendingCashback.size > 0);
+
+    return result.sort((a, b) => b.pendingCashback.size - a.pendingCashback.size);
+  }, [negativeLogs, lojaMap, profileMap, eventoMap, lojas, first3EventoIds, processedDestinatarios]);
 
   // Summary stats
   const stats = useMemo(() => {
@@ -350,32 +358,14 @@ export default function AdminEmailSaude() {
     });
   };
 
-  // CSV export for cashback-eligible leads
-  const handleExportCSV = useCallback(async () => {
-    // Collect all cashback-eligible destinatarios across all users
-    const allEligible: { destinatario: string; lojaIds: string[] }[] = [];
-    for (const user of userStats) {
-      if (user.cashbackEligible.size === 0) continue;
-      for (const dest of user.cashbackEligible) {
-        const lojaIds = Array.from(user.lojaIds);
-        allEligible.push({ destinatario: dest, lojaIds });
-      }
-    }
-
-    if (allEligible.length === 0) {
-      toast.info("Nenhum cliente elegível para cashback no período");
-      return;
-    }
-
+  // Per-user CSV export
+  const handleExportUserCSV = useCallback(async (user: typeof userStats[0]) => {
     toast.loading("Gerando relatório...", { id: "csv-export" });
-
     try {
-      // Fetch leads data for these destinatarios
-      const allEmails = allEligible.map(e => e.destinatario);
-      // Fetch in batches of 100
+      const emails = Array.from(user.pendingCashback);
       const allLeads: any[] = [];
-      for (let i = 0; i < allEmails.length; i += 100) {
-        const batch = allEmails.slice(i, i + 100);
+      for (let i = 0; i < emails.length; i += 100) {
+        const batch = emails.slice(i, i + 100);
         const { data } = await supabase
           .from("leads")
           .select("nome, email, cpf, telefone, produto, valor, endereco, numero, bairro, complemento, cidade, estado, cep, loja_id")
@@ -383,64 +373,28 @@ export default function AdminEmailSaude() {
         if (data) allLeads.push(...data);
       }
 
-      // Build CSV rows
       const header = "Nome,Email,CPF,Telefone,Produto,Valor,Endereço,Número,Bairro,Complemento,Cidade,Estado,CEP,Loja,Etapas Falhadas";
       const csvRows = [header];
+      const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 
       for (const lead of allLeads) {
         const loja = lead.loja_id ? lojaMap.get(lead.loja_id) : null;
-        // Find which stages failed for this lead
-        const failedStages: string[] = [];
-        if (negativeLogs) {
-          const stageSet = new Set<string>();
-          for (const log of negativeLogs) {
-            if (log.destinatario === lead.email && log.evento_id) {
-              const ev = eventoMap.get(log.evento_id);
-              if (ev && ev.ordem <= 3 && !stageSet.has(ev.status_label || ev.nome)) {
-                stageSet.add(ev.status_label || ev.nome);
-              }
-            }
-          }
-          failedStages.push(...stageSet);
-        }
-
-        const escape = (v: any) => {
-          const s = String(v ?? "").replace(/"/g, '""');
-          return `"${s}"`;
-        };
-
         csvRows.push([
-          escape(lead.nome),
-          escape(lead.email),
-          escape(lead.cpf),
-          escape(lead.telefone),
-          escape(lead.produto),
-          escape(lead.valor),
-          escape(lead.endereco),
-          escape(lead.numero),
-          escape(lead.bairro),
-          escape(lead.complemento),
-          escape(lead.cidade),
-          escape(lead.estado),
-          escape(lead.cep),
-          escape(loja?.nome),
-          escape(failedStages.join(", ")),
+          escape(lead.nome), escape(lead.email), escape(lead.cpf), escape(lead.telefone),
+          escape(lead.produto), escape(lead.valor), escape(lead.endereco), escape(lead.numero),
+          escape(lead.bairro), escape(lead.complemento), escape(lead.cidade), escape(lead.estado),
+          escape(lead.cep), escape(loja?.nome), escape("Postado, Coletado, Em Trânsito"),
         ].join(","));
       }
 
-      // Also add eligible destinatarios not found in leads
+      // Add destinatarios not found in leads
       const leadEmails = new Set(allLeads.map((l: any) => l.email));
-      for (const e of allEligible) {
-        if (!leadEmails.has(e.destinatario)) {
-          const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      for (const e of emails) {
+        if (!leadEmails.has(e)) {
           csvRows.push([
-            escape(""),
-            escape(e.destinatario),
-            escape(""), escape(""), escape(""), escape(""),
-            escape(""), escape(""), escape(""), escape(""),
-            escape(""), escape(""), escape(""),
-            escape(e.lojaIds.map(id => lojaMap.get(id)?.nome || "").join(", ")),
-            escape("Postado, Coletado, Em Trânsito"),
+            escape(""), escape(e), escape(""), escape(""), escape(""), escape(""),
+            escape(""), escape(""), escape(""), escape(""), escape(""), escape(""), escape(""),
+            escape(Array.from(user.lojaNames).join(", ")), escape("Postado, Coletado, Em Trânsito"),
           ].join(","));
         }
       }
@@ -449,16 +403,45 @@ export default function AdminEmailSaude() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `clientes-cashback-${format(new Date(), "yyyy-MM-dd")}.csv`;
+      a.download = `cashback-${user.userName.replace(/\s+/g, "_")}-${format(new Date(), "yyyy-MM-dd")}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-
-      toast.success(`Relatório exportado com ${csvRows.length - 1} clientes`, { id: "csv-export" });
+      toast.success(`Exportado ${csvRows.length - 1} leads`, { id: "csv-export" });
     } catch (e) {
-      toast.error("Erro ao gerar relatório: " + (e as Error).message, { id: "csv-export" });
+      toast.error("Erro ao exportar: " + (e as Error).message, { id: "csv-export" });
     }
-  }, [userStats, lojaMap, eventoMap, negativeLogs]);
+  }, [lojaMap, supabase]);
 
+  // Mark as done
+  const [markingDone, setMarkingDone] = useState<string | null>(null);
+  const handleMarkDone = useCallback(async (user: typeof userStats[0]) => {
+    const confirmed = window.confirm(
+      `Marcar cashback de ${user.userName} como processado?\n\n` +
+      `${user.pendingCashback.size} clientes × R$ 0,50 = R$ ${(user.pendingCashback.size * 0.5).toFixed(2)}\n\n` +
+      `Esses clientes serão ocultados após confirmar.`
+    );
+    if (!confirmed) return;
+
+    setMarkingDone(user.userId);
+    try {
+      const { error } = await supabase.from("admin_cashback_processed").insert({
+        user_id: user.userId,
+        total_clients: user.pendingCashback.size,
+        total_cashback: user.pendingCashback.size * 0.5,
+        period_start: since,
+        period_end: until,
+        processed_by: (await supabase.auth.getUser()).data.user?.id || "",
+        destinatarios: Array.from(user.pendingCashback),
+      });
+      if (error) throw error;
+      toast.success(`Cashback de ${user.userName} marcado como processado`);
+      refetchProcessed();
+    } catch (e) {
+      toast.error("Erro: " + (e as Error).message);
+    } finally {
+      setMarkingDone(null);
+    }
+  }, [since, until, supabase, refetchProcessed]);
   const handleResendFailed = async () => {
     setIsResending(true);
     setResendResults(null);
