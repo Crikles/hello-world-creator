@@ -234,12 +234,13 @@ export default function AdminEmailSaude() {
       userName: string;
       userEmail: string;
       lojaNames: Set<string>;
+      uniqueDestinatarios: Set<string>;
       bounced: number;
       complained: number;
       failed: number;
       delivery_delayed: number;
       total: number;
-      byEvento: Map<string, { nome: string; count: number }>;
+      byEvento: Map<string, { nome: string; count: number; uniqueDestinatarios: Set<string> }>;
     }>();
 
     for (const log of negativeLogs) {
@@ -254,6 +255,7 @@ export default function AdminEmailSaude() {
           userName: profile?.full_name || "Sem nome",
           userEmail: profile?.email || "",
           lojaNames: new Set(),
+          uniqueDestinatarios: new Set(),
           bounced: 0, complained: 0, failed: 0, delivery_delayed: 0, total: 0,
           byEvento: new Map(),
         });
@@ -262,6 +264,7 @@ export default function AdminEmailSaude() {
       const entry = byUser.get(userId)!;
       entry.lojaNames.add(loja.nome);
       entry.total++;
+      entry.uniqueDestinatarios.add(log.destinatario);
 
       if (log.status === "bounced") entry.bounced++;
       else if (log.status === "complained") entry.complained++;
@@ -272,13 +275,15 @@ export default function AdminEmailSaude() {
         const evento = eventoMap.get(log.evento_id);
         const eventoNome = evento?.status_label || evento?.nome || "Desconhecido";
         if (!entry.byEvento.has(log.evento_id)) {
-          entry.byEvento.set(log.evento_id, { nome: eventoNome, count: 0 });
+          entry.byEvento.set(log.evento_id, { nome: eventoNome, count: 0, uniqueDestinatarios: new Set() });
         }
-        entry.byEvento.get(log.evento_id)!.count++;
+        const ev = entry.byEvento.get(log.evento_id)!;
+        ev.count++;
+        ev.uniqueDestinatarios.add(log.destinatario);
       }
     }
 
-    return Array.from(byUser.values()).sort((a, b) => b.total - a.total);
+    return Array.from(byUser.values()).sort((a, b) => b.uniqueDestinatarios.size - a.uniqueDestinatarios.size);
   }, [negativeLogs, lojaMap, profileMap, eventoMap, lojas]);
 
   // Summary stats
@@ -655,11 +660,14 @@ export default function AdminEmailSaude() {
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
+                            <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                              {user.uniqueDestinatarios.size} {user.uniqueDestinatarios.size === 1 ? "cliente afetado" : "clientes afetados"}
+                            </Badge>
                             {statusBadge("bounced", user.bounced)}
                             {statusBadge("complained", user.complained)}
                             {statusBadge("failed", user.failed)}
                             {statusBadge("delivery_delayed", user.delivery_delayed)}
-                            <Badge variant="secondary">{user.total} total</Badge>
+                            <Badge variant="secondary">{user.total} emails</Badge>
                           </div>
                         </Button>
                       </CollapsibleTrigger>
@@ -669,23 +677,27 @@ export default function AdminEmailSaude() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Etapa do Fluxo</TableHead>
-                                <TableHead className="text-right">Qtd. Problemas</TableHead>
+                                <TableHead className="text-right">Clientes Únicos</TableHead>
+                                <TableHead className="text-right">Total Emails</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {user.byEvento.size === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={2} className="text-center text-muted-foreground">
+                                  <TableCell colSpan={3} className="text-center text-muted-foreground">
                                     Sem dados de etapa disponíveis
                                   </TableCell>
                                 </TableRow>
                               ) : (
                                 Array.from(user.byEvento.entries())
-                                  .sort((a, b) => b[1].count - a[1].count)
+                                  .sort((a, b) => b[1].uniqueDestinatarios.size - a[1].uniqueDestinatarios.size)
                                   .map(([eventoId, info]) => (
                                     <TableRow key={eventoId}>
                                       <TableCell>{info.nome}</TableCell>
                                       <TableCell className="text-right font-medium">
+                                        {info.uniqueDestinatarios.size}
+                                      </TableCell>
+                                      <TableCell className="text-right text-muted-foreground">
                                         {info.count}
                                       </TableCell>
                                     </TableRow>
