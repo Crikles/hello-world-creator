@@ -226,16 +226,48 @@ export default function AdminEmailSaude() {
     return m;
   }, [eventos]);
 
-  // Group by user_id
+  // Set of evento IDs that are in the first 3 stages (ordem <= 3)
+  const first3EventoIds = useMemo(() => {
+    const s = new Set<string>();
+    eventos?.forEach((e) => { if (e.ordem <= 3) s.add(e.id); });
+    return s;
+  }, [eventos]);
+
+  // Group by user_id — track cashback-eligible clients (failed all 3 first stages)
   const userStats = useMemo(() => {
     if (!negativeLogs || !lojas) return [];
+
+    // First pass: track per loja+destinatario which of the first 3 stages failed
+    const destStages = new Map<string, { lojaId: string; stages: Set<number> }>();
+    for (const log of negativeLogs) {
+      if (!log.evento_id || !first3EventoIds.has(log.evento_id)) continue;
+      const evento = eventoMap.get(log.evento_id);
+      if (!evento) continue;
+      const key = `${log.loja_id}__${log.destinatario}`;
+      if (!destStages.has(key)) {
+        destStages.set(key, { lojaId: log.loja_id, stages: new Set() });
+      }
+      destStages.get(key)!.stages.add(evento.ordem);
+    }
+
+    // Identify cashback-eligible destinatarios (failed all 3 first stages)
+    const cashbackEligible = new Map<string, Set<string>>(); // lojaId -> Set<destinatario>
+    for (const [key, info] of destStages) {
+      if (info.stages.size >= 3) {
+        const dest = key.split("__")[1];
+        if (!cashbackEligible.has(info.lojaId)) cashbackEligible.set(info.lojaId, new Set());
+        cashbackEligible.get(info.lojaId)!.add(dest);
+      }
+    }
 
     const byUser = new Map<string, {
       userId: string;
       userName: string;
       userEmail: string;
       lojaNames: Set<string>;
+      lojaIds: Set<string>;
       uniqueDestinatarios: Set<string>;
+      cashbackEligible: Set<string>;
       bounced: number;
       complained: number;
       failed: number;
@@ -256,7 +288,9 @@ export default function AdminEmailSaude() {
           userName: profile?.full_name || "Sem nome",
           userEmail: profile?.email || "",
           lojaNames: new Set(),
+          lojaIds: new Set(),
           uniqueDestinatarios: new Set(),
+          cashbackEligible: new Set(),
           bounced: 0, complained: 0, failed: 0, delivery_delayed: 0, total: 0,
           byEvento: new Map(),
         });
@@ -264,8 +298,14 @@ export default function AdminEmailSaude() {
 
       const entry = byUser.get(userId)!;
       entry.lojaNames.add(loja.nome);
+      entry.lojaIds.add(loja.id);
       entry.total++;
       entry.uniqueDestinatarios.add(log.destinatario);
+
+      // Check if this destinatario is cashback eligible for this loja
+      if (cashbackEligible.get(log.loja_id)?.has(log.destinatario)) {
+        entry.cashbackEligible.add(log.destinatario);
+      }
 
       if (log.status === "bounced") entry.bounced++;
       else if (log.status === "complained") entry.complained++;
@@ -284,8 +324,8 @@ export default function AdminEmailSaude() {
       }
     }
 
-    return Array.from(byUser.values()).sort((a, b) => b.uniqueDestinatarios.size - a.uniqueDestinatarios.size);
-  }, [negativeLogs, lojaMap, profileMap, eventoMap, lojas]);
+    return Array.from(byUser.values()).sort((a, b) => b.cashbackEligible.size - a.cashbackEligible.size);
+  }, [negativeLogs, lojaMap, profileMap, eventoMap, lojas, first3EventoIds]);
 
   // Summary stats
   const stats = useMemo(() => {
