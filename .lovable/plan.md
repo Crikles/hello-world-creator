@@ -1,27 +1,40 @@
 
 
-## Plan: Filtro de datas na página de Pagamentos PIX
+## Plan: Webhooks de notificação de recarga PIX
 
-### Alteração
+### Alterações
 
-**`src/pages/admin/AdminPagamentos.tsx`** — Adicionar filtro de período com atalhos rápidos e date pickers.
+**1. Tabela `admin_payment_webhooks`** — Nova migration para armazenar URLs de webhook configuradas pelo admin.
+- Colunas: `id`, `url` (text), `label` (text opcional), `ativo` (boolean, default true), `created_at`
+- RLS: apenas admins (has_role admin)
 
-1. **Adicionar estados de data**: `dateFrom` e `dateTo` (tipo `Date | undefined`), inicializando com "Hoje" como padrão
-2. **Atalhos rápidos**: Botões "Hoje", "7 dias", "30 dias", "Todos" que setam `dateFrom`/`dateTo` automaticamente
-3. **Date pickers**: Dois `Popover` + `Calendar` para selecionar datas customizadas (De / Até)
-4. **Filtro client-side**: Filtrar `payments` por `created_at` dentro do range antes de calcular as métricas (receita, moedas, pagos, pendentes) e a tabela
-5. **Métricas reativas**: Os 4 cards de resumo recalculam com base nos pagamentos filtrados por data + status
+**2. `src/pages/admin/AdminPagamentos.tsx`** — Adicionar seção "Webhooks" abaixo da tabela de pagamentos.
+- CRUD de webhooks: listar URLs cadastradas, input para adicionar nova URL, botão remover
+- Toggle ativo/inativo por webhook
+- Busca e mutação via react-query + supabase
 
-### Visual
-- Linha de filtro entre o título e os cards, com botões de atalho + dois seletores de data lado a lado
-- Botão ativo destacado com variante `default`, demais com `outline`
+**3. `supabase/functions/webhook-woovi/index.ts`** — Após processar pagamento com sucesso (após linha 224), disparar POST para todas as URLs ativas na tabela `admin_payment_webhooks`.
+- Payload: nome do usuário, email, valor em reais, moedas, data
+- Fire-and-forget (não bloqueia resposta do webhook principal)
 
-### Fluxo de dados
-```text
-payments (todos) → filteredByDate (dateFrom/dateTo) → cards usam filteredByDate
-                                                     → filteredByDate + tab → tabela
+**4. Seed inicial** — Inserir as 2 URLs do PushCut via migration INSERT:
+- `https://api.pushcut.io/cnofVRbcHtpDYX8uuBjpi/notifications/Recarga%20Magnus`
+- `https://api.pushcut.io/nvQPVRoZkrDRY_bb1oBXq/notifications/MinhaNotifica%C3%A7%C3%A3o1`
+
+### Payload enviado aos webhooks
+```json
+{
+  "evento": "recarga_pix",
+  "usuario": "Nome",
+  "email": "email@...",
+  "valor": "R$ 50,00",
+  "moedas": 100,
+  "data": "2026-03-28T..."
+}
 ```
 
-### Arquivo alterado
-- `src/pages/admin/AdminPagamentos.tsx` (apenas)
+### Arquivos alterados
+- Nova migration SQL (tabela + seed)
+- `src/pages/admin/AdminPagamentos.tsx`
+- `supabase/functions/webhook-woovi/index.ts`
 
