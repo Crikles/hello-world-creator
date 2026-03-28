@@ -826,7 +826,12 @@ export default function AdminEmailSaude() {
                               {Array.from(user.lojaNames).join(", ")}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                            {user.cashbackEligible.size > 0 && (
+                              <Badge className="bg-amber-500 hover:bg-amber-600 text-black">
+                                💰 {user.cashbackEligible.size} cashback
+                              </Badge>
+                            )}
                             <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground">
                               {user.uniqueDestinatarios.size} {user.uniqueDestinatarios.size === 1 ? "cliente afetado" : "clientes afetados"}
                             </Badge>
