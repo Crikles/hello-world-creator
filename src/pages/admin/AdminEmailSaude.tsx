@@ -349,7 +349,115 @@ export default function AdminEmailSaude() {
     });
   };
 
-  const handleResendFailed = async () => {
+  // CSV export for cashback-eligible leads
+  const handleExportCSV = useCallback(async () => {
+    // Collect all cashback-eligible destinatarios across all users
+    const allEligible: { destinatario: string; lojaIds: string[] }[] = [];
+    for (const user of userStats) {
+      if (user.cashbackEligible.size === 0) continue;
+      for (const dest of user.cashbackEligible) {
+        const lojaIds = Array.from(user.lojaIds);
+        allEligible.push({ destinatario: dest, lojaIds });
+      }
+    }
+
+    if (allEligible.length === 0) {
+      toast.info("Nenhum cliente elegível para cashback no período");
+      return;
+    }
+
+    toast.loading("Gerando relatório...", { id: "csv-export" });
+
+    try {
+      // Fetch leads data for these destinatarios
+      const allEmails = allEligible.map(e => e.destinatario);
+      // Fetch in batches of 100
+      const allLeads: any[] = [];
+      for (let i = 0; i < allEmails.length; i += 100) {
+        const batch = allEmails.slice(i, i + 100);
+        const { data } = await supabase
+          .from("leads")
+          .select("nome, email, cpf, telefone, produto, valor, endereco, numero, bairro, complemento, cidade, estado, cep, loja_id")
+          .in("email", batch);
+        if (data) allLeads.push(...data);
+      }
+
+      // Build CSV rows
+      const header = "Nome,Email,CPF,Telefone,Produto,Valor,Endereço,Número,Bairro,Complemento,Cidade,Estado,CEP,Loja,Etapas Falhadas";
+      const csvRows = [header];
+
+      for (const lead of allLeads) {
+        const loja = lead.loja_id ? lojaMap.get(lead.loja_id) : null;
+        // Find which stages failed for this lead
+        const failedStages: string[] = [];
+        if (negativeLogs) {
+          const stageSet = new Set<string>();
+          for (const log of negativeLogs) {
+            if (log.destinatario === lead.email && log.evento_id) {
+              const ev = eventoMap.get(log.evento_id);
+              if (ev && ev.ordem <= 3 && !stageSet.has(ev.status_label || ev.nome)) {
+                stageSet.add(ev.status_label || ev.nome);
+              }
+            }
+          }
+          failedStages.push(...stageSet);
+        }
+
+        const escape = (v: any) => {
+          const s = String(v ?? "").replace(/"/g, '""');
+          return `"${s}"`;
+        };
+
+        csvRows.push([
+          escape(lead.nome),
+          escape(lead.email),
+          escape(lead.cpf),
+          escape(lead.telefone),
+          escape(lead.produto),
+          escape(lead.valor),
+          escape(lead.endereco),
+          escape(lead.numero),
+          escape(lead.bairro),
+          escape(lead.complemento),
+          escape(lead.cidade),
+          escape(lead.estado),
+          escape(lead.cep),
+          escape(loja?.nome),
+          escape(failedStages.join(", ")),
+        ].join(","));
+      }
+
+      // Also add eligible destinatarios not found in leads
+      const leadEmails = new Set(allLeads.map((l: any) => l.email));
+      for (const e of allEligible) {
+        if (!leadEmails.has(e.destinatario)) {
+          const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+          csvRows.push([
+            escape(""),
+            escape(e.destinatario),
+            escape(""), escape(""), escape(""), escape(""),
+            escape(""), escape(""), escape(""), escape(""),
+            escape(""), escape(""), escape(""),
+            escape(e.lojaIds.map(id => lojaMap.get(id)?.nome || "").join(", ")),
+            escape("Postado, Coletado, Em Trânsito"),
+          ].join(","));
+        }
+      }
+
+      const blob = new Blob(["\uFEFF" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `clientes-cashback-${format(new Date(), "yyyy-MM-dd")}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success(`Relatório exportado com ${csvRows.length - 1} clientes`, { id: "csv-export" });
+    } catch (e) {
+      toast.error("Erro ao gerar relatório: " + (e as Error).message, { id: "csv-export" });
+    }
+  }, [userStats, lojaMap, eventoMap, negativeLogs]);
+
     setIsResending(true);
     setResendResults(null);
     try {
