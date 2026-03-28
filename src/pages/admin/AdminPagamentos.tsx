@@ -34,8 +34,22 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   CANCELLED: { label: "Cancelado", variant: "destructive" },
 };
 
+type DatePreset = "today" | "7d" | "30d" | "all";
+
 export default function AdminPagamentos() {
   const [tab, setTab] = useState("all");
+  const [preset, setPreset] = useState<DatePreset>("today");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(startOfDay(new Date()));
+  const [dateTo, setDateTo] = useState<Date | undefined>(endOfDay(new Date()));
+
+  const applyPreset = (p: DatePreset) => {
+    setPreset(p);
+    const now = new Date();
+    if (p === "today") { setDateFrom(startOfDay(now)); setDateTo(endOfDay(now)); }
+    else if (p === "7d") { setDateFrom(startOfDay(subDays(now, 6))); setDateTo(endOfDay(now)); }
+    else if (p === "30d") { setDateFrom(startOfDay(subDays(now, 29))); setDateTo(endOfDay(now)); }
+    else { setDateFrom(undefined); setDateTo(undefined); }
+  };
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["admin-pix-payments"],
@@ -49,13 +63,22 @@ export default function AdminPagamentos() {
     },
   });
 
-  const paid = payments.filter((p) => p.status === "PAID");
-  const pending = payments.filter((p) => p.status === "PENDING");
+  const filteredByDate = useMemo(() => {
+    return payments.filter((p) => {
+      const d = new Date(p.created_at);
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }, [payments, dateFrom, dateTo]);
+
+  const paid = filteredByDate.filter((p) => p.status === "PAID");
+  const pending = filteredByDate.filter((p) => p.status === "PENDING");
 
   const totalReais = paid.reduce((s, p) => s + p.amount_cents, 0) / 100;
   const totalMoedas = paid.reduce((s, p) => s + Number(p.moedas), 0);
 
-  const filtered = tab === "all" ? payments : payments.filter((p) => p.status === tab);
+  const filtered = tab === "all" ? filteredByDate : filteredByDate.filter((p) => p.status === tab);
 
   return (
     <AdminLayout>
