@@ -772,8 +772,25 @@ export default function AdminEmailSaude() {
 
         {/* User ranking table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Usuários com Problemas de Entrega</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Usuários com Problemas de Entrega</CardTitle>
+              {userStats.length > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  <Users className="inline h-4 w-4 mr-1" />
+                  {userStats.reduce((sum, u) => sum + u.cashbackEligible.size, 0)} clientes elegíveis para cashback (3 primeiras etapas falharam)
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={userStats.reduce((sum, u) => sum + u.cashbackEligible.size, 0) === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar Leads Afetados
+            </Button>
           </CardHeader>
           <CardContent>
             {logsLoading ? (
