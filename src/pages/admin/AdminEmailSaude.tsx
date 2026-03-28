@@ -754,27 +754,19 @@ export default function AdminEmailSaude() {
           </Card>
         )}
 
-        {/* User ranking table */}
+        {/* Cashback Pendente por Usuário */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
-              <CardTitle>Usuários com Problemas de Entrega</CardTitle>
+              <CardTitle>Cashback Pendente</CardTitle>
               {userStats.length > 0 && (
                 <p className="text-sm text-muted-foreground mt-1">
                   <Users className="inline h-4 w-4 mr-1" />
-                  {userStats.reduce((sum, u) => sum + u.cashbackEligible.size, 0)} clientes elegíveis para cashback (3 primeiras etapas falharam)
+                  {userStats.reduce((sum, u) => sum + u.pendingCashback.size, 0)} clientes pendentes ·
+                  R$ {(userStats.reduce((sum, u) => sum + u.pendingCashback.size, 0) * 0.5).toFixed(2)} em cashback
                 </p>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              disabled={userStats.reduce((sum, u) => sum + u.cashbackEligible.size, 0) === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Exportar Leads Afetados
-            </Button>
           </CardHeader>
           <CardContent>
             {logsLoading ? (
@@ -783,7 +775,7 @@ export default function AdminEmailSaude() {
               </div>
             ) : userStats.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">
-                Nenhum problema encontrado no período. 🎉
+                Nenhum cashback pendente no período. ✅
               </p>
             ) : (
               <div className="space-y-2">
@@ -810,57 +802,51 @@ export default function AdminEmailSaude() {
                               {Array.from(user.lojaNames).join(", ")}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                            {user.cashbackEligible.size > 0 && (
-                              <Badge className="bg-amber-500 hover:bg-amber-600 text-black">
-                                💰 {user.cashbackEligible.size} cashback
-                              </Badge>
-                            )}
-                            <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                              {user.uniqueDestinatarios.size} {user.uniqueDestinatarios.size === 1 ? "cliente afetado" : "clientes afetados"}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge className="bg-amber-500 hover:bg-amber-600 text-black">
+                              💰 {user.pendingCashback.size} clientes · R$ {(user.pendingCashback.size * 0.5).toFixed(2)}
                             </Badge>
-                            {statusBadge("bounced", user.bounced)}
-                            {statusBadge("complained", user.complained)}
-                            {statusBadge("failed", user.failed)}
-                            {statusBadge("delivery_delayed", user.delivery_delayed)}
-                            <Badge variant="secondary">{user.total} emails</Badge>
                           </div>
                         </Button>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <div className="px-4 pb-4 pt-2">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Etapa do Fluxo</TableHead>
-                                <TableHead className="text-right">Clientes Únicos</TableHead>
-                                <TableHead className="text-right">Total Emails</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {user.byEvento.size === 0 ? (
-                                <TableRow>
-                                  <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                    Sem dados de etapa disponíveis
-                                  </TableCell>
-                                </TableRow>
+                        <div className="px-4 pb-4 pt-2 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); handleExportUserCSV(user); }}
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Baixar CSV ({user.pendingCashback.size} leads)
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={(e) => { e.stopPropagation(); handleMarkDone(user); }}
+                              disabled={markingDone === user.userId}
+                            >
+                              {markingDone === user.userId ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               ) : (
-                                Array.from(user.byEvento.entries())
-                                  .sort((a, b) => b[1].uniqueDestinatarios.size - a[1].uniqueDestinatarios.size)
-                                  .map(([eventoId, info]) => (
-                                    <TableRow key={eventoId}>
-                                      <TableCell>{info.nome}</TableCell>
-                                      <TableCell className="text-right font-medium">
-                                        {info.uniqueDestinatarios.size}
-                                      </TableCell>
-                                      <TableCell className="text-right text-muted-foreground">
-                                        {info.count}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))
+                                <Check className="mr-2 h-4 w-4" />
                               )}
-                            </TableBody>
-                          </Table>
+                              Marcar como Processado
+                            </Button>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            <p>Clientes que <strong>não receberam</strong> os 3 primeiros emails (Postado, Coletado, Em Trânsito):</p>
+                            <div className="mt-2 max-h-40 overflow-auto">
+                              <div className="flex flex-wrap gap-1">
+                                {Array.from(user.pendingCashback).map((dest) => (
+                                  <Badge key={dest} variant="outline" className="text-xs font-mono">
+                                    {dest}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </CollapsibleContent>
                     </div>
