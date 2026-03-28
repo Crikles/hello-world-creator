@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import {
   AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, ShieldAlert,
-  CalendarIcon, RefreshCw, Send, CircleAlert, CircleX,
+  CalendarIcon, RefreshCw, Send, CircleAlert, CircleX, Download, Users,
 } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -54,6 +54,7 @@ interface Evento {
   id: string;
   nome: string;
   status_label: string | null;
+  ordem: number;
 }
 
 interface TodayFailure {
