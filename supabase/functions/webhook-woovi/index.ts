@@ -103,9 +103,17 @@ Deno.serve(async (req) => {
                     }
                 } else {
                     console.error(`OpenPix status check failed: HTTP ${verifyResponse.status}`);
+                    return new Response(
+                        JSON.stringify({ error: "Unable to verify payment status" }),
+                        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
                 }
             } catch (err) {
                 console.error("Error verifying with OpenPix:", err);
+                return new Response(
+                    JSON.stringify({ error: "Payment verification failed" }),
+                    { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
             }
         }
 

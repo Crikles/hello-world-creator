@@ -6,6 +6,15 @@ const corsHeaders = {
         "authorization, x-client-info, apikey, content-type",
 };
 
+function maskName(name: string): string {
+    if (!name) return "";
+    const parts = name.trim().split(/\s+/);
+    return parts.map((p) => {
+        if (p.length <= 2) return p[0] + "*";
+        return p[0] + "*".repeat(p.length - 1);
+    }).join(" ");
+}
+
 /**
  * Public endpoint to fetch tracking data for a given codigo_rastreio.
  * No authentication required — accessed from the public tracking page.
@@ -110,7 +119,7 @@ Deno.serve(async (req) => {
                             id: envio.id,
                             produto: envio.produto,
                             codigo_rastreio: envio.codigo_rastreio,
-                            cliente_nome: envio.cliente_nome,
+                            cliente_nome: maskName(envio.cliente_nome),
                             transportadora: envio.transportadora || "JL Transportes",
                             status: envio.status,
                             ultimo_evento_ordem: envio.ultimo_evento_ordem,
@@ -145,7 +154,7 @@ Deno.serve(async (req) => {
                     id: envio.id,
                     produto: envio.produto,
                     codigo_rastreio: envio.codigo_rastreio,
-                    cliente_nome: envio.cliente_nome,
+                    cliente_nome: maskName(envio.cliente_nome),
                     transportadora: envio.transportadora || "JL Transportes",
                     status: envio.status,
                     ultimo_evento_ordem: envio.ultimo_evento_ordem,
