@@ -51,13 +51,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if email already registered in auth (skip for existing users verifying)
+    // Check if email already registered (skip for existing users verifying)
     if (!skip_email_check) {
-      const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const emailExists = existingUsers?.users?.some(
-        (u) => normalizeEmail(u.email || "") === normalizedEmail
-      );
-      if (emailExists) {
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .maybeSingle();
+      if (existingProfile) {
         return new Response(
           JSON.stringify({ error: "Este email já está cadastrado. Faça login." }),
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
