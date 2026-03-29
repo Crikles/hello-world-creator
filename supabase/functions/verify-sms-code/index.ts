@@ -163,7 +163,37 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Rate limit: count recent failed attempts for this phone (max 5 in 10 min)
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { count: failedAttempts } = await supabase
+      .from("signup_verifications")
+      .select("*", { count: "exact", head: true })
+      .eq("phone", normalizedPhone)
+      .eq("status", "bloqueado")
+      .gte("created_at", tenMinAgo);
+
+    if ((failedAttempts || 0) >= 5) {
+      return new Response(
+        JSON.stringify({ error: "Muitas tentativas incorretas. Aguarde 10 minutos e solicite um novo código." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (verification.code !== trimmedCode) {
+      // Mark this verification as blocked after wrong attempt
+      // We track by updating the current record to count attempts
+      const attempts = (verification as any).attempts || 0;
+      if (attempts >= 4) {
+        // 5th wrong attempt — invalidate the code
+        await supabase
+          .from("signup_verifications")
+          .update({ status: "bloqueado" })
+          .eq("id", verification.id);
+        return new Response(
+          JSON.stringify({ error: "Código bloqueado por muitas tentativas incorretas. Solicite um novo." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
         JSON.stringify({ error: "Código incorreto." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

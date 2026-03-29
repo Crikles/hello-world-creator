@@ -6,6 +6,15 @@ const corsHeaders = {
         "authorization, x-client-info, apikey, content-type",
 };
 
+function maskName(name: string): string {
+    if (!name) return "";
+    const parts = name.trim().split(/\s+/);
+    return parts.map((p) => {
+        if (p.length <= 2) return p[0] + "*";
+        return p[0] + "*".repeat(p.length - 1);
+    }).join(" ");
+}
+
 /**
  * Public endpoint to fetch tracking data for a given codigo_rastreio.
  * No authentication required — accessed from the public tracking page.
