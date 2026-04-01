@@ -1,129 +1,85 @@
 
 
-## Auditoria de Segurança — Vulnerabilidades Encontradas
+## Plan: Sistema de Recuperação de Vendas (Carrinho Abandonado)
 
-Realizei uma análise completa do código frontend, edge functions, RLS policies e fluxos de autenticação. Abaixo estão as falhas encontradas, organizadas por severidade.
+Este é um recurso completo e grande. Vou dividir em fases para garantir qualidade.
 
----
+### Visão Geral
 
-### CRÍTICO — Impersonação via SessionStorage (Escalação de Privilégio)
+Cada loja terá uma **URL de webhook dedicada para vendas pendentes** que o usuário configura no checkout. Quando um lead abandona o carrinho, o webhook recebe os dados e dispara automaticamente um **email de recuperação personalizado** (e opcionalmente SMS) com copy customizável, suporte a cupom condicional e variáveis dinâmicas extraídas do payload.
 
-**Arquivo:** `src/contexts/AuthContext.tsx`
+### Alterações
 
-O sistema de "loginAs" armazena um usuário falso no `sessionStorage` e o retorna como `user` no contexto de autenticação. **Qualquer pessoa** pode abrir o DevTools do navegador e executar:
+**1. Tabela `recovery_config` (por loja)** — Armazena a configuração de recuperação de cada loja.
+- `loja_id`, `ativo` (boolean), `delay_minutos` (tempo antes de disparar, default 30)
+- `assunto_email` (template do subject)
+- `corpo_email` (HTML do email com variáveis Mustache)
+- `enviar_sms` (boolean), `sms_template` (texto do SMS)
+- `cupom_ativo` (boolean), `codigo_cupom`, `descricao_cupom`
+- `beneficio_principal`, `beneficio_1`, `beneficio_2`, `beneficio_3`
+- `garantia`, `ps_reforco_urgencia`
+- RLS: `user_owns_loja`
 
-```javascript
-sessionStorage.setItem("impersonated_user", JSON.stringify({
-  id: "ID-DE-QUALQUER-USUARIO",
-  email: "vitima@gmail.com",
-  user_metadata: { full_name: "Admin" },
-  is_impersonated: true
-}));
-```
+**2. Tabela `recovery_leads` — Leads pendentes capturados pelo webhook.**
+- `loja_id`, `customer_name`, `customer_email`, `customer_phone`
+- `products` (jsonb — nome, valor, quantidade, imagem)
+- `total_value`, `checkout_url`, `raw_payload` (jsonb)
+- `status` (pendente / email_enviado / sms_enviado / convertido / expirado)
+- `email_sent_at`, `sms_sent_at`, `created_at`
+- RLS: `user_owns_loja`
 
-Depois basta recarregar a página — o sistema vai carregar o usuário falso e mostrar dados do outro usuário. Como as queries do Supabase usam o `session` real (não o impersonado), **os dados exibidos na tela dependem da RLS**. Porém, qualquer funcionalidade que use `user.id` do contexto (ex: criar PIX para outro usuário em `Moedas.tsx` linha 134) pode causar problemas.
+**3. Edge Function `webhook-recovery/index.ts`** — Nova função para receber eventos de venda pendente/carrinho abandonado.
+- Aceita POST com `?token=` (mesmo padrão dos outros webhooks)
+- Normaliza payload de qualquer checkout (Vega, Zedy, Luna, Corvex, Adoorei, API Externa)
+- Extrai: nome, email, telefone, produtos (nome, valor, qty), total, checkout_url
+- Salva em `recovery_leads` com status `pendente`
+- Opcionalmente dispara email/SMS imediatamente ou agenda (baseado no `delay_minutos`)
 
-**Correção:** Mover a lógica de impersonação para o servidor. O admin deve chamar uma edge function que valide que é admin e retorne os dados do usuário-alvo. Nunca confiar em sessionStorage para identidade.
+**4. Edge Function `send-recovery-email/index.ts`** — Processa e envia o email de recuperação.
+- Busca `recovery_config` da loja
+- Substitui variáveis no template: `{{nome_cliente}}`, `{{lista_produtos}}`, `{{valor_total}}`, `{{link_checkout}}`, `{{beneficio_principal}}`, etc.
+- Suporte a condicionais Mustache `{{#existe_cupom}}...{{/existe_cupom}}`
+- Envia via Resend (mesma infra existente)
+- Debita moeda do usuário
+- Atualiza `recovery_leads.status` para `email_enviado`
 
----
+**5. Página `RecuperacaoVendas.tsx`** — Nova página no painel do usuário.
+- **Aba Config**: Editor de email com preview ao vivo (similar ao Upsell/Postagens)
+  - Campo para assunto, corpo HTML com variáveis
+  - Seção de cupom (toggle + código + descrição)
+  - Campos de benefícios e garantia
+  - Toggle de SMS + template SMS
+  - Delay em minutos antes do disparo
+- **Aba Leads**: Lista de leads capturados com status, filtros, e métricas (taxa de recuperação)
+- **Webhook URL**: Exibida no topo para o usuário copiar
 
-### ALTO — useIsAdmin consulta user_roles com user impersonado
+**6. Rota e Sidebar** — Adicionar `/recuperacao` nas rotas protegidas e no sidebar com ícone adequado.
 
-**Arquivo:** `src/hooks/useIsAdmin.ts`
+**7. Integração no `Integracoes.tsx`** — Adicionar card "Recuperação de Vendas" com a URL do webhook de recovery visível.
 
-O hook usa `user.id` do contexto Auth — que pode ser o ID impersonado. Se alguém manipular o sessionStorage com o ID de um admin real, o `useIsAdmin` vai retornar `true` e dar acesso ao painel admin. A RLS protege parcialmente (a query roda com o JWT real do Supabase), mas **a rota `/admin/*` ficará acessível visualmente** porque o `AdminRoute` checa `isAdmin` que agora é `true`.
+### Variáveis Disponíveis (extraídas dos payloads)
 
-**Correção:** O `useIsAdmin` deve sempre usar `realUser` (o usuário autenticado real), nunca o potencialmente impersonado.
+Todos os checkouts já enviam dados suficientes para extrair:
+- `{{nome_cliente}}` — customer.name
+- `{{email_cliente}}` — customer.email
+- `{{lista_produtos}}` — formatado do array products (nome x qty)
+- `{{nome_produto_principal}}` — primeiro produto
+- `{{valor_total}}` — total formatado em R$
+- `{{link_checkout}}` — checkout_url do payload (quando disponível) ou campo manual
+- `{{beneficio_principal}}`, `{{beneficio_1/2/3}}`, `{{garantia}}`, `{{ps_reforco_urgencia}}` — configurados pelo usuário
+- `{{codigo_cupom}}`, `{{descricao_cupom}}` — condicionais
 
----
+### Arquivos criados/alterados
+- Nova migration SQL (2 tabelas: `recovery_config`, `recovery_leads`)
+- `supabase/functions/webhook-recovery/index.ts` (novo)
+- `supabase/functions/send-recovery-email/index.ts` (novo)
+- `src/pages/RecuperacaoVendas.tsx` (novo)
+- `src/App.tsx` (rota)
+- `src/components/layout/AppSidebar.tsx` (menu)
+- `supabase/config.toml` (verify_jwt = false para as novas functions)
 
-### ALTO — Edge Functions sem validação JWT
-
-Várias edge functions com `verify_jwt = false` no `config.toml` **não validam o JWT internamente**:
-
-- `send-verification-sms` — Qualquer um pode disparar SMS/WhatsApp de verificação passando qualquer telefone. O rate limit de 3/10min é bom, mas não há autenticação.
-- `verify-sms-code` — Público, permite brute-force do código de 6 dígitos (1M combinações). Sem rate limit de tentativas de verificação.
-- `advance-shipments` — Se não valida JWT, qualquer pessoa pode avançar envios.
-- `save-push-subscription` — Público, permite spam de subscriptions.
-
-**Correção:** Adicionar rate limiting por IP no `verify-sms-code` (máx 5 tentativas por telefone/10min). Adicionar autenticação nas edge functions que operam dados sensíveis.
-
----
-
-### ALTO — Brute-force do código SMS
-
-**Arquivo:** `supabase/functions/verify-sms-code/index.ts`
-
-Não há rate limit nas tentativas de verificação do código. Um atacante pode tentar todas as 1.000.000 combinações de 6 dígitos. O rate limit existente é apenas no **envio** do SMS (3/10min), não na **verificação**.
-
-**Correção:** Adicionar contador de tentativas na tabela `signup_verifications`. Após 5 tentativas erradas, invalidar o código.
-
----
-
-### MÉDIO — Webhook Woovi sem assinatura
-
-**Arquivo:** `supabase/functions/webhook-woovi/index.ts`
-
-O webhook verifica o status via API OpenPix (bom), mas **qualquer pessoa pode enviar um POST** com um `correlationID` válido. A verificação via API mitiga falsificação, mas se a API OpenPix estiver indisponível, o código prossegue sem verificação (linhas 104-106 apenas logam erro).
-
-**Correção:** Se a verificação via API falhar, rejeitar o webhook ao invés de continuar.
-
----
-
-### MÉDIO — Rastreio expõe dados pessoais
-
-**Arquivo:** `supabase/functions/rastreio-info/index.ts`
-
-O endpoint público retorna `cliente_nome`, `cliente_cidade`, `cliente_estado` sem autenticação. Qualquer pessoa com um código de rastreio pode ver o nome e localização do cliente.
-
-**Correção:** Considerar mascarar o nome (ex: "J*** S***") no endpoint público.
-
----
-
-### MÉDIO — listUsers() escalabilidade
-
-**Arquivo:** `supabase/functions/send-verification-sms/index.ts` (linha 56)
-
-`supabase.auth.admin.listUsers()` carrega **todos os usuários** para verificar se um email existe. Conforme a base cresce, isso ficará lento e pode falhar. Além disso, não pagina — por padrão retorna apenas 50 usuários, então emails duplicados podem passar.
-
-**Correção:** Usar `supabase.from("profiles").select("id").eq("email", email).maybeSingle()` ao invés de listar todos.
-
----
-
-### BAIXO — CORS permissivo
-
-Todas as edge functions usam `Access-Control-Allow-Origin: *`. Isso permite que qualquer site faça requisições às suas APIs.
-
-**Correção:** Restringir para os domínios permitidos (`magnusfrete.lovable.app`, `jltransportelogistica.com`, etc).
-
----
-
-### BAIXO — Redirect sem sanitização
-
-**Arquivo:** `supabase/functions/redirect/index.ts`
-
-O parâmetro `c` é inserido diretamente na URL de redirecionamento. Embora o `code` vá para um path, não é sanitizado contra caracteres especiais.
-
----
-
-## Plano de Correção (Priorizado)
-
-### Fase 1 — Crítico (Imediato)
-1. **Corrigir impersonação**: Fazer `useIsAdmin` usar `realUser` ao invés de `user`. Adicionar validação no `AdminRoute` para usar `realUser`.
-2. **Rate limit no verify-sms-code**: Adicionar contador de tentativas erradas (máx 5), bloquear código após exceder.
-
-### Fase 2 — Alto
-3. **Webhook Woovi**: Rejeitar pagamento se verificação API falhar (ao invés de continuar).
-4. **listUsers → query profiles**: Trocar `listUsers()` por query na tabela `profiles`.
-
-### Fase 3 — Médio
-5. **Mascarar nome no rastreio público**.
-6. **CORS restritivo** nas edge functions mais sensíveis.
-
-### Arquivos alterados
-- `src/hooks/useIsAdmin.ts`
-- `src/components/AdminRoute.tsx`
-- `supabase/functions/verify-sms-code/index.ts`
-- `supabase/functions/webhook-woovi/index.ts`
-- `supabase/functions/send-verification-sms/index.ts`
+### Escopo desta implementação
+Dado o tamanho, sugiro implementar em **2 fases**:
+- **Fase 1**: Tabelas + webhook + página de config com editor de email + preview + leads list
+- **Fase 2**: Disparo automático com delay (cron ou scheduled), SMS, métricas de conversão
 
