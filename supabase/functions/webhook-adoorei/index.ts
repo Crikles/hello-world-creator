@@ -217,6 +217,72 @@ Deno.serve(async (req) => {
             pedidoId = newPedido?.id;
         }
 
+        // === PIX PENDENTE recovery ===
+        const paymentMethod = (resource.payment_method || "").toLowerCase();
+        if ((event === "order.created" || event === "order.status.updated") && status === "pending" && paymentMethod.includes("pix")) {
+            const custEmail = customer.email || "";
+            if (custEmail) {
+                const recoveryTipo = "pix_pendente";
+                const { data: recoveryConfig } = await supabase
+                    .from("recovery_config")
+                    .select("ativo, enviar_sms")
+                    .eq("loja_id", lojaId)
+                    .eq("tipo", recoveryTipo)
+                    .eq("ativo", true)
+                    .maybeSingle();
+
+                if (recoveryConfig) {
+                    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                    const { data: existingLead } = await supabase
+                        .from("recovery_leads")
+                        .select("id")
+                        .eq("loja_id", lojaId)
+                        .eq("customer_email", custEmail)
+                        .eq("tipo", recoveryTipo)
+                        .gte("created_at", since24h)
+                        .maybeSingle();
+
+                    if (!existingLead) {
+                        const recoveryProducts = normalizedProducts.map((p: any) => ({
+                            name: p.title || "Produto",
+                            value: p.amount / 100,
+                            qty: p.quantity || 1,
+                        }));
+                        const custPhone = phoneLimpo || "";
+
+                        const { data: newLead } = await supabase
+                            .from("recovery_leads")
+                            .insert({
+                                loja_id: lojaId,
+                                tipo: recoveryTipo,
+                                customer_name: pedidoData.customer_name || "Cliente",
+                                customer_email: custEmail,
+                                customer_phone: custPhone,
+                                checkout_url: "",
+                                total_value: totalPriceInCents / 100,
+                                products: recoveryProducts,
+                                raw_payload: payload,
+                                status: "pendente",
+                            })
+                            .select("id")
+                            .single();
+
+                        if (newLead) {
+                            supabase.functions.invoke("send-recovery-email", {
+                                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                            }).catch((e) => console.error("[recovery-email] error:", e));
+
+                            if (recoveryConfig.enviar_sms && custPhone) {
+                                supabase.functions.invoke("send-recovery-sms", {
+                                    body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                                }).catch((e) => console.error("[recovery-sms] error:", e));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // 4. If approved and no envio linked yet, create envio (with payment method filter)
         if (status === "approved" && !existingPedido?.envio_id && pedidoId) {
             const { data: integrationConfig } = await supabase
