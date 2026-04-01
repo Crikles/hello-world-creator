@@ -184,7 +184,7 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
   if (s.mostrar_cta) {
     sections.push(`
     <tr><td style="padding:16px 40px 24px;text-align:center;">
-      <a href="{{link_checkout}}" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.3px;">
+      <a href="${s.url_cta || '{{link_checkout}}'}" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.3px;">
         👉 ${s.texto_botao}
       </a>
     </td></tr>`);
