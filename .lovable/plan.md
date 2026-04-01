@@ -1,23 +1,38 @@
 
 
-## Plan: Envio instantâneo — remover delay e disparar SMS no webhook
+## Plan: Corrigir detecção de PIX pendente no webhook Corvex
 
-### Situação atual
+### Problema identificado
 
-- O webhook `webhook-recovery` já dispara o email imediatamente (linha 176), mas **não dispara o SMS**.
-- A UI tem um campo "Delay (minutos)" na configuração que não faz sentido se o envio é instantâneo.
-- A coluna `delay_minutos` existe na tabela `recovery_config` mas não é usada no fluxo real.
+A condição de detecção de evento pendente na linha 163 do `webhook-corvex` está errada:
 
-### O que será feito
+```typescript
+// ATUAL (bugado)
+const isPendingEvent = (event === "corvex.order.created" && status === "pending") || event === "corvex.order.pending";
+```
 
-1. **`webhook-recovery/index.ts`** — Adicionar disparo instantâneo de SMS logo após o email (invocar `send-recovery-sms` com o `lead_id` do lead recém-inserido)
-   - Ajustar o insert para retornar o `id` do lead criado
-   - Invocar `send-recovery-sms` com `{ lead_id, loja_id, tipo }`
+Analisando os logs reais do banco, a Corvex envia **`corvex.order.paid`** com `status: "pending"` quando um PIX é gerado mas não pago. A condição atual **nunca** captura esse caso, pois só verifica `corvex.order.created` ou `corvex.order.pending`.
 
-2. **`src/pages/RecuperacaoVendas.tsx`** — Remover o campo "Delay (minutos)" da UI, já que o envio é sempre instantâneo
-   - Substituir por um badge/texto informativo: "⚡ Envio instantâneo — disparado assim que o lead chega"
+Evidência nos logs:
+```
+raw_event: corvex.order.paid | raw_status: pending  ← NÃO CAPTURADO
+raw_event: corvex.order.created | raw_status: pending ← capturado
+```
 
-### Arquivos alterados
-- `supabase/functions/webhook-recovery/index.ts`
-- `src/pages/RecuperacaoVendas.tsx`
+### Correção
+
+Alterar a condição para capturar **qualquer evento com status `pending`**:
+
+```typescript
+// CORRIGIDO
+const isPendingEvent = status === "pending";
+```
+
+Isso é seguro porque o fluxo de recovery já verifica se `recovery_config.ativo` está true e faz deduplicação por email/tipo nas últimas 24h.
+
+### Arquivo alterado
+- `supabase/functions/webhook-corvex/index.ts` — linha 163
+
+### Publicação
+Não precisa publicar o frontend. Edge functions são deployadas automaticamente.
 
