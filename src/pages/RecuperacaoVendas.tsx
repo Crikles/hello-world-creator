@@ -514,6 +514,11 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                     <Input value={settings.descricao_cupom} onChange={e => set("descricao_cupom", e.target.value)} className="mt-1 text-sm bg-transparent border-border/50" />
                   </div>
                 </div>
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/30">
+                  <ColorPicker label="Fundo" value={settings.cor_fundo_cupom} onChange={v => set("cor_fundo_cupom", v)} />
+                  <ColorPicker label="Borda" value={settings.cor_borda_cupom} onChange={v => set("cor_borda_cupom", v)} />
+                  <ColorPicker label="Texto" value={settings.cor_cupom_texto} onChange={v => set("cor_cupom_texto", v)} />
+                </div>
               </SectionToggle>
 
               <SectionToggle label="Garantia" icon={CheckCircle2} checked={settings.mostrar_garantia} onChange={v => set("mostrar_garantia", v)}>
