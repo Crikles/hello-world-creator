@@ -658,9 +658,9 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: "Total", value: leads.length, color: "text-foreground" },
-              { label: "Pendentes", value: leads.filter(l => l.status === "pendente").length, color: "text-yellow-600" },
-              { label: "Enviados", value: leads.filter(l => l.status === "email_enviado").length, color: "text-blue-600" },
-              { label: "Convertidos", value: leads.filter(l => l.status === "convertido").length, color: "text-green-600" },
+              { label: "Pendentes", value: leads.filter((l: any) => l.status === "pendente" && !l.email_sent_at && !l.sms_sent_at).length, color: "text-yellow-600" },
+              { label: "Disparados", value: leads.filter((l: any) => l.email_sent_at || l.sms_sent_at || l.status === "email_enviado").length, color: "text-blue-600" },
+              { label: "Convertidos", value: leads.filter((l: any) => l.status === "convertido").length, color: "text-green-600" },
             ].map(s => (
               <Card key={s.label} className="glass">
                 <CardContent className="py-3 text-center">
