@@ -536,31 +536,6 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                 <Input value={settings.ps_reforco_urgencia} onChange={e => set("ps_reforco_urgencia", e.target.value)} className="text-sm bg-transparent border-border/50" />
               </SectionToggle>
 
-              {/* Cores */}
-              <div className="glass glow-border rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Palette className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Cores</p>
-                    <p className="text-[10px] text-muted-foreground">Customize os elementos visuais</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <ColorPicker label="Botão CTA" value={settings.cor_botao} onChange={v => set("cor_botao", v)} />
-                  <ColorPicker label="Destaque" value={settings.cor_destaque} onChange={v => set("cor_destaque", v)} />
-                  <ColorPicker label="Títulos" value={settings.cor_titulo} onChange={v => set("cor_titulo", v)} />
-                  <ColorPicker label="Texto" value={settings.cor_texto} onChange={v => set("cor_texto", v)} />
-                  {settings.mostrar_cupom && (
-                    <>
-                      <ColorPicker label="Fundo Cupom" value={settings.cor_fundo_cupom} onChange={v => set("cor_fundo_cupom", v)} />
-                      <ColorPicker label="Borda Cupom" value={settings.cor_borda_cupom} onChange={v => set("cor_borda_cupom", v)} />
-                      <ColorPicker label="Texto Cupom" value={settings.cor_cupom_texto} onChange={v => set("cor_cupom_texto", v)} />
-                    </>
-                  )}
-                </div>
-              </div>
 
               <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending} className="w-full shimmer-btn" size="lg">
                 <Save className="h-4 w-4 mr-2" />
