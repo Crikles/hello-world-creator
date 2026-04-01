@@ -532,8 +532,24 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
               </SectionToggle>
 
               <SectionToggle label="Botão (CTA)" icon={ArrowRight} checked={settings.mostrar_cta} onChange={v => set("mostrar_cta", v)}>
-                <Input value={settings.texto_botao} onChange={e => set("texto_botao", e.target.value)} className="text-sm bg-transparent border-border/50" />
-                <div className="pt-2 border-t border-border/30">
+                <Input value={settings.texto_botao} onChange={e => set("texto_botao", e.target.value)} placeholder="Texto do botão" className="text-sm bg-transparent border-border/50" />
+                <div className="pt-2 border-t border-border/30 space-y-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <ExternalLink className="h-3 w-3" /> URL do Botão
+                      {!settings.url_cta && <Badge variant="secondary" className="ml-1 text-[8px] px-1 py-0">Automático</Badge>}
+                    </Label>
+                    <Input
+                      value={settings.url_cta}
+                      onChange={e => set("url_cta", e.target.value)}
+                      placeholder="https://... (vazio = URL do checkout capturada)"
+                      className="mt-1 text-sm bg-transparent border-border/50"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                      <Info className="h-3 w-3 shrink-0" />
+                      Por padrão, direciona para a URL do checkout/PIX capturada automaticamente. Altere apenas se quiser redirecionar para outro link.
+                    </p>
+                  </div>
                   <ColorPicker label="Cor do Botão" value={settings.cor_botao} onChange={v => set("cor_botao", v)} />
                 </div>
               </SectionToggle>
