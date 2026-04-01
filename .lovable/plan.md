@@ -1,42 +1,42 @@
 
-## Plan: Mostrar variáveis disponíveis e URL do CTA na configuração de email
+
+## Plan: Configurar cobrança de recuperação com preços personalizáveis
+
+### Contexto atual
+
+Os valores estão hardcoded nas edge functions:
+- `send-recovery-sms`: cobra 0.25 (linha 139)
+- `send-recovery-email`: cobra 0.50 (linha 227)
 
 ### O que será feito
 
-Na seção de configuração do email (dentro do `TabsContent value="config"`), adicionar dois elementos:
+1. **Inserir valores padrão na `system_config`** (4 novas chaves):
+   - `custo_recovery_sms_pix` = 0.15
+   - `custo_recovery_sms_carrinho` = 0.15
+   - `custo_recovery_email_pix` = 0.10
+   - `custo_recovery_email_carrinho` = 0.10
 
-1. **Card de Variáveis Disponíveis** — logo após o card "Configuração Geral" (assunto/delay/cores), um card compacto listando as variáveis que o usuário pode usar no assunto e nos textos:
-   - `{{nome_cliente}}` — Nome do cliente
-   - `{{lista_produtos}}` — Lista de produtos do pedido
-   - `{{valor_total}}` — Valor total do pedido
-   - `{{link_checkout}}` — Link do checkout/pagamento
-   - `{{nome_produto_principal}}` — Nome do primeiro produto
-   - `{{codigo_cupom}}` — Código do cupom configurado
-   - Cada variável será um chip clicável que copia para o clipboard
+2. **Atualizar `send-recovery-sms/index.ts`**:
+   - Buscar custo da `system_config` pela chave `custo_recovery_sms_{tipo}`
+   - Verificar `custom_prices` do perfil do usuário (mesma chave)
+   - Usar o valor personalizado se existir, senão o global, senão fallback 0.15
 
-2. **URL do CTA no bloco "Botão (CTA)"** — dentro do `SectionToggle` do botão CTA (linha ~530), adicionar:
-   - Um campo de input editável para URL personalizada (novo campo `url_cta` no settings)
-   - Um texto informativo: "Por padrão, o botão direciona para a URL do checkout abandonado/PIX gerado capturada automaticamente. Altere apenas se quiser redirecionar para outro link."
-   - Se o campo estiver vazio, mostrar um badge "Automático" indicando que usará `{{link_checkout}}`
+3. **Atualizar `send-recovery-email/index.ts`**:
+   - Mesmo padrão: buscar `custo_recovery_email_{tipo}` da `system_config`
+   - Verificar `custom_prices` do perfil do usuário
+   - Fallback 0.10
 
-### Alterações
+4. **Painel Admin** (`AdminValores.tsx`):
+   - Adicionar as 4 novas chaves na interface de custos para o admin editar os valores globais
+   - As chaves já serão editáveis por usuário via `custom_prices` no painel de usuários existente
 
-**Arquivo: `src/pages/RecuperacaoVendas.tsx`**
+### Padrão seguido
 
-- Adicionar interface `RecoverySettings` com novo campo opcional `url_cta: string`
-- Nos DEFAULTS, `url_cta: ""` (vazio = automático)
-- Inserir card de variáveis entre o card "Configuração Geral" e a SectionToggle "Saudação" (~linha 484)
-- No SectionToggle "Botão (CTA)" (~linha 530), adicionar input de URL + info text
-- Na função `buildEmailHtml`, usar `url_cta` se preenchido, senão `{{link_checkout}}`
-- Persistir `url_cta` como tag de metadado `{{recovery_url_cta:valor}}` no corpo_email (mesmo padrão existente)
+Mesmo padrão do `advance-shipments`: `system_config` → `custom_prices` override → fallback hardcoded.
 
-**Arquivo: `supabase/functions/send-recovery-email/index.ts`**
+### Arquivos alterados
+- `supabase/functions/send-recovery-sms/index.ts`
+- `supabase/functions/send-recovery-email/index.ts`
+- `src/pages/admin/AdminValores.tsx` (adicionar novas chaves)
+- Inserção de dados na `system_config` (4 registros)
 
-- No `parseSettings`, extrair tag `recovery_url_cta`
-- No `buildEmailHtml`, se `url_cta` estiver definido, usar no lugar de `vars.link_checkout`
-
-### Detalhes técnicos
-
-- As variáveis são renderizadas como chips com ícone de copy, usando o mesmo estilo glass do resto da página
-- O campo `url_cta` segue o padrão de metadata tags `{{recovery_url_cta:...}}` já usado para cores e toggles
-- No backend, a prioridade é: `url_cta` (se preenchido) > `vars.link_checkout` (URL capturada do webhook)
