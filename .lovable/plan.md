@@ -1,44 +1,50 @@
 
 
-## Plan: Integrar Luna com Recuperação de Vendas (Carrinho Abandonado + PIX Pendente)
+## Plan: Integrar Corvex com Recuperação de Vendas (PIX Pendente + Carrinho Abandonado)
 
-### Análise da Documentação Luna
+### Análise da Documentação Corvex
 
 **Mapeamento de eventos:**
-- **Carrinho Abandonado** → `event: "sale_cart_abandoned"` (status: `"pending"`, method: `null`)
-- **PIX Pendente** → `event: "sale_waiting_payment"` (status: `"waiting_payment"`, method: `"pix"`)
+- **PIX Pendente** → `event: "corvex.order.pending"` ou `"corvex.order.created"` com `status: "pending"` e `method: "pix"`
+- **Carrinho Abandonado** → `event: "corvex.order.created"` com `status: "pending"` e `method != "pix"` (cartão pendente/recusado = carrinho não finalizado)
 
-A Luna já tem os eventos mapeados no `eventTypeMap` (linhas 74-81). O `checkout_url` vem direto no payload.
+Nota: A Corvex não tem evento dedicado de "carrinho abandonado". O mais próximo é `corvex.order.created` com status `pending` e método não-pix, ou `corvex.order.cancelled`/`refused`.
 
-### Alteração: `supabase/functions/webhook-luna/index.ts`
+**Campos relevantes:**
+- `amount` já em reais (decimal)
+- `client.email`, `client.name`, `client.phone`
+- `items[].name`, `items[].price`, `items[].quantity`
+- Não há `checkout_url` no payload — o campo `utm.page.url` pode servir como fallback
 
-Após o upsert do pedido (linha ~154) e antes do bloco "If paid" (linha ~157), adicionar:
+### Alteração: `supabase/functions/webhook-corvex/index.ts`
+
+Após o upsert do pedido (linha ~160) e antes do bloco "If paid" (linha ~162), adicionar:
 
 ```text
-Se event === "sale_cart_abandoned" OU (event === "sale_waiting_payment" && method === "pix"):
+Se (event === "corvex.order.created" && status === "pending") OU event === "corvex.order.pending":
   1. Determinar tipo:
-     - "sale_cart_abandoned" → tipo = "carrinho"
-     - "sale_waiting_payment" + pix → tipo = "pix_pendente"
+     - method inclui "pix" → tipo = "pix_pendente"
+     - senão → tipo = "carrinho"
   2. Se client.email existe:
      - Verificar recovery_config ativo para loja + tipo
      - Verificar duplicata em recovery_leads (mesmo email + loja + tipo nas últimas 24h)
-     - checkout_url = payload.checkout_url
+     - checkout_url = payload.utm?.page?.url || ""
      - Normalizar produtos: items[].name → name, items[].price → value, items[].quantity → qty
      - total_value = payload.amount (já em reais)
      - Inserir em recovery_leads
      - Fire-and-forget: send-recovery-email e send-recovery-sms
-  3. Continuar fluxo normal
+  3. Continuar fluxo normal (não bloqueia upsert/envio)
 ```
 
 ### Detalhes técnicos
 
-- `checkout_url` vem direto de `payload.checkout_url`
-- `total_value` = `payload.amount` (Luna já envia em reais, não em centavos)
-- `customer_phone` = `client.phone` (já com DDI: 5511999999999)
+- `total_value` = `payload.amount` (Corvex envia em reais)
+- `checkout_url` = `payload.utm?.page?.url` (melhor opção disponível, já que Corvex não envia checkout_url explícito)
 - Produtos: `{ name: item.name, value: item.price, qty: item.quantity }`
 - Deduplicação 24h por email + loja_id + tipo
+- Mesmo padrão já usado nos webhooks Zedy, Vega e Luna
 
 ### Arquivo alterado
-- `supabase/functions/webhook-luna/index.ts` (apenas)
+- `supabase/functions/webhook-corvex/index.ts` (apenas)
 - Redeploy da edge function
 
