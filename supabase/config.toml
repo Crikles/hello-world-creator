@@ -71,3 +71,9 @@ verify_jwt = false
 
 [functions.api-external]
 verify_jwt = false
+
+[functions.webhook-recovery]
+verify_jwt = false
+
+[functions.send-recovery-email]
+verify_jwt = false
