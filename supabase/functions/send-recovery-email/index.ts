@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
         "X-Connection-Api-Key": RESEND_API_KEY!,
       },
       body: JSON.stringify({
-        from: `${empresaNome} <noreply@jltransportes.pro>`,
+        from: `${empresaNome} <noreply@recuperacaodenegocios.com>`,
         to: [lead.customer_email],
         subject,
         html: bodyHtml,
