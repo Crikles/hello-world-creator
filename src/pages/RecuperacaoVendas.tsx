@@ -1021,6 +1021,50 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
 
   return (
     <div className="space-y-6 animate-stagger-in">
+      {/* Custos do Serviço */}
+      <Card className="glass glow-border">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Coins className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Custos do Serviço</h2>
+              <p className="text-xs text-muted-foreground">Valores cobrados por envio efetivo</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-center space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">E-mail</span>
+              </div>
+              <p className="text-2xl font-bold text-primary">0,10</p>
+              <p className="text-[10px] text-muted-foreground">moedas por envio</p>
+              <div className="flex gap-2 justify-center mt-1">
+                <Badge variant="outline" className="text-[9px]">Carrinho Abandonado</Badge>
+                <Badge variant="outline" className="text-[9px]">PIX Pendente</Badge>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-center space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <Smartphone className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">SMS</span>
+              </div>
+              <p className="text-2xl font-bold text-primary">0,15</p>
+              <p className="text-[10px] text-muted-foreground">moedas por envio</p>
+              <div className="flex gap-2 justify-center mt-1">
+                <Badge variant="outline" className="text-[9px]">Carrinho Abandonado</Badge>
+                <Badge variant="outline" className="text-[9px]">PIX Pendente</Badge>
+              </div>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-3 text-center">
+            Valores podem ser personalizados pelo administrador. Cobrado apenas no envio efetivo.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* O que é */}
       <Card className="glass glow-border">
         <CardContent className="p-6">
