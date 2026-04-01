@@ -801,40 +801,46 @@ function SmsEditor({ loja }: { loja: { id: string } }) {
     onError: () => toast({ title: "Erro ao salvar", variant: "destructive" }),
   });
 
-  function SmsBlock({ label, sms, onChange }: {
+  function SmsBlock({ label, icon, sms, onChange }: {
     label: string;
+    icon?: React.ReactNode;
     sms: { ativo: boolean; template: string };
     onChange: (s: { ativo: boolean; template: string }) => void;
   }) {
+    const charPercent = Math.round((sms.template.length / 160) * 100);
     return (
-      <div className="glass glow-border rounded-xl p-4 space-y-3">
+      <div className="glass glow-border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Smartphone className="h-3.5 w-3.5 text-primary" />
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              {icon || <Smartphone className="h-4 w-4 text-primary" />}
             </div>
-            <span className="text-sm font-semibold text-foreground">{label}</span>
+            <div>
+              <span className="text-sm font-semibold text-foreground">{label}</span>
+              <p className="text-[10px] text-muted-foreground">Ative para enviar SMS automático</p>
+            </div>
           </div>
           <Switch checked={sms.ativo} onCheckedChange={v => onChange({ ...sms, ativo: v })} />
         </div>
+
         {sms.ativo && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Textarea
               value={sms.template}
               onChange={e => {
                 if (e.target.value.length <= 160) onChange({ ...sms, template: e.target.value });
               }}
               maxLength={160}
-              className="text-sm resize-none bg-transparent border-border/50 font-mono"
+              className="text-sm resize-none bg-transparent border-border/50 font-mono min-h-[80px]"
               rows={3}
             />
-            <div className="flex items-center justify-between">
-              <div className="flex gap-1 flex-wrap">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex gap-1.5 flex-wrap">
                 {SMS_VARS.map(v => (
                   <button
                     key={v.var}
                     type="button"
-                    className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono hover:bg-primary/20 transition-colors"
+                    className="text-[11px] bg-primary/10 text-primary px-2 py-1 rounded-md font-mono hover:bg-primary/20 transition-colors border border-primary/20"
                     onClick={() => {
                       if ((sms.template + v.var).length <= 160) {
                         onChange({ ...sms, template: sms.template + v.var });
@@ -846,12 +852,19 @@ function SmsEditor({ loja }: { loja: { id: string } }) {
                   </button>
                 ))}
               </div>
-              <span className={`text-[10px] font-mono ${sms.template.length > 150 ? "text-red-500" : "text-muted-foreground"}`}>
+              <span className={`text-xs font-mono font-semibold ${sms.template.length > 150 ? "text-red-500" : "text-muted-foreground"}`}>
                 {sms.template.length}/160
               </span>
             </div>
+            {/* Progress bar */}
+            <div className="w-full h-1.5 bg-border/30 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${charPercent > 93 ? "bg-red-500" : charPercent > 75 ? "bg-yellow-500" : "bg-primary"}`}
+                style={{ width: `${Math.min(charPercent, 100)}%` }}
+              />
+            </div>
             <p className="text-[10px] text-muted-foreground">
-              Variáveis: <code>{"{nome}"}</code> = primeiro nome, <code>{"{produto}"}</code> = nome do produto, <code>{"{link}"}</code> = link do checkout
+              <code>{"{nome}"}</code> = primeiro nome · <code>{"{produto}"}</code> = nome do produto · <code>{"{link}"}</code> = link do checkout
             </p>
           </div>
         )}
@@ -860,44 +873,113 @@ function SmsEditor({ loja }: { loja: { id: string } }) {
   }
 
   return (
-    <div className="space-y-4 max-w-xl">
-      <div className="rounded-lg border-2 border-yellow-500/60 bg-yellow-500/10 p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="h-6 w-6 text-yellow-600 shrink-0 mt-0.5" />
-          <div className="space-y-2">
-            <p className="text-sm font-bold text-yellow-700 dark:text-yellow-300">⚠️ Regras importantes para o SMS</p>
-            <ul className="text-sm text-yellow-700 dark:text-yellow-400 space-y-1.5 list-disc list-inside">
-              <li>
-                O limite de <strong>160 caracteres</strong> inclui os valores reais das variáveis após substituição.
-              </li>
-              <li>
-                <code className="bg-yellow-500/20 px-1 rounded font-bold">{"{nome}"}</code> puxa apenas o <strong>primeiro nome</strong> do lead (first name).
-              </li>
-              <li>
-                <code className="bg-yellow-500/20 px-1 rounded font-bold">{"{produto}"}</code> será substituído pelo nome completo do produto e{" "}
-                <code className="bg-yellow-500/20 px-1 rounded font-bold">{"{link}"}</code> pela URL completa do checkout.
-              </li>
-              <li>
-                <strong>Não utilize acentos (á, é, ã, ç) nem caracteres especiais (emojis, &, @, etc.)</strong> no texto do SMS. Caso contrário, o SMS <strong>não será enviado</strong>.
-              </li>
-              <li>
-                Se o SMS final ultrapassar 160 caracteres com os dados reais, ele <strong>não será enviado</strong>.
-              </li>
-            </ul>
-            <p className="text-xs text-yellow-600 dark:text-yellow-500 italic">
-              💡 Dica: Mantenha seus templates curtos e sem acentos para garantir o envio.
-            </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="glass glow-border rounded-xl p-5">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Smartphone className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-foreground">Configuração de SMS</h2>
+            <p className="text-xs text-muted-foreground">Configure os templates de SMS para cada tipo de recuperação</p>
           </div>
         </div>
       </div>
 
-      <SmsBlock label="SMS — Carrinho Abandonado" sms={smsCarrinho} onChange={setSmsCarrinho} />
-      <SmsBlock label="SMS — PIX Pendente" sms={smsPix} onChange={setSmsPix} />
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Left column: SMS editors */}
+        <div className="space-y-4">
+          <SmsBlock
+            label="SMS — Carrinho Abandonado"
+            icon={<ShoppingCart className="h-4 w-4 text-primary" />}
+            sms={smsCarrinho}
+            onChange={setSmsCarrinho}
+          />
+          <SmsBlock
+            label="SMS — PIX Pendente"
+            icon={<DollarSign className="h-4 w-4 text-primary" />}
+            sms={smsPix}
+            onChange={setSmsPix}
+          />
 
-      <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending} className="w-full shimmer-btn" size="lg">
-        <Save className="h-4 w-4 mr-2" />
-        {saveMutation.isPending ? "Salvando..." : "Salvar SMS"}
-      </Button>
+          <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending} className="w-full shimmer-btn" size="lg">
+            <Save className="h-4 w-4 mr-2" />
+            {saveMutation.isPending ? "Salvando..." : "Salvar SMS"}
+          </Button>
+        </div>
+
+        {/* Right column: Rules + tips */}
+        <div className="space-y-4">
+          {/* Rules */}
+          <div className="rounded-xl border-2 border-yellow-500/40 bg-yellow-500/5 p-5 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              <p className="text-sm font-bold text-yellow-600 dark:text-yellow-300">Regras do SMS</p>
+            </div>
+            <ul className="text-sm text-muted-foreground space-y-2.5">
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-500 mt-0.5 shrink-0">•</span>
+                <span>Limite de <strong className="text-foreground">160 caracteres</strong> inclui os valores reais das variáveis após substituição.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-500 mt-0.5 shrink-0">•</span>
+                <span><strong className="text-foreground">Sem acentos</strong> (á, é, ã, ç) — use "voce" em vez de "você".</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-500 mt-0.5 shrink-0">•</span>
+                <span><strong className="text-foreground">Sem emojis</strong> e caracteres especiais — apenas texto plano.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-500 mt-0.5 shrink-0">•</span>
+                <span>Se ultrapassar 160 caracteres com dados reais, o SMS <strong className="text-foreground">não será enviado</strong>.</span>
+              </li>
+            </ul>
+            <p className="text-xs text-yellow-600 dark:text-yellow-500 italic">
+              💡 Mantenha templates curtos e sem acentos para garantir o envio.
+            </p>
+          </div>
+
+          {/* Envio instantâneo */}
+          <div className="glass glow-border rounded-xl p-5 space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Zap className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Envio Instantâneo</h3>
+                <p className="text-[10px] text-muted-foreground">Sem delay — disparo imediato</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              O SMS é disparado <strong className="text-foreground">instantaneamente</strong> assim que o lead é capturado pelo webhook. Não há fila ou delay — a conversão acontece na hora.
+            </p>
+          </div>
+
+          {/* Custos */}
+          <div className="glass glow-border rounded-xl p-5 space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Coins className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Custo por SMS</h3>
+                <p className="text-[10px] text-muted-foreground">Cobrado apenas no envio efetivo</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-primary/5 rounded-lg p-3 text-center border border-primary/10">
+                <p className="text-lg font-bold text-primary">0,15</p>
+                <p className="text-[10px] text-muted-foreground">moedas / Carrinho</p>
+              </div>
+              <div className="bg-primary/5 rounded-lg p-3 text-center border border-primary/10">
+                <p className="text-lg font-bold text-primary">0,15</p>
+                <p className="text-[10px] text-muted-foreground">moedas / PIX</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
