@@ -1279,58 +1279,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
           </div>
         </CardContent>
       </Card>
-
-      {/* Regras do SMS + Deduplicação */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card className="glass glow-border">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">Regras do SMS</h2>
-                <p className="text-xs text-muted-foreground">Restrições importantes</p>
-              </div>
-            </div>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex items-start gap-2">
-                <span className="text-yellow-500 mt-0.5">•</span>
-                Máximo de <strong className="text-foreground">160 caracteres</strong>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-yellow-500 mt-0.5">•</span>
-                <strong className="text-foreground">Sem acentos</strong> (use "voce" em vez de "você")
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-yellow-500 mt-0.5">•</span>
-                <strong className="text-foreground">Sem emojis</strong> — apenas texto plano
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-yellow-500 mt-0.5">•</span>
-                Custo: <strong className="text-foreground">3 créditos</strong> por SMS enviado
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card className="glass glow-border">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Shield className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">Deduplicação</h2>
-                <p className="text-xs text-muted-foreground">Proteção contra spam</p>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              O sistema <strong className="text-foreground">não envia duplicatas</strong>. Se o mesmo e-mail + loja + tipo já foi capturado nas <strong className="text-foreground">últimas 24 horas</strong>, o lead é ignorado automaticamente. Isso protege seus clientes de receberem mensagens repetidas.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
