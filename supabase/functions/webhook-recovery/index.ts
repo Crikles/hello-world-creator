@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
     }
 
     // Insert lead
-    const { error: insertError } = await supabase
+    const { data: insertedLead, error: insertError } = await supabase
       .from("recovery_leads")
       .insert({
         loja_id: lojaId,
@@ -161,7 +161,9 @@ Deno.serve(async (req) => {
         raw_payload: payload,
         status: "pendente",
         tipo,
-      });
+      })
+      .select("id")
+      .single();
 
     if (insertError) {
       console.error("Insert error:", insertError);
@@ -171,7 +173,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Trigger email send
+    const leadId = insertedLead.id;
+
+    // Trigger email + SMS instantly (fire-and-forget)
     try {
       await supabase.functions.invoke("send-recovery-email", {
         body: { loja_id: lojaId, customer_email: lead.customer_email, tipo },
@@ -180,7 +184,15 @@ Deno.serve(async (req) => {
       console.error("Failed to invoke send-recovery-email:", e);
     }
 
-    return new Response(JSON.stringify({ ok: true, message: "Lead captured" }), {
+    try {
+      await supabase.functions.invoke("send-recovery-sms", {
+        body: { lead_id: leadId, loja_id: lojaId, tipo },
+      });
+    } catch (e) {
+      console.error("Failed to invoke send-recovery-sms:", e);
+    }
+
+    return new Response(JSON.stringify({ ok: true, message: "Lead captured", lead_id: leadId }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
