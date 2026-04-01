@@ -21,6 +21,7 @@ function parseSettings(corpo: string, config: Record<string, unknown>) {
     mostrar_cta: bool("recovery_mostrar_cta", true),
     texto_botao: m("recovery_texto_botao") || "Finalizar meu pedido",
     mostrar_ps: bool("recovery_mostrar_ps", true),
+    url_cta: m("recovery_url_cta") || "",
     cor_botao: m("recovery_cor_botao") || "#6366f1",
     cor_destaque: m("recovery_cor_destaque") || "#6366f1",
     cor_titulo: m("recovery_cor_titulo") || "#0f172a",
@@ -95,8 +96,9 @@ function buildEmailHtml(s: any, vars: Record<string, string>, empresaNome: strin
   }
 
   if (s.mostrar_cta) {
+    const ctaUrl = s.url_cta || vars.link_checkout;
     sections.push(`<tr><td style="padding:16px 40px 24px;text-align:center;">
-      <a href="${vars.link_checkout}" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
+      <a href="${ctaUrl}" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
         👉 ${s.texto_botao}
       </a>
     </td></tr>`);

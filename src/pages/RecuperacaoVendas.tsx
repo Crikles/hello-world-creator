@@ -56,6 +56,7 @@ interface RecoverySettings {
   garantia: string;
   mostrar_cta: boolean;
   texto_botao: string;
+  url_cta: string;
   mostrar_ps: boolean;
   ps_reforco_urgencia: string;
   cor_botao: string;
@@ -88,6 +89,7 @@ const DEFAULTS_CARRINHO: RecoverySettings = {
   garantia: "7 dias de garantia incondicional",
   mostrar_cta: true,
   texto_botao: "Finalizar meu pedido",
+  url_cta: "",
   mostrar_ps: true,
   ps_reforco_urgencia: "Esse link expira em 24h. Garanta agora!",
   cor_botao: "#6366f1",
@@ -182,7 +184,7 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
   if (s.mostrar_cta) {
     sections.push(`
     <tr><td style="padding:16px 40px 24px;text-align:center;">
-      <a href="{{link_checkout}}" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.3px;">
+      <a href="${s.url_cta || '{{link_checkout}}'}" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.3px;">
         👉 ${s.texto_botao}
       </a>
     </td></tr>`);
@@ -234,6 +236,7 @@ function serializeToCorpo(s: RecoverySettings): string {
     `{{recovery_mostrar_garantia:${s.mostrar_garantia}}}`,
     `{{recovery_mostrar_cta:${s.mostrar_cta}}}`,
     `{{recovery_texto_botao:${s.texto_botao}}}`,
+    `{{recovery_url_cta:${s.url_cta}}}`,
     `{{recovery_mostrar_ps:${s.mostrar_ps}}}`,
     `{{recovery_cor_botao:${s.cor_botao}}}`,
     `{{recovery_cor_destaque:${s.cor_destaque}}}`,
@@ -259,6 +262,7 @@ function parseFromCorpo(corpo: string, defaults: RecoverySettings): Partial<Reco
     mostrar_garantia: bool("recovery_mostrar_garantia", defaults.mostrar_garantia),
     mostrar_cta: bool("recovery_mostrar_cta", defaults.mostrar_cta),
     texto_botao: m("recovery_texto_botao") || defaults.texto_botao,
+    url_cta: m("recovery_url_cta") || defaults.url_cta,
     mostrar_ps: bool("recovery_mostrar_ps", defaults.mostrar_ps),
     cor_botao: m("recovery_cor_botao") || defaults.cor_botao,
     cor_destaque: m("recovery_cor_destaque") || defaults.cor_destaque,
@@ -482,6 +486,40 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                 </div>
               </div>
 
+              {/* Variables Reference Card */}
+              <div className="glass glow-border rounded-xl p-4 animate-stagger-in">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Hash className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Variáveis Disponíveis</p>
+                    <p className="text-[10px] text-muted-foreground">Clique para copiar e use no assunto ou textos</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { tag: "{{nome_cliente}}", desc: "Nome do cliente" },
+                    { tag: "{{lista_produtos}}", desc: "Lista de produtos" },
+                    { tag: "{{valor_total}}", desc: "Valor total" },
+                    { tag: "{{link_checkout}}", desc: "Link do checkout" },
+                    { tag: "{{nome_produto_principal}}", desc: "Produto principal" },
+                    { tag: "{{codigo_cupom}}", desc: "Código do cupom" },
+                  ].map(v => (
+                    <button
+                      key={v.tag}
+                      type="button"
+                      onClick={() => { navigator.clipboard.writeText(v.tag); toast({ title: `Copiado: ${v.tag}` }); }}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 hover:bg-primary/20 text-[10px] font-mono text-primary transition-colors cursor-pointer border border-primary/20"
+                      title={v.desc}
+                    >
+                      <Copy className="h-2.5 w-2.5" />
+                      {v.tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <SectionToggle label="Saudação" icon={Type} checked={settings.mostrar_saudacao} onChange={v => set("mostrar_saudacao", v)}>
                 <Textarea value={settings.saudacao} onChange={e => set("saudacao", e.target.value)} maxLength={300} className="text-sm resize-none bg-transparent border-border/50" rows={3} />
                 <p className="text-[10px] text-muted-foreground text-right">{settings.saudacao.length}/300</p>
@@ -528,8 +566,24 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
               </SectionToggle>
 
               <SectionToggle label="Botão (CTA)" icon={ArrowRight} checked={settings.mostrar_cta} onChange={v => set("mostrar_cta", v)}>
-                <Input value={settings.texto_botao} onChange={e => set("texto_botao", e.target.value)} className="text-sm bg-transparent border-border/50" />
-                <div className="pt-2 border-t border-border/30">
+                <Input value={settings.texto_botao} onChange={e => set("texto_botao", e.target.value)} placeholder="Texto do botão" className="text-sm bg-transparent border-border/50" />
+                <div className="pt-2 border-t border-border/30 space-y-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <ExternalLink className="h-3 w-3" /> URL do Botão
+                      {!settings.url_cta && <Badge variant="secondary" className="ml-1 text-[8px] px-1 py-0">Automático</Badge>}
+                    </Label>
+                    <Input
+                      value={settings.url_cta}
+                      onChange={e => set("url_cta", e.target.value)}
+                      placeholder="https://... (vazio = URL do checkout capturada)"
+                      className="mt-1 text-sm bg-transparent border-border/50"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                      <Info className="h-3 w-3 shrink-0" />
+                      Por padrão, direciona para a URL do checkout/PIX capturada automaticamente. Altere apenas se quiser redirecionar para outro link.
+                    </p>
+                  </div>
                   <ColorPicker label="Cor do Botão" value={settings.cor_botao} onChange={v => set("cor_botao", v)} />
                 </div>
               </SectionToggle>
