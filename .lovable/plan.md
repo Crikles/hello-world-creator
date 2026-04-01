@@ -1,52 +1,45 @@
 
 
-## Plan: Integrar Adoorei com Recuperação de Vendas (Carrinho Abandonado + PIX Pendente)
+## Plan: Integrar Shopify com Recuperação de Vendas (PIX Pendente)
 
-### Análise da Documentação Adoorei
+### Análise do Payload
 
-**Mapeamento de eventos:**
-- **Carrinho Abandonado** → `event: "cart.abandoned"` — payload diferente do pedido, com `resource.checkout_url`, `resource.customer.name`, `resource.products[]`
-- **PIX Pendente** → `event: "order.created"` ou `"order.status.updated"` com `status: "pending"` e `payment_method: "pix"`
+O payload enviado ao webhook Shopify tem estrutura similar ao Vega, com campos como `customer`, `products`, `method`, `status`, `order_url`, `transaction_token`, `total_price` (em centavos).
 
-### Alteração: `supabase/functions/webhook-adoorei/index.ts`
+**Mapeamento:**
+- **PIX Pendente** → `status === "pending"` e `method === "pix"` (campo `method` do payload)
+- **Carrinho Abandonado** → Não há evento de carrinho abandonado neste payload. Apenas PIX pendente será tratado.
 
-Dois pontos de inserção da lógica de recuperação:
+O código atual já lê `payload.financial_status` para o status. O campo `method` vem de `payload.payment_gateway_names?.[0]`, mas o payload real tem `payload.method`. Ambos serão verificados.
 
-**1. Carrinho Abandonado (`cart.abandoned`)**
-- O payload de carrinho é estruturalmente diferente (não tem `resource.status`, `resource.number`, etc.)
-- Detectar `event === "cart.abandoned"` logo após o log do webhook (linha ~82)
-- Extrair dados do formato de carrinho:
-  - `customer_name` = `resource.customer.name`
-  - `customer_email` = `resource.customer.email`
-  - `customer_phone` = `resource.customer.phone_number`
-  - `checkout_url` = `resource.checkout_url`
-  - `total_value` = `resource.total` (já em reais)
-  - Produtos: `resource.products[].name` → name, `resource.products[].price` → value, `resource.products[].qty` → qty
-- Tipo = `"carrinho"`
-- Após inserir o lead, fazer `return` (não processar como pedido normal)
+### Alteração: `supabase/functions/shopify-webhook/index.ts`
 
-**2. PIX Pendente (pedido com status pending + pix)**
-- Após o upsert do pedido (linha ~149) e antes do bloco "If approved" (linha ~152):
-  - Se `status === "pending"` e `payment_method` inclui `"pix"`:
-    - Tipo = `"pix_pendente"`
-    - `checkout_url` = `""` (Adoorei não fornece URL de recuperação no payload de pedido)
-    - Normalizar produtos do formato já existente
-    - `total_value` = `totalPriceInCents / 100`
+Após o upsert do pedido (linha ~149) e antes do bloco "If paid" (linha ~152), adicionar:
 
-**Ambos os casos seguem o padrão já implementado:**
-- Verificar `recovery_config` ativo para loja + tipo
-- Deduplicação 24h em `recovery_leads` por email + loja + tipo
-- Inserir em `recovery_leads`
-- Fire-and-forget: `send-recovery-email` e `send-recovery-sms`
+```text
+Se status === "pending" e (method inclui "pix" OU payload.method inclui "pix"):
+  1. tipo = "pix_pendente"
+  2. Se customerEmail existe:
+     - Verificar recovery_config ativo para loja + tipo
+     - Deduplicação 24h em recovery_leads por email + loja + tipo
+     - checkout_url = payload.order_url || ""
+     - Normalizar produtos: normalizedProducts[].title → name, amount/100 → value, quantity → qty
+     - total_value = totalPrice / 100
+     - Inserir em recovery_leads
+     - Fire-and-forget: send-recovery-email e send-recovery-sms
+  3. Continuar fluxo normal
+```
 
 ### Detalhes técnicos
 
-- Carrinho abandonado tem estrutura diferente: `customer.name` (não `first_name`/`last_name`), `customer.phone_number` (não `phone`)
-- `resource.total` no carrinho = valor em reais
-- `resource.value_total` no pedido = valor em reais
-- O bloco de carrinho abandonado deve ser tratado antes do upsert de pedido (early return)
+- `checkout_url` = `payload.order_url` (presente no payload)
+- `total_value` = `totalPrice / 100` (já calculado em centavos)
+- `customer_phone` = `payload.customer.phone` (já extraído)
+- Produtos: `{ name: p.title, value: p.amount / 100, qty: p.quantity }`
+- `method` será verificado tanto em `payload.payment_gateway_names?.[0]` quanto em `payload.method`
+- Mesmo padrão dos webhooks Zedy, Vega, Luna, Corvex e Adoorei
 
 ### Arquivo alterado
-- `supabase/functions/webhook-adoorei/index.ts` (apenas)
+- `supabase/functions/shopify-webhook/index.ts` (apenas)
 - Redeploy da edge function
 
