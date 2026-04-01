@@ -1,42 +1,21 @@
 
 
-## Plan: Configurar cobrança de recuperação com preços personalizáveis
-
-### Contexto atual
-
-Os valores estão hardcoded nas edge functions:
-- `send-recovery-sms`: cobra 0.25 (linha 139)
-- `send-recovery-email`: cobra 0.50 (linha 227)
+## Plan: Adicionar card de preços no início do Tutorial
 
 ### O que será feito
 
-1. **Inserir valores padrão na `system_config`** (4 novas chaves):
-   - `custo_recovery_sms_pix` = 0.15
-   - `custo_recovery_sms_carrinho` = 0.15
-   - `custo_recovery_email_pix` = 0.10
-   - `custo_recovery_email_carrinho` = 0.10
+Inserir um card de **"Custos do Serviço"** logo no início da aba Tutorial (antes do card "O que é"), mostrando os preços de forma clara e transparente:
 
-2. **Atualizar `send-recovery-sms/index.ts`**:
-   - Buscar custo da `system_config` pela chave `custo_recovery_sms_{tipo}`
-   - Verificar `custom_prices` do perfil do usuário (mesma chave)
-   - Usar o valor personalizado se existir, senão o global, senão fallback 0.15
+| Canal | Carrinho Abandonado | PIX Pendente |
+|-------|---------------------|--------------|
+| Email | 0,10 moedas | 0,10 moedas |
+| SMS   | 0,15 moedas | 0,15 moedas |
 
-3. **Atualizar `send-recovery-email/index.ts`**:
-   - Mesmo padrão: buscar `custo_recovery_email_{tipo}` da `system_config`
-   - Verificar `custom_prices` do perfil do usuário
-   - Fallback 0.10
+- Ícone `Coins` (lucide-react), estilo glass/glow-border consistente
+- Grid 2x2 com os valores em destaque (texto grande, cor primary)
+- Nota de rodapé: "Valores podem ser personalizados. Cobrado apenas no envio efetivo."
 
-4. **Painel Admin** (`AdminValores.tsx`):
-   - Adicionar as 4 novas chaves na interface de custos para o admin editar os valores globais
-   - As chaves já serão editáveis por usuário via `custom_prices` no painel de usuários existente
+### Arquivo alterado
 
-### Padrão seguido
-
-Mesmo padrão do `advance-shipments`: `system_config` → `custom_prices` override → fallback hardcoded.
-
-### Arquivos alterados
-- `supabase/functions/send-recovery-sms/index.ts`
-- `supabase/functions/send-recovery-email/index.ts`
-- `src/pages/admin/AdminValores.tsx` (adicionar novas chaves)
-- Inserção de dados na `system_config` (4 registros)
+- `src/pages/RecuperacaoVendas.tsx` — inserir novo card no `TutorialTab` antes do card "O que é" (~linha 1024)
 
