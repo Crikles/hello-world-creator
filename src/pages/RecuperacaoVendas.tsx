@@ -1172,9 +1172,8 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
               { step: "1", text: "Vá na aba 'Carrinho Abandonado' ou 'PIX Pendente' e ative o toggle de recuperação." },
               { step: "2", text: "Personalize o e-mail: saudação, benefícios, cupom (opcional), garantia e texto do botão CTA." },
               { step: "3", text: "Ajuste as cores para combinar com a identidade da sua loja." },
-              { step: "4", text: "Defina o delay (tempo de espera antes do envio, em minutos)." },
-              { step: "5", text: "Na aba 'SMS', configure o template de SMS se quiser enviar SMS além do e-mail." },
-              { step: "6", text: "Salve as configurações. O sistema começará a capturar e enviar automaticamente!" },
+              { step: "4", text: "Na aba 'SMS', configure o template de SMS se quiser enviar SMS além do e-mail." },
+              { step: "5", text: "Salve as configurações. O envio é instantâneo — assim que o lead chegar, ele já receberá a comunicação!" },
             ].map((item) => (
               <div key={item.step} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/20">
                 <span className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">{item.step}</span>
