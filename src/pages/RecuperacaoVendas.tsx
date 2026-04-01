@@ -486,6 +486,40 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                 </div>
               </div>
 
+              {/* Variables Reference Card */}
+              <div className="glass glow-border rounded-xl p-4 animate-stagger-in">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Hash className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Variáveis Disponíveis</p>
+                    <p className="text-[10px] text-muted-foreground">Clique para copiar e use no assunto ou textos</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { tag: "{{nome_cliente}}", desc: "Nome do cliente" },
+                    { tag: "{{lista_produtos}}", desc: "Lista de produtos" },
+                    { tag: "{{valor_total}}", desc: "Valor total" },
+                    { tag: "{{link_checkout}}", desc: "Link do checkout" },
+                    { tag: "{{nome_produto_principal}}", desc: "Produto principal" },
+                    { tag: "{{codigo_cupom}}", desc: "Código do cupom" },
+                  ].map(v => (
+                    <button
+                      key={v.tag}
+                      type="button"
+                      onClick={() => { navigator.clipboard.writeText(v.tag); toast({ title: `Copiado: ${v.tag}` }); }}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 hover:bg-primary/20 text-[10px] font-mono text-primary transition-colors cursor-pointer border border-primary/20"
+                      title={v.desc}
+                    >
+                      <Copy className="h-2.5 w-2.5" />
+                      {v.tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <SectionToggle label="Saudação" icon={Type} checked={settings.mostrar_saudacao} onChange={v => set("mostrar_saudacao", v)}>
                 <Textarea value={settings.saudacao} onChange={e => set("saudacao", e.target.value)} maxLength={300} className="text-sm resize-none bg-transparent border-border/50" rows={3} />
                 <p className="text-[10px] text-muted-foreground text-right">{settings.saudacao.length}/300</p>
