@@ -21,6 +21,7 @@ function parseSettings(corpo: string, config: Record<string, unknown>) {
     mostrar_cta: bool("recovery_mostrar_cta", true),
     texto_botao: m("recovery_texto_botao") || "Finalizar meu pedido",
     mostrar_ps: bool("recovery_mostrar_ps", true),
+    url_cta: m("recovery_url_cta") || "",
     cor_botao: m("recovery_cor_botao") || "#6366f1",
     cor_destaque: m("recovery_cor_destaque") || "#6366f1",
     cor_titulo: m("recovery_cor_titulo") || "#0f172a",

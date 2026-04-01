@@ -56,6 +56,7 @@ interface RecoverySettings {
   garantia: string;
   mostrar_cta: boolean;
   texto_botao: string;
+  url_cta: string;
   mostrar_ps: boolean;
   ps_reforco_urgencia: string;
   cor_botao: string;
