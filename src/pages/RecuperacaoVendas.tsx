@@ -1013,9 +1013,8 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
   const steps = [
     { icon: Globe, title: "Checkout detecta evento", desc: "Quando um cliente abandona o carrinho ou gera um PIX sem pagar, o checkout envia um webhook automaticamente." },
     { icon: Zap, title: "Lead é capturado", desc: "O sistema recebe o webhook, normaliza os dados e salva o lead com status 'pendente'. Deduplicação de 24h evita duplicatas." },
-    { icon: Timer, title: "Delay configurável", desc: "O sistema aguarda o tempo definido (ex: 30 min) antes de disparar a comunicação, dando tempo ao cliente de finalizar sozinho." },
-    { icon: Mail, title: "E-mail é enviado", desc: "Um e-mail personalizado é disparado com os dados do pedido, benefícios, cupom (se ativo) e CTA para voltar ao checkout." },
-    { icon: Smartphone, title: "SMS é enviado (opcional)", desc: "Se configurado, um SMS curto também é disparado com link direto para o checkout." },
+    { icon: Mail, title: "E-mail é enviado instantaneamente", desc: "Um e-mail personalizado é disparado imediatamente com os dados do pedido, benefícios, cupom (se ativo) e CTA para voltar ao checkout." },
+    { icon: Smartphone, title: "SMS é enviado (opcional)", desc: "Se configurado, um SMS curto também é disparado instantaneamente com link direto para o checkout." },
     { icon: CheckCircle2, title: "Cliente finaliza", desc: "O cliente recebe a comunicação, clica no link e finaliza a compra. O lead é marcado como 'convertido'." },
   ];
 
