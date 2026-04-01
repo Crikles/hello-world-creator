@@ -148,6 +148,63 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
+    // === Recovery: PIX Pendente ===
+    const methodLower = (payload.method || payload.payment_gateway_names?.[0] || "").toLowerCase();
+    if (status === "pending" && methodLower.includes("pix") && customerEmail) {
+      const recoveryTipo = "pix_pendente";
+      try {
+        const { data: recoveryConfig } = await supabase
+          .from("recovery_config")
+          .select("ativo")
+          .eq("loja_id", lojaId)
+          .eq("tipo", recoveryTipo)
+          .maybeSingle();
+
+        if (recoveryConfig?.ativo) {
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const { data: existingLead } = await supabase
+            .from("recovery_leads")
+            .select("id")
+            .eq("loja_id", lojaId)
+            .eq("customer_email", customerEmail)
+            .eq("tipo", recoveryTipo)
+            .gte("created_at", oneDayAgo)
+            .limit(1);
+
+          if (!existingLead || existingLead.length === 0) {
+            const recoveryProducts = normalizedProducts.map((p: any) => ({
+              name: p.title,
+              value: p.amount / 100,
+              qty: p.quantity,
+            }));
+
+            await supabase.from("recovery_leads").insert({
+              loja_id: lojaId,
+              customer_name: customerName || "",
+              customer_email: customerEmail,
+              customer_phone: customerPhone || "",
+              products: recoveryProducts,
+              total_value: totalPrice / 100,
+              checkout_url: payload.order_url || "",
+              raw_payload: payload,
+              status: "pendente",
+              tipo: recoveryTipo,
+            });
+
+            supabase.functions.invoke("send-recovery-email", {
+              body: { loja_id: lojaId, customer_email: customerEmail, tipo: recoveryTipo },
+            }).catch((e) => console.error("[recovery-email] error:", e));
+
+            supabase.functions.invoke("send-recovery-sms", {
+              body: { loja_id: lojaId, customer_email: customerEmail, tipo: recoveryTipo },
+            }).catch((e) => console.error("[recovery-sms] error:", e));
+          }
+        }
+      } catch (e) {
+        console.error("[shopify-recovery] error:", e);
+      }
+    }
+
     // 3. If paid and no envio linked yet, create envio (with payment method filter)
     if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
       const { data: integrationConfig } = await supabase
