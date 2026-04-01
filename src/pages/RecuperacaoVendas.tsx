@@ -707,7 +707,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm truncate">{lead.customer_name || "—"}</span>
-                            <Badge variant="outline" className={statusColors[lead.status] || ""}>{lead.status}</Badge>
+                            {(() => { const s = getLeadStatus(lead); return <Badge variant="outline" className={s.color}>{s.label}</Badge>; })()}
                           </div>
                           <p className="text-xs text-muted-foreground truncate">{lead.customer_email}</p>
                           {prods.length > 0 && <p className="text-xs text-muted-foreground mt-0.5 truncate">{prods.map(p => p.name).join(", ")}</p>}

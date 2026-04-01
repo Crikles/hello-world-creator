@@ -287,12 +287,18 @@ Deno.serve(async (req) => {
     });
 
     const emailResult = await emailResponse.json();
+    console.log("Resend response:", emailResponse.status, JSON.stringify(emailResult));
 
-    await supabase.from("recovery_leads")
-      .update({ status: "email_enviado", email_sent_at: new Date().toISOString() })
-      .eq("id", lead.id);
+    if (emailResponse.ok) {
+      await supabase.from("recovery_leads")
+        .update({ status: "email_enviado", email_sent_at: new Date().toISOString() })
+        .eq("id", lead.id);
+    } else {
+      console.error("Email send failed:", emailResponse.status, JSON.stringify(emailResult));
+      // Don't update status on failure — keep as pendente for retry
+    }
 
-    return new Response(JSON.stringify({ ok: true, email: emailResult }), {
+    return new Response(JSON.stringify({ ok: emailResponse.ok, email: emailResult }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
