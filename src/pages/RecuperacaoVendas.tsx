@@ -15,8 +15,9 @@ import { toast } from "@/hooks/use-toast";
 import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
   Save, MessageSquare, Globe, Type, Sparkles,
-  CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone,
+  CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone, AlertTriangle,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 
 /* ─── Color Picker ─── */
