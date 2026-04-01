@@ -1114,6 +1114,136 @@ export type Database = {
         }
         Relationships: []
       }
+      recovery_config: {
+        Row: {
+          assunto_email: string
+          ativo: boolean
+          beneficio_1: string | null
+          beneficio_2: string | null
+          beneficio_3: string | null
+          beneficio_principal: string | null
+          codigo_cupom: string | null
+          corpo_email: string
+          created_at: string
+          cupom_ativo: boolean
+          delay_minutos: number
+          descricao_cupom: string | null
+          enviar_sms: boolean
+          garantia: string | null
+          id: string
+          loja_id: string
+          ps_reforco_urgencia: string | null
+          sms_template: string | null
+          updated_at: string
+        }
+        Insert: {
+          assunto_email?: string
+          ativo?: boolean
+          beneficio_1?: string | null
+          beneficio_2?: string | null
+          beneficio_3?: string | null
+          beneficio_principal?: string | null
+          codigo_cupom?: string | null
+          corpo_email?: string
+          created_at?: string
+          cupom_ativo?: boolean
+          delay_minutos?: number
+          descricao_cupom?: string | null
+          enviar_sms?: boolean
+          garantia?: string | null
+          id?: string
+          loja_id: string
+          ps_reforco_urgencia?: string | null
+          sms_template?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assunto_email?: string
+          ativo?: boolean
+          beneficio_1?: string | null
+          beneficio_2?: string | null
+          beneficio_3?: string | null
+          beneficio_principal?: string | null
+          codigo_cupom?: string | null
+          corpo_email?: string
+          created_at?: string
+          cupom_ativo?: boolean
+          delay_minutos?: number
+          descricao_cupom?: string | null
+          enviar_sms?: boolean
+          garantia?: string | null
+          id?: string
+          loja_id?: string
+          ps_reforco_urgencia?: string | null
+          sms_template?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_config_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recovery_leads: {
+        Row: {
+          checkout_url: string | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string | null
+          email_sent_at: string | null
+          id: string
+          loja_id: string
+          products: Json | null
+          raw_payload: Json | null
+          sms_sent_at: string | null
+          status: string
+          total_value: number
+        }
+        Insert: {
+          checkout_url?: string | null
+          created_at?: string
+          customer_email: string
+          customer_name?: string
+          customer_phone?: string | null
+          email_sent_at?: string | null
+          id?: string
+          loja_id: string
+          products?: Json | null
+          raw_payload?: Json | null
+          sms_sent_at?: string | null
+          status?: string
+          total_value?: number
+        }
+        Update: {
+          checkout_url?: string | null
+          created_at?: string
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string | null
+          email_sent_at?: string | null
+          id?: string
+          loja_id?: string
+          products?: Json | null
+          raw_payload?: Json | null
+          sms_sent_at?: string | null
+          status?: string
+          total_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_leads_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_earnings: {
         Row: {
           amount_earned: number
