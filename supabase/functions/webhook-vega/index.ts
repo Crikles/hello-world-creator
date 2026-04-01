@@ -158,6 +158,87 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
+    // 3.5 Recovery: abandoned cart or pending pix
+    const isAbandonedCart = status === "abandoned_cart";
+    const isPendingPix = status === "pending" && (payload.method || "").toLowerCase().includes("pix");
+
+    if ((isAbandonedCart || isPendingPix) && customer.email) {
+      const recoveryTipo = isAbandonedCart ? "carrinho" : "pix_pendente";
+      const email = customer.email.trim().toLowerCase();
+
+      try {
+        // Check if recovery is active for this tipo
+        const { data: recoveryConfig } = await supabase
+          .from("recovery_config")
+          .select("ativo, enviar_sms")
+          .eq("loja_id", lojaId)
+          .eq("tipo", recoveryTipo)
+          .maybeSingle();
+
+        if (recoveryConfig?.ativo) {
+          // Dedup: check if same email+loja+tipo in last 24h
+          const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const { data: existing } = await supabase
+            .from("recovery_leads")
+            .select("id")
+            .eq("loja_id", lojaId)
+            .eq("customer_email", email)
+            .eq("tipo", recoveryTipo)
+            .gte("created_at", since)
+            .maybeSingle();
+
+          if (!existing) {
+            const checkoutUrl = payload.abandoned_checkout_url_url
+              || payload.abandoned_checkout_url
+              || payload.checkout_url
+              || payload.order_url
+              || "";
+
+            const recoveryProducts = normalizedProducts.map((p: any) => ({
+              name: p.title || p.name || "Produto",
+              value: (p.amount || 0) / 100,
+              qty: p.quantity || 1,
+            }));
+
+            const { data: newLead } = await supabase
+              .from("recovery_leads")
+              .insert({
+                loja_id: lojaId,
+                customer_name: customer.name || "Cliente",
+                customer_email: email,
+                customer_phone: customer.phone || "",
+                checkout_url: checkoutUrl,
+                products: recoveryProducts,
+                total_value: totalPrice / 100,
+                raw_payload: payload,
+                tipo: recoveryTipo,
+                status: "pendente",
+              })
+              .select("id")
+              .single();
+
+            if (newLead) {
+              // Fire-and-forget email
+              supabase.functions.invoke("send-recovery-email", {
+                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+              }).catch((e) => console.error("[recovery-email] error:", e));
+
+              // Fire-and-forget SMS
+              if (recoveryConfig.enviar_sms && customer.phone) {
+                supabase.functions.invoke("send-recovery-sms", {
+                  body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                }).catch((e) => console.error("[recovery-sms] error:", e));
+              }
+
+              console.log(`[recovery] Lead created for ${recoveryTipo}:`, newLead.id);
+            }
+          }
+        }
+      } catch (recErr) {
+        console.error("[recovery] Error:", recErr);
+      }
+    }
+
     // 4. If approved and no envio linked yet, create envio (with payment method filter)
     if (status === "approved" && !existingPedido?.envio_id && pedidoId) {
       // Check filtro_metodo from checkout_integrations
