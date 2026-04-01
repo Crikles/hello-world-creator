@@ -5,7 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Parse settings from corpo_email metadata tags
 function parseSettings(corpo: string, config: Record<string, unknown>) {
   const m = (tag: string) => (corpo || "").match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1];
   const bool = (tag: string, def: boolean) => { const v = m(tag); return v === undefined ? def : v === "true"; };
@@ -134,7 +133,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { loja_id, customer_email } = await req.json();
+    const { loja_id, customer_email, tipo = "carrinho" } = await req.json();
 
     if (!loja_id || !customer_email) {
       return new Response(JSON.stringify({ error: "Missing loja_id or customer_email" }), {
@@ -150,6 +149,7 @@ Deno.serve(async (req) => {
       .from("recovery_config")
       .select("*")
       .eq("loja_id", loja_id)
+      .eq("tipo", tipo)
       .maybeSingle();
 
     if (!config || !config.ativo) {
@@ -163,6 +163,7 @@ Deno.serve(async (req) => {
       .select("*")
       .eq("loja_id", loja_id)
       .eq("customer_email", customer_email)
+      .eq("tipo", tipo)
       .eq("status", "pendente")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -186,7 +187,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get empresa info
     const { data: empresa } = await supabase
       .from("empresas")
       .select("nome_fantasia, razao_social, logo_url")
@@ -196,7 +196,6 @@ Deno.serve(async (req) => {
     const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || loja.nome || "Loja";
     const logoUrl = empresa?.logo_url || "";
 
-    // Build vars
     const products = (lead.products || []) as { name: string; value: number; qty: number }[];
     const listaProdutos = products.map(p => `${p.name} (x${p.qty}) — R$ ${p.value.toFixed(2)}`).join("<br>");
     const valorTotal = `R$ ${Number(lead.total_value || 0).toFixed(2).replace(".", ",")}`;
@@ -221,11 +220,10 @@ Deno.serve(async (req) => {
     const subject = replaceSubjectVars(config.assunto_email || "Você esqueceu algo 👀", vars);
     const bodyHtml = buildEmailHtml(s, vars, empresaNome, logoUrl);
 
-    // Debit
     const { data: debitOk } = await supabase.rpc("debit_user_credits", {
       _user_id: loja.user_id,
       _quantidade: 0.50,
-      _descricao: `Email recuperação para ${lead.customer_email}`,
+      _descricao: `Email recuperação (${tipo}) para ${lead.customer_email}`,
     });
 
     if (!debitOk) {

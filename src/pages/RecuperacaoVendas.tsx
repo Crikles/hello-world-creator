@@ -15,7 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
   Save, MessageSquare, Palette, Globe, Type, Sparkles,
-  CheckCircle2, ArrowRight, Lock,
+  CheckCircle2, ArrowRight, Lock, DollarSign,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -37,7 +37,6 @@ interface RecoverySettings {
   ativo: boolean;
   delay_minutos: number;
   assunto_email: string;
-  // Sections toggles
   mostrar_saudacao: boolean;
   saudacao: string;
   mostrar_resumo_pedido: boolean;
@@ -57,7 +56,6 @@ interface RecoverySettings {
   texto_botao: string;
   mostrar_ps: boolean;
   ps_reforco_urgencia: string;
-  // Colors
   cor_botao: string;
   cor_destaque: string;
   cor_titulo: string;
@@ -67,7 +65,7 @@ interface RecoverySettings {
   cor_cupom_texto: string;
 }
 
-const DEFAULTS: RecoverySettings = {
+const DEFAULTS_CARRINHO: RecoverySettings = {
   ativo: false,
   delay_minutos: 30,
   assunto_email: "{{nome_cliente}}, você esqueceu algo 👀",
@@ -99,18 +97,25 @@ const DEFAULTS: RecoverySettings = {
   cor_cupom_texto: "#d63384",
 };
 
-/* ─── Build email HTML from settings (for preview + saving) ─── */
+const DEFAULTS_PIX: RecoverySettings = {
+  ...DEFAULTS_CARRINHO,
+  assunto_email: "{{nome_cliente}}, seu PIX está aguardando 💲",
+  saudacao: "Notamos que você gerou um PIX mas ainda não finalizou o pagamento. Seu pedido está reservado por tempo limitado!",
+  texto_interrupcao: "Sabemos que imprevistos acontecem. Mas seu pedido ainda está disponível — finalize agora antes que expire.",
+  texto_botao: "Pagar com PIX agora",
+  ps_reforco_urgencia: "O PIX gerado expira em breve. Não perca seu pedido!",
+};
+
+/* ─── Build email HTML from settings (for preview) ─── */
 function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: string): string {
   const sections: string[] = [];
 
-  // Header with logo
   sections.push(`
     <tr><td style="padding:32px 40px 16px;text-align:center;">
       ${logoUrl ? `<img src="${logoUrl}" alt="${empresaNome}" style="width:56px;height:56px;border-radius:16px;object-fit:cover;margin-bottom:8px;" />` : ""}
       <p style="margin:0;font-size:13px;font-weight:700;color:${s.cor_destaque};letter-spacing:0.5px;">${empresaNome}</p>
     </td></tr>`);
 
-  // Saudação
   if (s.mostrar_saudacao) {
     sections.push(`
     <tr><td style="padding:8px 40px 16px;">
@@ -119,7 +124,6 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
     </td></tr>`);
   }
 
-  // Resumo do pedido
   if (s.mostrar_resumo_pedido) {
     sections.push(`
     <tr><td style="padding:8px 40px 16px;">
@@ -133,7 +137,6 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
     </td></tr>`);
   }
 
-  // Texto de interrupção
   if (s.mostrar_texto_interrupcao) {
     sections.push(`
     <tr><td style="padding:8px 40px 16px;">
@@ -141,7 +144,6 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
     </td></tr>`);
   }
 
-  // Benefícios
   if (s.mostrar_beneficios) {
     sections.push(`
     <tr><td style="padding:8px 40px 16px;">
@@ -154,7 +156,6 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
     </td></tr>`);
   }
 
-  // Cupom
   if (s.mostrar_cupom) {
     sections.push(`
     <tr><td style="padding:8px 40px 16px;">
@@ -169,7 +170,6 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
     </td></tr>`);
   }
 
-  // Garantia
   if (s.mostrar_garantia) {
     sections.push(`
     <tr><td style="padding:8px 40px 16px;">
@@ -177,7 +177,6 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
     </td></tr>`);
   }
 
-  // CTA
   if (s.mostrar_cta) {
     sections.push(`
     <tr><td style="padding:16px 40px 24px;text-align:center;">
@@ -187,7 +186,6 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
     </td></tr>`);
   }
 
-  // P.S.
   if (s.mostrar_ps) {
     sections.push(`
     <tr><td style="padding:0 40px 24px;">
@@ -195,7 +193,6 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
     </td></tr>`);
   }
 
-  // Footer
   sections.push(`
     <tr><td style="padding:16px 40px;border-top:1px solid #f1f5f9;">
       <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;">Enviado por <strong>${empresaNome}</strong></p>
@@ -208,7 +205,6 @@ ${sections.join("")}
 </table></td></tr></table></body></html>`;
 }
 
-/* ─── Preview with sample data ─── */
 function replacePreviewVars(html: string): string {
   const vars: Record<string, string> = {
     nome_cliente: "Maria Silva",
@@ -224,9 +220,8 @@ function replacePreviewVars(html: string): string {
   return result;
 }
 
-/* ─── Serialize settings to corpo_email for DB ─── */
 function serializeToCorpo(s: RecoverySettings): string {
-  const tags = [
+  return [
     `{{recovery_mostrar_saudacao:${s.mostrar_saudacao}}}`,
     `{{recovery_saudacao:${s.saudacao}}}`,
     `{{recovery_mostrar_resumo:${s.mostrar_resumo_pedido}}}`,
@@ -246,7 +241,6 @@ function serializeToCorpo(s: RecoverySettings): string {
     `{{recovery_cor_borda_cupom:${s.cor_borda_cupom}}}`,
     `{{recovery_cor_cupom_texto:${s.cor_cupom_texto}}}`,
   ].join("");
-  return tags;
 }
 
 function parseFromCorpo(corpo: string, defaults: RecoverySettings): Partial<RecoverySettings> {
@@ -294,73 +288,62 @@ function SectionToggle({ label, icon: Icon, checked, onChange, children }: {
   );
 }
 
-/* ─── Main Component ─── */
-export default function RecuperacaoVendas() {
-  const { loja } = useLoja();
+/* ─── Recovery Editor (reusable for both tipos) ─── */
+function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
+  tipo: "carrinho" | "pix_pendente";
+  loja: { id: string; webhook_token: string };
+  empresaNome: string;
+  logoUrl: string;
+}) {
   const queryClient = useQueryClient();
-  const [settings, setSettings] = useState<RecoverySettings>({ ...DEFAULTS });
-  const [savedSettings, setSavedSettings] = useState<RecoverySettings>({ ...DEFAULTS });
+  const defaults = tipo === "pix_pendente" ? DEFAULTS_PIX : DEFAULTS_CARRINHO;
+  const [settings, setSettings] = useState<RecoverySettings>({ ...defaults });
+  const [savedSettings, setSavedSettings] = useState<RecoverySettings>({ ...defaults });
 
-  const webhookUrl = loja
-    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-recovery?token=${loja.webhook_token}`
-    : "";
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-recovery?token=${loja.webhook_token}&tipo=${tipo}`;
 
   const set = <K extends keyof RecoverySettings>(key: K, val: RecoverySettings[K]) =>
     setSettings(prev => ({ ...prev, [key]: val }));
 
-  // Fetch empresa
-  const { data: empresa } = useQuery({
-    queryKey: ["empresa-recovery", loja?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("empresas")
-        .select("nome_fantasia, razao_social, logo_url")
-        .eq("loja_id", loja!.id)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!loja,
-  });
-
-  const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Minha Loja";
-  const logoUrl = empresa?.logo_url || "";
-
-  // Fetch config
+  // Fetch config for this tipo
   const { data: config } = useQuery({
-    queryKey: ["recovery-config", loja?.id],
+    queryKey: ["recovery-config", loja.id, tipo],
     queryFn: async () => {
       const { data } = await supabase
         .from("recovery_config")
         .select("*")
-        .eq("loja_id", loja!.id)
+        .eq("loja_id", loja.id)
+        .eq("tipo" as string, tipo)
         .maybeSingle();
       return data;
     },
-    enabled: !!loja,
   });
 
   // Populate from DB
   useEffect(() => {
     if (config) {
-      const parsed = config.corpo_email ? parseFromCorpo(config.corpo_email, DEFAULTS) : {};
+      const parsed = config.corpo_email ? parseFromCorpo(config.corpo_email, defaults) : {};
       const loaded: RecoverySettings = {
-        ...DEFAULTS,
+        ...defaults,
         ativo: config.ativo,
         delay_minutos: config.delay_minutos,
         assunto_email: config.assunto_email,
-        beneficio_principal: config.beneficio_principal || DEFAULTS.beneficio_principal,
-        beneficio_1: config.beneficio_1 || DEFAULTS.beneficio_1,
-        beneficio_2: config.beneficio_2 || DEFAULTS.beneficio_2,
-        beneficio_3: config.beneficio_3 || DEFAULTS.beneficio_3,
-        garantia: config.garantia || DEFAULTS.garantia,
-        ps_reforco_urgencia: config.ps_reforco_urgencia || DEFAULTS.ps_reforco_urgencia,
+        beneficio_principal: config.beneficio_principal || defaults.beneficio_principal,
+        beneficio_1: config.beneficio_1 || defaults.beneficio_1,
+        beneficio_2: config.beneficio_2 || defaults.beneficio_2,
+        beneficio_3: config.beneficio_3 || defaults.beneficio_3,
+        garantia: config.garantia || defaults.garantia,
+        ps_reforco_urgencia: config.ps_reforco_urgencia || defaults.ps_reforco_urgencia,
         mostrar_cupom: config.cupom_ativo,
-        codigo_cupom: config.codigo_cupom || DEFAULTS.codigo_cupom,
-        descricao_cupom: config.descricao_cupom || DEFAULTS.descricao_cupom,
+        codigo_cupom: config.codigo_cupom || defaults.codigo_cupom,
+        descricao_cupom: config.descricao_cupom || defaults.descricao_cupom,
         ...parsed,
       };
       setSettings(loaded);
       setSavedSettings(loaded);
+    } else {
+      setSettings({ ...defaults });
+      setSavedSettings({ ...defaults });
     }
   }, [config]);
 
@@ -369,11 +352,9 @@ export default function RecuperacaoVendas() {
   // Save
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const emailHtml = buildEmailHtml(settings, empresaNome, logoUrl);
       const corpo = serializeToCorpo(settings);
-
-      const payload = {
-        loja_id: loja!.id,
+      const payload: Record<string, unknown> = {
+        loja_id: loja.id,
         ativo: settings.ativo,
         delay_minutos: settings.delay_minutos,
         assunto_email: settings.assunto_email,
@@ -387,19 +368,20 @@ export default function RecuperacaoVendas() {
         beneficio_3: settings.beneficio_3,
         garantia: settings.garantia,
         ps_reforco_urgencia: settings.ps_reforco_urgencia,
+        tipo,
       };
 
       if (config) {
         const { error } = await supabase.from("recovery_config").update(payload).eq("id", config.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("recovery_config").insert(payload);
+        const { error } = await supabase.from("recovery_config").insert(payload as any);
         if (error) throw error;
       }
     },
     onSuccess: () => {
       setSavedSettings({ ...settings });
-      queryClient.invalidateQueries({ queryKey: ["recovery-config"] });
+      queryClient.invalidateQueries({ queryKey: ["recovery-config", loja.id, tipo] });
       toast({ title: "Configuração salva!" });
     },
     onError: () => {
@@ -407,19 +389,19 @@ export default function RecuperacaoVendas() {
     },
   });
 
-  // Leads
-  const { data: leads = [], isLoading: loadingLeads } = useQuery({
-    queryKey: ["recovery-leads", loja?.id],
+  // Leads for this tipo
+  const { data: leads = [] } = useQuery({
+    queryKey: ["recovery-leads", loja.id, tipo],
     queryFn: async () => {
       const { data } = await supabase
         .from("recovery_leads")
         .select("*")
-        .eq("loja_id", loja!.id)
+        .eq("loja_id", loja.id)
+        .eq("tipo" as string, tipo)
         .order("created_at", { ascending: false })
         .limit(200);
       return data || [];
     },
-    enabled: !!loja,
   });
 
   const statusColors: Record<string, string> = {
@@ -430,28 +412,19 @@ export default function RecuperacaoVendas() {
     sem_credito: "bg-red-500/10 text-red-600",
   };
 
-  // Preview HTML
   const previewHtml = useMemo(() => {
     const raw = buildEmailHtml(settings, empresaNome, logoUrl);
     return replacePreviewVars(raw);
   }, [settings, empresaNome, logoUrl]);
 
-  if (!loja) return null;
+  const tipoLabel = tipo === "pix_pendente" ? "PIX Pendente" : "Carrinho Abandonado";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header row */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <ShoppingCart className="h-4 w-4 text-primary" />
-            </div>
-            Recuperação de Vendas
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">Recupere carrinhos abandonados com emails personalizados</p>
-        </div>
         <div className="flex items-center gap-2">
-          <Label className="text-xs">Ativar</Label>
+          <Label className="text-xs">Ativar {tipoLabel}</Label>
           <Switch checked={settings.ativo} onCheckedChange={v => set("ativo", v)} />
         </div>
       </div>
@@ -461,7 +434,7 @@ export default function RecuperacaoVendas() {
         <div className="flex items-center gap-3">
           <Globe className="h-5 w-5 text-primary shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-muted-foreground mb-0.5">Webhook — Vendas Pendentes</p>
+            <p className="text-[10px] text-muted-foreground mb-0.5">Webhook — {tipoLabel}</p>
             <code className="text-[10px] bg-muted px-2 py-0.5 rounded block truncate">{webhookUrl}</code>
           </div>
           <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast({ title: "URL copiada!" }); }}>
@@ -480,7 +453,6 @@ export default function RecuperacaoVendas() {
           <div className="grid lg:grid-cols-2 gap-5">
             {/* LEFT — Configuration */}
             <div className="space-y-3">
-              {/* Assunto + Delay */}
               <div className="glass glow-border rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -503,21 +475,17 @@ export default function RecuperacaoVendas() {
                 </div>
               </div>
 
-              {/* Saudação */}
               <SectionToggle label="Saudação" icon={Type} checked={settings.mostrar_saudacao} onChange={v => set("mostrar_saudacao", v)}>
                 <Textarea value={settings.saudacao} onChange={e => set("saudacao", e.target.value)} maxLength={300} className="text-sm resize-none bg-transparent border-border/50" rows={3} />
                 <p className="text-[10px] text-muted-foreground text-right">{settings.saudacao.length}/300</p>
               </SectionToggle>
 
-              {/* Resumo */}
               <SectionToggle label="Resumo do Pedido" icon={ShoppingCart} checked={settings.mostrar_resumo_pedido} onChange={v => set("mostrar_resumo_pedido", v)} />
 
-              {/* Texto de interrupção */}
               <SectionToggle label="Texto de Interrupção" icon={MessageSquare} checked={settings.mostrar_texto_interrupcao} onChange={v => set("mostrar_texto_interrupcao", v)}>
                 <Textarea value={settings.texto_interrupcao} onChange={e => set("texto_interrupcao", e.target.value)} maxLength={300} className="text-sm resize-none bg-transparent border-border/50" rows={2} />
               </SectionToggle>
 
-              {/* Benefícios */}
               <SectionToggle label="Benefícios" icon={Sparkles} checked={settings.mostrar_beneficios} onChange={v => set("mostrar_beneficios", v)}>
                 <div>
                   <Label className="text-xs text-muted-foreground">Benefício Principal</Label>
@@ -530,7 +498,6 @@ export default function RecuperacaoVendas() {
                 </div>
               </SectionToggle>
 
-              {/* Cupom */}
               <SectionToggle label="Cupom de Desconto" icon={Gift} checked={settings.mostrar_cupom} onChange={v => set("mostrar_cupom", v)}>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -544,17 +511,14 @@ export default function RecuperacaoVendas() {
                 </div>
               </SectionToggle>
 
-              {/* Garantia */}
               <SectionToggle label="Garantia" icon={CheckCircle2} checked={settings.mostrar_garantia} onChange={v => set("mostrar_garantia", v)}>
                 <Input value={settings.garantia} onChange={e => set("garantia", e.target.value)} className="text-sm bg-transparent border-border/50" />
               </SectionToggle>
 
-              {/* CTA */}
               <SectionToggle label="Botão (CTA)" icon={ArrowRight} checked={settings.mostrar_cta} onChange={v => set("mostrar_cta", v)}>
                 <Input value={settings.texto_botao} onChange={e => set("texto_botao", e.target.value)} className="text-sm bg-transparent border-border/50" />
               </SectionToggle>
 
-              {/* P.S. */}
               <SectionToggle label="P.S. (Urgência)" icon={Lock} checked={settings.mostrar_ps} onChange={v => set("mostrar_ps", v)}>
                 <Input value={settings.ps_reforco_urgencia} onChange={e => set("ps_reforco_urgencia", e.target.value)} className="text-sm bg-transparent border-border/50" />
               </SectionToggle>
@@ -585,7 +549,6 @@ export default function RecuperacaoVendas() {
                 </div>
               </div>
 
-              {/* Save */}
               <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending} className="w-full shimmer-btn" size="lg">
                 <Save className="h-4 w-4 mr-2" />
                 {saveMutation.isPending ? "Salvando..." : "Salvar Alterações"}
@@ -606,7 +569,6 @@ export default function RecuperacaoVendas() {
                 </div>
 
                 <div className="bg-[#f1f5f9] rounded-2xl border-2 border-border/50 shadow-xl overflow-hidden flex flex-col" style={{ minHeight: 500 }}>
-                  {/* Email client header */}
                   <div className="bg-white border-b border-black/5 px-4 py-3 flex items-center gap-3 shadow-sm z-10">
                     <div className="flex gap-1.5">
                       <div className="w-3 h-3 rounded-full bg-red-400" />
@@ -621,7 +583,6 @@ export default function RecuperacaoVendas() {
                     </div>
                   </div>
 
-                  {/* Email body */}
                   <div className="flex-1 overflow-auto bg-[#f1f5f9]">
                     <div className="p-3">
                       <div className="max-w-[560px] mx-auto transform scale-[0.85] origin-top">
@@ -640,7 +601,6 @@ export default function RecuperacaoVendas() {
         </TabsContent>
 
         <TabsContent value="leads" className="space-y-4">
-          {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: "Total", value: leads.length, color: "text-foreground" },
@@ -668,7 +628,7 @@ export default function RecuperacaoVendas() {
               ].join("\n");
               const blob = new Blob([csv], { type: "text/csv" });
               const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-              a.download = `recovery_leads_${format(new Date(), "yyyyMMdd")}.csv`; a.click();
+              a.download = `recovery_${tipo}_${format(new Date(), "yyyyMMdd")}.csv`; a.click();
             }}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>
@@ -679,7 +639,7 @@ export default function RecuperacaoVendas() {
               <CardContent className="py-8 text-center text-muted-foreground">
                 <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-40" />
                 <p>Nenhum lead capturado ainda.</p>
-                <p className="text-xs mt-1">Configure o webhook no checkout para capturar carrinhos abandonados.</p>
+                <p className="text-xs mt-1">Configure o webhook no checkout para capturar leads.</p>
               </CardContent>
             </Card>
           ) : (
@@ -709,6 +669,64 @@ export default function RecuperacaoVendas() {
               })}
             </div>
           )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+/* ─── Main Component ─── */
+export default function RecuperacaoVendas() {
+  const { loja } = useLoja();
+
+  const { data: empresa } = useQuery({
+    queryKey: ["empresa-recovery", loja?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("empresas")
+        .select("nome_fantasia, razao_social, logo_url")
+        .eq("loja_id", loja!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!loja,
+  });
+
+  const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Minha Loja";
+  const logoUrl = empresa?.logo_url || "";
+
+  if (!loja) return null;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <ShoppingCart className="h-4 w-4 text-primary" />
+          </div>
+          Recuperação de Vendas
+        </h1>
+        <p className="text-xs text-muted-foreground mt-1">Recupere vendas abandonadas com emails personalizados</p>
+      </div>
+
+      <Tabs defaultValue="carrinho">
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="carrinho" className="flex items-center gap-1.5">
+            <ShoppingCart className="h-3.5 w-3.5" />
+            Carrinho Abandonado
+          </TabsTrigger>
+          <TabsTrigger value="pix_pendente" className="flex items-center gap-1.5">
+            <DollarSign className="h-3.5 w-3.5" />
+            PIX Pendente
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="carrinho">
+          <RecoveryEditor tipo="carrinho" loja={loja} empresaNome={empresaNome} logoUrl={logoUrl} />
+        </TabsContent>
+
+        <TabsContent value="pix_pendente">
+          <RecoveryEditor tipo="pix_pendente" loja={loja} empresaNome={empresaNome} logoUrl={logoUrl} />
         </TabsContent>
       </Tabs>
     </div>

@@ -16,7 +16,6 @@ interface NormalizedLead {
 
 // deno-lint-ignore no-explicit-any
 function normalizePayload(payload: any): NormalizedLead | null {
-  // Try common structures from Vega, Zedy, Luna, Corvex, Adoorei, API Externa
   const customer = payload.customer || payload.Customer || payload.cliente || {};
   const name = customer.name || customer.Name || customer.nome || payload.customer_name || payload.nome || "";
   const email = customer.email || customer.Email || payload.customer_email || payload.email || "";
@@ -24,7 +23,6 @@ function normalizePayload(payload: any): NormalizedLead | null {
 
   if (!email) return null;
 
-  // Products extraction
   let products: { name: string; value: number; qty: number }[] = [];
   const rawProducts = payload.products || payload.Products || payload.items || payload.line_items || payload.produtos || [];
 
@@ -36,15 +34,12 @@ function normalizePayload(payload: any): NormalizedLead | null {
     }));
   }
 
-  // Total
   let total = Number(payload.total || payload.total_price || payload.valor_total || payload.amount || 0);
   if (!total && products.length > 0) {
     total = products.reduce((s, p) => s + p.value * p.qty, 0);
   }
-  // Convert cents to reais if value seems too high
   if (total > 100000) total = total / 100;
 
-  // Checkout URL
   const checkoutUrl = payload.checkout_url || payload.checkoutUrl || payload.payment_url || payload.link || "";
 
   return {
@@ -72,9 +67,17 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
+    const tipo = url.searchParams.get("tipo") || "carrinho";
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Missing 'token' query parameter" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!["carrinho", "pix_pendente"].includes(tipo)) {
+      return new Response(JSON.stringify({ error: "Invalid 'tipo'. Use 'carrinho' or 'pix_pendente'" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -102,11 +105,12 @@ Deno.serve(async (req) => {
 
     const lojaId = lojaData.id;
 
-    // Check if recovery is active
+    // Check if recovery is active for this tipo
     const { data: config } = await supabase
       .from("recovery_config")
       .select("ativo, delay_minutos")
       .eq("loja_id", lojaId)
+      .eq("tipo", tipo)
       .maybeSingle();
 
     if (!config?.ativo) {
@@ -125,13 +129,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check duplicate (same email + loja in last 24h)
+    // Check duplicate (same email + loja + tipo in last 24h)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: existing } = await supabase
       .from("recovery_leads")
       .select("id")
       .eq("loja_id", lojaId)
       .eq("customer_email", lead.customer_email)
+      .eq("tipo", tipo)
       .gte("created_at", oneDayAgo)
       .limit(1);
 
@@ -155,6 +160,7 @@ Deno.serve(async (req) => {
         checkout_url: lead.checkout_url,
         raw_payload: payload,
         status: "pendente",
+        tipo,
       });
 
     if (insertError) {
@@ -165,11 +171,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Trigger email send after delay (for now, immediate via invoke)
-    // Phase 2: scheduled/cron based on delay_minutos
+    // Trigger email send
     try {
       await supabase.functions.invoke("send-recovery-email", {
-        body: { loja_id: lojaId, customer_email: lead.customer_email },
+        body: { loja_id: lojaId, customer_email: lead.customer_email, tipo },
       });
     } catch (e) {
       console.error("Failed to invoke send-recovery-email:", e);
