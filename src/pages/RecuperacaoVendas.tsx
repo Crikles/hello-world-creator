@@ -564,7 +564,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                       <div className="w-3 h-3 rounded-full bg-green-400" />
                     </div>
                     <div className="flex flex-col ml-2">
-                      <span className="text-[11px] font-bold text-foreground">
+                      <span className="text-[11px] font-bold" style={{ color: '#000000' }}>
                         {settings.assunto_email.replace("{{nome_cliente}}", "Maria Silva")}
                       </span>
                       <span className="text-[9px] text-muted-foreground">Para: maria.silva@gmail.com</span>
