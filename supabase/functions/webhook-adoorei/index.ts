@@ -81,6 +81,75 @@ Deno.serve(async (req) => {
             loja_id: lojaId,
         });
 
+        // === CARRINHO ABANDONADO (early return) ===
+        if (event === "cart.abandoned") {
+            const cartCustomer = resource.customer || {};
+            const cartEmail = cartCustomer.email || "";
+            if (cartEmail) {
+                const recoveryTipo = "carrinho";
+                const { data: recoveryConfig } = await supabase
+                    .from("recovery_config")
+                    .select("ativo, enviar_sms")
+                    .eq("loja_id", lojaId)
+                    .eq("tipo", recoveryTipo)
+                    .eq("ativo", true)
+                    .maybeSingle();
+
+                if (recoveryConfig) {
+                    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                    const { data: existingLead } = await supabase
+                        .from("recovery_leads")
+                        .select("id")
+                        .eq("loja_id", lojaId)
+                        .eq("customer_email", cartEmail)
+                        .eq("tipo", recoveryTipo)
+                        .gte("created_at", since24h)
+                        .maybeSingle();
+
+                    if (!existingLead) {
+                        const cartProducts = (resource.products || []).map((p: any) => ({
+                            name: p.name || "Produto",
+                            value: Number(p.price || 0),
+                            qty: Number(p.qty || 1),
+                        }));
+                        const phoneLimpo = cartCustomer.phone_number ? cartCustomer.phone_number.replace(/\D/g, '') : "";
+
+                        const { data: newLead } = await supabase
+                            .from("recovery_leads")
+                            .insert({
+                                loja_id: lojaId,
+                                tipo: recoveryTipo,
+                                customer_name: cartCustomer.name || "Cliente",
+                                customer_email: cartEmail,
+                                customer_phone: phoneLimpo,
+                                checkout_url: resource.checkout_url || "",
+                                total_value: Number(resource.total || 0),
+                                products: cartProducts,
+                                raw_payload: payload,
+                                status: "pendente",
+                            })
+                            .select("id")
+                            .single();
+
+                        if (newLead) {
+                            supabase.functions.invoke("send-recovery-email", {
+                                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                            }).catch((e) => console.error("[recovery-email] error:", e));
+
+                            if (recoveryConfig.enviar_sms && phoneLimpo) {
+                                supabase.functions.invoke("send-recovery-sms", {
+                                    body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                                }).catch((e) => console.error("[recovery-sms] error:", e));
+                            }
+                        }
+                    }
+                }
+            }
+
+            await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "adoorei").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
+            return new Response(JSON.stringify({ success: true, event, recovery: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
         // 2. Normalize data
         const customer = resource.customer || {};
         const address = resource.address || {};
