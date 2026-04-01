@@ -174,17 +174,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recoveryConfig?.ativo) {
-          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-          const { data: existingLead } = await supabase
-            .from("recovery_leads")
-            .select("id")
-            .eq("loja_id", lojaId)
-            .eq("customer_email", client.email)
-            .eq("tipo", recoveryTipo)
-            .gte("created_at", oneDayAgo)
-            .limit(1);
-
-          if (!existingLead || existingLead.length === 0) {
+          if (!existingPedido) {
             const recoveryProducts = items.map((item: any) => ({
               name: item.name || "",
               value: Number(item.price || 0),
@@ -220,6 +210,8 @@ Deno.serve(async (req) => {
                 body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
               }).catch((e) => console.error("[recovery-sms] error:", e));
             }
+          } else {
+            console.log("[recovery] skipping duplicate transaction", { transactionToken, lojaId, recoveryTipo });
           }
         }
       } catch (e) {
