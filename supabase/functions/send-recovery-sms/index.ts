@@ -100,6 +100,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch dynamic cost: custom_prices > system_config > fallback
+    const configKey = `custo_recovery_sms_${tipo || "carrinho"}`;
+    let custo = 0.15; // fallback
+
+    const { data: sysConf } = await supabase
+      .from("system_config")
+      .select("value")
+      .eq("key", configKey)
+      .maybeSingle();
+    if (sysConf) custo = sysConf.value;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("custom_prices")
+      .eq("id", loja.user_id)
+      .maybeSingle();
+    const customPrices = (profile?.custom_prices || {}) as Record<string, number>;
+    if (typeof customPrices[configKey] === "number") custo = customPrices[configKey];
+
     // Build variables
     const firstName = (lead.customer_name || "").split(" ")[0];
     const products = (lead.products || []) as { name: string }[];
@@ -136,8 +155,8 @@ Deno.serve(async (req) => {
     // Debit credits (SMS cost)
     const { data: debitOk } = await supabase.rpc("debit_user_credits", {
       _user_id: loja.user_id,
-      _quantidade: 0.25,
-      _descricao: `SMS recuperação (${tipo || "carrinho"}) para ${lead.customer_phone}`,
+      _quantidade: custo,
+      _descricao: `SMS recuperação (${tipo || "carrinho"}) para ${lead.customer_phone} [${custo} moedas]`,
     });
 
     if (!debitOk) {
