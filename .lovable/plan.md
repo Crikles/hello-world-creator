@@ -1,26 +1,21 @@
 
 
-## Plan: Mover cores para dentro de cada card de seção
-
-### Conceito
-Remover o card "Cores" separado no final e distribuir os color pickers dentro de cada seção relevante, para que o usuário personalize a cor no contexto certo.
+## Plan: Aviso de limite de 160 caracteres com variáveis no SMS
 
 ### Alteração: `src/pages/RecuperacaoVendas.tsx`
 
-1. **Card "Configuração Geral"** (linhas ~456-476) — Adicionar dentro dele:
-   - `ColorPicker` de "Títulos" (`cor_titulo`)
-   - `ColorPicker` de "Texto" (`cor_texto`)
-   - `ColorPicker` de "Destaque" (`cor_destaque`)
+Adicionar um bloco de alerta visível (usando componente `Alert` com ícone de aviso) abaixo de cada textarea de SMS e também um alerta geral no topo da aba SMS, explicando que:
 
-2. **SectionToggle "Botão (CTA)"** (linhas ~518-520) — Adicionar dentro:
-   - `ColorPicker` de "Cor do Botão" (`cor_botao`)
+- O limite de 160 caracteres é **após a substituição das variáveis** (`{nome}`, `{produto}`, `{link}`)
+- Se o SMS final ultrapassar 160 caracteres com os dados reais do lead, **ele não será enviado**
+- Sugestão: usar nomes curtos de variáveis e manter o template bem abaixo de 160
 
-3. **SectionToggle "Cupom de Desconto"** (linhas ~501-512) — Adicionar dentro:
-   - `ColorPicker` de "Fundo Cupom" (`cor_fundo_cupom`)
-   - `ColorPicker` de "Borda Cupom" (`cor_borda_cupom`)
-   - `ColorPicker` de "Texto Cupom" (`cor_cupom_texto`)
+### Detalhes técnicos
 
-4. **Remover** o card "Cores" completo (linhas 526-550).
+1. **Alerta geral no topo da aba SMS** — Box amarelo/laranja com ícone `AlertTriangle`:
+   - Texto: "⚠️ Atenção: O limite de 160 caracteres inclui os valores reais das variáveis. Ex: `{nome}` será substituído pelo nome do cliente, `{produto}` pelo nome do produto e `{link}` pela URL completa do checkout. Se o SMS final ultrapassar 160 caracteres, ele **não será enviado**. Mantenha seus templates curtos."
+
+2. **Contador existente** — Manter o `X/160` já existente, sem mudanças.
 
 ### Arquivo alterado
 - `src/pages/RecuperacaoVendas.tsx` (apenas)
