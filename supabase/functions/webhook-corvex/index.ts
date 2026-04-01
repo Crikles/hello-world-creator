@@ -159,6 +159,74 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
+    // 3.5 Recovery: PIX pendente ou carrinho abandonado
+    const isPendingEvent = (event === "corvex.order.created" && status === "pending") || event === "corvex.order.pending";
+    if (isPendingEvent && client.email) {
+      const methodLower = (payload.method || "").toLowerCase();
+      const recoveryTipo = methodLower.includes("pix") ? "pix_pendente" : "carrinho";
+
+      try {
+        const { data: recoveryConfig } = await supabase
+          .from("recovery_config")
+          .select("ativo")
+          .eq("loja_id", lojaId)
+          .eq("tipo", recoveryTipo)
+          .maybeSingle();
+
+        if (recoveryConfig?.ativo) {
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const { data: existingLead } = await supabase
+            .from("recovery_leads")
+            .select("id")
+            .eq("loja_id", lojaId)
+            .eq("customer_email", client.email)
+            .eq("tipo", recoveryTipo)
+            .gte("created_at", oneDayAgo)
+            .limit(1);
+
+          if (!existingLead || existingLead.length === 0) {
+            const recoveryProducts = items.map((item: any) => ({
+              name: item.name || "",
+              value: Number(item.price || 0),
+              qty: item.quantity || 1,
+            }));
+
+            const checkoutUrl = payload.utm?.page?.url || "";
+            const totalValue = Number(payload.amount || 0);
+
+            const { data: newLead } = await supabase
+              .from("recovery_leads")
+              .insert({
+                loja_id: lojaId,
+                customer_name: client.name || "Cliente Corvex",
+                customer_email: client.email,
+                customer_phone: client.phone || null,
+                products: recoveryProducts,
+                total_value: totalValue,
+                checkout_url: checkoutUrl,
+                raw_payload: payload,
+                status: "pendente",
+                tipo: recoveryTipo,
+              })
+              .select("id")
+              .single();
+
+            if (newLead) {
+              supabase.functions.invoke("send-recovery-email", {
+                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+              }).catch((e) => console.error("[recovery-email] error:", e));
+
+              supabase.functions.invoke("send-recovery-sms", {
+                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+              }).catch((e) => console.error("[recovery-sms] error:", e));
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[recovery] error:", e);
+      }
+    }
+
     // 4. If paid and no envio linked yet, create envio (with payment method filter)
     if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
       const { data: integrationConfig } = await supabase
