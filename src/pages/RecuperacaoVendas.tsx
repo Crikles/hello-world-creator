@@ -410,6 +410,16 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
     },
   });
 
+  const getLeadStatus = (lead: any) => {
+    if (lead.status === "convertido") return { label: "Convertido", color: "bg-green-500/10 text-green-600" };
+    if (lead.status === "sem_credito") return { label: "Sem crédito", color: "bg-red-500/10 text-red-600" };
+    if (lead.status === "expirado") return { label: "Expirado", color: "bg-muted text-muted-foreground" };
+    if (lead.email_sent_at && lead.sms_sent_at) return { label: "Email + SMS ✓", color: "bg-blue-500/10 text-blue-600" };
+    if (lead.email_sent_at) return { label: "Email ✓", color: "bg-blue-500/10 text-blue-600" };
+    if (lead.sms_sent_at) return { label: "SMS ✓", color: "bg-indigo-500/10 text-indigo-600" };
+    return { label: "Pendente", color: "bg-yellow-500/10 text-yellow-600" };
+  };
+
   const statusColors: Record<string, string> = {
     pendente: "bg-yellow-500/10 text-yellow-600",
     email_enviado: "bg-blue-500/10 text-blue-600",
@@ -648,9 +658,9 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: "Total", value: leads.length, color: "text-foreground" },
-              { label: "Pendentes", value: leads.filter(l => l.status === "pendente").length, color: "text-yellow-600" },
-              { label: "Enviados", value: leads.filter(l => l.status === "email_enviado").length, color: "text-blue-600" },
-              { label: "Convertidos", value: leads.filter(l => l.status === "convertido").length, color: "text-green-600" },
+              { label: "Pendentes", value: leads.filter((l: any) => l.status === "pendente" && !l.email_sent_at && !l.sms_sent_at).length, color: "text-yellow-600" },
+              { label: "Disparados", value: leads.filter((l: any) => l.email_sent_at || l.sms_sent_at || l.status === "email_enviado").length, color: "text-blue-600" },
+              { label: "Convertidos", value: leads.filter((l: any) => l.status === "convertido").length, color: "text-green-600" },
             ].map(s => (
               <Card key={s.label} className="glass">
                 <CardContent className="py-3 text-center">
@@ -697,7 +707,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm truncate">{lead.customer_name || "—"}</span>
-                            <Badge variant="outline" className={statusColors[lead.status] || ""}>{lead.status}</Badge>
+                            {(() => { const s = getLeadStatus(lead); return <Badge variant="outline" className={s.color}>{s.label}</Badge>; })()}
                           </div>
                           <p className="text-xs text-muted-foreground truncate">{lead.customer_email}</p>
                           {prods.length > 0 && <p className="text-xs text-muted-foreground mt-0.5 truncate">{prods.map(p => p.name).join(", ")}</p>}
