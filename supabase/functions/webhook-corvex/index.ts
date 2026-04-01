@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
     }
 
     // 3.5 Recovery: PIX pendente ou carrinho abandonado
-    const isPendingEvent = (event === "corvex.order.created" && status === "pending") || event === "corvex.order.pending";
+    const isPendingEvent = status === "pending";
     if (isPendingEvent && client.email) {
       const methodLower = (payload.method || "").toLowerCase();
       const recoveryTipo = methodLower.includes("pix") ? "pix_pendente" : "carrinho";
