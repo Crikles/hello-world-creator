@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
-  Save, MessageSquare, Globe, Type, Sparkles,
+  Save, MessageSquare, Globe, Type, Sparkles, Coins,
   CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone, AlertTriangle,
   BookOpen, Zap, Shield, Timer, Hash, ExternalLink, Info,
 } from "lucide-react";
