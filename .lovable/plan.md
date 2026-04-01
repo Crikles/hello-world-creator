@@ -1,43 +1,49 @@
 
 
-## Plan: Integrar Zedy com Recuperação de Vendas (Carrinho Abandonado + PIX Pendente)
+## Plan: Integrar Vega (V1 + V2) com Recuperação de Vendas
 
-### Análise da Documentação Zedy
+### Análise da Documentação
 
-Os status do webhook Zedy são: `waiting_payment`, `paid`, `refused`, `refunded`.
+**Carrinho Abandonado:**
+- V1: `status: "abandoned_cart"`, URL em `abandoned_checkout_url`, produtos em `plans[].products[]`
+- V2: `status: "abandoned_cart"`, URL em `abandoned_checkout_url_url`, produtos em `products[]`
 
-**Mapeamento:**
-- **PIX Pendente** → `status: "waiting_payment"` + `paymentMethod: "pix"`
-- **Carrinho Abandonado** → `status: "waiting_payment"` + `paymentMethod != "pix"` (cartão recusado ou boleto pendente = carrinho não finalizado)
+**PIX Pendente:**
+- V1: `status: "pending"` + `method: "pix"`, URL em `checkout_url`
+- V2: `status: "pending"` + `method: "pix"`, URL em `checkout_url`
 
-O webhook atual (`webhook-zedy`) já recebe todos os status, mas só cria envio quando `status === "paid"`. Precisamos adicionar lógica para disparar a recuperação quando `status === "waiting_payment"`.
+O webhook-vega já detecta `abandoned_cart` e `pending` mas não dispara recuperação.
 
-### Alteração: `supabase/functions/webhook-zedy/index.ts`
+### Alteração: `supabase/functions/webhook-vega/index.ts`
 
-Após o log do webhook (seção 1) e antes da normalização (seção 2), adicionar um bloco:
+Após o upsert do pedido (linha ~159) e antes do bloco "If approved" (linha ~162), adicionar:
 
 ```text
-Se status === "waiting_payment":
-  1. Determinar tipo: paymentMethod inclui "pix" → "pix_pendente", senão → "carrinho"
-  2. Verificar se recovery está ativo para esse tipo (tabela recovery_config)
-  3. Se ativo:
-     - Montar checkout_url a partir de payload.actions[0]?.url ou ""
-     - Verificar duplicata (mesmo email + loja + tipo nas últimas 24h em recovery_leads)
-     - Inserir lead em recovery_leads com produtos normalizados
-     - Invocar send-recovery-email (fire-and-forget)
-     - Invocar send-recovery-sms (fire-and-forget)
-  4. Continuar o fluxo normal do webhook (upsert pedido, etc.)
+Se status === "abandoned_cart" OU (status === "pending" && method === "pix"):
+  1. Determinar tipo:
+     - "abandoned_cart" → tipo = "carrinho"
+     - "pending" + pix → tipo = "pix_pendente"
+  2. Extrair email do customer
+  3. Se email existe:
+     - Verificar recovery_config ativo para loja + tipo
+     - Verificar duplicata em recovery_leads (mesmo email + loja + tipo nas últimas 24h)
+     - Montar checkout_url:
+       V1: payload.abandoned_checkout_url || payload.checkout_url
+       V2: payload.abandoned_checkout_url_url || payload.checkout_url
+     - Normalizar produtos (nome, valor em reais, qty)
+     - Inserir em recovery_leads
+     - Fire-and-forget: send-recovery-email e send-recovery-sms
+  4. Continuar fluxo normal (não bloqueia upsert do pedido)
 ```
 
-### Detalhes técnicos
+### Detalhes
 
-- Produtos serão mapeados de `{ name, priceInCents, quantity }` para `{ name, value (em reais), qty }`
-- `total_value` será `commission.totalPriceInCents / 100`
-- `checkout_url` extraído de `payload.actions[0]?.url` se disponível
+- `total_value` = `totalPrice / 100` (já calculado)
+- Produtos: usar `normalizedProducts` já montado, mapear `title` → `name`, `amount/100` → `value`, `quantity` → `qty`
+- `checkout_url`: tentar `abandoned_checkout_url_url` (V2), `abandoned_checkout_url` (V1), `checkout_url`, `order_url`
 - `customer_name`, `customer_email`, `customer_phone` do objeto `customer`
-- O bloco de recuperação não impede o fluxo normal (upsert de pedido continua)
 
 ### Arquivo alterado
-- `supabase/functions/webhook-zedy/index.ts` (apenas)
+- `supabase/functions/webhook-vega/index.ts` (apenas)
 - Redeploy da edge function
 
