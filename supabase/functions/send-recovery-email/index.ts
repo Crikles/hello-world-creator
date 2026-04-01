@@ -222,10 +222,29 @@ Deno.serve(async (req) => {
     const subject = replaceSubjectVars(config.assunto_email || "Você esqueceu algo 👀", vars);
     const bodyHtml = buildEmailHtml(s, vars, empresaNome, logoUrl);
 
+    // Fetch dynamic cost: custom_prices > system_config > fallback
+    const emailConfigKey = `custo_recovery_email_${tipo}`;
+    let custEmail = 0.10;
+
+    const { data: sysConf } = await supabase
+      .from("system_config")
+      .select("value")
+      .eq("key", emailConfigKey)
+      .maybeSingle();
+    if (sysConf) custEmail = sysConf.value;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("custom_prices")
+      .eq("id", loja.user_id)
+      .maybeSingle();
+    const customPrices = (profile?.custom_prices || {}) as Record<string, number>;
+    if (typeof customPrices[emailConfigKey] === "number") custEmail = customPrices[emailConfigKey];
+
     const { data: debitOk } = await supabase.rpc("debit_user_credits", {
       _user_id: loja.user_id,
-      _quantidade: 0.50,
-      _descricao: `Email recuperação (${tipo}) para ${lead.customer_email}`,
+      _quantidade: custEmail,
+      _descricao: `Email recuperação (${tipo}) para ${lead.customer_email} [${custEmail} moedas]`,
     });
 
     if (!debitOk) {

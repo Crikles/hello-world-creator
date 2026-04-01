@@ -155,8 +155,8 @@ Deno.serve(async (req) => {
     // Debit credits (SMS cost)
     const { data: debitOk } = await supabase.rpc("debit_user_credits", {
       _user_id: loja.user_id,
-      _quantidade: 0.25,
-      _descricao: `SMS recuperação (${tipo || "carrinho"}) para ${lead.customer_phone}`,
+      _quantidade: custo,
+      _descricao: `SMS recuperação (${tipo || "carrinho"}) para ${lead.customer_phone} [${custo} moedas]`,
     });
 
     if (!debitOk) {
