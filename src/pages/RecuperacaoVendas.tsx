@@ -392,11 +392,12 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
   const { data: leads = [] } = useQuery({
     queryKey: ["recovery-leads", loja.id, tipo],
     queryFn: async () => {
-      const { data } = await supabase
+      const query = supabase
         .from("recovery_leads")
         .select("*")
-        .eq("loja_id", loja.id)
-        .eq("tipo" as any, tipo)
+        .eq("loja_id", loja.id) as any;
+      const { data } = await query
+        .eq("tipo", tipo)
         .order("created_at", { ascending: false })
         .limit(200);
       return data || [];
