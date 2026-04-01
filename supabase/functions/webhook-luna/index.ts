@@ -293,7 +293,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5. Mark webhook as processed
+    // 6. Mark webhook as processed
     await supabase
       .from("webhook_logs")
       .update({ processed: true })
