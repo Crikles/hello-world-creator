@@ -1,38 +1,24 @@
 
 
-## Plan: Corrigir detecção de PIX pendente no webhook Corvex
+## Plan: Deploy da edge function webhook-corvex
 
-### Problema identificado
+### Problema
 
-A condição de detecção de evento pendente na linha 163 do `webhook-corvex` está errada:
+A edge function `webhook-corvex` **não está deployada**. Os logs mostram `404` com `function_id: nil` quando o webhook é chamado. Isso significa que a Corvex está enviando o evento, mas o servidor retorna 404 e nada acontece.
 
-```typescript
-// ATUAL (bugado)
-const isPendingEvent = (event === "corvex.order.created" && status === "pending") || event === "corvex.order.pending";
-```
+A última edição no código (mudança do `isPendingEvent`) não foi acompanhada de um deploy efetivo.
 
-Analisando os logs reais do banco, a Corvex envia **`corvex.order.paid`** com `status: "pending"` quando um PIX é gerado mas não pago. A condição atual **nunca** captura esse caso, pois só verifica `corvex.order.created` ou `corvex.order.pending`.
+### O que será feito
 
-Evidência nos logs:
-```
-raw_event: corvex.order.paid | raw_status: pending  ← NÃO CAPTURADO
-raw_event: corvex.order.created | raw_status: pending ← capturado
-```
+1. **Deploy da `webhook-corvex`** — Usar a ferramenta de deploy para publicar a edge function com o código atualizado que já contém a correção `const isPendingEvent = status === "pending"`
 
-### Correção
+2. **Testar via curl** — Após o deploy, enviar um POST de teste simulando um evento Corvex com `status: "pending"` e `method: "pix"` usando o token da loja `d0dea10f2cd8`, para confirmar que o lead é criado e os disparos de email/SMS são invocados
 
-Alterar a condição para capturar **qualquer evento com status `pending`**:
+### Problema adicional detectado
 
-```typescript
-// CORRIGIDO
-const isPendingEvent = status === "pending";
-```
+A `webhook-vega` está com erro de boot (`Identifier 'isAbandonedCart' has already been declared`). Isso é um bug separado que precisa ser corrigido em outro momento.
 
-Isso é seguro porque o fluxo de recovery já verifica se `recovery_config.ativo` está true e faz deduplicação por email/tipo nas últimas 24h.
+### Arquivo
 
-### Arquivo alterado
-- `supabase/functions/webhook-corvex/index.ts` — linha 163
-
-### Publicação
-Não precisa publicar o frontend. Edge functions são deployadas automaticamente.
+- `supabase/functions/webhook-corvex/index.ts` — apenas deploy, sem alteração de código
 
