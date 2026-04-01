@@ -397,7 +397,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
         .from("recovery_leads")
         .select("*")
         .eq("loja_id", loja.id)
-        .eq("tipo" as string, tipo)
+        .eq("tipo" as any, tipo)
         .order("created_at", { ascending: false })
         .limit(200);
       return data || [];
