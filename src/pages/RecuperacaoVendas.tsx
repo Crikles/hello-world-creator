@@ -309,12 +309,11 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
   const { data: config } = useQuery({
     queryKey: ["recovery-config", loja.id, tipo],
     queryFn: async () => {
-      const { data } = await supabase
+      const query = supabase
         .from("recovery_config")
         .select("*")
-        .eq("loja_id", loja.id)
-        .eq("tipo" as any, tipo)
-        .maybeSingle();
+        .eq("loja_id", loja.id) as any;
+      const { data } = await query.eq("tipo", tipo).maybeSingle();
       return data;
     },
   });
