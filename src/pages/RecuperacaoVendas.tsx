@@ -15,7 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
   Save, MessageSquare, Globe, Type, Sparkles,
-  CheckCircle2, ArrowRight, Lock, DollarSign,
+  CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -663,6 +663,159 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
   );
 }
 
+/* ─── SMS Editor (both tipos in one tab) ─── */
+function SmsEditor({ loja }: { loja: { id: string } }) {
+  const queryClient = useQueryClient();
+
+  const SMS_VARS = [
+    { var: "{nome}", desc: "Primeiro nome" },
+    { var: "{produto}", desc: "Nome do produto" },
+    { var: "{link}", desc: "Link do checkout" },
+  ];
+
+  const { data: configCarrinho } = useQuery({
+    queryKey: ["recovery-config", loja.id, "carrinho"],
+    queryFn: async () => {
+      const { data } = await (supabase.from("recovery_config").select("*").eq("loja_id", loja.id) as any).eq("tipo", "carrinho").maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: configPix } = useQuery({
+    queryKey: ["recovery-config", loja.id, "pix_pendente"],
+    queryFn: async () => {
+      const { data } = await (supabase.from("recovery_config").select("*").eq("loja_id", loja.id) as any).eq("tipo", "pix_pendente").maybeSingle();
+      return data;
+    },
+  });
+
+  const [smsCarrinho, setSmsCarrinho] = useState({ ativo: false, template: "Oi {nome}, voce deixou {produto} no carrinho! Finalize agora: {link}" });
+  const [smsPix, setSmsPix] = useState({ ativo: false, template: "Oi {nome}, seu PIX para {produto} ainda esta pendente. Pague agora: {link}" });
+  const [savedCarrinho, setSavedCarrinho] = useState({ ...smsCarrinho });
+  const [savedPix, setSavedPix] = useState({ ...smsPix });
+
+  useEffect(() => {
+    if (configCarrinho) {
+      const s = { ativo: configCarrinho.enviar_sms || false, template: configCarrinho.sms_template || smsCarrinho.template };
+      setSmsCarrinho(s);
+      setSavedCarrinho(s);
+    }
+  }, [configCarrinho]);
+
+  useEffect(() => {
+    if (configPix) {
+      const s = { ativo: configPix.enviar_sms || false, template: configPix.sms_template || smsPix.template };
+      setSmsPix(s);
+      setSavedPix(s);
+    }
+  }, [configPix]);
+
+  const hasChanges = JSON.stringify(smsCarrinho) !== JSON.stringify(savedCarrinho) || JSON.stringify(smsPix) !== JSON.stringify(savedPix);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const updates = [
+        { config: configCarrinho, tipo: "carrinho" as const, sms: smsCarrinho },
+        { config: configPix, tipo: "pix_pendente" as const, sms: smsPix },
+      ];
+      for (const u of updates) {
+        const payload = { enviar_sms: u.sms.ativo, sms_template: u.sms.template };
+        if (u.config) {
+          const { error } = await supabase.from("recovery_config").update(payload).eq("id", u.config.id);
+          if (error) throw error;
+        } else {
+          const defaults = u.tipo === "pix_pendente" ? DEFAULTS_PIX : DEFAULTS_CARRINHO;
+          const { error } = await supabase.from("recovery_config").insert({
+            loja_id: loja.id,
+            tipo: u.tipo,
+            ...payload,
+            assunto_email: defaults.assunto_email,
+            corpo_email: "",
+          } as any);
+          if (error) throw error;
+        }
+      }
+    },
+    onSuccess: () => {
+      setSavedCarrinho({ ...smsCarrinho });
+      setSavedPix({ ...smsPix });
+      queryClient.invalidateQueries({ queryKey: ["recovery-config", loja.id] });
+      toast({ title: "SMS salvo!" });
+    },
+    onError: () => toast({ title: "Erro ao salvar", variant: "destructive" }),
+  });
+
+  function SmsBlock({ label, sms, onChange }: {
+    label: string;
+    sms: { ativo: boolean; template: string };
+    onChange: (s: { ativo: boolean; template: string }) => void;
+  }) {
+    return (
+      <div className="glass glow-border rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Smartphone className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">{label}</span>
+          </div>
+          <Switch checked={sms.ativo} onCheckedChange={v => onChange({ ...sms, ativo: v })} />
+        </div>
+        {sms.ativo && (
+          <div className="space-y-2">
+            <Textarea
+              value={sms.template}
+              onChange={e => {
+                if (e.target.value.length <= 160) onChange({ ...sms, template: e.target.value });
+              }}
+              maxLength={160}
+              className="text-sm resize-none bg-transparent border-border/50 font-mono"
+              rows={3}
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex gap-1 flex-wrap">
+                {SMS_VARS.map(v => (
+                  <button
+                    key={v.var}
+                    type="button"
+                    className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono hover:bg-primary/20 transition-colors"
+                    onClick={() => {
+                      if ((sms.template + v.var).length <= 160) {
+                        onChange({ ...sms, template: sms.template + v.var });
+                      }
+                    }}
+                    title={v.desc}
+                  >
+                    {v.var}
+                  </button>
+                ))}
+              </div>
+              <span className={`text-[10px] font-mono ${sms.template.length > 150 ? "text-red-500" : "text-muted-foreground"}`}>
+                {sms.template.length}/160
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Variáveis: <code>{"{nome}"}</code> = primeiro nome, <code>{"{produto}"}</code> = nome do produto, <code>{"{link}"}</code> = link do checkout
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 max-w-xl">
+      <SmsBlock label="SMS — Carrinho Abandonado" sms={smsCarrinho} onChange={setSmsCarrinho} />
+      <SmsBlock label="SMS — PIX Pendente" sms={smsPix} onChange={setSmsPix} />
+
+      <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending} className="w-full shimmer-btn" size="lg">
+        <Save className="h-4 w-4 mr-2" />
+        {saveMutation.isPending ? "Salvando..." : "Salvar SMS"}
+      </Button>
+    </div>
+  );
+}
+
 /* ─── Main Component ─── */
 export default function RecuperacaoVendas() {
   const { loja } = useLoja();
@@ -694,7 +847,7 @@ export default function RecuperacaoVendas() {
           </div>
           Recuperação de Vendas
         </h1>
-        <p className="text-xs text-muted-foreground mt-1">Recupere vendas abandonadas com emails personalizados</p>
+        <p className="text-xs text-muted-foreground mt-1">Recupere vendas abandonadas com emails e SMS personalizados</p>
       </div>
 
       <Tabs defaultValue="carrinho">
@@ -707,6 +860,10 @@ export default function RecuperacaoVendas() {
             <DollarSign className="h-3.5 w-3.5" />
             PIX Pendente
           </TabsTrigger>
+          <TabsTrigger value="sms" className="flex items-center gap-1.5">
+            <Smartphone className="h-3.5 w-3.5" />
+            SMS
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="carrinho">
@@ -715,6 +872,10 @@ export default function RecuperacaoVendas() {
 
         <TabsContent value="pix_pendente">
           <RecoveryEditor tipo="pix_pendente" loja={loja} empresaNome={empresaNome} logoUrl={logoUrl} />
+        </TabsContent>
+
+        <TabsContent value="sms">
+          <SmsEditor loja={loja} />
         </TabsContent>
       </Tabs>
     </div>
