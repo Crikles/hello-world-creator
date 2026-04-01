@@ -1,50 +1,52 @@
 
 
-## Plan: Integrar Corvex com Recuperação de Vendas (PIX Pendente + Carrinho Abandonado)
+## Plan: Integrar Adoorei com Recuperação de Vendas (Carrinho Abandonado + PIX Pendente)
 
-### Análise da Documentação Corvex
+### Análise da Documentação Adoorei
 
 **Mapeamento de eventos:**
-- **PIX Pendente** → `event: "corvex.order.pending"` ou `"corvex.order.created"` com `status: "pending"` e `method: "pix"`
-- **Carrinho Abandonado** → `event: "corvex.order.created"` com `status: "pending"` e `method != "pix"` (cartão pendente/recusado = carrinho não finalizado)
+- **Carrinho Abandonado** → `event: "cart.abandoned"` — payload diferente do pedido, com `resource.checkout_url`, `resource.customer.name`, `resource.products[]`
+- **PIX Pendente** → `event: "order.created"` ou `"order.status.updated"` com `status: "pending"` e `payment_method: "pix"`
 
-Nota: A Corvex não tem evento dedicado de "carrinho abandonado". O mais próximo é `corvex.order.created` com status `pending` e método não-pix, ou `corvex.order.cancelled`/`refused`.
+### Alteração: `supabase/functions/webhook-adoorei/index.ts`
 
-**Campos relevantes:**
-- `amount` já em reais (decimal)
-- `client.email`, `client.name`, `client.phone`
-- `items[].name`, `items[].price`, `items[].quantity`
-- Não há `checkout_url` no payload — o campo `utm.page.url` pode servir como fallback
+Dois pontos de inserção da lógica de recuperação:
 
-### Alteração: `supabase/functions/webhook-corvex/index.ts`
+**1. Carrinho Abandonado (`cart.abandoned`)**
+- O payload de carrinho é estruturalmente diferente (não tem `resource.status`, `resource.number`, etc.)
+- Detectar `event === "cart.abandoned"` logo após o log do webhook (linha ~82)
+- Extrair dados do formato de carrinho:
+  - `customer_name` = `resource.customer.name`
+  - `customer_email` = `resource.customer.email`
+  - `customer_phone` = `resource.customer.phone_number`
+  - `checkout_url` = `resource.checkout_url`
+  - `total_value` = `resource.total` (já em reais)
+  - Produtos: `resource.products[].name` → name, `resource.products[].price` → value, `resource.products[].qty` → qty
+- Tipo = `"carrinho"`
+- Após inserir o lead, fazer `return` (não processar como pedido normal)
 
-Após o upsert do pedido (linha ~160) e antes do bloco "If paid" (linha ~162), adicionar:
+**2. PIX Pendente (pedido com status pending + pix)**
+- Após o upsert do pedido (linha ~149) e antes do bloco "If approved" (linha ~152):
+  - Se `status === "pending"` e `payment_method` inclui `"pix"`:
+    - Tipo = `"pix_pendente"`
+    - `checkout_url` = `""` (Adoorei não fornece URL de recuperação no payload de pedido)
+    - Normalizar produtos do formato já existente
+    - `total_value` = `totalPriceInCents / 100`
 
-```text
-Se (event === "corvex.order.created" && status === "pending") OU event === "corvex.order.pending":
-  1. Determinar tipo:
-     - method inclui "pix" → tipo = "pix_pendente"
-     - senão → tipo = "carrinho"
-  2. Se client.email existe:
-     - Verificar recovery_config ativo para loja + tipo
-     - Verificar duplicata em recovery_leads (mesmo email + loja + tipo nas últimas 24h)
-     - checkout_url = payload.utm?.page?.url || ""
-     - Normalizar produtos: items[].name → name, items[].price → value, items[].quantity → qty
-     - total_value = payload.amount (já em reais)
-     - Inserir em recovery_leads
-     - Fire-and-forget: send-recovery-email e send-recovery-sms
-  3. Continuar fluxo normal (não bloqueia upsert/envio)
-```
+**Ambos os casos seguem o padrão já implementado:**
+- Verificar `recovery_config` ativo para loja + tipo
+- Deduplicação 24h em `recovery_leads` por email + loja + tipo
+- Inserir em `recovery_leads`
+- Fire-and-forget: `send-recovery-email` e `send-recovery-sms`
 
 ### Detalhes técnicos
 
-- `total_value` = `payload.amount` (Corvex envia em reais)
-- `checkout_url` = `payload.utm?.page?.url` (melhor opção disponível, já que Corvex não envia checkout_url explícito)
-- Produtos: `{ name: item.name, value: item.price, qty: item.quantity }`
-- Deduplicação 24h por email + loja_id + tipo
-- Mesmo padrão já usado nos webhooks Zedy, Vega e Luna
+- Carrinho abandonado tem estrutura diferente: `customer.name` (não `first_name`/`last_name`), `customer.phone_number` (não `phone`)
+- `resource.total` no carrinho = valor em reais
+- `resource.value_total` no pedido = valor em reais
+- O bloco de carrinho abandonado deve ser tratado antes do upsert de pedido (early return)
 
 ### Arquivo alterado
-- `supabase/functions/webhook-corvex/index.ts` (apenas)
+- `supabase/functions/webhook-adoorei/index.ts` (apenas)
 - Redeploy da edge function
 
