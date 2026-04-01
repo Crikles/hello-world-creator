@@ -16,6 +16,7 @@ import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
   Save, MessageSquare, Globe, Type, Sparkles,
   CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone, AlertTriangle,
+  BookOpen, Zap, Shield, Timer, Hash, ExternalLink, Info,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
@@ -895,6 +896,10 @@ export default function RecuperacaoVendas() {
             <Smartphone className="h-3.5 w-3.5" />
             SMS
           </TabsTrigger>
+          <TabsTrigger value="tutorial" className="flex items-center gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" />
+            Tutorial
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="carrinho">
@@ -908,7 +913,328 @@ export default function RecuperacaoVendas() {
         <TabsContent value="sms">
           <SmsEditor loja={loja} />
         </TabsContent>
+
+        <TabsContent value="tutorial">
+          <TutorialTab webhookToken={loja.webhook_token} />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/* ─── Tutorial Tab ─── */
+function TutorialTab({ webhookToken }: { webhookToken: string }) {
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-recovery?token=${webhookToken}&tipo=`;
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyUrl = (tipo: string) => {
+    navigator.clipboard.writeText(webhookUrl + tipo);
+    setCopied(tipo);
+    toast({ title: "URL copiada!" });
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const checkouts = [
+    { name: "Vega", carrinho: true, pix: true },
+    { name: "Zedy", carrinho: true, pix: true },
+    { name: "Luna", carrinho: true, pix: true },
+    { name: "Corvex", carrinho: true, pix: true },
+    { name: "Adoorei", carrinho: true, pix: true },
+    { name: "Shopify", carrinho: false, pix: true },
+  ];
+
+  const emailVars = [
+    { var: "{{nome_cliente}}", desc: "Nome do cliente" },
+    { var: "{{lista_produtos}}", desc: "Lista dos produtos do carrinho/pedido" },
+    { var: "{{valor_total}}", desc: "Valor total formatado (R$ XX,XX)" },
+    { var: "{{link_checkout}}", desc: "Link para finalizar a compra" },
+  ];
+
+  const smsVars = [
+    { var: "{nome}", desc: "Primeiro nome do cliente" },
+    { var: "{produto}", desc: "Nome do produto principal" },
+    { var: "{link}", desc: "Link do checkout" },
+  ];
+
+  const steps = [
+    { icon: Globe, title: "Checkout detecta evento", desc: "Quando um cliente abandona o carrinho ou gera um PIX sem pagar, o checkout envia um webhook automaticamente." },
+    { icon: Zap, title: "Lead é capturado", desc: "O sistema recebe o webhook, normaliza os dados e salva o lead com status 'pendente'. Deduplicação de 24h evita duplicatas." },
+    { icon: Timer, title: "Delay configurável", desc: "O sistema aguarda o tempo definido (ex: 30 min) antes de disparar a comunicação, dando tempo ao cliente de finalizar sozinho." },
+    { icon: Mail, title: "E-mail é enviado", desc: "Um e-mail personalizado é disparado com os dados do pedido, benefícios, cupom (se ativo) e CTA para voltar ao checkout." },
+    { icon: Smartphone, title: "SMS é enviado (opcional)", desc: "Se configurado, um SMS curto também é disparado com link direto para o checkout." },
+    { icon: CheckCircle2, title: "Cliente finaliza", desc: "O cliente recebe a comunicação, clica no link e finaliza a compra. O lead é marcado como 'convertido'." },
+  ];
+
+  return (
+    <div className="space-y-6 animate-stagger-in">
+      {/* O que é */}
+      <Card className="glass glow-border">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Info className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">O que é a Recuperação de Vendas?</h2>
+              <p className="text-xs text-muted-foreground">Entenda o conceito e como funciona</p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            A Recuperação de Vendas é um sistema automatizado que captura leads de clientes que <strong className="text-foreground">abandonaram o carrinho</strong> ou <strong className="text-foreground">geraram um PIX sem pagar</strong>. O sistema envia automaticamente e-mails e/ou SMS personalizados para trazer o cliente de volta e finalizar a compra.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Fluxo */}
+      <Card className="glass glow-border">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <ArrowRight className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Como funciona o fluxo</h2>
+              <p className="text-xs text-muted-foreground">Passo a passo do processo de recuperação</p>
+            </div>
+          </div>
+          <div className="grid gap-3">
+            {steps.map((step, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border/30">
+                <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
+                  <step.icon className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">{i + 1}</span>
+                    <span className="text-sm font-semibold text-foreground">{step.title}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Checkouts compatíveis */}
+      <Card className="glass glow-border">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Globe className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Checkouts com integração nativa</h2>
+              <p className="text-xs text-muted-foreground">Estes checkouts já detectam e enviam leads automaticamente</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/30">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground">Checkout</th>
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground">Carrinho Abandonado</th>
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground">PIX Pendente</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checkouts.map((c) => (
+                  <tr key={c.name} className="border-b border-border/10">
+                    <td className="py-2.5 px-3 font-medium text-foreground">{c.name}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      {c.carrinho ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      {c.pix ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            <strong>Nota:</strong> Para esses checkouts, a recuperação funciona automaticamente — basta ativar nas abas "Carrinho Abandonado" ou "PIX Pendente".
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Como configurar */}
+      <Card className="glass glow-border">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Como configurar</h2>
+              <p className="text-xs text-muted-foreground">Passo a passo para ativar a recuperação</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {[
+              { step: "1", text: "Vá na aba 'Carrinho Abandonado' ou 'PIX Pendente' e ative o toggle de recuperação." },
+              { step: "2", text: "Personalize o e-mail: saudação, benefícios, cupom (opcional), garantia e texto do botão CTA." },
+              { step: "3", text: "Ajuste as cores para combinar com a identidade da sua loja." },
+              { step: "4", text: "Defina o delay (tempo de espera antes do envio, em minutos)." },
+              { step: "5", text: "Na aba 'SMS', configure o template de SMS se quiser enviar SMS além do e-mail." },
+              { step: "6", text: "Salve as configurações. O sistema começará a capturar e enviar automaticamente!" },
+            ].map((item) => (
+              <div key={item.step} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/20">
+                <span className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">{item.step}</span>
+                <p className="text-sm text-muted-foreground leading-relaxed pt-0.5">{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhook genérico */}
+      <Card className="glass glow-border">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <ExternalLink className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Webhook genérico (outros checkouts)</h2>
+              <p className="text-xs text-muted-foreground">Para checkouts sem integração nativa</p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+            Se seu checkout não está na lista acima, você pode usar o webhook genérico. Configure o checkout para enviar um <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">POST</code> para a URL abaixo com os dados do cliente.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground mb-1 block">URL para Carrinho Abandonado:</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs font-mono bg-muted/30 border border-border/30 rounded-lg p-2.5 text-foreground break-all">{webhookUrl}carrinho</code>
+                <Button size="sm" variant="outline" onClick={() => copyUrl("carrinho")} className="flex-shrink-0">
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground mb-1 block">URL para PIX Pendente:</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs font-mono bg-muted/30 border border-border/30 rounded-lg p-2.5 text-foreground break-all">{webhookUrl}pix_pendente</code>
+                <Button size="sm" variant="outline" onClick={() => copyUrl("pix_pendente")} className="flex-shrink-0">
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 p-3 rounded-lg bg-muted/20 border border-border/20">
+            <p className="text-xs font-semibold text-foreground mb-2">Campos aceitos no payload JSON:</p>
+            <code className="text-[11px] font-mono text-muted-foreground leading-relaxed block whitespace-pre">{`{
+  "customer": {
+    "name": "Nome do cliente",
+    "email": "email@exemplo.com",
+    "phone": "5511999999999"
+  },
+  "products": [
+    { "name": "Produto X", "price": 99.90, "quantity": 1 }
+  ],
+  "total": 99.90,
+  "checkout_url": "https://sualoja.com/checkout/abc123"
+}`}</code>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Variáveis */}
+      <Card className="glass glow-border">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Hash className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Variáveis disponíveis</h2>
+              <p className="text-xs text-muted-foreground">Use nos templates de e-mail e SMS</p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5 text-primary" /> Variáveis de E-mail
+              </h3>
+              <div className="grid gap-1.5">
+                {emailVars.map((v) => (
+                  <div key={v.var} className="flex items-center gap-3 p-2 rounded-lg bg-muted/20">
+                    <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded flex-shrink-0">{v.var}</code>
+                    <span className="text-xs text-muted-foreground">{v.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                <Smartphone className="h-3.5 w-3.5 text-primary" /> Variáveis de SMS
+              </h3>
+              <div className="grid gap-1.5">
+                {smsVars.map((v) => (
+                  <div key={v.var} className="flex items-center gap-3 p-2 rounded-lg bg-muted/20">
+                    <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded flex-shrink-0">{v.var}</code>
+                    <span className="text-xs text-muted-foreground">{v.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Regras do SMS + Deduplicação */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="glass glow-border">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground">Regras do SMS</h2>
+                <p className="text-xs text-muted-foreground">Restrições importantes</p>
+              </div>
+            </div>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-500 mt-0.5">•</span>
+                Máximo de <strong className="text-foreground">160 caracteres</strong>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-500 mt-0.5">•</span>
+                <strong className="text-foreground">Sem acentos</strong> (use "voce" em vez de "você")
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-500 mt-0.5">•</span>
+                <strong className="text-foreground">Sem emojis</strong> — apenas texto plano
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-500 mt-0.5">•</span>
+                Custo: <strong className="text-foreground">3 créditos</strong> por SMS enviado
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card className="glass glow-border">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Shield className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground">Deduplicação</h2>
+                <p className="text-xs text-muted-foreground">Proteção contra spam</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              O sistema <strong className="text-foreground">não envia duplicatas</strong>. Se o mesmo e-mail + loja + tipo já foi capturado nas <strong className="text-foreground">últimas 24 horas</strong>, o lead é ignorado automaticamente. Isso protege seus clientes de receberem mensagens repetidas.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
