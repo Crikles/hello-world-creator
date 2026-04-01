@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
-  Save, MessageSquare, Palette, Globe, Type, Sparkles,
+  Save, MessageSquare, Globe, Type, Sparkles,
   CheckCircle2, ArrowRight, Lock, DollarSign,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -472,6 +472,11 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                     <Label className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Delay (minutos)</Label>
                     <Input type="number" value={settings.delay_minutos} onChange={e => set("delay_minutos", Number(e.target.value))} className="mt-1 text-sm bg-transparent border-border/50 w-28" />
                   </div>
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/30">
+                    <ColorPicker label="Títulos" value={settings.cor_titulo} onChange={v => set("cor_titulo", v)} />
+                    <ColorPicker label="Texto" value={settings.cor_texto} onChange={v => set("cor_texto", v)} />
+                    <ColorPicker label="Destaque" value={settings.cor_destaque} onChange={v => set("cor_destaque", v)} />
+                  </div>
                 </div>
               </div>
 
@@ -509,6 +514,11 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                     <Input value={settings.descricao_cupom} onChange={e => set("descricao_cupom", e.target.value)} className="mt-1 text-sm bg-transparent border-border/50" />
                   </div>
                 </div>
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/30">
+                  <ColorPicker label="Fundo" value={settings.cor_fundo_cupom} onChange={v => set("cor_fundo_cupom", v)} />
+                  <ColorPicker label="Borda" value={settings.cor_borda_cupom} onChange={v => set("cor_borda_cupom", v)} />
+                  <ColorPicker label="Texto" value={settings.cor_cupom_texto} onChange={v => set("cor_cupom_texto", v)} />
+                </div>
               </SectionToggle>
 
               <SectionToggle label="Garantia" icon={CheckCircle2} checked={settings.mostrar_garantia} onChange={v => set("mostrar_garantia", v)}>
@@ -517,37 +527,15 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
 
               <SectionToggle label="Botão (CTA)" icon={ArrowRight} checked={settings.mostrar_cta} onChange={v => set("mostrar_cta", v)}>
                 <Input value={settings.texto_botao} onChange={e => set("texto_botao", e.target.value)} className="text-sm bg-transparent border-border/50" />
+                <div className="pt-2 border-t border-border/30">
+                  <ColorPicker label="Cor do Botão" value={settings.cor_botao} onChange={v => set("cor_botao", v)} />
+                </div>
               </SectionToggle>
 
               <SectionToggle label="P.S. (Urgência)" icon={Lock} checked={settings.mostrar_ps} onChange={v => set("mostrar_ps", v)}>
                 <Input value={settings.ps_reforco_urgencia} onChange={e => set("ps_reforco_urgencia", e.target.value)} className="text-sm bg-transparent border-border/50" />
               </SectionToggle>
 
-              {/* Cores */}
-              <div className="glass glow-border rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Palette className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Cores</p>
-                    <p className="text-[10px] text-muted-foreground">Customize os elementos visuais</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <ColorPicker label="Botão CTA" value={settings.cor_botao} onChange={v => set("cor_botao", v)} />
-                  <ColorPicker label="Destaque" value={settings.cor_destaque} onChange={v => set("cor_destaque", v)} />
-                  <ColorPicker label="Títulos" value={settings.cor_titulo} onChange={v => set("cor_titulo", v)} />
-                  <ColorPicker label="Texto" value={settings.cor_texto} onChange={v => set("cor_texto", v)} />
-                  {settings.mostrar_cupom && (
-                    <>
-                      <ColorPicker label="Fundo Cupom" value={settings.cor_fundo_cupom} onChange={v => set("cor_fundo_cupom", v)} />
-                      <ColorPicker label="Borda Cupom" value={settings.cor_borda_cupom} onChange={v => set("cor_borda_cupom", v)} />
-                      <ColorPicker label="Texto Cupom" value={settings.cor_cupom_texto} onChange={v => set("cor_cupom_texto", v)} />
-                    </>
-                  )}
-                </div>
-              </div>
 
               <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending} className="w-full shimmer-btn" size="lg">
                 <Save className="h-4 w-4 mr-2" />
