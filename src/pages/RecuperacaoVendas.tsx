@@ -410,6 +410,16 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
     },
   });
 
+  const getLeadStatus = (lead: any) => {
+    if (lead.status === "convertido") return { label: "Convertido", color: "bg-green-500/10 text-green-600" };
+    if (lead.status === "sem_credito") return { label: "Sem crédito", color: "bg-red-500/10 text-red-600" };
+    if (lead.status === "expirado") return { label: "Expirado", color: "bg-muted text-muted-foreground" };
+    if (lead.email_sent_at && lead.sms_sent_at) return { label: "Email + SMS ✓", color: "bg-blue-500/10 text-blue-600" };
+    if (lead.email_sent_at) return { label: "Email ✓", color: "bg-blue-500/10 text-blue-600" };
+    if (lead.sms_sent_at) return { label: "SMS ✓", color: "bg-indigo-500/10 text-indigo-600" };
+    return { label: "Pendente", color: "bg-yellow-500/10 text-yellow-600" };
+  };
+
   const statusColors: Record<string, string> = {
     pendente: "bg-yellow-500/10 text-yellow-600",
     email_enviado: "bg-blue-500/10 text-blue-600",
