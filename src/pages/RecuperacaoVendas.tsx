@@ -262,6 +262,7 @@ function parseFromCorpo(corpo: string, defaults: RecoverySettings): Partial<Reco
     mostrar_garantia: bool("recovery_mostrar_garantia", defaults.mostrar_garantia),
     mostrar_cta: bool("recovery_mostrar_cta", defaults.mostrar_cta),
     texto_botao: m("recovery_texto_botao") || defaults.texto_botao,
+    url_cta: m("recovery_url_cta") || defaults.url_cta,
     mostrar_ps: bool("recovery_mostrar_ps", defaults.mostrar_ps),
     cor_botao: m("recovery_cor_botao") || defaults.cor_botao,
     cor_destaque: m("recovery_cor_destaque") || defaults.cor_destaque,
