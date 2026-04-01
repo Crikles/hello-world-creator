@@ -236,6 +236,7 @@ function serializeToCorpo(s: RecoverySettings): string {
     `{{recovery_mostrar_garantia:${s.mostrar_garantia}}}`,
     `{{recovery_mostrar_cta:${s.mostrar_cta}}}`,
     `{{recovery_texto_botao:${s.texto_botao}}}`,
+    `{{recovery_url_cta:${s.url_cta}}}`,
     `{{recovery_mostrar_ps:${s.mostrar_ps}}}`,
     `{{recovery_cor_botao:${s.cor_botao}}}`,
     `{{recovery_cor_destaque:${s.cor_destaque}}}`,
