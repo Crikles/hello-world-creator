@@ -472,6 +472,11 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                     <Label className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Delay (minutos)</Label>
                     <Input type="number" value={settings.delay_minutos} onChange={e => set("delay_minutos", Number(e.target.value))} className="mt-1 text-sm bg-transparent border-border/50 w-28" />
                   </div>
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/30">
+                    <ColorPicker label="Títulos" value={settings.cor_titulo} onChange={v => set("cor_titulo", v)} />
+                    <ColorPicker label="Texto" value={settings.cor_texto} onChange={v => set("cor_texto", v)} />
+                    <ColorPicker label="Destaque" value={settings.cor_destaque} onChange={v => set("cor_destaque", v)} />
+                  </div>
                 </div>
               </div>
 
