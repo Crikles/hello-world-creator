@@ -76,6 +76,7 @@ export function AppSidebar() {
         { title: "Envios", url: `${base}/envios`, icon: SendHorizonal },
         { title: "Postagens", url: `${base}/postagens`, icon: Megaphone },
         { title: "Upsell", url: `${base}/upsell`, icon: Sparkles },
+        { title: "Recuperação", url: `${base}/recuperacao`, icon: ShoppingCart },
         { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
         { title: "Falha na Entrega", url: `${base}/falha-entrega`, icon: PackageX },
       ],

@@ -114,6 +114,7 @@ function PanelRoutes() {
           <Route path="indicacao" element={<Indicacao />} />
           <Route path="suporte" element={<Suporte />} />
           <Route path="whatsapp" element={<WhatsApp />} />
+          <Route path="recuperacao" element={<RecuperacaoVendas />} />
         </Route>
         <Route
           path="/admin"
