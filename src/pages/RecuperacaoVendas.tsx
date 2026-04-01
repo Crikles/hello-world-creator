@@ -806,16 +806,35 @@ function SmsEditor({ loja }: { loja: { id: string } }) {
 
   return (
     <div className="space-y-4 max-w-xl">
-      <Alert className="border-yellow-500/50 bg-yellow-500/10">
-        <AlertTriangle className="h-4 w-4 text-yellow-600" />
-        <AlertDescription className="text-xs text-yellow-700 dark:text-yellow-400">
-          <strong>⚠️ Atenção:</strong> O limite de 160 caracteres inclui os valores reais das variáveis.
-          Ex: <code className="bg-yellow-500/20 px-1 rounded">{"{nome}"}</code> será substituído pelo nome do cliente,{" "}
-          <code className="bg-yellow-500/20 px-1 rounded">{"{produto}"}</code> pelo nome do produto e{" "}
-          <code className="bg-yellow-500/20 px-1 rounded">{"{link}"}</code> pela URL completa do checkout.
-          <strong> Se o SMS final ultrapassar 160 caracteres, ele não será enviado.</strong> Mantenha seus templates curtos.
-        </AlertDescription>
-      </Alert>
+      <div className="rounded-lg border-2 border-yellow-500/60 bg-yellow-500/10 p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-6 w-6 text-yellow-600 shrink-0 mt-0.5" />
+          <div className="space-y-2">
+            <p className="text-sm font-bold text-yellow-700 dark:text-yellow-300">⚠️ Regras importantes para o SMS</p>
+            <ul className="text-sm text-yellow-700 dark:text-yellow-400 space-y-1.5 list-disc list-inside">
+              <li>
+                O limite de <strong>160 caracteres</strong> inclui os valores reais das variáveis após substituição.
+              </li>
+              <li>
+                <code className="bg-yellow-500/20 px-1 rounded font-bold">{"{nome}"}</code> puxa apenas o <strong>primeiro nome</strong> do lead (first name).
+              </li>
+              <li>
+                <code className="bg-yellow-500/20 px-1 rounded font-bold">{"{produto}"}</code> será substituído pelo nome completo do produto e{" "}
+                <code className="bg-yellow-500/20 px-1 rounded font-bold">{"{link}"}</code> pela URL completa do checkout.
+              </li>
+              <li>
+                <strong>Não utilize acentos (á, é, ã, ç) nem caracteres especiais (emojis, &, @, etc.)</strong> no texto do SMS. Caso contrário, o SMS <strong>não será enviado</strong>.
+              </li>
+              <li>
+                Se o SMS final ultrapassar 160 caracteres com os dados reais, ele <strong>não será enviado</strong>.
+              </li>
+            </ul>
+            <p className="text-xs text-yellow-600 dark:text-yellow-500 italic">
+              💡 Dica: Mantenha seus templates curtos e sem acentos para garantir o envio.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <SmsBlock label="SMS — Carrinho Abandonado" sms={smsCarrinho} onChange={setSmsCarrinho} />
       <SmsBlock label="SMS — PIX Pendente" sms={smsPix} onChange={setSmsPix} />
