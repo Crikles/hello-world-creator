@@ -474,9 +474,9 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                     <Label className="text-xs text-muted-foreground">Assunto do Email</Label>
                     <Input value={settings.assunto_email} onChange={e => set("assunto_email", e.target.value)} className="mt-1 text-sm bg-transparent border-border/50" />
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Delay (minutos)</Label>
-                    <Input type="number" value={settings.delay_minutos} onChange={e => set("delay_minutos", Number(e.target.value))} className="mt-1 text-sm bg-transparent border-border/50 w-28" />
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+                    <Zap className="h-4 w-4 text-primary" />
+                    <span className="text-xs text-primary font-medium">Envio instantâneo — disparado assim que o lead chega</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/30">
                     <ColorPicker label="Títulos" value={settings.cor_titulo} onChange={v => set("cor_titulo", v)} />
