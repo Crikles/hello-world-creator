@@ -49,6 +49,7 @@ import Suporte from "./pages/Suporte";
 import WhatsApp from "./pages/WhatsApp";
 import DocumentacaoPublica from "./pages/DocumentacaoPublica";
 import Upsell from "./pages/Upsell";
+import RecuperacaoVendas from "./pages/RecuperacaoVendas";
 
 const queryClient = new QueryClient();
 
