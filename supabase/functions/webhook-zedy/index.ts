@@ -87,6 +87,68 @@ Deno.serve(async (req) => {
       loja_id: lojaId,
     });
 
+    // 1b. Recovery logic for waiting_payment
+    if (status === "waiting_payment") {
+      const customer = payload.customer || {};
+      const email = customer.email || "";
+      if (email) {
+        const recoveryTipo = (payload.paymentMethod || "").toLowerCase().includes("pix") ? "pix_pendente" : "carrinho";
+
+        const { data: recoveryConfig } = await supabase
+          .from("recovery_config")
+          .select("ativo")
+          .eq("loja_id", lojaId)
+          .eq("tipo", recoveryTipo)
+          .maybeSingle();
+
+        if (recoveryConfig?.ativo) {
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const { data: existingLead } = await supabase
+            .from("recovery_leads")
+            .select("id")
+            .eq("loja_id", lojaId)
+            .eq("customer_email", email)
+            .eq("tipo", recoveryTipo)
+            .gte("created_at", oneDayAgo)
+            .limit(1);
+
+          if (!existingLead || existingLead.length === 0) {
+            const rawProducts = payload.products || [];
+            const recoveryProducts = rawProducts.map((p: any) => ({
+              name: p.name || "Produto",
+              value: (p.priceInCents || 0) / 100,
+              qty: p.quantity || 1,
+            }));
+            const totalValue = (payload.commission?.totalPriceInCents || 0) / 100;
+            const checkoutUrl = payload.actions?.[0]?.url || "";
+            const firstName = (customer.name || "").split(" ")[0];
+
+            await supabase.from("recovery_leads").insert({
+              loja_id: lojaId,
+              customer_name: customer.name || "",
+              customer_email: email,
+              customer_phone: customer.phone || "",
+              products: recoveryProducts,
+              total_value: totalValue,
+              checkout_url: checkoutUrl,
+              raw_payload: payload,
+              status: "pendente",
+              tipo: recoveryTipo,
+            });
+
+            // Fire-and-forget: email + sms
+            supabase.functions.invoke("send-recovery-email", {
+              body: { loja_id: lojaId, customer_email: email, tipo: recoveryTipo },
+            }).catch((e) => console.error("[recovery-email]", e));
+
+            supabase.functions.invoke("send-recovery-sms", {
+              body: { loja_id: lojaId, customer_email: email, tipo: recoveryTipo },
+            }).catch((e) => console.error("[recovery-sms]", e));
+          }
+        }
+      }
+    }
+
     // 2. Normalize data
     const customer = payload.customer || {};
     const address = payload.address || {};
