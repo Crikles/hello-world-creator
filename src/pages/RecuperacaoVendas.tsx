@@ -527,6 +527,9 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
 
               <SectionToggle label="Botão (CTA)" icon={ArrowRight} checked={settings.mostrar_cta} onChange={v => set("mostrar_cta", v)}>
                 <Input value={settings.texto_botao} onChange={e => set("texto_botao", e.target.value)} className="text-sm bg-transparent border-border/50" />
+                <div className="pt-2 border-t border-border/30">
+                  <ColorPicker label="Cor do Botão" value={settings.cor_botao} onChange={v => set("cor_botao", v)} />
+                </div>
               </SectionToggle>
 
               <SectionToggle label="P.S. (Urgência)" icon={Lock} checked={settings.mostrar_ps} onChange={v => set("mostrar_ps", v)}>
