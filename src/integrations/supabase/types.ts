@@ -1134,6 +1134,7 @@ export type Database = {
           loja_id: string
           ps_reforco_urgencia: string | null
           sms_template: string | null
+          tipo: string
           updated_at: string
         }
         Insert: {
@@ -1155,6 +1156,7 @@ export type Database = {
           loja_id: string
           ps_reforco_urgencia?: string | null
           sms_template?: string | null
+          tipo?: string
           updated_at?: string
         }
         Update: {
@@ -1176,13 +1178,14 @@ export type Database = {
           loja_id?: string
           ps_reforco_urgencia?: string | null
           sms_template?: string | null
+          tipo?: string
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "recovery_config_loja_id_fkey"
             columns: ["loja_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
@@ -1202,6 +1205,7 @@ export type Database = {
           raw_payload: Json | null
           sms_sent_at: string | null
           status: string
+          tipo: string
           total_value: number
         }
         Insert: {
@@ -1217,6 +1221,7 @@ export type Database = {
           raw_payload?: Json | null
           sms_sent_at?: string | null
           status?: string
+          tipo?: string
           total_value?: number
         }
         Update: {
@@ -1232,6 +1237,7 @@ export type Database = {
           raw_payload?: Json | null
           sms_sent_at?: string | null
           status?: string
+          tipo?: string
           total_value?: number
         }
         Relationships: [
