@@ -1,26 +1,42 @@
 
-
-## Plan: Adicionar aba "Tutorial" na página de Recuperação de Vendas
+## Plan: Mostrar variáveis disponíveis e URL do CTA na configuração de email
 
 ### O que será feito
 
-Adicionar uma nova aba "Tutorial" no componente principal `RecuperacaoVendas`, contendo um guia visual e completo explicando como o sistema funciona. O tutorial cobrirá:
+Na seção de configuração do email (dentro do `TabsContent value="config"`), adicionar dois elementos:
 
-1. **O que é a Recuperação de Vendas** — explicação geral do conceito (carrinho abandonado + PIX pendente)
-2. **Como funciona o fluxo** — diagrama em steps: checkout detecta evento → webhook captura lead → sistema aguarda delay → dispara e-mail e/ou SMS → cliente volta e finaliza
-3. **Checkouts compatíveis** — lista dos checkouts que já têm integração nativa (Vega, Zedy, Luna, Corvex, Adoorei, Shopify) + menção ao webhook genérico
-4. **Como configurar** — passo a passo: ativar o toggle, personalizar e-mail, configurar SMS, definir delay
-5. **Webhook genérico** — explicação de como usar o endpoint `webhook-recovery?token=...&tipo=...` para checkouts não integrados nativamente
-6. **Variáveis disponíveis** — tabela com `{{nome_cliente}}`, `{{lista_produtos}}`, `{{valor_total}}`, `{{link_checkout}}`, `{nome}`, `{produto}`, `{link}` (SMS)
-7. **Regras do SMS** — resumo das restrições (160 chars, sem acentos, sem emojis)
-8. **Deduplicação** — explicação que o sistema não envia duplicatas nas últimas 24h
+1. **Card de Variáveis Disponíveis** — logo após o card "Configuração Geral" (assunto/delay/cores), um card compacto listando as variáveis que o usuário pode usar no assunto e nos textos:
+   - `{{nome_cliente}}` — Nome do cliente
+   - `{{lista_produtos}}` — Lista de produtos do pedido
+   - `{{valor_total}}` — Valor total do pedido
+   - `{{link_checkout}}` — Link do checkout/pagamento
+   - `{{nome_produto_principal}}` — Nome do primeiro produto
+   - `{{codigo_cupom}}` — Código do cupom configurado
+   - Cada variável será um chip clicável que copia para o clipboard
 
-### Alteração
+2. **URL do CTA no bloco "Botão (CTA)"** — dentro do `SectionToggle` do botão CTA (linha ~530), adicionar:
+   - Um campo de input editável para URL personalizada (novo campo `url_cta` no settings)
+   - Um texto informativo: "Por padrão, o botão direciona para a URL do checkout abandonado/PIX gerado capturada automaticamente. Altere apenas se quiser redirecionar para outro link."
+   - Se o campo estiver vazio, mostrar um badge "Automático" indicando que usará `{{link_checkout}}`
 
-Arquivo: `src/pages/RecuperacaoVendas.tsx`
+### Alterações
 
-- Adicionar nova `TabsTrigger` "Tutorial" com ícone `BookOpen` (de lucide-react)
-- Criar componente `TutorialTab` inline com cards estilizados usando o mesmo design system (glass, glow-border)
-- Cada seção será um card colapsável ou fixo com ícones e texto claro
-- Incluir o webhook URL dinâmico do usuário como exemplo copiável
+**Arquivo: `src/pages/RecuperacaoVendas.tsx`**
 
+- Adicionar interface `RecoverySettings` com novo campo opcional `url_cta: string`
+- Nos DEFAULTS, `url_cta: ""` (vazio = automático)
+- Inserir card de variáveis entre o card "Configuração Geral" e a SectionToggle "Saudação" (~linha 484)
+- No SectionToggle "Botão (CTA)" (~linha 530), adicionar input de URL + info text
+- Na função `buildEmailHtml`, usar `url_cta` se preenchido, senão `{{link_checkout}}`
+- Persistir `url_cta` como tag de metadado `{{recovery_url_cta:valor}}` no corpo_email (mesmo padrão existente)
+
+**Arquivo: `supabase/functions/send-recovery-email/index.ts`**
+
+- No `parseSettings`, extrair tag `recovery_url_cta`
+- No `buildEmailHtml`, se `url_cta` estiver definido, usar no lugar de `vars.link_checkout`
+
+### Detalhes técnicos
+
+- As variáveis são renderizadas como chips com ícone de copy, usando o mesmo estilo glass do resto da página
+- O campo `url_cta` segue o padrão de metadata tags `{{recovery_url_cta:...}}` já usado para cores e toggles
+- No backend, a prioridade é: `url_cta` (se preenchido) > `vars.link_checkout` (URL capturada do webhook)
