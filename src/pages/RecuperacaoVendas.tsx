@@ -89,6 +89,7 @@ const DEFAULTS_CARRINHO: RecoverySettings = {
   garantia: "7 dias de garantia incondicional",
   mostrar_cta: true,
   texto_botao: "Finalizar meu pedido",
+  url_cta: "",
   mostrar_ps: true,
   ps_reforco_urgencia: "Esse link expira em 24h. Garanta agora!",
   cor_botao: "#6366f1",
