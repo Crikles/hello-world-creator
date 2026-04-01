@@ -135,10 +135,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { loja_id, customer_email, tipo = "carrinho" } = await req.json();
+    const body = await req.json();
+    const { loja_id, lead_id, customer_email, tipo = "carrinho" } = body;
 
-    if (!loja_id || !customer_email) {
-      return new Response(JSON.stringify({ error: "Missing loja_id or customer_email" }), {
+    if (!loja_id || (!customer_email && !lead_id)) {
+      return new Response(JSON.stringify({ error: "Missing loja_id and (customer_email or lead_id)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -160,18 +161,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: lead } = await supabase
-      .from("recovery_leads")
-      .select("*")
-      .eq("loja_id", loja_id)
-      .eq("customer_email", customer_email)
-      .eq("tipo", tipo)
-      .eq("status", "pendente")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Support both: lookup by lead_id (Corvex/Luna/Adoorei/Vega) or by customer_email (Recovery/Zedy/Shopify)
+    let lead: any = null;
+    if (lead_id) {
+      const { data } = await supabase
+        .from("recovery_leads")
+        .select("*")
+        .eq("id", lead_id)
+        .maybeSingle();
+      lead = data;
+    } else {
+      const { data } = await supabase
+        .from("recovery_leads")
+        .select("*")
+        .eq("loja_id", loja_id)
+        .eq("customer_email", customer_email)
+        .eq("tipo", tipo)
+        .eq("status", "pendente")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      lead = data;
+    }
 
     if (!lead) {
+      console.error("No lead found", { lead_id, customer_email, loja_id, tipo });
       return new Response(JSON.stringify({ ok: false, message: "No pending lead" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
