@@ -313,7 +313,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
         .from("recovery_config")
         .select("*")
         .eq("loja_id", loja.id)
-        .eq("tipo" as string, tipo)
+        .eq("tipo" as any, tipo)
         .maybeSingle();
       return data;
     },
