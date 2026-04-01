@@ -49,6 +49,7 @@ import Suporte from "./pages/Suporte";
 import WhatsApp from "./pages/WhatsApp";
 import DocumentacaoPublica from "./pages/DocumentacaoPublica";
 import Upsell from "./pages/Upsell";
+import RecuperacaoVendas from "./pages/RecuperacaoVendas";
 
 const queryClient = new QueryClient();
 
@@ -113,6 +114,7 @@ function PanelRoutes() {
           <Route path="indicacao" element={<Indicacao />} />
           <Route path="suporte" element={<Suporte />} />
           <Route path="whatsapp" element={<WhatsApp />} />
+          <Route path="recuperacao" element={<RecuperacaoVendas />} />
         </Route>
         <Route
           path="/admin"
