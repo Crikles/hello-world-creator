@@ -15,7 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
   Save, MessageSquare, Globe, Type, Sparkles,
-  CheckCircle2, ArrowRight, Lock, DollarSign,
+  CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone,
 } from "lucide-react";
 import { format } from "date-fns";
 
