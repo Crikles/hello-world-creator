@@ -896,6 +896,10 @@ export default function RecuperacaoVendas() {
             <Smartphone className="h-3.5 w-3.5" />
             SMS
           </TabsTrigger>
+          <TabsTrigger value="tutorial" className="flex items-center gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" />
+            Tutorial
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="carrinho">
