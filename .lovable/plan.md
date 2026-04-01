@@ -1,45 +1,26 @@
 
 
-## Plan: Integrar Shopify com Recuperação de Vendas (PIX Pendente)
+## Plan: Adicionar aba "Tutorial" na página de Recuperação de Vendas
 
-### Análise do Payload
+### O que será feito
 
-O payload enviado ao webhook Shopify tem estrutura similar ao Vega, com campos como `customer`, `products`, `method`, `status`, `order_url`, `transaction_token`, `total_price` (em centavos).
+Adicionar uma nova aba "Tutorial" no componente principal `RecuperacaoVendas`, contendo um guia visual e completo explicando como o sistema funciona. O tutorial cobrirá:
 
-**Mapeamento:**
-- **PIX Pendente** → `status === "pending"` e `method === "pix"` (campo `method` do payload)
-- **Carrinho Abandonado** → Não há evento de carrinho abandonado neste payload. Apenas PIX pendente será tratado.
+1. **O que é a Recuperação de Vendas** — explicação geral do conceito (carrinho abandonado + PIX pendente)
+2. **Como funciona o fluxo** — diagrama em steps: checkout detecta evento → webhook captura lead → sistema aguarda delay → dispara e-mail e/ou SMS → cliente volta e finaliza
+3. **Checkouts compatíveis** — lista dos checkouts que já têm integração nativa (Vega, Zedy, Luna, Corvex, Adoorei, Shopify) + menção ao webhook genérico
+4. **Como configurar** — passo a passo: ativar o toggle, personalizar e-mail, configurar SMS, definir delay
+5. **Webhook genérico** — explicação de como usar o endpoint `webhook-recovery?token=...&tipo=...` para checkouts não integrados nativamente
+6. **Variáveis disponíveis** — tabela com `{{nome_cliente}}`, `{{lista_produtos}}`, `{{valor_total}}`, `{{link_checkout}}`, `{nome}`, `{produto}`, `{link}` (SMS)
+7. **Regras do SMS** — resumo das restrições (160 chars, sem acentos, sem emojis)
+8. **Deduplicação** — explicação que o sistema não envia duplicatas nas últimas 24h
 
-O código atual já lê `payload.financial_status` para o status. O campo `method` vem de `payload.payment_gateway_names?.[0]`, mas o payload real tem `payload.method`. Ambos serão verificados.
+### Alteração
 
-### Alteração: `supabase/functions/shopify-webhook/index.ts`
+Arquivo: `src/pages/RecuperacaoVendas.tsx`
 
-Após o upsert do pedido (linha ~149) e antes do bloco "If paid" (linha ~152), adicionar:
-
-```text
-Se status === "pending" e (method inclui "pix" OU payload.method inclui "pix"):
-  1. tipo = "pix_pendente"
-  2. Se customerEmail existe:
-     - Verificar recovery_config ativo para loja + tipo
-     - Deduplicação 24h em recovery_leads por email + loja + tipo
-     - checkout_url = payload.order_url || ""
-     - Normalizar produtos: normalizedProducts[].title → name, amount/100 → value, quantity → qty
-     - total_value = totalPrice / 100
-     - Inserir em recovery_leads
-     - Fire-and-forget: send-recovery-email e send-recovery-sms
-  3. Continuar fluxo normal
-```
-
-### Detalhes técnicos
-
-- `checkout_url` = `payload.order_url` (presente no payload)
-- `total_value` = `totalPrice / 100` (já calculado em centavos)
-- `customer_phone` = `payload.customer.phone` (já extraído)
-- Produtos: `{ name: p.title, value: p.amount / 100, qty: p.quantity }`
-- `method` será verificado tanto em `payload.payment_gateway_names?.[0]` quanto em `payload.method`
-- Mesmo padrão dos webhooks Zedy, Vega, Luna, Corvex e Adoorei
-
-### Arquivo alterado
-- `supabase/functions/shopify-webhook/index.ts` (apenas)
-- Redeploy da edge function
+- Adicionar nova `TabsTrigger` "Tutorial" com ícone `BookOpen` (de lucide-react)
+- Criar componente `TutorialTab` inline com cards estilizados usando o mesmo design system (glass, glow-border)
+- Cada seção será um card colapsável ou fixo com ícones e texto claro
+- Incluir o webhook URL dinâmico do usuário como exemplo copiável
 
