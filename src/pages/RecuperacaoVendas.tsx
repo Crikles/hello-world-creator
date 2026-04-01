@@ -15,8 +15,9 @@ import { toast } from "@/hooks/use-toast";
 import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
   Save, MessageSquare, Globe, Type, Sparkles,
-  CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone,
+  CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone, AlertTriangle,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 
 /* ─── Color Picker ─── */
@@ -805,6 +806,17 @@ function SmsEditor({ loja }: { loja: { id: string } }) {
 
   return (
     <div className="space-y-4 max-w-xl">
+      <Alert className="border-yellow-500/50 bg-yellow-500/10">
+        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+        <AlertDescription className="text-xs text-yellow-700 dark:text-yellow-400">
+          <strong>⚠️ Atenção:</strong> O limite de 160 caracteres inclui os valores reais das variáveis.
+          Ex: <code className="bg-yellow-500/20 px-1 rounded">{"{nome}"}</code> será substituído pelo nome do cliente,{" "}
+          <code className="bg-yellow-500/20 px-1 rounded">{"{produto}"}</code> pelo nome do produto e{" "}
+          <code className="bg-yellow-500/20 px-1 rounded">{"{link}"}</code> pela URL completa do checkout.
+          <strong> Se o SMS final ultrapassar 160 caracteres, ele não será enviado.</strong> Mantenha seus templates curtos.
+        </AlertDescription>
+      </Alert>
+
       <SmsBlock label="SMS — Carrinho Abandonado" sms={smsCarrinho} onChange={setSmsCarrinho} />
       <SmsBlock label="SMS — PIX Pendente" sms={smsPix} onChange={setSmsPix} />
 
