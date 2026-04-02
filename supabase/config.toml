@@ -3,9 +3,6 @@ project_id = "jnzamnnvzdecnnvvhzxn"
 [functions.webhook-corvex]
 verify_jwt = false
 
-[functions.corvex-webhook]
-verify_jwt = false
-
 [functions.webhook-luna]
 verify_jwt = false
 
