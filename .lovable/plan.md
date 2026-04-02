@@ -1,71 +1,29 @@
 
-## Plano: corrigir nome, produto e valor dos leads da Corvex
 
-### O que identifiquei
-- O `webhook-corvex` hoje extrai os dados de um formato muito rígido:
-  - cliente: `payload.client`
-  - itens: `payload.items`
-  - valor: `payload.amount`
-- No histórico da própria integração já existem variações de payload da Corvex (ex.: eventos antigos com `customer` em vez de `client`).
-- Como os dados do lead são gravados direto no `recovery_leads`, qualquer variação ou campo ausente gera nome, produto ou valor incorretos no painel e nas mensagens.
+## Plano: Corrigir link do CTA nos emails de recuperação (Corvex)
 
-### O que vou ajustar
-1. **Fortalecer a normalização no `webhook-corvex`**
-   - Criar helpers internos para resolver:
-     - cliente a partir de `client` ou `customer`
-     - nome/email/telefone/documento com fallbacks seguros
-     - produtos com fallback para chaves equivalentes (`name`, `title`, etc.)
-     - valor total usando `amount` e, se vier inconsistente, recalculando pela soma dos itens
-   - Tratar corretamente números em decimal/cents para evitar valor errado.
+### Problema
+O botão CTA nos emails de recuperação aponta para `#` (link quebrado) porque:
+1. No `webhook-corvex`, o `checkoutUrl` é extraído de `payload.utm.page.url` — nos testes reais esse campo veio `null`, gerando string vazia
+2. Na config de recuperação, `{{recovery_url_cta:}}` está vazio (o usuário não configurou URL de fallback)
+3. No email, `s.url_cta || vars.link_checkout` resulta em `""`, que vira link quebrado
 
-2. **Usar a mesma base normalizada em todos os pontos**
-   - Aplicar os dados normalizados de forma consistente em:
-     - `pedidos`
-     - `recovery_leads`
-     - `envios`
-   - Isso evita divergência entre o pedido salvo, o lead mostrado no painel e o que sai por email/SMS.
+### Correção
 
-3. **Melhorar fallbacks para não gravar dados ruins**
-   - Se faltar nome real, tentar derivar do email antes de usar texto genérico.
-   - Se faltar produto, montar um fallback legível.
-   - Se o total não vier confiável, recalcular pelos itens.
+**1. `supabase/functions/webhook-corvex/index.ts`** (linha ~235)
+- Pela documentação da Corvex, o campo correto é `payload.utm.page.url` (URL do checkout)
+- Adicionar fallback: se `utm.page.url` não existir, tentar construir URL com o ID do pedido a partir de `payload.checkout_query_params` ou deixar vazio
+- O código atual já faz `payload.utm?.page?.url || payload.checkout_url || ""` — está correto, o problema é que o payload real não trouxe UTM
 
-4. **Corrigir os registros já salvos que ficaram errados**
-   - Reprocessar os leads recentes da Corvex usando o `raw_payload` já armazenado.
-   - Assim o painel passa a mostrar nome, produto e valor corretos também nos leads que já entraram com dado ruim.
+**2. `supabase/functions/send-recovery-email/index.ts`** (linhas 98-105)
+- Se `ctaUrl` estiver vazio, **ocultar o botão CTA** inteiramente em vez de mostrar botão com `href="#"`
+- Isso evita que o cliente receba email com botão que não funciona
 
-5. **Ajustar exibição da tela de Recuperação**
-   - Em `src/pages/RecuperacaoVendas.tsx`, adicionar fallback visual para produto/valor quando houver registro antigo incompleto.
-   - Isso evita card vazio ou informação quebrada enquanto os dados históricos são corrigidos.
+**3. Orientação ao usuário**
+- Informar que é necessário configurar a "URL do CTA" na tela de Recuperação de Vendas com o link do checkout da loja (ex: `https://sualoja.corvex.com.br/checkout/...`)
+- A Corvex envia o campo `utm.page.url` apenas quando o cliente acessa via link com UTM — não é garantido em todos os eventos
 
-### Validação
-- Comparar `raw_payload` x `recovery_leads` x `pedidos` em um PIX novo da Corvex.
-- Confirmar no painel:
-  - nome do lead correto
-  - produto correto
-  - valor correto
-- Confirmar que email e SMS passam a usar esses mesmos dados corrigidos.
+### Arquivos
+- `supabase/functions/send-recovery-email/index.ts` — ocultar CTA quando URL vazia
+- `supabase/functions/webhook-corvex/index.ts` — sem mudança necessária (mapeamento já está correto pela doc)
 
-### Arquivos envolvidos
-- `supabase/functions/webhook-corvex/index.ts`
-- `src/pages/RecuperacaoVendas.tsx`
-- Ajuste pontual no banco para corrigir leads já gravados com base no `raw_payload` (sem mudar schema)
-
-### Detalhes técnicos
-```text
-Hoje:
-payload -> leitura direta e rígida
-client.name / items[].name / amount
-
-Após ajuste:
-payload -> normalizer único
-resolve cliente, itens e total com fallbacks
-↓
-mesmo resultado alimenta pedidos + recovery_leads + envios
-↓
-painel, email e SMS passam a mostrar os mesmos dados corretos
-```
-
-### Observação importante
-- Não precisa publicar o frontend para essa correção de captura.
-- O ponto principal é atualizar o backend da integração Corvex e validar com um PIX novo.
