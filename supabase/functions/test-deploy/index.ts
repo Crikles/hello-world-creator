@@ -6,24 +6,28 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-function extractDocument(doc: string | undefined | null): string | null {
+// deno-lint-ignore no-explicit-any
+function extractDocument(doc: any): string | null {
   if (!doc) return null;
-  const parts = doc.split(":");
-  return parts.length > 1 ? parts[1] : doc;
+  const s = String(doc);
+  const parts = s.split(":");
+  return parts.length > 1 ? parts[1] : s;
 }
 
-function resolveCustomer(payload: Record<string, unknown>) {
-  const src = (payload.client || payload.customer || payload.buyer || {}) as Record<string, unknown>;
+// deno-lint-ignore no-explicit-any
+function resolveCustomer(payload: any) {
+  const src = payload.client || payload.customer || payload.buyer || {};
   const name = String(src.name || src.full_name || src.nome || "");
   const email = String(src.email || "");
   const phone = String(src.phone || src.cellphone || src.telefone || "");
-  const doc = extractDocument(String(src.doc || src.document || src.cpf || ""));
+  const doc = extractDocument(src.doc || src.document || src.cpf || null);
   const safeName = name.trim() || (email ? email.split("@")[0].replace(/[._-]/g, " ") : "Cliente");
   return { name: safeName, email, phone, doc };
 }
 
-function resolveAddress(payload: Record<string, unknown>) {
-  const addr = (payload.address || payload.shipping_address || payload.endereco || {}) as Record<string, unknown>;
+// deno-lint-ignore no-explicit-any
+function resolveAddress(payload: any) {
+  const addr = payload.address || payload.shipping_address || payload.endereco || {};
   return {
     street: addr.street || addr.rua || addr.endereco || null,
     number: addr.number || addr.numero || null,
@@ -35,10 +39,12 @@ function resolveAddress(payload: Record<string, unknown>) {
   };
 }
 
-function resolveItems(payload: Record<string, unknown>): Array<{ id: string; name: string; quantity: number; price: number }> {
+// deno-lint-ignore no-explicit-any
+function resolveItems(payload: any): Array<{ id: string; name: string; quantity: number; price: number }> {
   const raw = payload.items || payload.products || payload.line_items || [];
   if (!Array.isArray(raw) || raw.length === 0) return [];
-  return raw.map((item: Record<string, unknown>) => ({
+  // deno-lint-ignore no-explicit-any
+  return raw.map((item: any) => ({
     id: String(item.id || item.code || ""),
     name: String(item.name || item.title || item.nome || item.product_name || "Produto"),
     quantity: Number(item.quantity || item.qty || 1),
@@ -46,7 +52,8 @@ function resolveItems(payload: Record<string, unknown>): Array<{ id: string; nam
   }));
 }
 
-function resolveTotal(payload: Record<string, unknown>, items: Array<{ price: number; quantity: number }>): number {
+// deno-lint-ignore no-explicit-any
+function resolveTotal(payload: any, items: Array<{ price: number; quantity: number }>): number {
   const declared = Number(payload.amount || payload.total || payload.value || 0);
   if (declared > 0) return declared;
   return items.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -137,8 +144,9 @@ Deno.serve(async (req) => {
       amount: Math.round(item.price * 100),
     }));
 
-    console.log("[corvex] normalized:", JSON.stringify({ customer: customer.name, totalDecimal, itemCount: items.length }));
+    console.log("[corvex] normalized:", customer.name, totalDecimal, items.length, "items");
 
+    // 1. Log the webhook
     await supabase.from("webhook_logs").insert({
       checkout_provider: "corvex",
       event_type: eventType,
@@ -148,6 +156,7 @@ Deno.serve(async (req) => {
       loja_id: lojaId,
     });
 
+    // 2. Upsert into pedidos
     const pedidoData = {
       checkout_provider: "corvex",
       transaction_token: transactionToken,
@@ -196,6 +205,7 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
+    // 3. Recovery: PIX pendente ou carrinho abandonado
     const isPendingEvent = status === "pending";
     if (isPendingEvent && customer.email) {
       const methodLower = String(payload.method || "").toLowerCase();
@@ -217,7 +227,8 @@ Deno.serve(async (req) => {
               qty: item.quantity,
             }));
 
-            const checkoutUrl = payload.utm?.page?.url || payload.checkout_url || "";
+            const utmPage = payload.utm && payload.utm.page ? payload.utm.page.url : null;
+            const checkoutUrl = utmPage || payload.checkout_url || "";
 
             const { data: newLead } = await supabase
               .from("recovery_leads")
@@ -241,14 +252,14 @@ Deno.serve(async (req) => {
 
               supabase.functions.invoke("send-recovery-email", {
                 body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
-              }).catch((e: unknown) => console.error("[recovery-email] error:", e));
+              }).catch((e) => console.error("[recovery-email] error:", e));
 
               supabase.functions.invoke("send-recovery-sms", {
                 body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
-              }).catch((e: unknown) => console.error("[recovery-sms] error:", e));
+              }).catch((e) => console.error("[recovery-sms] error:", e));
             }
           } else {
-            console.log("[recovery] skipping duplicate transaction", transactionToken);
+            console.log("[recovery] skipping duplicate", transactionToken);
           }
         }
       } catch (e) {
@@ -256,6 +267,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 4. If paid and no envio linked yet, create envio
     if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
       const { data: integrationConfig } = await supabase
         .from("checkout_integrations")
@@ -277,7 +289,7 @@ Deno.serve(async (req) => {
           .eq("checkout_provider", "corvex").eq("loja_id", lojaId)
           .order("created_at", { ascending: false }).limit(1);
         return new Response(
-          JSON.stringify({ success: true, event_type: eventType, status, envio_skipped: true, reason: `filtro_metodo=${filtroMetodo}` }),
+          JSON.stringify({ success: true, event_type: eventType, status, envio_skipped: true }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -319,10 +331,11 @@ Deno.serve(async (req) => {
         await supabase.from("pedidos").update({ envio_id: newEnvio.id }).eq("id", pedidoId);
         supabase.functions.invoke("auto-whatsapp-new-order", {
           body: { envio_id: newEnvio.id, loja_id: lojaId },
-        }).catch((err: unknown) => console.error("[auto-whatsapp] invoke error:", err));
+        }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
       }
     }
 
+    // 5. Mark webhook as processed
     await supabase.from("webhook_logs").update({ processed: true })
       .eq("checkout_provider", "corvex").eq("loja_id", lojaId)
       .order("created_at", { ascending: false }).limit(1);
