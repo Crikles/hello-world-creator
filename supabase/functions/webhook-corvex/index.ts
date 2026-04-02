@@ -6,6 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+console.log("[webhook-corvex] function loaded");
+
 /* ─── Normalizer helpers ─── */
 
 function extractDocument(doc: string | undefined | null): string | null {
