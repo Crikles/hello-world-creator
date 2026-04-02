@@ -1,29 +1,35 @@
 
 
-## Plano: Corrigir link do CTA nos emails de recuperação (Corvex)
+## Plano: Corrigir webhook-vega (função quebrada desde ~2 de abril)
 
 ### Problema
-O botão CTA nos emails de recuperação aponta para `#` (link quebrado) porque:
-1. No `webhook-corvex`, o `checkoutUrl` é extraído de `payload.utm.page.url` — nos testes reais esse campo veio `null`, gerando string vazia
-2. Na config de recuperação, `{{recovery_url_cta:}}` está vazio (o usuário não configurou URL de fallback)
-3. No email, `s.url_cta || vars.link_checkout` resulta em `""`, que vira link quebrado
+A edge function `webhook-vega` está **completamente fora do ar** com erro de boot:
+```
+Uncaught SyntaxError: Identifier 'isAbandonedCart' has already been declared
+```
+
+A variável `isAbandonedCart` é declarada com `const` na **linha 70** e novamente na **linha 162**. Isso impede que a função inicie, resultando em 500 para todo webhook recebido da Vega.
+
+**Impacto direto**: o usuário `suportevendashojes@gmail.com` (loja "Shopee", token `8e661a8711c3`) não recebe nenhum pedido novo desde 2 de abril. Os últimos pedidos são de 1 de abril.
 
 ### Correção
 
-**1. `supabase/functions/webhook-corvex/index.ts`** (linha ~235)
-- Pela documentação da Corvex, o campo correto é `payload.utm.page.url` (URL do checkout)
-- Adicionar fallback: se `utm.page.url` não existir, tentar construir URL com o ID do pedido a partir de `payload.checkout_query_params` ou deixar vazio
-- O código atual já faz `payload.utm?.page?.url || payload.checkout_url || ""` — está correto, o problema é que o payload real não trouxe UTM
+**Arquivo**: `supabase/functions/webhook-vega/index.ts`
 
-**2. `supabase/functions/send-recovery-email/index.ts`** (linhas 98-105)
-- Se `ctaUrl` estiver vazio, **ocultar o botão CTA** inteiramente em vez de mostrar botão com `href="#"`
-- Isso evita que o cliente receba email com botão que não funciona
+1. **Remover a segunda declaração** na linha 162: trocar `const isAbandonedCart = status === "abandoned_cart";` por reutilizar a variável já declarada na linha 70
+2. A linha 163 (`const isPendingPix`) está correta e pode permanecer
+3. Deploy da função corrigida
 
-**3. Orientação ao usuário**
-- Informar que é necessário configurar a "URL do CTA" na tela de Recuperação de Vendas com o link do checkout da loja (ex: `https://sualoja.corvex.com.br/checkout/...`)
-- A Corvex envia o campo `utm.page.url` apenas quando o cliente acessa via link com UTM — não é garantido em todos os eventos
+### Detalhes técnicos
+```text
+Linha 70:  const isAbandonedCart = status === "abandoned_cart";   // ← primeira (OK)
+Linha 162: const isAbandonedCart = status === "abandoned_cart";   // ← DUPLICADA (REMOVER)
+```
 
-### Arquivos
-- `supabase/functions/send-recovery-email/index.ts` — ocultar CTA quando URL vazia
-- `supabase/functions/webhook-corvex/index.ts` — sem mudança necessária (mapeamento já está correto pela doc)
+A correção é simplesmente remover a linha 162, já que a variável `isAbandonedCart` da linha 70 ainda está no mesmo escopo e tem o mesmo valor.
+
+### Validação
+- Deploy e confirmar que a função boota sem erro
+- Verificar nos logs que novos webhooks da Vega passam a ser processados
+- Confirmar que pedidos e envios voltam a aparecer no painel do usuário
 
