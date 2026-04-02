@@ -6,11 +6,60 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-function extractDocument(doc: string | undefined): string | null {
+/* ─── Normalizer helpers ─── */
+
+function extractDocument(doc: string | undefined | null): string | null {
   if (!doc) return null;
   const parts = doc.split(":");
   return parts.length > 1 ? parts[1] : doc;
 }
+
+function resolveCustomer(payload: any) {
+  const src = payload.client || payload.customer || payload.buyer || {};
+  const name = src.name || src.full_name || src.nome || "";
+  const email = src.email || "";
+  const phone = src.phone || src.cellphone || src.telefone || "";
+  const doc = extractDocument(src.doc || src.document || src.cpf || null);
+
+  // Derive name from email if missing
+  const safeName = name.trim() || (email ? email.split("@")[0].replace(/[._-]/g, " ") : "Cliente");
+
+  return { name: safeName, email, phone, doc };
+}
+
+function resolveAddress(payload: any) {
+  const addr = payload.address || payload.shipping_address || payload.endereco || {};
+  return {
+    street: addr.street || addr.rua || addr.endereco || null,
+    number: addr.number || addr.numero || null,
+    neighborhood: addr.neighborhood || addr.district || addr.bairro || null,
+    zipcode: addr.zipcode || addr.zip_code || addr.cep || null,
+    city: addr.city || addr.cidade || null,
+    state: addr.state || addr.estado || null,
+    complement: addr.complement || addr.complemento || null,
+  };
+}
+
+function resolveItems(payload: any): Array<{ id: string; name: string; quantity: number; price: number }> {
+  const raw = payload.items || payload.products || payload.line_items || [];
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+
+  return raw.map((item: any) => ({
+    id: String(item.id || item.code || ""),
+    name: item.name || item.title || item.nome || item.product_name || "Produto",
+    quantity: Number(item.quantity || item.qty || 1),
+    price: Number(item.price || item.value || item.amount || 0),
+  }));
+}
+
+function resolveTotal(payload: any, items: Array<{ price: number; quantity: number }>): number {
+  const declared = Number(payload.amount || payload.total || payload.value || 0);
+  if (declared > 0) return declared;
+  // Fallback: sum items
+  return items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+}
+
+/* ─── Main handler ─── */
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -86,6 +135,22 @@ Deno.serve(async (req) => {
     };
     const eventType = eventTypeMap[event] || event;
 
+    // ── Normalize all data once ──
+    const customer = resolveCustomer(payload);
+    const address = resolveAddress(payload);
+    const items = resolveItems(payload);
+    const totalDecimal = resolveTotal(payload, items);
+    const totalCents = Math.round(totalDecimal * 100);
+
+    const normalizedProducts = items.map((item) => ({
+      code: item.id,
+      title: item.name,
+      quantity: item.quantity,
+      amount: Math.round(item.price * 100),
+    }));
+
+    console.log("[corvex] normalized:", { customer, totalDecimal, itemCount: items.length });
+
     // 1. Log the webhook
     await supabase.from("webhook_logs").insert({
       checkout_provider: "corvex",
@@ -96,39 +161,25 @@ Deno.serve(async (req) => {
       loja_id: lojaId,
     });
 
-    // 2. Normalize data
-    const client = payload.client || {};
-    const address = payload.address || {};
-    const items = payload.items || [];
-
-    const totalPrice = Math.round(Number(payload.amount || 0) * 100);
-
-    const normalizedProducts = items.map((item: any) => ({
-      code: String(item.id || ""),
-      title: item.name || "",
-      quantity: item.quantity || 1,
-      amount: Math.round(Number(item.price || 0) * 100),
-    }));
-
-    // 3. Upsert into pedidos
+    // 2. Upsert into pedidos
     const pedidoData = {
       checkout_provider: "corvex",
       transaction_token: transactionToken,
       status,
       method: payload.method || null,
-      total_price: totalPrice,
-      customer_name: client.name || null,
-      customer_document: extractDocument(client.doc),
-      customer_email: client.email || null,
-      customer_phone: client.phone || null,
-      address_street: address.street || null,
-      address_number: address.number || null,
-      address_district: address.neighborhood || null,
-      address_zip_code: address.zipcode || null,
-      address_city: address.city || null,
-      address_state: address.state || null,
+      total_price: totalCents,
+      customer_name: customer.name,
+      customer_document: customer.doc,
+      customer_email: customer.email || null,
+      customer_phone: customer.phone || null,
+      address_street: address.street,
+      address_number: address.number,
+      address_district: address.neighborhood,
+      address_zip_code: address.zipcode,
+      address_city: address.city,
+      address_state: address.state,
       address_country: null,
-      address_complement: address.complement || null,
+      address_complement: address.complement,
       products: normalizedProducts,
       raw_payload: payload,
       loja_id: lojaId,
@@ -159,9 +210,9 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
-    // 3.5 Recovery: PIX pendente ou carrinho abandonado
+    // 3. Recovery: PIX pendente ou carrinho abandonado
     const isPendingEvent = status === "pending";
-    if (isPendingEvent && client.email) {
+    if (isPendingEvent && customer.email) {
       const methodLower = (payload.method || "").toLowerCase();
       const recoveryTipo = methodLower.includes("pix") ? "pix_pendente" : "carrinho";
 
@@ -175,24 +226,23 @@ Deno.serve(async (req) => {
 
         if (recoveryConfig?.ativo) {
           if (!existingPedido) {
-            const recoveryProducts = items.map((item: any) => ({
-              name: item.name || "",
-              value: Number(item.price || 0),
-              qty: item.quantity || 1,
+            const recoveryProducts = items.map((item) => ({
+              name: item.name,
+              value: item.price,
+              qty: item.quantity,
             }));
 
-            const checkoutUrl = payload.utm?.page?.url || "";
-            const totalValue = Number(payload.amount || 0);
+            const checkoutUrl = payload.utm?.page?.url || payload.checkout_url || "";
 
             const { data: newLead } = await supabase
               .from("recovery_leads")
               .insert({
                 loja_id: lojaId,
-                customer_name: client.name || "Cliente Corvex",
-                customer_email: client.email,
-                customer_phone: client.phone || null,
+                customer_name: customer.name,
+                customer_email: customer.email,
+                customer_phone: customer.phone || null,
                 products: recoveryProducts,
-                total_value: totalValue,
+                total_value: totalDecimal,
                 checkout_url: checkoutUrl,
                 raw_payload: payload,
                 status: "pendente",
@@ -202,6 +252,8 @@ Deno.serve(async (req) => {
               .single();
 
             if (newLead) {
+              console.log("[corvex] recovery lead created:", newLead.id, { name: customer.name, total: totalDecimal });
+
               supabase.functions.invoke("send-recovery-email", {
                 body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
               }).catch((e) => console.error("[recovery-email] error:", e));
@@ -219,7 +271,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. If paid and no envio linked yet, create envio (with payment method filter)
+    // 4. If paid and no envio linked yet, create envio
     if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
       const { data: integrationConfig } = await supabase
         .from("checkout_integrations")
@@ -239,11 +291,10 @@ Deno.serve(async (req) => {
       }
 
       const produtoJson = JSON.stringify(
-        normalizedProducts.map((p: any) => ({ nome: p.title, quantidade: p.quantity || 1 }))
+        items.map((p) => ({ nome: p.name, quantidade: p.quantity }))
       );
-      const totalQuantidade = normalizedProducts.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
+      const totalQuantidade = items.reduce((sum, p) => sum + p.quantity, 0);
 
-      // Buscar empresa da loja
       const { data: empresaData } = await supabase
         .from("empresas")
         .select("id")
@@ -251,20 +302,20 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       const envioData = {
-        cliente_nome: client.name || "Cliente Corvex",
-        cliente_email: client.email || "sem-email@corvex.com",
-        cliente_cpf: extractDocument(client.doc),
-        cliente_telefone: client.phone || null,
-        cliente_endereco: address.street || null,
-        cliente_numero: address.number || null,
-        cliente_bairro: address.neighborhood || null,
-        cliente_cep: address.zipcode || null,
-        cliente_cidade: address.city || null,
-        cliente_estado: address.state || null,
-        cliente_complemento: address.complement || null,
+        cliente_nome: customer.name,
+        cliente_email: customer.email || "sem-email@corvex.com",
+        cliente_cpf: customer.doc,
+        cliente_telefone: customer.phone || null,
+        cliente_endereco: address.street,
+        cliente_numero: address.number,
+        cliente_bairro: address.neighborhood,
+        cliente_cep: address.zipcode,
+        cliente_cidade: address.city,
+        cliente_estado: address.state,
+        cliente_complemento: address.complement,
         produto: produtoJson || "Produto Corvex",
         quantidade: totalQuantidade || 1,
-        valor: totalPrice / 100,
+        valor: totalDecimal,
         status: "pendente",
         loja_id: lojaId,
         empresa_id: empresaData?.id || null,
@@ -282,7 +333,6 @@ Deno.serve(async (req) => {
           .update({ envio_id: newEnvio.id })
           .eq("id", pedidoId);
 
-        // Fire-and-forget WhatsApp for new order
         supabase.functions.invoke("auto-whatsapp-new-order", {
           body: { envio_id: newEnvio.id, loja_id: lojaId }
         }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
