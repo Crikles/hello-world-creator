@@ -1,92 +1,71 @@
 
-Plano: corrigir por que o PIX da Corvex cria o lead, mas não entrega email/SMS corretamente
+## Plano: corrigir nome, produto e valor dos leads da Corvex
 
-1. Confirmar o que já está funcionando
-- O lead de recuperação está sendo criado para a sua loja:
-  - `loja_id = 9e2a3528-640c-4839-b886-b55502b4df0b`
-  - lead recente `pix_pendente` criado em `2026-04-01 23:26:03`
-- O SMS chegou a ser processado no backend:
-  - `send-recovery-sms` registrou envio com sucesso para `5511999998888`
-  - no banco, esse lead já tem `sms_sent_at` preenchido
-- Portanto, o problema principal agora não é mais “Corvex não disparou nada”; o fluxo disparou, mas há falhas específicas de entrega/integração.
+### O que identifiquei
+- O `webhook-corvex` hoje extrai os dados de um formato muito rígido:
+  - cliente: `payload.client`
+  - itens: `payload.items`
+  - valor: `payload.amount`
+- No histórico da própria integração já existem variações de payload da Corvex (ex.: eventos antigos com `customer` em vez de `client`).
+- Como os dados do lead são gravados direto no `recovery_leads`, qualquer variação ou campo ausente gera nome, produto ou valor incorretos no painel e nas mensagens.
 
-2. Causa principal encontrada no email
-- O `webhook-corvex` chama `send-recovery-email` com:
-  - `{ lead_id, loja_id, tipo }`
-- Mas a função `send-recovery-email` hoje exige:
-  - `{ loja_id, customer_email, tipo }`
-- Resultado:
-  - para Corvex, Luna e Adoorei, a chamada está incompatível
-  - o email não encontra os dados esperados e não envia
-- Isso explica por que o lead foi criado, mas `email_sent_at` continua vazio.
+### O que vou ajustar
+1. **Fortalecer a normalização no `webhook-corvex`**
+   - Criar helpers internos para resolver:
+     - cliente a partir de `client` ou `customer`
+     - nome/email/telefone/documento com fallbacks seguros
+     - produtos com fallback para chaves equivalentes (`name`, `title`, etc.)
+     - valor total usando `amount` e, se vier inconsistente, recalculando pela soma dos itens
+   - Tratar corretamente números em decimal/cents para evitar valor errado.
 
-3. Ajuste que vou implementar
-- Tornar `send-recovery-email` compatível com os dois formatos:
-  - formato por `lead_id`
-  - formato por `customer_email`
-- Fluxo novo da função:
-  - se vier `lead_id`, buscar o lead diretamente por ID
-  - se vier `customer_email`, manter o comportamento atual
-- Isso corrige de uma vez:
-  - `webhook-corvex`
-  - `webhook-luna`
-  - `webhook-adoorei`
-  - sem quebrar `webhook-recovery`, `webhook-zedy` e `shopify-webhook`
+2. **Usar a mesma base normalizada em todos os pontos**
+   - Aplicar os dados normalizados de forma consistente em:
+     - `pedidos`
+     - `recovery_leads`
+     - `envios`
+   - Isso evita divergência entre o pedido salvo, o lead mostrado no painel e o que sai por email/SMS.
 
-4. Ajustes adicionais para deixar o fluxo robusto
-- Em `send-recovery-email`:
-  - validar `emailResponse.ok` antes de marcar o lead como enviado
-  - só preencher `email_sent_at` e status quando o provedor realmente aceitar o envio
-  - registrar erro mais claro no log quando a chamada falhar
-- Em `send-recovery-sms`:
-  - manter o envio como está, porque o backend já mostrou sucesso
-  - melhorar o update do lead para refletir status coerente do disparo
-- Na tela de Recuperação:
-  - o lead atual aparece como `pendente` mesmo tendo `sms_sent_at`
-  - vou alinhar os status exibidos para ficar claro quando email e/ou SMS foram disparados
+3. **Melhorar fallbacks para não gravar dados ruins**
+   - Se faltar nome real, tentar derivar do email antes de usar texto genérico.
+   - Se faltar produto, montar um fallback legível.
+   - Se o total não vier confiável, recalcular pelos itens.
 
-5. Ponto importante sobre email no seu projeto
-- O domínio de email do projeto está com configuração pendente:
-  - `notify.rastreio.centrojadlog.com`
-  - status: pendente
-- Isso pode impedir recebimento de emails em produção até a configuração ser concluída.
-- Mesmo assim, o bug do payload incompatível precisa ser corrigido porque hoje ele já impede o disparo do email antes mesmo de qualquer validação final de entrega.
+4. **Corrigir os registros já salvos que ficaram errados**
+   - Reprocessar os leads recentes da Corvex usando o `raw_payload` já armazenado.
+   - Assim o painel passa a mostrar nome, produto e valor corretos também nos leads que já entraram com dado ruim.
 
-6. Arquivos que serão ajustados
-- `supabase/functions/send-recovery-email/index.ts`
-  - aceitar `lead_id`
-  - unificar busca do lead
-  - corrigir marcação de sucesso/erro
-- `supabase/functions/send-recovery-sms/index.ts`
-  - melhorar atualização de status/log do lead
+5. **Ajustar exibição da tela de Recuperação**
+   - Em `src/pages/RecuperacaoVendas.tsx`, adicionar fallback visual para produto/valor quando houver registro antigo incompleto.
+   - Isso evita card vazio ou informação quebrada enquanto os dados históricos são corrigidos.
+
+### Validação
+- Comparar `raw_payload` x `recovery_leads` x `pedidos` em um PIX novo da Corvex.
+- Confirmar no painel:
+  - nome do lead correto
+  - produto correto
+  - valor correto
+- Confirmar que email e SMS passam a usar esses mesmos dados corrigidos.
+
+### Arquivos envolvidos
+- `supabase/functions/webhook-corvex/index.ts`
 - `src/pages/RecuperacaoVendas.tsx`
-  - melhorar exibição do status dos leads disparados
-- Opcionalmente revisar chamadas compatíveis em:
-  - `supabase/functions/webhook-corvex/index.ts`
-  - `supabase/functions/webhook-luna/index.ts`
-  - `supabase/functions/webhook-adoorei/index.ts`
+- Ajuste pontual no banco para corrigir leads já gravados com base no `raw_payload` (sem mudar schema)
 
-7. Resultado esperado após a correção
-- Gerar um PIX pendente na Corvex deve:
-  - criar o lead imediatamente
-  - disparar o SMS imediatamente
-  - disparar o email imediatamente
-  - atualizar corretamente os timestamps/status no painel
-- Se o email ainda não chegar depois disso, o próximo bloqueio será a infraestrutura de domínio de email pendente, não mais a lógica do webhook.
-
-8. Detalhes técnicos
+### Detalhes técnicos
 ```text
 Hoje:
-webhook-corvex -> send-recovery-email({ lead_id, loja_id, tipo })
-send-recovery-email espera -> { customer_email, loja_id, tipo }
-Resultado -> incompatibilidade silenciosa
+payload -> leitura direta e rígida
+client.name / items[].name / amount
 
 Após ajuste:
-send-recovery-email
-  if lead_id:
-    busca lead por id
-  else if customer_email:
-    busca lead por email
-  envia email
-  só marca sucesso se provider retornar ok
+payload -> normalizer único
+resolve cliente, itens e total com fallbacks
+↓
+mesmo resultado alimenta pedidos + recovery_leads + envios
+↓
+painel, email e SMS passam a mostrar os mesmos dados corretos
 ```
+
+### Observação importante
+- Não precisa publicar o frontend para essa correção de captura.
+- O ponto principal é atualizar o backend da integração Corvex e validar com um PIX novo.
