@@ -41,67 +41,25 @@ Deno.serve(async (req) => {
     );
 
     if (checkOnly) {
-      const { data: exactVerified, error: checkErr } = await supabase
+      // Fetch the MOST RECENT record for this phone (any status)
+      const { data: latestRecord, error: checkErr } = await supabase
         .from("signup_verifications")
-        .select("id")
+        .select("id, status, phone")
         .eq("phone", normalizedPhone)
-        .eq("status", "verificado")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (checkErr) {
-        console.error("Check error (exact):", checkErr);
+        console.error("Check error:", checkErr);
         throw new Error("Erro ao verificar status");
       }
 
-      if (exactVerified) {
-        return new Response(
-          JSON.stringify({ verified: true }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const { data: verifiedCandidates, error: checkFallbackErr } = await supabase
-        .from("signup_verifications")
-        .select("phone")
-        .eq("status", "verificado")
-        .order("created_at", { ascending: false })
-        .limit(30);
-
-      if (checkFallbackErr) {
-        console.error("Check error (fallback):", checkFallbackErr);
-        throw new Error("Erro ao verificar status");
-      }
-
-      const matched = (verifiedCandidates || []).some(
-        (row: any) => normalizePhone(row.phone) === normalizedPhone
-      );
+      // Only return verified if the LATEST record is verified
+      const verified = latestRecord?.status === "verificado";
 
       return new Response(
-        JSON.stringify({ verified: matched }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // If admin already approved this phone, consider as verified immediately
-    const { data: alreadyVerified, error: alreadyVerifiedErr } = await supabase
-      .from("signup_verifications")
-      .select("id")
-      .eq("phone", normalizedPhone)
-      .eq("status", "verificado")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (alreadyVerifiedErr) {
-      console.error("Fetch error (already verified):", alreadyVerifiedErr);
-      throw new Error("Erro ao buscar verificação");
-    }
-
-    if (alreadyVerified) {
-      return new Response(
-        JSON.stringify({ verified: true }),
+        JSON.stringify({ verified }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
