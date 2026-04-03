@@ -101,6 +101,94 @@ const responseExample = `{
   "codigo_rastreio": "BR1A2B3C4D5EJL"
 }`;
 
+const aiPromptText = `Integre minha loja com a API do Magnus Frete para enviar pedidos e receber códigos de rastreio automaticamente.
+
+## Endpoint
+POST ${ENDPOINT_BASE}?token=SEU_TOKEN
+
+## Autenticação
+O token da loja é enviado como query parameter na URL (?token=SEU_TOKEN).
+Header obrigatório: Content-Type: application/json
+
+## Payload JSON (body)
+Campos obrigatórios marcados com *:
+
+{
+  "customer": {
+    "name": "João Silva",        // * Nome do cliente
+    "email": "joao@email.com",   // * Email do cliente
+    "document": "12345678900",   // CPF/CNPJ (opcional)
+    "phone": "11999999999"       // Telefone (opcional)
+  },
+  "address": {                   // Bloco inteiro é opcional
+    "street": "Rua Example",
+    "number": "123",
+    "neighborhood": "Centro",
+    "city": "São Paulo",
+    "state": "SP",
+    "zipcode": "01001000",
+    "complement": "Apto 1"
+  },
+  "items": [                     // * Ao menos 1 item
+    {
+      "name": "Produto X",      // * Nome do produto
+      "quantity": 2,             // Quantidade (padrão: 1)
+      "price": 49.90             // Preço unitário em R$
+    }
+  ],
+  "total": 99.80                 // Valor total (calculado auto se omitido)
+}
+
+## Payload mínimo (apenas obrigatórios)
+{
+  "customer": { "name": "Maria", "email": "maria@email.com" },
+  "items": [{ "name": "Produto Exemplo" }]
+}
+
+## Exemplo cURL
+curl -X POST "${ENDPOINT_BASE}?token=SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "customer": { "name": "João Silva", "email": "joao@email.com" },
+    "items": [{ "name": "Produto X", "quantity": 1, "price": 49.90 }]
+  }'
+
+## Exemplo JavaScript (fetch)
+const response = await fetch("${ENDPOINT_BASE}?token=SEU_TOKEN", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    customer: { name: "João Silva", email: "joao@email.com" },
+    items: [{ name: "Produto X", quantity: 1, price: 49.90 }]
+  })
+});
+const data = await response.json();
+console.log(data.codigo_rastreio);
+
+## Resposta de sucesso (HTTP 201)
+{
+  "success": true,
+  "pedido_id": "uuid-do-pedido",
+  "envio_id": "uuid-do-envio",
+  "codigo_rastreio": "BR1A2B3C4D5EJL"
+}
+
+## Tratamento de erros
+- 400: Token ausente na URL → Adicione ?token=SEU_TOKEN
+- 401: Token inválido → Verifique o token no painel Magnus Frete
+- 405: Método errado → Use POST (não GET, PUT, etc.)
+- 422: Validação falhou → Verifique campos obrigatórios (retorna array "details" com cada erro)
+- 500: Erro interno → Tente novamente
+
+## Regras importantes
+- Substitua SEU_TOKEN pelo token real da loja (encontrado em Integrações → API Externa no painel)
+- Valores monetários são em reais (R$), ex: 49.90 = R$ 49,90
+- Cada requisição cria um novo pedido — a API não é idempotente
+- CORS está habilitado (Access-Control-Allow-Origin: *), pode chamar do frontend
+- O código de rastreio é gerado automaticamente na resposta
+
+Implemente essa integração no meu projeto, criando uma função que envia os pedidos para a API do Magnus Frete sempre que uma venda for finalizada.`;
+
 function sanitizeJson(text: string): string {
   return text
     .replace(/\u201C|\u201D/g, '"')  // smart double quotes
@@ -329,6 +417,30 @@ echo $result['codigo_rastreio'];`;
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            {/* Prompt para IA */}
+            <section className="rounded-xl border-2 border-primary/40 bg-gradient-to-br from-primary/5 to-card p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="h-5 w-5 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Prompt para IA</h2>
+                <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">Copiar e Colar</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                Copie o prompt abaixo e cole diretamente na sua IA favorita (Lovable, Antigravity, ChatGPT, etc.). Com um único prompt, a IA implementará a integração completa com o Magnus Frete na sua loja.
+              </p>
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="absolute top-2 right-2 z-10 gap-1.5 border-primary/30 hover:bg-primary/10"
+                  onClick={() => copyText(aiPromptText, "ai-prompt")}
+                >
+                  {copiedKey === "ai-prompt" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedKey === "ai-prompt" ? "Copiado!" : "Copiar Prompt"}
+                </Button>
+                <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 pr-32 text-[11px] text-foreground overflow-auto max-h-[400px] whitespace-pre-wrap leading-relaxed">{aiPromptText}</pre>
               </div>
             </section>
 
