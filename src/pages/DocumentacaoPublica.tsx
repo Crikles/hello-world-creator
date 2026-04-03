@@ -101,6 +101,94 @@ const responseExample = `{
   "codigo_rastreio": "BR1A2B3C4D5EJL"
 }`;
 
+const aiPromptText = `Integre minha loja com a API do Magnus Frete para enviar pedidos e receber códigos de rastreio automaticamente.
+
+## Endpoint
+POST ${ENDPOINT_BASE}?token=SEU_TOKEN
+
+## Autenticação
+O token da loja é enviado como query parameter na URL (?token=SEU_TOKEN).
+Header obrigatório: Content-Type: application/json
+
+## Payload JSON (body)
+Campos obrigatórios marcados com *:
+
+{
+  "customer": {
+    "name": "João Silva",        // * Nome do cliente
+    "email": "joao@email.com",   // * Email do cliente
+    "document": "12345678900",   // CPF/CNPJ (opcional)
+    "phone": "11999999999"       // Telefone (opcional)
+  },
+  "address": {                   // Bloco inteiro é opcional
+    "street": "Rua Example",
+    "number": "123",
+    "neighborhood": "Centro",
+    "city": "São Paulo",
+    "state": "SP",
+    "zipcode": "01001000",
+    "complement": "Apto 1"
+  },
+  "items": [                     // * Ao menos 1 item
+    {
+      "name": "Produto X",      // * Nome do produto
+      "quantity": 2,             // Quantidade (padrão: 1)
+      "price": 49.90             // Preço unitário em R$
+    }
+  ],
+  "total": 99.80                 // Valor total (calculado auto se omitido)
+}
+
+## Payload mínimo (apenas obrigatórios)
+{
+  "customer": { "name": "Maria", "email": "maria@email.com" },
+  "items": [{ "name": "Produto Exemplo" }]
+}
+
+## Exemplo cURL
+curl -X POST "${ENDPOINT_BASE}?token=SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "customer": { "name": "João Silva", "email": "joao@email.com" },
+    "items": [{ "name": "Produto X", "quantity": 1, "price": 49.90 }]
+  }'
+
+## Exemplo JavaScript (fetch)
+const response = await fetch("${ENDPOINT_BASE}?token=SEU_TOKEN", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    customer: { name: "João Silva", email: "joao@email.com" },
+    items: [{ name: "Produto X", quantity: 1, price: 49.90 }]
+  })
+});
+const data = await response.json();
+console.log(data.codigo_rastreio);
+
+## Resposta de sucesso (HTTP 201)
+{
+  "success": true,
+  "pedido_id": "uuid-do-pedido",
+  "envio_id": "uuid-do-envio",
+  "codigo_rastreio": "BR1A2B3C4D5EJL"
+}
+
+## Tratamento de erros
+- 400: Token ausente na URL → Adicione ?token=SEU_TOKEN
+- 401: Token inválido → Verifique o token no painel Magnus Frete
+- 405: Método errado → Use POST (não GET, PUT, etc.)
+- 422: Validação falhou → Verifique campos obrigatórios (retorna array "details" com cada erro)
+- 500: Erro interno → Tente novamente
+
+## Regras importantes
+- Substitua SEU_TOKEN pelo token real da loja (encontrado em Integrações → API Externa no painel)
+- Valores monetários são em reais (R$), ex: 49.90 = R$ 49,90
+- Cada requisição cria um novo pedido — a API não é idempotente
+- CORS está habilitado (Access-Control-Allow-Origin: *), pode chamar do frontend
+- O código de rastreio é gerado automaticamente na resposta
+
+Implemente essa integração no meu projeto, criando uma função que envia os pedidos para a API do Magnus Frete sempre que uma venda for finalizada.`;
+
 function sanitizeJson(text: string): string {
   return text
     .replace(/\u201C|\u201D/g, '"')  // smart double quotes
