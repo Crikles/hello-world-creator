@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -996,7 +998,15 @@ function SmsEditor({ loja }: { loja: { id: string } }) {
 
 /* ─── Main Component ─── */
 export default function RecuperacaoVendas() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { loja } = useLoja();
+
+  useEffect(() => {
+    if (user && user.email !== "vdklanca@gmail.com") {
+      navigate(loja ? `/loja/${loja.id}` : "/lojas", { replace: true });
+    }
+  }, [user, loja, navigate]);
 
   const { data: empresa } = useQuery({
     queryKey: ["empresa-recovery", loja?.id],
