@@ -591,7 +591,7 @@ export default function AdminUsuarios() {
                                 variant="ghost"
                                 className="h-5 w-5 p-0"
                                 onClick={() => {
-                                  navigator.clipboard.writeText(`https://magnusfrete.lovable.app/signup?ref=${u.referral_code}`);
+                                  navigator.clipboard.writeText(`https://magnusfrete.com/signup?ref=${u.referral_code}`);
                                   toast.success("Link copiado!");
                                 }}
                               >
