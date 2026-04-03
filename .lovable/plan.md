@@ -1,34 +1,43 @@
 
 
-## Plano: Corrigir bug de auto-avanço na verificação SMS
+## Plano: Adicionar seção "Prompt para IA" na documentação
 
-### Problema identificado
-A edge function `verify-sms-code` verifica se existe **qualquer** registro antigo com status `"verificado"` para aquele telefone. Quando um usuário tenta se cadastrar com um número que já foi verificado anteriormente (por ele mesmo ou outra tentativa), o sistema:
+### O que será feito
+Adicionar uma nova seção na página de documentação com um **prompt completo e pronto para copiar**, que o usuário pode colar diretamente em qualquer IA (Lovable, Antigravity, ChatGPT, etc.) para implementar a integração com a API do Magnus Frete na loja dele.
 
-1. **Polling (check_only)**: Encontra o registro antigo verificado → retorna `verified: true` imediatamente
-2. **Verificação direta**: Mesma lógica nas linhas 87-107 → retorna `verified: true` sem checar o código
+O prompt incluirá tudo que a IA precisa: endpoint, autenticação, payload completo, exemplos de cURL/JS/Python/PHP, tratamento de erros e resposta esperada — **tudo em um único bloco copiável**.
 
-Resultado: o usuário envia o SMS, e em menos de 5 segundos o polling detecta o registro antigo e avança direto para a tela de email.
+### Alteração
 
-### Correção
-Alterar `verify-sms-code` para verificar apenas o **registro mais recente** daquele telefone. Se o mais recente for `"pendente"` (acabou de ser criado pelo `send-verification-sms`), retornar `false` — mesmo que existam registros antigos verificados.
+**`src/pages/DocumentacaoPublica.tsx`**
 
-### Alteração em `supabase/functions/verify-sms-code/index.ts`
+1. Criar uma constante `aiPrompt` com o texto completo do prompt, incluindo:
+   - Contexto: "Integre minha loja com a API do Magnus Frete"
+   - Endpoint e método de autenticação (token via query param)
+   - Payload completo com todos os campos e quais são obrigatórios
+   - Exemplo de cURL funcional
+   - Exemplo de código JS (fetch)
+   - Resposta esperada (201 + JSON com codigo_rastreio)
+   - Tratamento de erros (400, 401, 422, 500)
+   - Instruções claras: "Substitua SEU_TOKEN pelo token real da loja"
 
-**check_only (linhas 43-85)**: Em vez de buscar qualquer registro verificado, buscar o registro mais recente (independente de status). Só retornar `verified: true` se o mais recente tiver status `"verificado"`.
+2. Adicionar uma nova seção visualmente destacada (com borda primária, ícone de IA/Zap) logo após o "Quick Start", com:
+   - Título: "Prompt para IA" + badge "Copiar e Colar"
+   - Descrição curta explicando que basta copiar e jogar na IA
+   - O prompt completo dentro de um `<pre>` com scroll
+   - Botão de copiar grande e proeminente (usa o `CopyBtn` existente ou um botão dedicado)
 
-**Verificação direta (linhas 87-107)**: Remover o bloco que retorna `verified: true` para registros antigos verificados. O código deve sempre ser validado contra o registro pendente.
+### Conteúdo do prompt (resumo)
+O prompt será em português, autocontido, e incluirá:
+- Endpoint exato com placeholder `SEU_TOKEN`
+- Header obrigatório `Content-Type: application/json`
+- Payload JSON completo de exemplo
+- cURL pronto
+- Código JavaScript (fetch) pronto
+- Resposta de sucesso esperada
+- Lista de erros possíveis
+- Instrução para substituir o token
 
-```text
-Antes:
-  check_only → busca QUALQUER "verificado" → encontra antigo → true ❌
-  verify     → busca QUALQUER "verificado" → encontra antigo → true ❌
-
-Depois:
-  check_only → busca O MAIS RECENTE → se status="pendente" → false ✅
-  verify     → sempre valida código contra registro pendente → correto ✅
-```
-
-### Arquivo
-- `supabase/functions/verify-sms-code/index.ts`
+### Posição na página
+Entre a seção "Quick Start" e "Autenticação & CORS" — é a primeira coisa útil após o usuário entender os 4 passos.
 
