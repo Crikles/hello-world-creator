@@ -332,6 +332,30 @@ echo $result['codigo_rastreio'];`;
               </div>
             </section>
 
+            {/* Prompt para IA */}
+            <section className="rounded-xl border-2 border-primary/40 bg-gradient-to-br from-primary/5 to-card p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="h-5 w-5 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Prompt para IA</h2>
+                <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">Copiar e Colar</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                Copie o prompt abaixo e cole diretamente na sua IA favorita (Lovable, Antigravity, ChatGPT, etc.). Com um único prompt, a IA implementará a integração completa com o Magnus Frete na sua loja.
+              </p>
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="absolute top-2 right-2 z-10 gap-1.5 border-primary/30 hover:bg-primary/10"
+                  onClick={() => copyText(aiPromptText, "ai-prompt")}
+                >
+                  {copiedKey === "ai-prompt" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedKey === "ai-prompt" ? "Copiado!" : "Copiar Prompt"}
+                </Button>
+                <pre className="bg-muted/30 border border-border/20 rounded-lg p-4 pr-32 text-[11px] text-foreground overflow-auto max-h-[400px] whitespace-pre-wrap leading-relaxed">{aiPromptText}</pre>
+              </div>
+            </section>
+
             {/* Auth & CORS */}
             <section className="rounded-xl border border-border/40 bg-card p-6">
               <div className="flex items-center gap-2 mb-3">
