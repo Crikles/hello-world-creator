@@ -148,15 +148,23 @@ export function AppSidebar() {
                 {section.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === base}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/60 hover:text-primary hover:bg-primary/5 transition-all duration-200"
-                        activeClassName="glass glow-border text-primary font-semibold"
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </NavLink>
+                      {(item as any).restricted ? (
+                        <span className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/30 cursor-not-allowed select-none">
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                          <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/50 bg-muted/30 px-1.5 py-0.5 rounded">Em breve</span>
+                        </span>
+                      ) : (
+                        <NavLink
+                          to={item.url}
+                          end={item.url === base}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/60 hover:text-primary hover:bg-primary/5 transition-all duration-200"
+                          activeClassName="glass glow-border text-primary font-semibold"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </NavLink>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
