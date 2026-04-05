@@ -961,12 +961,6 @@ function SmsEditor({ loja }: { loja: { id: string } }) {
         {/* Left column: SMS editors */}
         <div className="space-y-4">
           <SmsBlock
-            label="SMS — Carrinho Abandonado"
-            icon={<ShoppingCart className="h-4 w-4 text-primary" />}
-            sms={smsCarrinho}
-            onChange={setSmsCarrinho}
-          />
-          <SmsBlock
             label="SMS — PIX Pendente"
             icon={<DollarSign className="h-4 w-4 text-primary" />}
             sms={smsPix}
