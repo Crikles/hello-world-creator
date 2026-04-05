@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decode as decodeBase64 } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -208,6 +209,79 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Auto-repair: extract missing fields from raw_payload ──
+    const raw = (lead.raw_payload || {}) as Record<string, any>;
+
+    // Fix total_value: if > 100 assume centavos, convert to reais
+    let totalValue = Number(lead.total_value || 0);
+    if (totalValue > 100) {
+      totalValue = totalValue / 100;
+    }
+    // If still 0, try raw_payload
+    if (totalValue === 0 && raw.total_price) {
+      const rawPrice = Number(String(raw.total_price).replace(/[^0-9.-]/g, ""));
+      totalValue = rawPrice > 100 ? rawPrice / 100 : rawPrice;
+    }
+
+    // Fix checkout_url
+    let checkoutUrl = lead.checkout_url || "";
+    if (!checkoutUrl) {
+      checkoutUrl = String(
+        raw.order_url || raw.checkout_url || raw.abandoned_checkout_url_url || raw.abandoned_checkout_url || ""
+      ).trim();
+    }
+
+    // Fix pix_code
+    let pixCode = lead.pix_code || "";
+    if (!pixCode && raw.pix_code) {
+      pixCode = String(raw.pix_code).trim();
+    }
+
+    // Fix pix_qrcode_url — upload from raw base64 if needed
+    let pixQrcodeUrl = lead.pix_qrcode_url || "";
+    if (!pixQrcodeUrl && raw.pix_code_image64) {
+      try {
+        const base64Raw = String(raw.pix_code_image64).trim();
+        let cleaned = base64Raw;
+        if (cleaned.includes(",") && cleaned.startsWith("data:")) {
+          cleaned = cleaned.split(",")[1];
+        }
+        cleaned = cleaned.replace(/\s/g, "");
+        if (cleaned) {
+          const bytes = decodeBase64(cleaned);
+          const path = `qr_${lead.id}_${Date.now()}.png`;
+          const { error: uploadErr } = await supabase.storage
+            .from("pix-qrcodes")
+            .upload(path, bytes, { contentType: "image/png", upsert: true });
+          if (!uploadErr) {
+            pixQrcodeUrl = `${supabaseUrl}/storage/v1/object/public/pix-qrcodes/${path}`;
+          } else {
+            console.error("[send-recovery-email] QR upload error:", uploadErr);
+          }
+        }
+      } catch (e) {
+        console.error("[send-recovery-email] QR upload exception:", e);
+      }
+    }
+
+    // Fix products values (may be in centavos)
+    let products = (lead.products || []) as { name: string; value: number; qty: number }[];
+    products = products.map(p => ({
+      ...p,
+      value: p.value > 100 ? p.value / 100 : p.value,
+    }));
+
+    // Update lead with corrected data for future use
+    const updates: Record<string, any> = {};
+    if (totalValue !== Number(lead.total_value)) updates.total_value = totalValue;
+    if (checkoutUrl && !lead.checkout_url) updates.checkout_url = checkoutUrl;
+    if (pixCode && !lead.pix_code) updates.pix_code = pixCode;
+    if (pixQrcodeUrl && !lead.pix_qrcode_url) updates.pix_qrcode_url = pixQrcodeUrl;
+    if (Object.keys(updates).length > 0) {
+      await supabase.from("recovery_leads").update(updates).eq("id", lead.id);
+      console.log("[send-recovery-email] Auto-repaired lead:", lead.id, updates);
+    }
+
     const { data: loja } = await supabase
       .from("lojas")
       .select("user_id, nome")
@@ -229,16 +303,21 @@ Deno.serve(async (req) => {
     const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || loja.nome || "Loja";
     const logoUrl = empresa?.logo_url || "";
 
-    const products = (lead.products || []) as { name: string; value: number; qty: number }[];
     const listaProdutos = products.map(p => `${p.name} (x${p.qty}) — R$ ${p.value.toFixed(2)}`).join("<br>");
-    const valorTotal = `R$ ${Number(lead.total_value || 0).toFixed(2).replace(".", ",")}`;
+    const valorTotal = `R$ ${totalValue.toFixed(2).replace(".", ",")}`;
+
+    console.log("[send-recovery-email] Rendering with:", {
+      totalValue, checkoutUrl: checkoutUrl ? "SET" : "EMPTY",
+      pixCode: pixCode ? "SET" : "EMPTY", pixQrcodeUrl: pixQrcodeUrl ? "SET" : "EMPTY",
+      products_count: products.length,
+    });
 
     const vars: Record<string, string> = {
       nome_cliente: lead.customer_name || "Cliente",
       lista_produtos: listaProdutos || "Seu pedido",
       nome_produto_principal: products.length > 0 ? products[0].name : "seu produto",
       valor_total: valorTotal,
-      link_checkout: lead.checkout_url || "#",
+      link_checkout: checkoutUrl || "#",
       beneficio_principal: config.beneficio_principal || "",
       beneficio_1: config.beneficio_1 || "",
       beneficio_2: config.beneficio_2 || "",
@@ -247,8 +326,8 @@ Deno.serve(async (req) => {
       ps_reforco_urgencia: config.ps_reforco_urgencia || "",
       codigo_cupom: config.codigo_cupom || "",
       descricao_cupom: config.descricao_cupom || "",
-      pix_code: lead.pix_code || "",
-      pix_qrcode_url: lead.pix_qrcode_url || "",
+      pix_code: pixCode,
+      pix_qrcode_url: pixQrcodeUrl,
     };
 
     const s = parseSettings(config.corpo_email || "", config);
