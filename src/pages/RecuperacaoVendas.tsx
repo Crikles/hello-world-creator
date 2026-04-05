@@ -18,7 +18,7 @@ import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
   Save, MessageSquare, Globe, Type, Sparkles, Coins,
   CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone, AlertTriangle,
-  BookOpen, Zap, Shield, Timer, Hash, ExternalLink, Info,
+  BookOpen, Zap, Shield, Timer, Hash, ExternalLink, Info, Trash2,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
