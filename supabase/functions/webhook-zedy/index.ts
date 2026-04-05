@@ -102,38 +102,54 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recoveryConfig?.ativo) {
-          const rawProducts = payload.products || [];
-          const recoveryProducts = rawProducts.map((p: any) => ({
-            name: p.name || "Produto",
-            value: (p.priceInCents || 0) / 100,
-            qty: p.quantity || 1,
-          }));
-          const totalValue = (payload.commission?.totalPriceInCents || 0) / 100;
-          const checkoutUrl = payload.actions?.[0]?.url || "";
+          // Deduplicate by orderId
+          const orderId = payload.orderId || "";
+          if (orderId) {
+            const { data: existingLead } = await supabase
+              .from("recovery_leads")
+              .select("id")
+              .eq("loja_id", lojaId)
+              .filter("raw_payload->>orderId", "eq", orderId)
+              .maybeSingle();
 
-          console.log("[webhook-zedy] Recovery data:", { email, tipo: recoveryTipo, totalValue, checkoutUrl, productsCount: recoveryProducts.length });
+            if (existingLead) {
+              console.log("[webhook-zedy] Duplicate orderId, skipping recovery:", orderId);
+              // Continue to pedido processing below, just skip recovery
+            } else {
+              const rawProducts = payload.products || [];
+              const recoveryProducts = rawProducts.map((p: any) => ({
+                name: p.name || "Produto",
+                value: (p.priceInCents || 0) / 100,
+                qty: p.quantity || 1,
+              }));
+              const totalValue = (payload.commission?.totalPriceInCents || 0) / 100;
 
-          await supabase.from("recovery_leads").insert({
-            loja_id: lojaId,
-            customer_name: customer.name || "",
-            customer_email: email,
-            customer_phone: customer.phone || "",
-            products: recoveryProducts,
-            total_value: totalValue,
-            checkout_url: checkoutUrl,
-            raw_payload: payload,
-            status: "pendente",
-            tipo: recoveryTipo,
-          });
+              // Zedy actions[0].url is an admin URL, not a customer checkout page — leave checkout_url empty
+              console.log("[webhook-zedy] Recovery data:", { email, tipo: recoveryTipo, totalValue, orderId, productsCount: recoveryProducts.length });
 
-          // Fire-and-forget: email + sms
-          supabase.functions.invoke("send-recovery-email", {
-            body: { loja_id: lojaId, customer_email: email, tipo: recoveryTipo },
-          }).catch((e) => console.error("[recovery-email]", e));
+              await supabase.from("recovery_leads").insert({
+                loja_id: lojaId,
+                customer_name: customer.name || "",
+                customer_email: email,
+                customer_phone: customer.phone || "",
+                products: recoveryProducts,
+                total_value: totalValue,
+                checkout_url: "",
+                raw_payload: payload,
+                status: "pendente",
+                tipo: recoveryTipo,
+              });
 
-          supabase.functions.invoke("send-recovery-sms", {
-            body: { loja_id: lojaId, customer_email: email, tipo: recoveryTipo },
-          }).catch((e) => console.error("[recovery-sms]", e));
+              // Fire-and-forget: email + sms
+              supabase.functions.invoke("send-recovery-email", {
+                body: { loja_id: lojaId, customer_email: email, tipo: recoveryTipo },
+              }).catch((e) => console.error("[recovery-email]", e));
+
+              supabase.functions.invoke("send-recovery-sms", {
+                body: { loja_id: lojaId, customer_email: email, tipo: recoveryTipo },
+              }).catch((e) => console.error("[recovery-sms]", e));
+            }
+          }
         }
       }
     }
