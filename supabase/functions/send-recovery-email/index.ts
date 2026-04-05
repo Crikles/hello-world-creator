@@ -11,7 +11,7 @@ function parseSettings(corpo: string, config: Record<string, unknown>) {
 
   return {
     mostrar_saudacao: bool("recovery_mostrar_saudacao", true),
-    saudacao: m("recovery_saudacao") || "Percebemos que você deixou algo importante no seu carrinho.",
+    saudacao: m("recovery_saudacao") || "",
     mostrar_resumo_pedido: bool("recovery_mostrar_resumo", true),
     mostrar_texto_interrupcao: bool("recovery_mostrar_interrupcao", true),
     texto_interrupcao: m("recovery_texto_interrupcao") || "",
