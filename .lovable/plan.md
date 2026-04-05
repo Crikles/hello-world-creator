@@ -1,35 +1,52 @@
 
 
-## Plano: Corrigir valor do PIX Vega + SMS
+## Plano: Adicionar PIX Copia e Cola, QR Code e botão de pagamento nos emails de recuperação
 
-### Problemas identificados
+### Contexto
 
-**1. Valor exibido como R$500 em vez de R$5,00**
+A Vega (V1 e V2) retorna campos de PIX no payload:
+- `pix_code` — código Copia e Cola
+- `pix_code_image64` — imagem QR Code em base64
+- `checkout_url` / `order_url` — link para página do PIX
 
-A Vega envia `total_price: 500` e `product.amount: 500` em **centavos** (R$5,00 = 500 centavos). O código no arquivo faz `totalPrice / 100`, mas o valor no banco está como 500 -- indica que a versão deployada da function não tem a divisão. Solução: garantir a conversão correta e redeployar.
-
-Adicionalmente, o produto está salvo com `value: 0` apesar de `amount: 500` no payload. Preciso investigar por que `(p.amount || 0) / 100` resulta em 0 -- possivelmente o tipo do campo está como string na runtime.
-
-**2. SMS não enviado -- sem créditos**
-
-O log da function `send-recovery-sms` mostra:
-```
-SMS API response: 400 {"error":1,"code":"CREDIT_NOT_DEBITED","message":"Credit not debited"}
-```
-A API da IntegraX rejeitou por falta de créditos. **Isso não é bug de código** -- é necessário recarregar créditos na plataforma de SMS.
+Atualmente o webhook-vega **não salva** esses dados no `recovery_leads`, e o email de recuperação **não exibe** seção de PIX.
 
 ### Alterações
 
-**`supabase/functions/webhook-vega/index.ts`**
+**1. Migração: adicionar colunas na tabela `recovery_leads`**
 
-1. Forçar conversão numérica explícita no `amount` dos produtos:
-   - `value: Number(p.amount || 0) / 100` (garante que não é string)
+```sql
+ALTER TABLE public.recovery_leads
+  ADD COLUMN pix_code text DEFAULT '',
+  ADD COLUMN pix_qrcode_url text DEFAULT '';
+```
 
-2. Adicionar log de diagnóstico para o totalPrice antes de salvar no recovery_leads
+- `pix_code`: armazena o código Copia e Cola
+- `pix_qrcode_url`: armazena a URL da imagem do QR Code (base64 ou URL externa)
 
-3. Redeployar a function para garantir que o código atualizado esteja em produção
+**2. `supabase/functions/webhook-vega/index.ts`**
+
+Na hora de inserir o `recovery_leads`, adicionar:
+- `pix_code: payload.pix_code || ""`
+- `pix_qrcode_url: payload.pix_code_image64 || ""`
+
+**3. `supabase/functions/send-recovery-email/index.ts`**
+
+- Ler `lead.pix_code` e `lead.pix_qrcode_url` do lead
+- Quando `tipo === "pix_pendente"` e existir `pix_code`, adicionar ao email:
+  - Seção com QR Code (imagem inline via base64 ou URL)
+  - Seção "Copia e Cola" com o código PIX em destaque (fundo cinza, fonte mono, visual de campo copiável)
+  - Botão CTA "Pagar meu PIX" apontando para `checkout_url` ou `order_url`
+- Ajustar a saudação padrão para PIX: "Seu PIX foi gerado mas ainda não identificamos o pagamento"
+
+**4. Outros webhooks (Corvex, Luna, etc.)**
+
+Verificar se também retornam `pix_code` — se sim, salvar da mesma forma. Isso será feito como melhoria futura; o foco agora é Vega.
 
 ### Resultado esperado
-- Valores corretos: produto R$5,00 e total R$5,00
-- SMS: informar o usuário que precisa recarregar créditos na IntegraX
+
+O email de PIX pendente da Vega incluirá:
+1. Imagem do QR Code
+2. Código Copia e Cola em destaque
+3. Botão para acessar a página de pagamento
 
