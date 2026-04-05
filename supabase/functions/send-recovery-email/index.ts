@@ -303,7 +303,7 @@ Deno.serve(async (req) => {
     const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || loja.nome || "Loja";
     const logoUrl = empresa?.logo_url || "";
 
-    const listaProdutos = products.map(p => `${p.name} (x${p.qty}) — R$ ${p.value.toFixed(2)}`).join("<br>");
+    const listaProdutos = products.map(p => `${p.name} (x${p.qty})`).join("<br>");
     const valorTotal = `R$ ${totalValue.toFixed(2).replace(".", ",")}`;
 
     console.log("[send-recovery-email] Rendering with:", {
