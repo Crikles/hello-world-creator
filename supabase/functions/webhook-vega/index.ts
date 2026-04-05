@@ -175,7 +175,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recoveryConfig?.ativo) {
-          {
             const checkoutUrl = payload.abandoned_checkout_url_url
               || payload.abandoned_checkout_url
               || payload.checkout_url
