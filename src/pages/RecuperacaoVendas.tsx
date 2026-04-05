@@ -412,6 +412,33 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
     },
   });
 
+  // Delete lead
+  const deleteMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      const { error } = await supabase.from("recovery_leads").delete().eq("id", leadId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recovery-leads", loja.id, tipo] });
+      toast({ title: "Lead excluído!" });
+    },
+    onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
+  });
+
+  // Delete all leads
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      const query = supabase.from("recovery_leads").delete().eq("loja_id", loja.id) as any;
+      const { error } = await query.eq("tipo", tipo);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recovery-leads", loja.id, tipo] });
+      toast({ title: "Todos os leads excluídos!" });
+    },
+    onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
+  });
+
   const getLeadStatus = (lead: any) => {
     if (lead.status === "convertido") return { label: "Convertido", color: "bg-green-500/10 text-green-600" };
     if (lead.status === "sem_credito") return { label: "Sem crédito", color: "bg-red-500/10 text-red-600" };
