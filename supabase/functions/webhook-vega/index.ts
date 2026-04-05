@@ -221,7 +221,6 @@ Deno.serve(async (req) => {
 
               console.log(`[recovery] Lead created for ${recoveryTipo}:`, newLead.id);
             }
-          }
         }
       } catch (recErr) {
         console.error("[recovery] Error:", recErr);
