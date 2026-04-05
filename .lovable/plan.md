@@ -1,43 +1,44 @@
 
 
-## Plano: Adicionar seção "Prompt para IA" na documentação
+## Diagnóstico: PIX Corvex não chega no painel de Recuperação
 
-### O que será feito
-Adicionar uma nova seção na página de documentação com um **prompt completo e pronto para copiar**, que o usuário pode colar diretamente em qualquer IA (Lovable, Antigravity, ChatGPT, etc.) para implementar a integração com a API do Magnus Frete na loja dele.
+### O que foi investigado
 
-O prompt incluirá tudo que a IA precisa: endpoint, autenticação, payload completo, exemplos de cURL/JS/Python/PHP, tratamento de erros e resposta esperada — **tudo em um único bloco copiável**.
+1. **Edge function `webhook-corvex`**: Está ativa e respondendo corretamente (testei agora)
+2. **Código de recuperação**: Correto — quando um evento `pending` chega, o lead é criado (existem 7 leads de teste do dia 01-02/abril funcionando)
+3. **Configuração `recovery_config`**: Ativa para `pix_pendente` e `carrinho` nesta loja
+4. **Frontend (RecuperacaoVendas)**: Query correta buscando por `loja_id` + `tipo`
+5. **Separação**: O bloco de recuperação (try-catch isolado) NÃO interfere no fluxo de envios/postagens
 
-### Alteração
+### Problema encontrado
 
-**`src/pages/DocumentacaoPublica.tsx`**
+**Nenhum webhook da Corvex chegou para esta loja desde 02/abril.** O último evento recebido foi um teste manual. Os eventos `corvex.order.paid` que aparecem nos logs recentes (03-05/abril) pertencem a outra loja (`guiina.pintor@gmail.com`), não à sua.
 
-1. Criar uma constante `aiPrompt` com o texto completo do prompt, incluindo:
-   - Contexto: "Integre minha loja com a API do Magnus Frete"
-   - Endpoint e método de autenticação (token via query param)
-   - Payload completo com todos os campos e quais são obrigatórios
-   - Exemplo de cURL funcional
-   - Exemplo de código JS (fetch)
-   - Resposta esperada (201 + JSON com codigo_rastreio)
-   - Tratamento de erros (400, 401, 422, 500)
-   - Instruções claras: "Substitua SEU_TOKEN pelo token real da loja"
+Isso significa que **a Corvex não está enviando o webhook** `corvex.order.created` / `corvex.order.pending` para a URL configurada com o token `d0dea10f2cd8`.
 
-2. Adicionar uma nova seção visualmente destacada (com borda primária, ícone de IA/Zap) logo após o "Quick Start", com:
-   - Título: "Prompt para IA" + badge "Copiar e Colar"
-   - Descrição curta explicando que basta copiar e jogar na IA
-   - O prompt completo dentro de um `<pre>` com scroll
-   - Botão de copiar grande e proeminente (usa o `CopyBtn` existente ou um botão dedicado)
+### Causa provável
 
-### Conteúdo do prompt (resumo)
-O prompt será em português, autocontido, e incluirá:
-- Endpoint exato com placeholder `SEU_TOKEN`
-- Header obrigatório `Content-Type: application/json`
-- Payload JSON completo de exemplo
-- cURL pronto
-- Código JavaScript (fetch) pronto
-- Resposta de sucesso esperada
-- Lista de erros possíveis
-- Instrução para substituir o token
+No painel da Corvex, a configuração de webhook pode estar:
+- Com apenas o evento `corvex.order.paid` habilitado (sem `corvex.order.created` e `corvex.order.pending`)
+- Com a URL incorreta ou desatualizada
 
-### Posição na página
-Entre a seção "Quick Start" e "Autenticação & CORS" — é a primeira coisa útil após o usuário entender os 4 passos.
+A URL correta do webhook deve ser:
+```
+https://jnzamnnvzdecnnvvhzxn.supabase.co/functions/v1/webhook-corvex?token=d0dea10f2cd8
+```
+
+E os eventos habilitados devem incluir: **corvex.order.created**, **corvex.order.pending** e **corvex.order.paid**.
+
+### Ação necessária
+
+Verificar no painel da Corvex se os eventos `corvex.order.created` e `corvex.order.pending` estão habilitados no webhook. Sem isso, nosso sistema nunca recebe a notificação de PIX gerado.
+
+### Melhorias no código (para robustez)
+
+Embora o código já funcione quando o webhook chega, posso adicionar:
+
+1. **Log de diagnóstico no início da função**: Registrar todas as requisições recebidas (incluindo as com token inválido) para facilitar debugging futuro
+2. **Endpoint de teste**: Permitir validar se a URL está correta sem precisar gerar um PIX real
+
+Porém, nenhuma alteração de código resolverá o problema atual — a Corvex precisa estar configurada para enviar os eventos pendentes.
 
