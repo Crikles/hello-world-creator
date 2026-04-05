@@ -1275,20 +1275,32 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/30">
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground">Checkout</th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground">Carrinho Abandonado</th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground">PIX Pendente</th>
+                  <th className="text-left py-2 px-2 text-xs font-semibold text-muted-foreground">Checkout</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">Carrinho</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">PIX</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">QR Code</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">Copia e Cola</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">URL Checkout</th>
                 </tr>
               </thead>
               <tbody>
                 {checkouts.map((c) => (
                   <tr key={c.name} className="border-b border-border/10">
-                    <td className="py-2.5 px-3 font-medium text-foreground">{c.name}</td>
-                    <td className="py-2.5 px-3 text-center">
+                    <td className="py-2.5 px-2 font-medium text-foreground">{c.name}</td>
+                    <td className="py-2.5 px-2 text-center">
                       {c.carrinho ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
-                    <td className="py-2.5 px-3 text-center">
+                    <td className="py-2.5 px-2 text-center">
                       {c.pix ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-2 text-center">
+                      {c.qrcode ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-2 text-center">
+                      {c.copiaECola ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-2 text-center">
+                      {c.urlCheckout ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -1296,7 +1308,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
             </table>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            <strong>Nota:</strong> Para esses checkouts, a recuperação funciona automaticamente — basta ativar nas abas "Carrinho Abandonado" ou "PIX Pendente".
+            <strong>Nota:</strong> Checkouts que não enviam QR Code e Copia e Cola mostrarão apenas o botão de pagamento no e-mail de recuperação.
           </p>
         </CardContent>
       </Card>
