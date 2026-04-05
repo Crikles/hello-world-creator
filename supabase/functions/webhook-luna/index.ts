@@ -70,13 +70,17 @@ Deno.serve(async (req) => {
     const status = payload.status || "";
     const transactionToken = String(payload.id || `luna_${Date.now()}`);
 
-    // Map event to event_type
+    // Map event to event_type (Luna sends event names without "event_" prefix)
     const eventTypeMap: Record<string, string> = {
-      "event_sale_paid": "sale",
-      "event_sale_pending": "pending",
-      "event_sale_waiting_payment": "waiting_payment",
-      "event_sale_refused": "refused",
+      "sale_approved": "sale",
+      "sale_pending": "pending",
+      "sale_waiting_payment": "waiting_payment",
+      "sale_refused": "refused",
+      "sale_chargeback": "chargeback",
+      "sale_refunded": "refunded",
+      "sale_cancelled": "cancelled",
       "sale_cart_abandoned": "abandoned_cart",
+      "sale_cart_recovered": "cart_recovered",
     };
     const eventType = eventTypeMap[event] || event;
 
