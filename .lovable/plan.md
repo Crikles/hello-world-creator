@@ -1,44 +1,35 @@
 
 
-## Diagnóstico: PIX Corvex não chega no painel de Recuperação
+## Plano: Corrigir valor do PIX Vega + SMS
 
-### O que foi investigado
+### Problemas identificados
 
-1. **Edge function `webhook-corvex`**: Está ativa e respondendo corretamente (testei agora)
-2. **Código de recuperação**: Correto — quando um evento `pending` chega, o lead é criado (existem 7 leads de teste do dia 01-02/abril funcionando)
-3. **Configuração `recovery_config`**: Ativa para `pix_pendente` e `carrinho` nesta loja
-4. **Frontend (RecuperacaoVendas)**: Query correta buscando por `loja_id` + `tipo`
-5. **Separação**: O bloco de recuperação (try-catch isolado) NÃO interfere no fluxo de envios/postagens
+**1. Valor exibido como R$500 em vez de R$5,00**
 
-### Problema encontrado
+A Vega envia `total_price: 500` e `product.amount: 500` em **centavos** (R$5,00 = 500 centavos). O código no arquivo faz `totalPrice / 100`, mas o valor no banco está como 500 -- indica que a versão deployada da function não tem a divisão. Solução: garantir a conversão correta e redeployar.
 
-**Nenhum webhook da Corvex chegou para esta loja desde 02/abril.** O último evento recebido foi um teste manual. Os eventos `corvex.order.paid` que aparecem nos logs recentes (03-05/abril) pertencem a outra loja (`guiina.pintor@gmail.com`), não à sua.
+Adicionalmente, o produto está salvo com `value: 0` apesar de `amount: 500` no payload. Preciso investigar por que `(p.amount || 0) / 100` resulta em 0 -- possivelmente o tipo do campo está como string na runtime.
 
-Isso significa que **a Corvex não está enviando o webhook** `corvex.order.created` / `corvex.order.pending` para a URL configurada com o token `d0dea10f2cd8`.
+**2. SMS não enviado -- sem créditos**
 
-### Causa provável
-
-No painel da Corvex, a configuração de webhook pode estar:
-- Com apenas o evento `corvex.order.paid` habilitado (sem `corvex.order.created` e `corvex.order.pending`)
-- Com a URL incorreta ou desatualizada
-
-A URL correta do webhook deve ser:
+O log da function `send-recovery-sms` mostra:
 ```
-https://jnzamnnvzdecnnvvhzxn.supabase.co/functions/v1/webhook-corvex?token=d0dea10f2cd8
+SMS API response: 400 {"error":1,"code":"CREDIT_NOT_DEBITED","message":"Credit not debited"}
 ```
+A API da IntegraX rejeitou por falta de créditos. **Isso não é bug de código** -- é necessário recarregar créditos na plataforma de SMS.
 
-E os eventos habilitados devem incluir: **corvex.order.created**, **corvex.order.pending** e **corvex.order.paid**.
+### Alterações
 
-### Ação necessária
+**`supabase/functions/webhook-vega/index.ts`**
 
-Verificar no painel da Corvex se os eventos `corvex.order.created` e `corvex.order.pending` estão habilitados no webhook. Sem isso, nosso sistema nunca recebe a notificação de PIX gerado.
+1. Forçar conversão numérica explícita no `amount` dos produtos:
+   - `value: Number(p.amount || 0) / 100` (garante que não é string)
 
-### Melhorias no código (para robustez)
+2. Adicionar log de diagnóstico para o totalPrice antes de salvar no recovery_leads
 
-Embora o código já funcione quando o webhook chega, posso adicionar:
+3. Redeployar a function para garantir que o código atualizado esteja em produção
 
-1. **Log de diagnóstico no início da função**: Registrar todas as requisições recebidas (incluindo as com token inválido) para facilitar debugging futuro
-2. **Endpoint de teste**: Permitir validar se a URL está correta sem precisar gerar um PIX real
-
-Porém, nenhuma alteração de código resolverá o problema atual — a Corvex precisa estar configurada para enviar os eventos pendentes.
+### Resultado esperado
+- Valores corretos: produto R$5,00 e total R$5,00
+- SMS: informar o usuário que precisa recarregar créditos na IntegraX
 
