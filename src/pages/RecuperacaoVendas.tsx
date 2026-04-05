@@ -1187,7 +1187,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
               <p className="text-2xl font-bold text-primary">0,10</p>
               <p className="text-[10px] text-muted-foreground">moedas por envio</p>
               <div className="flex gap-2 justify-center mt-1">
-                <Badge variant="outline" className="text-[9px]">Carrinho Abandonado</Badge>
                 <Badge variant="outline" className="text-[9px]">PIX Pendente</Badge>
               </div>
             </div>
@@ -1199,7 +1198,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
               <p className="text-2xl font-bold text-primary">0,15</p>
               <p className="text-[10px] text-muted-foreground">moedas por envio</p>
               <div className="flex gap-2 justify-center mt-1">
-                <Badge variant="outline" className="text-[9px]">Carrinho Abandonado</Badge>
                 <Badge variant="outline" className="text-[9px]">PIX Pendente</Badge>
               </div>
             </div>
