@@ -1135,12 +1135,12 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
   };
 
   const checkouts = [
-    { name: "Vega", carrinho: true, pix: true, qrcode: true, copiaECola: true, urlCheckout: true },
-    { name: "Zedy", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
-    { name: "Luna", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
-    { name: "Corvex", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
-    { name: "Adoorei", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
-    { name: "Shopify", carrinho: false, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Vega", qrcode: true, copiaECola: true, urlCheckout: true },
+    { name: "Zedy", qrcode: false, copiaECola: false, urlCheckout: false },
+    { name: "Luna", qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Corvex", qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Adoorei", qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Shopify", qrcode: false, copiaECola: false, urlCheckout: true },
   ];
 
   const emailVars = [
@@ -1157,11 +1157,11 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
   ];
 
   const steps = [
-    { icon: Globe, title: "Checkout detecta evento", desc: "Quando um cliente abandona o carrinho ou gera um PIX sem pagar, o checkout envia um webhook automaticamente." },
+    { icon: Globe, title: "Checkout detecta PIX pendente", desc: "Quando um cliente gera um PIX sem pagar, o checkout envia um webhook automaticamente." },
     { icon: Zap, title: "Lead é capturado", desc: "O sistema recebe o webhook, normaliza os dados e salva o lead com status 'pendente'." },
     { icon: Mail, title: "E-mail é enviado instantaneamente", desc: "Um e-mail personalizado é disparado imediatamente com os dados do pedido, benefícios, cupom (se ativo) e CTA para voltar ao checkout." },
     { icon: Smartphone, title: "SMS é enviado (opcional)", desc: "Se configurado, um SMS curto também é disparado instantaneamente com link direto para o checkout." },
-    { icon: CheckCircle2, title: "Cliente finaliza", desc: "O cliente recebe a comunicação, clica no link e finaliza a compra. O lead é marcado como 'convertido'." },
+    { icon: CheckCircle2, title: "Cliente finaliza", desc: "O cliente recebe a comunicação, clica no link e finaliza o pagamento." },
   ];
 
   return (
@@ -1187,7 +1187,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
               <p className="text-2xl font-bold text-primary">0,10</p>
               <p className="text-[10px] text-muted-foreground">moedas por envio</p>
               <div className="flex gap-2 justify-center mt-1">
-                <Badge variant="outline" className="text-[9px]">Carrinho Abandonado</Badge>
                 <Badge variant="outline" className="text-[9px]">PIX Pendente</Badge>
               </div>
             </div>
@@ -1199,7 +1198,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
               <p className="text-2xl font-bold text-primary">0,15</p>
               <p className="text-[10px] text-muted-foreground">moedas por envio</p>
               <div className="flex gap-2 justify-center mt-1">
-                <Badge variant="outline" className="text-[9px]">Carrinho Abandonado</Badge>
                 <Badge variant="outline" className="text-[9px]">PIX Pendente</Badge>
               </div>
             </div>
@@ -1223,7 +1221,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
             </div>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            A Recuperação de Vendas é um sistema automatizado que captura leads de clientes que <strong className="text-foreground">abandonaram o carrinho</strong> ou <strong className="text-foreground">geraram um PIX sem pagar</strong>. O sistema envia automaticamente e-mails e/ou SMS personalizados para trazer o cliente de volta e finalizar a compra.
+            A Recuperação de Vendas é um sistema automatizado que captura leads de clientes que <strong className="text-foreground">geraram um PIX sem pagar</strong>. O sistema envia automaticamente e-mails e/ou SMS personalizados para trazer o cliente de volta e finalizar o pagamento.
           </p>
         </CardContent>
       </Card>
@@ -1276,8 +1274,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
               <thead>
                 <tr className="border-b border-border/30">
                   <th className="text-left py-2 px-2 text-xs font-semibold text-muted-foreground">Checkout</th>
-                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">Carrinho</th>
-                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">PIX</th>
                   <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">QR Code</th>
                   <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">Copia e Cola</th>
                   <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">URL Checkout</th>
@@ -1287,12 +1283,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
                 {checkouts.map((c) => (
                   <tr key={c.name} className="border-b border-border/10">
                     <td className="py-2.5 px-2 font-medium text-foreground">{c.name}</td>
-                    <td className="py-2.5 px-2 text-center">
-                      {c.carrinho ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
-                    </td>
-                    <td className="py-2.5 px-2 text-center">
-                      {c.pix ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
-                    </td>
                     <td className="py-2.5 px-2 text-center">
                       {c.qrcode ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
@@ -1327,7 +1317,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
           </div>
           <div className="space-y-3">
             {[
-              { step: "1", text: "Vá na aba 'Carrinho Abandonado' ou 'PIX Pendente' e ative o toggle de recuperação." },
+              { step: "1", text: "Vá na aba 'PIX Pendente' e ative o toggle de recuperação." },
               { step: "2", text: "Personalize o e-mail: saudação, benefícios, cupom (opcional), garantia e texto do botão CTA." },
               { step: "3", text: "Ajuste as cores para combinar com a identidade da sua loja." },
               { step: "4", text: "Na aba 'SMS', configure o template de SMS se quiser enviar SMS além do e-mail." },
@@ -1358,15 +1348,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
             Se seu checkout não está na lista acima, você pode usar o webhook genérico. Configure o checkout para enviar um <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">POST</code> para a URL abaixo com os dados do cliente.
           </p>
           <div className="space-y-3">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground mb-1 block">URL para Carrinho Abandonado:</Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs font-mono bg-muted/30 border border-border/30 rounded-lg p-2.5 text-foreground break-all">{webhookUrl}carrinho</code>
-                <Button size="sm" variant="outline" onClick={() => copyUrl("carrinho")} className="flex-shrink-0">
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground mb-1 block">URL para PIX Pendente:</Label>
               <div className="flex items-center gap-2">
