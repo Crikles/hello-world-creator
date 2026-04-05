@@ -90,8 +90,8 @@ Deno.serve(async (req) => {
               code: p.id,
               title: p.name,
               description: p.description,
-              amount: parseInt(String(p.value || plan.value || 0).replace(".", ""), 10) || 0,
-              quantity: parseInt(String(p.amount || "1"), 10),
+              amount: Number(String(p.value || plan.value || 0).replace(".", "")) || 0,
+              quantity: Number(p.amount || 1),
             });
           }
         }
