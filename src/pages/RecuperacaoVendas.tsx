@@ -1317,7 +1317,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
           </div>
           <div className="space-y-3">
             {[
-              { step: "1", text: "Vá na aba 'Carrinho Abandonado' ou 'PIX Pendente' e ative o toggle de recuperação." },
+              { step: "1", text: "Vá na aba 'PIX Pendente' e ative o toggle de recuperação." },
               { step: "2", text: "Personalize o e-mail: saudação, benefícios, cupom (opcional), garantia e texto do botão CTA." },
               { step: "3", text: "Ajuste as cores para combinar com a identidade da sua loja." },
               { step: "4", text: "Na aba 'SMS', configure o template de SMS se quiser enviar SMS além do e-mail." },
