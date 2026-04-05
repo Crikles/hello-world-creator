@@ -153,13 +153,12 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
-    // 4. Recovery: abandoned cart or pending PIX
-    const isAbandoned = event === "sale_cart_abandoned";
+    // 4. Recovery: pending PIX
     const methodLower = (payload.method || "").toLowerCase();
     const isPendingPix = event === "sale_waiting_payment" && methodLower === "pix";
 
-    if ((isAbandoned || isPendingPix) && client.email) {
-      const recoveryTipo = isAbandoned ? "carrinho" : "pix_pendente";
+    if (isPendingPix && client.email) {
+      const recoveryTipo = "pix_pendente";
       try {
         const { data: recoveryConfig } = await supabase
           .from("recovery_config")
@@ -170,14 +169,12 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recoveryConfig) {
-          const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          // Deduplicação por transaction token (payload.id)
           const { data: existingLead } = await supabase
             .from("recovery_leads")
             .select("id")
             .eq("loja_id", lojaId)
-            .eq("customer_email", client.email)
-            .eq("tipo", recoveryTipo)
-            .gte("created_at", since24h)
+            .filter("raw_payload->>id", "eq", String(payload.id || ""))
             .maybeSingle();
 
           if (!existingLead) {
@@ -189,6 +186,7 @@ Deno.serve(async (req) => {
 
             const checkoutUrl = payload.checkout_url || "";
             const totalValue = parseFloat(String(payload.amount || "0"));
+            const pixCode = payload.payment?.qrcode || "";
 
             const { data: newLead } = await supabase
               .from("recovery_leads")
@@ -200,6 +198,7 @@ Deno.serve(async (req) => {
                 customer_phone: client.phone || "",
                 checkout_url: checkoutUrl,
                 total_value: totalValue,
+                pix_code: pixCode,
                 products: recoveryProducts,
                 raw_payload: payload,
                 status: "pendente",
