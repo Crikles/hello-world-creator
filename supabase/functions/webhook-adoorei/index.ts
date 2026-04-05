@@ -232,14 +232,13 @@ Deno.serve(async (req) => {
                     .maybeSingle();
 
                 if (recoveryConfig) {
-                    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                    // Deduplicação por transaction_token (number do pedido)
                     const { data: existingLead } = await supabase
                         .from("recovery_leads")
                         .select("id")
                         .eq("loja_id", lojaId)
-                        .eq("customer_email", custEmail)
                         .eq("tipo", recoveryTipo)
-                        .gte("created_at", since24h)
+                        .filter("raw_payload->resource->>number", "eq", String(resource.number || ""))
                         .maybeSingle();
 
                     if (!existingLead) {
