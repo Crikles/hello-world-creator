@@ -195,8 +195,8 @@ Deno.serve(async (req) => {
 
             const recoveryProducts = normalizedProducts.map((p: any) => ({
               name: p.title || p.name || "Produto",
-              value: (p.amount || 0) / 100,
-              qty: p.quantity || 1,
+              value: Number(p.amount || 0) / 100,
+              qty: Number(p.quantity || 1),
             }));
 
             const { data: newLead } = await supabase
