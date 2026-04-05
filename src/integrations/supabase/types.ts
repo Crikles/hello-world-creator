@@ -1201,6 +1201,8 @@ export type Database = {
           email_sent_at: string | null
           id: string
           loja_id: string
+          pix_code: string | null
+          pix_qrcode_url: string | null
           products: Json | null
           raw_payload: Json | null
           sms_sent_at: string | null
@@ -1217,6 +1219,8 @@ export type Database = {
           email_sent_at?: string | null
           id?: string
           loja_id: string
+          pix_code?: string | null
+          pix_qrcode_url?: string | null
           products?: Json | null
           raw_payload?: Json | null
           sms_sent_at?: string | null
@@ -1233,6 +1237,8 @@ export type Database = {
           email_sent_at?: string | null
           id?: string
           loja_id?: string
+          pix_code?: string | null
+          pix_qrcode_url?: string | null
           products?: Json | null
           raw_payload?: Json | null
           sms_sent_at?: string | null
