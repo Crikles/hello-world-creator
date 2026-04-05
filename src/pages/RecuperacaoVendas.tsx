@@ -1349,15 +1349,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
           </p>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground mb-1 block">URL para Carrinho Abandonado:</Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs font-mono bg-muted/30 border border-border/30 rounded-lg p-2.5 text-foreground break-all">{webhookUrl}carrinho</code>
-                <Button size="sm" variant="outline" onClick={() => copyUrl("carrinho")} className="flex-shrink-0">
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <div>
               <Label className="text-xs font-semibold text-muted-foreground mb-1 block">URL para PIX Pendente:</Label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 text-xs font-mono bg-muted/30 border border-border/30 rounded-lg p-2.5 text-foreground break-all">{webhookUrl}pix_pendente</code>
