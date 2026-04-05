@@ -159,10 +159,13 @@ Deno.serve(async (req) => {
     }
 
     // 3.5 Recovery: abandoned cart or pending pix
-    const isPendingPix = status === "pending" && (payload.method || "").toLowerCase().includes("pix");
+    const methodLower = (payload.method || "").toLowerCase();
+    const isPendingPix = status === "pending" && methodLower.includes("pix");
+    const isAbandonedPix = isAbandonedCart && methodLower.includes("pix");
 
     if ((isAbandonedCart || isPendingPix) && customer.email) {
-      const recoveryTipo = isAbandonedCart ? "carrinho" : "pix_pendente";
+      // If abandoned_cart but method is pix, treat as pix_pendente
+      const recoveryTipo = (isPendingPix || isAbandonedPix) ? "pix_pendente" : "carrinho";
       const email = customer.email.trim().toLowerCase();
 
       try {
