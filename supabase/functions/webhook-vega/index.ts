@@ -212,6 +212,8 @@ Deno.serve(async (req) => {
                 raw_payload: payload,
                 tipo: recoveryTipo,
                 status: "pendente",
+                pix_code: payload.pix_code || "",
+                pix_qrcode_url: payload.pix_code_image64 || "",
               })
               .select("id")
               .single();

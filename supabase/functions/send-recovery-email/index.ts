@@ -95,12 +95,27 @@ function buildEmailHtml(s: any, vars: Record<string, string>, empresaNome: strin
     </td></tr>`);
   }
 
+  // PIX section: QR Code + Copia e Cola
+  if (vars.pix_code) {
+    sections.push(`<tr><td style="padding:8px 40px 16px;">
+      <table width="100%" style="background:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;">
+        <tr><td style="padding:20px;text-align:center;">
+          <p style="margin:0 0 12px;font-weight:700;font-size:14px;color:#166534;">💳 Pague seu PIX:</p>
+          ${vars.pix_qrcode_url ? `<img src="${vars.pix_qrcode_url}" alt="QR Code PIX" style="width:200px;height:200px;margin:0 auto 16px;display:block;border-radius:8px;" />` : ""}
+          <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#166534;">Código Copia e Cola:</p>
+          <div style="background:#e2e8f0;border-radius:8px;padding:12px 16px;word-break:break-all;font-family:monospace;font-size:11px;color:#334155;line-height:1.5;text-align:left;">${vars.pix_code}</div>
+        </td></tr>
+      </table>
+    </td></tr>`);
+  }
+
   if (s.mostrar_cta) {
     const ctaUrl = s.url_cta || vars.link_checkout;
     if (ctaUrl && ctaUrl !== "#") {
+      const ctaLabel = vars.pix_code ? "Pagar meu PIX" : s.texto_botao;
       sections.push(`<tr><td style="padding:16px 40px 24px;text-align:center;">
         <a href="${ctaUrl}" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
-          👉 ${s.texto_botao}
+          👉 ${ctaLabel}
         </a>
       </td></tr>`);
     }
