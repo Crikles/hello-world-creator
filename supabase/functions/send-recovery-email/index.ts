@@ -252,6 +252,12 @@ Deno.serve(async (req) => {
     };
 
     const s = parseSettings(config.corpo_email || "", config);
+    // Default saudação based on tipo
+    if (!s.saudacao) {
+      s.saudacao = tipo === "pix_pendente"
+        ? "Seu PIX foi gerado mas ainda não identificamos o pagamento. Finalize agora mesmo!"
+        : "Percebemos que você deixou algo importante no seu carrinho.";
+    }
     const subject = replaceSubjectVars(config.assunto_email || "Você esqueceu algo 👀", vars);
     const bodyHtml = buildEmailHtml(s, vars, empresaNome, logoUrl);
 
