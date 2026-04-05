@@ -1137,7 +1137,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
   const checkouts = [
     { name: "Vega", qrcode: true, copiaECola: true, urlCheckout: true },
     { name: "Zedy", qrcode: false, copiaECola: false, urlCheckout: false },
-    { name: "Luna", qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Luna", qrcode: true, copiaECola: true, urlCheckout: true },
     { name: "Corvex", qrcode: false, copiaECola: false, urlCheckout: true },
     { name: "Adoorei", qrcode: false, copiaECola: false, urlCheckout: true },
     { name: "Shopify", qrcode: false, copiaECola: false, urlCheckout: true },
