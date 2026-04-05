@@ -1135,12 +1135,12 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
   };
 
   const checkouts = [
-    { name: "Vega", carrinho: true, pix: true },
-    { name: "Zedy", carrinho: true, pix: true },
-    { name: "Luna", carrinho: true, pix: true },
-    { name: "Corvex", carrinho: true, pix: true },
-    { name: "Adoorei", carrinho: true, pix: true },
-    { name: "Shopify", carrinho: false, pix: true },
+    { name: "Vega", carrinho: true, pix: true, qrcode: true, copiaECola: true, urlCheckout: true },
+    { name: "Zedy", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Luna", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Corvex", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Adoorei", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Shopify", carrinho: false, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
   ];
 
   const emailVars = [
@@ -1158,7 +1158,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
 
   const steps = [
     { icon: Globe, title: "Checkout detecta evento", desc: "Quando um cliente abandona o carrinho ou gera um PIX sem pagar, o checkout envia um webhook automaticamente." },
-    { icon: Zap, title: "Lead é capturado", desc: "O sistema recebe o webhook, normaliza os dados e salva o lead com status 'pendente'. Deduplicação de 24h evita duplicatas." },
+    { icon: Zap, title: "Lead é capturado", desc: "O sistema recebe o webhook, normaliza os dados e salva o lead com status 'pendente'." },
     { icon: Mail, title: "E-mail é enviado instantaneamente", desc: "Um e-mail personalizado é disparado imediatamente com os dados do pedido, benefícios, cupom (se ativo) e CTA para voltar ao checkout." },
     { icon: Smartphone, title: "SMS é enviado (opcional)", desc: "Se configurado, um SMS curto também é disparado instantaneamente com link direto para o checkout." },
     { icon: CheckCircle2, title: "Cliente finaliza", desc: "O cliente recebe a comunicação, clica no link e finaliza a compra. O lead é marcado como 'convertido'." },
@@ -1275,20 +1275,32 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/30">
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground">Checkout</th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground">Carrinho Abandonado</th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground">PIX Pendente</th>
+                  <th className="text-left py-2 px-2 text-xs font-semibold text-muted-foreground">Checkout</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">Carrinho</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">PIX</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">QR Code</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">Copia e Cola</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">URL Checkout</th>
                 </tr>
               </thead>
               <tbody>
                 {checkouts.map((c) => (
                   <tr key={c.name} className="border-b border-border/10">
-                    <td className="py-2.5 px-3 font-medium text-foreground">{c.name}</td>
-                    <td className="py-2.5 px-3 text-center">
+                    <td className="py-2.5 px-2 font-medium text-foreground">{c.name}</td>
+                    <td className="py-2.5 px-2 text-center">
                       {c.carrinho ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
-                    <td className="py-2.5 px-3 text-center">
+                    <td className="py-2.5 px-2 text-center">
                       {c.pix ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-2 text-center">
+                      {c.qrcode ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-2 text-center">
+                      {c.copiaECola ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-2 text-center">
+                      {c.urlCheckout ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -1296,7 +1308,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
             </table>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            <strong>Nota:</strong> Para esses checkouts, a recuperação funciona automaticamente — basta ativar nas abas "Carrinho Abandonado" ou "PIX Pendente".
+            <strong>Nota:</strong> Checkouts que não enviam QR Code e Copia e Cola mostrarão apenas o botão de pagamento no e-mail de recuperação.
           </p>
         </CardContent>
       </Card>
