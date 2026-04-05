@@ -1,43 +1,35 @@
 
 
-## Diagnóstico: Duplicação e URL do CTA na Zedy
+## Plano: Ajustar webhook-luna para capturar PIX e atualizar Tutorial
 
-### 1. Sobre a "duplicação"
+### Diagnóstico
 
-**Não é duplicação** — são dois pedidos diferentes:
-- Lead 1 (13:24): orderId `Z-05QDM04FCA261556`
-- Lead 2 (13:25): orderId `Z-05AGJ04JE7261556`
+O payload da Luna mostra que ela **envia** dados de PIX que não estamos capturando:
+- `payment.qrcode` — código Copia e Cola do PIX
+- `checkout_url` — URL de checkout do cliente (já capturada)
 
-A Zedy enviou dois webhooks `waiting_payment` para dois PIX distintos que você gerou. Porém, o pedido `Z-05AGJ04JE7261556` foi enviado **duas vezes** pela Zedy (às 13:10 e às 13:24), o que poderia gerar leads duplicados do mesmo pedido. Precisamos adicionar deduplicação **por orderId** (não por email).
+Além disso, o webhook da Luna ainda tem **deduplicação de 24h** (linhas 173-181) que deveria ter sido removida.
 
-### 2. Problema real: URL do CTA está errada
+### Alterações
 
-A URL capturada do `actions[0].url` é:
-```
-https://app.zedy.com.br/admin/1556/salles/46382528
-```
+**1. `supabase/functions/webhook-luna/index.ts`**
+- Capturar `payment.qrcode` como `pix_code` no lead de recuperação
+- Remover o bloco de deduplicação por email nas últimas 24h (linhas 173-181)
+- Adicionar deduplicação por `transaction_token` (campo `id` do payload) para evitar reprocessamento do mesmo pedido
 
-Isso é uma **URL do painel administrativo da Zedy**, não uma página de pagamento do cliente. O comprador que clicar nesse botão vai parar no admin da loja, não na página do PIX.
+**2. `src/pages/RecuperacaoVendas.tsx`** — Tabela do Tutorial
+- Atualizar Luna: `qrcode: false` → `qrcode: false`, `copiaECola: true`, `urlCheckout: true`
+- (A Luna envia o código Copia e Cola via `payment.qrcode`, mas não envia imagem QR Code — o sistema gera a imagem automaticamente se houver `pix_code`)
 
-Como a Zedy **não fornece uma URL de checkout do cliente** no payload, o botão CTA não tem para onde apontar.
+Espera, na verdade o `payment.qrcode` é o código texto do PIX (copia e cola). O sistema já converte isso em QR Code imagem automaticamente no `send-recovery-email`. Então Luna suporta tanto QR Code quanto Copia e Cola.
 
-### Plano de correção
+Atualização na tabela:
+- Luna: `qrcode: true`, `copiaECola: true`, `urlCheckout: true`
 
-**1. `supabase/functions/webhook-zedy/index.ts`**
-- Adicionar deduplicação **por orderId** (transaction token): antes de criar o lead, verificar se já existe um `recovery_lead` com o mesmo `orderId` no `raw_payload` para essa loja. Se existir, não criar outro.
-- **Não salvar** `actions[0].url` como `checkout_url`, pois é URL admin. Deixar `checkout_url` vazio.
-
-**2. `supabase/functions/send-recovery-email/index.ts`**
-- Nenhuma alteração necessária. O CTA já é ocultado automaticamente quando `checkout_url` está vazio e `url_cta` da config também está vazio (linha 115: `if (ctaUrl && ctaUrl !== "#")`).
-
-**3. Redeploy** da function `webhook-zedy`
+**3. Redeploy** da function `webhook-luna`
 
 ### Resultado esperado
-- Sem leads duplicados do mesmo pedido (deduplicação por orderId)
-- Leads de pedidos diferentes continuam sendo criados normalmente
-- Email da Zedy sai **sem botão CTA** (pois não há URL de pagamento do cliente)
-- Se futuramente quiser adicionar um botão, pode configurar um `url_cta` fixo na config de recuperação
-
-### Alternativa sobre o CTA
-Se você tiver uma URL pública de checkout da Zedy (tipo `https://checkout.zedy.com.br/order/...`), me avise que eu configuro o mapeamento. Caso contrário, o email vai sem botão mesmo.
+- Lead de PIX pendente da Luna salvo com `pix_code` (copia e cola) e `checkout_url`
+- Email enviado com QR Code, Copia e Cola e botão CTA
+- Sem leads duplicados do mesmo pedido (deduplicação por transaction token)
 
