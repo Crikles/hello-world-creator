@@ -1,27 +1,34 @@
 
 
-## Plano: Ajustar webhook-zedy para recuperação de PIX pendente (sem Copia e Cola / QR Code)
+## Plano: Atualizar Tutorial da Recuperação de Vendas
 
-### Alterações
+### O que mudar
 
-**1. `supabase/functions/webhook-zedy/index.ts`**
-- Remover o bloco de deduplicação (linhas 105-115) — o `if (!existingLead...)` que bloqueia leads repetidos do mesmo email nas últimas 24h
-- Mover o código de criação do lead (linhas 116-146) para fora do `if` de deduplicação, executando sempre
-- Adicionar log de diagnóstico: `console.log("[webhook-zedy] Recovery lead created:", { email, tipo, totalValue, checkoutUrl })`
+**1. Corrigir o passo "Lead é capturado" (linha 1161)**
+- Remover a frase "Deduplicação de 24h evita duplicatas" — essa lógica foi removida. Substituir por algo como: "O sistema recebe o webhook, normaliza os dados e salva o lead com status 'pendente'."
 
-**2. `supabase/functions/send-recovery-email/index.ts`**
-- O email já funciona corretamente: a seção PIX (QR Code + Copia e Cola) só aparece se `vars.pix_code` existir (linha 100). Como a Zedy não fornece `pix_code`, essa seção será automaticamente omitida
-- O botão CTA já usa `checkout_url` como fallback (linha 114), então aparecerá com a URL `actions[0].url` da Zedy
-- Nenhuma alteração necessária neste arquivo
+**2. Expandir a tabela de checkouts compatíveis (linhas 1137-1144)**
+- Adicionar colunas: **QR Code**, **Copia e Cola**, **URL Checkout**
+- Dados por checkout:
 
-**3. Redeploy** da function `webhook-zedy`
+```text
+Checkout   | Carrinho | PIX | QR Code | Copia e Cola | URL Checkout
+-----------|----------|-----|---------|--------------|-------------
+Vega       |    ✓     |  ✓  |    ✓    |      ✓       |      ✓
+Zedy       |    ✓     |  ✓  |    ✗    |      ✗       |      ✓
+Luna       |    ✓     |  ✓  |    ✗    |      ✗       |      ✓
+Corvex     |    ✓     |  ✓  |    ✗    |      ✗       |      ✓
+Adoorei    |    ✓     |  ✓  |    ✗    |      ✗       |      ✓
+Shopify    |    ✗     |  ✓  |    ✗    |      ✗       |      ✓
+```
 
-### O que o email da Zedy vai conter
-- Valor correto em reais
-- Lista de produtos
-- Botão CTA com link para o checkout
-- **Sem** QR Code e **sem** Copia e Cola (comportamento automático, pois `pix_code` será vazio)
+- Adicionar nota explicativa abaixo da tabela: "Checkouts que não enviam QR Code e Copia e Cola mostrarão apenas o botão de pagamento no e-mail."
 
-### Resultado esperado
-Ao gerar um PIX na Zedy com `status: waiting_payment`, o lead será criado sem bloqueio de deduplicação, com valor correto e URL de checkout, e o email será enviado apenas com botão de pagamento funcional.
+**3. Arquivo alterado**
+- `src/pages/RecuperacaoVendas.tsx` — apenas a função `TutorialTab`
+
+### Alterações técnicas
+- Atualizar o array `checkouts` para incluir os campos `qrcode`, `copiaECola` e `urlCheckout`
+- Atualizar o `<table>` para renderizar as novas colunas
+- Editar o texto do step 2 (index 1) no array `steps`
 
