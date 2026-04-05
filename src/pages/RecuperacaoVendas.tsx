@@ -1221,7 +1221,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
             </div>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            A Recuperação de Vendas é um sistema automatizado que captura leads de clientes que <strong className="text-foreground">abandonaram o carrinho</strong> ou <strong className="text-foreground">geraram um PIX sem pagar</strong>. O sistema envia automaticamente e-mails e/ou SMS personalizados para trazer o cliente de volta e finalizar a compra.
+            A Recuperação de Vendas é um sistema automatizado que captura leads de clientes que <strong className="text-foreground">geraram um PIX sem pagar</strong>. O sistema envia automaticamente e-mails e/ou SMS personalizados para trazer o cliente de volta e finalizar o pagamento.
           </p>
         </CardContent>
       </Card>
