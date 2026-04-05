@@ -113,7 +113,7 @@ const DEFAULTS_PIX: RecoverySettings = {
 };
 
 /* ─── Build email HTML from settings (for preview) ─── */
-function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: string): string {
+function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: string, tipo?: string): string {
   const sections: string[] = [];
 
   sections.push(`
