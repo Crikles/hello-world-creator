@@ -1096,12 +1096,8 @@ export default function RecuperacaoVendas() {
         <p className="text-xs text-muted-foreground mt-1">Recupere vendas abandonadas com emails e SMS personalizados</p>
       </div>
 
-      <Tabs defaultValue="carrinho">
+      <Tabs defaultValue="pix_pendente">
         <TabsList className="w-full justify-start">
-          <TabsTrigger value="carrinho" className="flex items-center gap-1.5">
-            <ShoppingCart className="h-3.5 w-3.5" />
-            Carrinho Abandonado
-          </TabsTrigger>
           <TabsTrigger value="pix_pendente" className="flex items-center gap-1.5">
             <DollarSign className="h-3.5 w-3.5" />
             PIX Pendente
@@ -1115,10 +1111,6 @@ export default function RecuperacaoVendas() {
             Tutorial
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="carrinho">
-          <RecoveryEditor tipo="carrinho" loja={loja} empresaNome={empresaNome} logoUrl={logoUrl} />
-        </TabsContent>
 
         <TabsContent value="pix_pendente">
           <RecoveryEditor tipo="pix_pendente" loja={loja} empresaNome={empresaNome} logoUrl={logoUrl} />
