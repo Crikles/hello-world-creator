@@ -1135,12 +1135,12 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
   };
 
   const checkouts = [
-    { name: "Vega", carrinho: true, pix: true },
-    { name: "Zedy", carrinho: true, pix: true },
-    { name: "Luna", carrinho: true, pix: true },
-    { name: "Corvex", carrinho: true, pix: true },
-    { name: "Adoorei", carrinho: true, pix: true },
-    { name: "Shopify", carrinho: false, pix: true },
+    { name: "Vega", carrinho: true, pix: true, qrcode: true, copiaECola: true, urlCheckout: true },
+    { name: "Zedy", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Luna", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Corvex", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Adoorei", carrinho: true, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Shopify", carrinho: false, pix: true, qrcode: false, copiaECola: false, urlCheckout: true },
   ];
 
   const emailVars = [
