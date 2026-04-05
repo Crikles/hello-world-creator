@@ -1274,8 +1274,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
               <thead>
                 <tr className="border-b border-border/30">
                   <th className="text-left py-2 px-2 text-xs font-semibold text-muted-foreground">Checkout</th>
-                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">Carrinho</th>
-                  <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">PIX</th>
                   <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">QR Code</th>
                   <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">Copia e Cola</th>
                   <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground">URL Checkout</th>
@@ -1285,12 +1283,6 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
                 {checkouts.map((c) => (
                   <tr key={c.name} className="border-b border-border/10">
                     <td className="py-2.5 px-2 font-medium text-foreground">{c.name}</td>
-                    <td className="py-2.5 px-2 text-center">
-                      {c.carrinho ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
-                    </td>
-                    <td className="py-2.5 px-2 text-center">
-                      {c.pix ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
-                    </td>
                     <td className="py-2.5 px-2 text-center">
                       {c.qrcode ? <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
