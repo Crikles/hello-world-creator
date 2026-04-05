@@ -1,10 +1,115 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decode as decodeBase64 } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+/* ── Helpers ── */
+
+/** Convert Vega price (always in centavos as integer or string) to reais */
+function centavosToReais(raw: unknown): number {
+  if (raw == null) return 0;
+  const n = Number(String(raw).replace(/[^0-9.-]/g, ""));
+  if (isNaN(n)) return 0;
+  // Vega sends 500 meaning R$5,00 (centavos)
+  return n / 100;
+}
+
+/** Resolve checkout URL from multiple Vega payload fields */
+function resolveCheckoutUrl(payload: Record<string, unknown>): string {
+  return String(
+    payload.order_url ||
+    payload.checkout_url ||
+    payload.abandoned_checkout_url_url ||
+    payload.abandoned_checkout_url ||
+    ""
+  ).trim();
+}
+
+/** Extract products from Vega V1 (plans[].products[]) or V2 (products[]) */
+function extractProducts(payload: Record<string, unknown>): Array<{
+  code: string;
+  title: string;
+  description: string;
+  amount: number; // centavos (raw)
+  quantity: number;
+}> {
+  const products = payload.products as any[] | undefined;
+  if (Array.isArray(products) && products.length > 0) {
+    return products.map((p: any) => ({
+      code: String(p.id || p.code || ""),
+      title: String(p.name || p.title || "Produto"),
+      description: String(p.description || ""),
+      amount: Number(String(p.value || p.amount || 0).replace(/[^0-9.-]/g, "")) || 0,
+      quantity: Number(p.amount || p.quantity || 1),
+    }));
+  }
+  // V1: plans[].products[]
+  const plans = payload.plans as any[] | undefined;
+  if (Array.isArray(plans)) {
+    const result: any[] = [];
+    for (const plan of plans) {
+      if (Array.isArray(plan.products)) {
+        for (const p of plan.products) {
+          result.push({
+            code: String(p.id || ""),
+            title: String(p.name || "Produto"),
+            description: String(p.description || ""),
+            amount: Number(String(p.value || plan.value || 0).replace(/[^0-9.-]/g, "")) || 0,
+            quantity: Number(p.amount || 1),
+          });
+        }
+      }
+    }
+    return result;
+  }
+  return [];
+}
+
+/** Clean base64 string (remove data URI prefix and whitespace) */
+function cleanBase64(raw: string): string {
+  if (!raw) return "";
+  let cleaned = raw.trim();
+  if (cleaned.includes(",") && cleaned.startsWith("data:")) {
+    cleaned = cleaned.split(",")[1];
+  }
+  cleaned = cleaned.replace(/\s/g, "");
+  return cleaned;
+}
+
+/** Upload base64 QR code image to storage, return public URL */
+async function uploadQrToStorage(
+  supabase: any,
+  base64Raw: string,
+  leadId: string,
+  supabaseUrl: string
+): Promise<string> {
+  const cleaned = cleanBase64(base64Raw);
+  if (!cleaned) return "";
+  try {
+    const bytes = decodeBase64(cleaned);
+    const path = `qr_${leadId}_${Date.now()}.png`;
+    const { error } = await supabase.storage
+      .from("pix-qrcodes")
+      .upload(path, bytes, {
+        contentType: "image/png",
+        upsert: true,
+      });
+    if (error) {
+      console.error("[qr-upload] error:", error);
+      return "";
+    }
+    return `${supabaseUrl}/storage/v1/object/public/pix-qrcodes/${path}`;
+  } catch (e) {
+    console.error("[qr-upload] exception:", e);
+    return "";
+  }
+}
+
+/* ── Main Handler ── */
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -67,55 +172,31 @@ Deno.serve(async (req) => {
     }
 
     const status = payload.status || "";
+    const methodLower = (payload.method || "").toLowerCase();
     const isAbandonedCart = status === "abandoned_cart";
+    const isPix = methodLower.includes("pix");
     const eventType = isAbandonedCart ? "abandoned_cart" : "sale";
 
     const transactionToken = isAbandonedCart
       ? payload.abandoned_cart_code || payload.checkout_id || `ac_${Date.now()}`
       : payload.transaction_token || payload.transaction_id || `tx_${Date.now()}`;
 
-    // 2. Normalize customer data
+    // Normalize data
     const customer = payload.customer || {};
     const address = payload.address || {};
-    const products = payload.products || [];
+    const normalizedProducts = extractProducts(payload);
+    const totalPriceReais = centavosToReais(payload.total_price);
 
-    // Extract products: V2 uses payload.products, V1 uses payload.plans[].products[]
-    let normalizedProducts = products;
-    if (!products.length && payload.plans) {
-      normalizedProducts = [];
-      for (const plan of payload.plans) {
-        if (plan.products) {
-          for (const p of plan.products) {
-            normalizedProducts.push({
-              code: p.id,
-              title: p.name,
-              description: p.description,
-              amount: Number(String(p.value || plan.value || 0).replace(".", "")) || 0,
-              quantity: Number(p.amount || 1),
-            });
-          }
-        }
-      }
-    }
+    // Total price in centavos for pedidos table (keeps original format)
+    const totalPriceCentavos = Math.round(totalPriceReais * 100);
 
-    let totalPrice = 0;
-    const rawPrice = payload.total_price;
-    if (rawPrice != null) {
-      const priceStr = String(rawPrice);
-      if (priceStr.includes(".")) {
-        totalPrice = Math.round(parseFloat(priceStr) * 100);
-      } else {
-        totalPrice = parseInt(priceStr, 10) || 0;
-      }
-    }
-
-    // 3. Upsert into pedidos
+    // Upsert into pedidos
     const pedidoData = {
       checkout_provider: "vega",
       transaction_token: transactionToken,
       status: status,
       method: payload.method || null,
-      total_price: totalPrice,
+      total_price: totalPriceCentavos,
       customer_name: customer.name || null,
       customer_document: customer.document || null,
       customer_email: customer.email || null,
@@ -158,18 +239,15 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
-    // 3.5 Recovery: abandoned cart or pending pix
-    const methodLower = (payload.method || "").toLowerCase();
-    const isPendingPix = status === "pending" && methodLower.includes("pix");
-    const isAbandonedPix = isAbandonedCart && methodLower.includes("pix");
+    // Recovery: abandoned cart or pending pix
+    const isPendingPix = status === "pending" && isPix;
+    const isAbandonedPix = isAbandonedCart && isPix;
 
     if ((isAbandonedCart || isPendingPix) && customer.email) {
-      // If abandoned_cart but method is pix, treat as pix_pendente
       const recoveryTipo = (isPendingPix || isAbandonedPix) ? "pix_pendente" : "carrinho";
       const email = customer.email.trim().toLowerCase();
 
       try {
-        // Check if recovery is active for this tipo
         const { data: recoveryConfig } = await supabase
           .from("recovery_config")
           .select("ativo, enviar_sms")
@@ -178,61 +256,77 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recoveryConfig?.ativo) {
-            const checkoutUrl = payload.abandoned_checkout_url_url
-              || payload.abandoned_checkout_url
-              || payload.checkout_url
-              || payload.order_url
-              || "";
+          const checkoutUrl = resolveCheckoutUrl(payload);
 
-            const recoveryProducts = normalizedProducts.map((p: any) => ({
-              name: p.title || p.name || "Produto",
-              value: Number(p.amount || 0) / 100,
-              qty: Number(p.quantity || 1),
-            }));
+          // Products for recovery lead: values in reais
+          const recoveryProducts = normalizedProducts.map((p: any) => ({
+            name: p.title || p.name || "Produto",
+            value: (Number(p.amount) || 0) / 100,
+            qty: Number(p.quantity || 1),
+          }));
 
-            const { data: newLead } = await supabase
-              .from("recovery_leads")
-              .insert({
-                loja_id: lojaId,
-                customer_name: customer.name || "Cliente",
-                customer_email: email,
-                customer_phone: customer.phone || "",
-                checkout_url: checkoutUrl,
-                products: recoveryProducts,
-                total_value: totalPrice / 100,
-                raw_payload: payload,
-                tipo: recoveryTipo,
-                status: "pendente",
-                pix_code: payload.pix_code || "",
-                pix_qrcode_url: payload.pix_code_image64 || "",
-              })
-              .select("id")
-              .single();
+          // PIX data
+          const pixCode = String(payload.pix_code || "").trim();
+          const pixBase64Raw = String(payload.pix_code_image64 || "").trim();
 
-            if (newLead) {
-              // Fire-and-forget email
-              supabase.functions.invoke("send-recovery-email", {
+          // Upload QR code to storage if available
+          let pixQrcodeUrl = "";
+          if (pixBase64Raw) {
+            const tempId = `${lojaId}_${Date.now()}`;
+            pixQrcodeUrl = await uploadQrToStorage(supabase, pixBase64Raw, tempId, supabaseUrl);
+          }
+
+          console.log("[webhook-vega] Recovery data:", {
+            tipo: recoveryTipo,
+            total_value: totalPriceReais,
+            checkout_url: checkoutUrl,
+            pix_code_length: pixCode.length,
+            pix_qrcode_url: pixQrcodeUrl ? "SET" : "EMPTY",
+            products_count: recoveryProducts.length,
+          });
+
+          const { data: newLead } = await supabase
+            .from("recovery_leads")
+            .insert({
+              loja_id: lojaId,
+              customer_name: customer.name || "Cliente",
+              customer_email: email,
+              customer_phone: customer.phone || "",
+              checkout_url: checkoutUrl,
+              products: recoveryProducts,
+              total_value: totalPriceReais,
+              raw_payload: payload,
+              tipo: recoveryTipo,
+              status: "pendente",
+              pix_code: pixCode,
+              pix_qrcode_url: pixQrcodeUrl,
+            })
+            .select("id")
+            .single();
+
+          if (newLead) {
+            // Fire-and-forget email
+            supabase.functions.invoke("send-recovery-email", {
+              body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+            }).catch((e: any) => console.error("[recovery-email] error:", e));
+
+            // Fire-and-forget SMS
+            if (recoveryConfig.enviar_sms && customer.phone) {
+              supabase.functions.invoke("send-recovery-sms", {
                 body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
-              }).catch((e) => console.error("[recovery-email] error:", e));
-
-              // Fire-and-forget SMS
-              if (recoveryConfig.enviar_sms && customer.phone) {
-                supabase.functions.invoke("send-recovery-sms", {
-                  body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
-                }).catch((e) => console.error("[recovery-sms] error:", e));
-              }
-
-              console.log(`[recovery] Lead created for ${recoveryTipo}:`, newLead.id);
+              }).catch((e: any) => console.error("[recovery-sms] error:", e));
             }
+
+            console.log(`[recovery] Lead created for ${recoveryTipo}:`, newLead.id);
+          }
         }
       } catch (recErr) {
         console.error("[recovery] Error:", recErr);
       }
     }
 
-    // 4. If approved and no envio linked yet, create envio (with payment method filter)
+    // If approved and no envio linked yet, create envio
     if (status === "approved" && !existingPedido?.envio_id && pedidoId) {
-      // Check filtro_metodo from checkout_integrations
       const { data: integrationConfig } = await supabase
         .from("checkout_integrations")
         .select("filtro_metodo")
@@ -241,12 +335,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       const filtroMetodo = integrationConfig?.filtro_metodo || "todos";
-      const methodValue = (payload.method || "").toLowerCase();
-      const isPix = methodValue.includes("pix");
       const shouldCreateEnvio = filtroMetodo === "todos" || (filtroMetodo === "cartao" && !isPix) || (filtroMetodo === "pix" && isPix);
 
       if (!shouldCreateEnvio) {
-        // Skip envio creation due to payment method filter
         await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "vega").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
         return new Response(JSON.stringify({ success: true, event_type: eventType, status, envio_skipped: true, reason: `filtro_metodo=${filtroMetodo}` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -256,7 +347,6 @@ Deno.serve(async (req) => {
       );
       const totalQuantidade = normalizedProducts.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
 
-      // Buscar empresa da loja
       const { data: empresaData } = await supabase
         .from("empresas")
         .select("id")
@@ -277,7 +367,7 @@ Deno.serve(async (req) => {
         cliente_complemento: address.complement || null,
         produto: produtoJson || "Produto Vega",
         quantidade: totalQuantidade || 1,
-        valor: totalPrice / 100,
+        valor: totalPriceReais,
         status: "pendente",
         loja_id: lojaId,
         empresa_id: empresaData?.id || null,
@@ -295,14 +385,13 @@ Deno.serve(async (req) => {
           .update({ envio_id: newEnvio.id })
           .eq("id", pedidoId);
 
-        // Fire-and-forget WhatsApp for new order
         supabase.functions.invoke("auto-whatsapp-new-order", {
           body: { envio_id: newEnvio.id, loja_id: lojaId }
-        }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
+        }).catch((err: any) => console.error("[auto-whatsapp] invoke error:", err));
       }
     }
 
-    // 5. Mark webhook as processed
+    // Mark webhook as processed
     await supabase
       .from("webhook_logs")
       .update({ processed: true })
