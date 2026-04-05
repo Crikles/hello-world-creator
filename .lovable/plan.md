@@ -1,52 +1,25 @@
 
 
-## Plano: Adicionar PIX Copia e Cola, QR Code e botão de pagamento nos emails de recuperação
+## Plano: Adicionar seção PIX (QR Code + Copia e Cola) no preview do email
 
-### Contexto
-
-A Vega (V1 e V2) retorna campos de PIX no payload:
-- `pix_code` — código Copia e Cola
-- `pix_code_image64` — imagem QR Code em base64
-- `checkout_url` / `order_url` — link para página do PIX
-
-Atualmente o webhook-vega **não salva** esses dados no `recovery_leads`, e o email de recuperação **não exibe** seção de PIX.
+### O que será feito
+Quando o tipo for `pix_pendente`, o preview do email na página de Recuperação exibirá uma seção de PIX entre o resumo do pedido e o texto de interrupção, contendo:
+1. Imagem do QR Code (placeholder de exemplo)
+2. Código Copia e Cola em destaque (fundo cinza, fonte mono)
+3. O botão CTA já existente continuará funcionando normalmente
 
 ### Alterações
 
-**1. Migração: adicionar colunas na tabela `recovery_leads`**
+**`src/pages/RecuperacaoVendas.tsx`**
 
-```sql
-ALTER TABLE public.recovery_leads
-  ADD COLUMN pix_code text DEFAULT '',
-  ADD COLUMN pix_qrcode_url text DEFAULT '';
-```
-
-- `pix_code`: armazena o código Copia e Cola
-- `pix_qrcode_url`: armazena a URL da imagem do QR Code (base64 ou URL externa)
-
-**2. `supabase/functions/webhook-vega/index.ts`**
-
-Na hora de inserir o `recovery_leads`, adicionar:
-- `pix_code: payload.pix_code || ""`
-- `pix_qrcode_url: payload.pix_code_image64 || ""`
-
-**3. `supabase/functions/send-recovery-email/index.ts`**
-
-- Ler `lead.pix_code` e `lead.pix_qrcode_url` do lead
-- Quando `tipo === "pix_pendente"` e existir `pix_code`, adicionar ao email:
-  - Seção com QR Code (imagem inline via base64 ou URL)
-  - Seção "Copia e Cola" com o código PIX em destaque (fundo cinza, fonte mono, visual de campo copiável)
-  - Botão CTA "Pagar meu PIX" apontando para `checkout_url` ou `order_url`
-- Ajustar a saudação padrão para PIX: "Seu PIX foi gerado mas ainda não identificamos o pagamento"
-
-**4. Outros webhooks (Corvex, Luna, etc.)**
-
-Verificar se também retornam `pix_code` — se sim, salvar da mesma forma. Isso será feito como melhoria futura; o foco agora é Vega.
+1. Adicionar parâmetro `tipo` na função `buildEmailHtml(s, empresaNome, logoUrl, tipo)`
+2. Dentro de `buildEmailHtml`, após a seção `mostrar_resumo_pedido` e antes de `mostrar_texto_interrupcao`, inserir uma seção PIX condicional quando `tipo === "pix_pendente"`:
+   - QR Code: imagem placeholder (quadrado cinza com ícone PIX ou texto "QR Code PIX")
+   - Copia e Cola: bloco com fundo `#f1f5f9`, borda `#e2e8f0`, fonte monospace, exibindo um código PIX de exemplo
+   - Texto auxiliar: "Escaneie o QR Code ou copie o código abaixo"
+3. Atualizar a chamada `buildEmailHtml(settings, empresaNome, logoUrl)` no `useMemo` do `previewHtml` para passar o `tipo` como parâmetro
+4. No preview, o código PIX de exemplo será estático (texto fixo de demonstração)
 
 ### Resultado esperado
-
-O email de PIX pendente da Vega incluirá:
-1. Imagem do QR Code
-2. Código Copia e Cola em destaque
-3. Botão para acessar a página de pagamento
+O preview do email de PIX pendente mostrará visualmente a seção de QR Code e Copia e Cola, refletindo o que o cliente final receberá no email real.
 
