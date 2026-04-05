@@ -113,7 +113,7 @@ const DEFAULTS_PIX: RecoverySettings = {
 };
 
 /* ─── Build email HTML from settings (for preview) ─── */
-function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: string): string {
+function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: string, tipo?: string): string {
   const sections: string[] = [];
 
   sections.push(`
@@ -138,6 +138,27 @@ function buildEmailHtml(s: RecoverySettings, empresaNome: string, logoUrl: strin
           <p style="margin:0 0 8px;font-weight:700;font-size:13px;color:${s.cor_titulo};">🛒 Resumo do seu pedido:</p>
           <p style="margin:0;font-size:13px;color:${s.cor_texto};line-height:1.7;">{{lista_produtos}}</p>
           <p style="margin:12px 0 0;font-size:18px;font-weight:800;color:${s.cor_titulo};">💰 {{valor_total}}</p>
+        </td></tr>
+      </table>
+    </td></tr>`);
+  }
+
+  if (tipo === "pix_pendente") {
+    sections.push(`
+    <tr><td style="padding:8px 40px 16px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:12px;border:1px solid #e2e8f0;">
+        <tr><td style="padding:20px;text-align:center;">
+          <p style="margin:0 0 12px;font-weight:700;font-size:14px;color:${s.cor_titulo};">📱 Escaneie o QR Code ou copie o código abaixo:</p>
+          <div style="width:160px;height:160px;margin:0 auto 16px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <table width="160" height="160" cellpadding="0" cellspacing="0" style="background:#e2e8f0;border-radius:12px;">
+              <tr><td align="center" valign="middle" style="font-size:40px;">📷</td></tr>
+              <tr><td align="center" valign="middle" style="font-size:11px;color:#64748b;padding:0 8px;">QR Code PIX</td></tr>
+            </table>
+          </div>
+          <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:${s.cor_titulo};">Código Copia e Cola:</p>
+          <div style="background:#f1f5f9;border:1px dashed #cbd5e1;border-radius:8px;padding:12px 16px;word-break:break-all;font-family:'Courier New',monospace;font-size:11px;color:#334155;line-height:1.5;text-align:left;">
+            00020101021226860014br.gov.bcb.pix2564qrpix...exemplo...630470B5
+          </div>
         </td></tr>
       </table>
     </td></tr>`);
@@ -458,7 +479,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
   };
 
   const previewHtml = useMemo(() => {
-    const raw = buildEmailHtml(settings, empresaNome, logoUrl);
+    const raw = buildEmailHtml(settings, empresaNome, logoUrl, tipo);
     return replacePreviewVars(raw);
   }, [settings, empresaNome, logoUrl]);
 
