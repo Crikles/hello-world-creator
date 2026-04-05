@@ -479,7 +479,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
   };
 
   const previewHtml = useMemo(() => {
-    const raw = buildEmailHtml(settings, empresaNome, logoUrl);
+    const raw = buildEmailHtml(settings, empresaNome, logoUrl, tipo);
     return replacePreviewVars(raw);
   }, [settings, empresaNome, logoUrl]);
 
