@@ -175,18 +175,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recoveryConfig?.ativo) {
-          // Dedup: check if same email+loja+tipo in last 24h
-          const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-          const { data: existing } = await supabase
-            .from("recovery_leads")
-            .select("id")
-            .eq("loja_id", lojaId)
-            .eq("customer_email", email)
-            .eq("tipo", recoveryTipo)
-            .gte("created_at", since)
-            .maybeSingle();
-
-          if (!existing) {
             const checkoutUrl = payload.abandoned_checkout_url_url
               || payload.abandoned_checkout_url
               || payload.checkout_url
@@ -233,7 +221,6 @@ Deno.serve(async (req) => {
 
               console.log(`[recovery] Lead created for ${recoveryTipo}:`, newLead.id);
             }
-          }
         }
       } catch (recErr) {
         console.error("[recovery] Error:", recErr);
