@@ -700,7 +700,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
             ))}
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => {
               const csv = [
                 ["Nome", "Email", "Telefone", "Produto", "Valor", "Status", "Data"].join(","),
@@ -715,6 +715,11 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
             }}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>
+            {leads.length > 0 && (
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => { if (confirm("Excluir TODOS os leads? Esta ação não pode ser desfeita.")) deleteAllMutation.mutate(); }}>
+                <Trash2 className="h-4 w-4 mr-2" /> Excluir Todos
+              </Button>
+            )}
           </div>
 
           {leads.length === 0 ? (
