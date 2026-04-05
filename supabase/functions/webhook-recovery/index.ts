@@ -129,23 +129,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check duplicate (same email + loja + tipo in last 24h)
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: existing } = await supabase
-      .from("recovery_leads")
-      .select("id")
-      .eq("loja_id", lojaId)
-      .eq("customer_email", lead.customer_email)
-      .eq("tipo", tipo)
-      .gte("created_at", oneDayAgo)
-      .limit(1);
-
-    if (existing && existing.length > 0) {
-      return new Response(JSON.stringify({ ok: true, message: "Lead already captured recently" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Deduplication removed: every event creates a new lead
 
     // Insert lead
     const { data: insertedLead, error: insertError } = await supabase
