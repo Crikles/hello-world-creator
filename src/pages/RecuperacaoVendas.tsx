@@ -746,9 +746,14 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                           <p className="text-xs text-muted-foreground truncate">{lead.customer_email}</p>
                           {prods.length > 0 && <p className="text-xs text-muted-foreground mt-0.5 truncate">{prods.map(p => p.name).join(", ")}</p>}
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-semibold text-sm">R$ {Number(lead.total_value || 0).toFixed(2).replace(".", ",")}</p>
-                          <p className="text-xs text-muted-foreground">{format(new Date(lead.created_at), "dd/MM HH:mm")}</p>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            <p className="font-semibold text-sm">R$ {Number(lead.total_value || 0).toFixed(2).replace(".", ",")}</p>
+                            <p className="text-xs text-muted-foreground">{format(new Date(lead.created_at), "dd/MM HH:mm")}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(lead.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
