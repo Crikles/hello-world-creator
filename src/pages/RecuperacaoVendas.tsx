@@ -18,7 +18,7 @@ import {
   Copy, Mail, ShoppingCart, Clock, Gift, Eye, Download,
   Save, MessageSquare, Globe, Type, Sparkles, Coins,
   CheckCircle2, ArrowRight, Lock, DollarSign, Smartphone, AlertTriangle,
-  BookOpen, Zap, Shield, Timer, Hash, ExternalLink, Info,
+  BookOpen, Zap, Shield, Timer, Hash, ExternalLink, Info, Trash2,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
@@ -412,6 +412,33 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
     },
   });
 
+  // Delete lead
+  const deleteMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      const { error } = await supabase.from("recovery_leads").delete().eq("id", leadId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recovery-leads", loja.id, tipo] });
+      toast({ title: "Lead excluído!" });
+    },
+    onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
+  });
+
+  // Delete all leads
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      const query = supabase.from("recovery_leads").delete().eq("loja_id", loja.id) as any;
+      const { error } = await query.eq("tipo", tipo);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recovery-leads", loja.id, tipo] });
+      toast({ title: "Todos os leads excluídos!" });
+    },
+    onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
+  });
+
   const getLeadStatus = (lead: any) => {
     if (lead.status === "convertido") return { label: "Convertido", color: "bg-green-500/10 text-green-600" };
     if (lead.status === "sem_credito") return { label: "Sem crédito", color: "bg-red-500/10 text-red-600" };
@@ -673,7 +700,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
             ))}
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => {
               const csv = [
                 ["Nome", "Email", "Telefone", "Produto", "Valor", "Status", "Data"].join(","),
@@ -688,6 +715,11 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
             }}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>
+            {leads.length > 0 && (
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => { if (confirm("Excluir TODOS os leads? Esta ação não pode ser desfeita.")) deleteAllMutation.mutate(); }}>
+                <Trash2 className="h-4 w-4 mr-2" /> Excluir Todos
+              </Button>
+            )}
           </div>
 
           {leads.length === 0 ? (
@@ -714,9 +746,14 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                           <p className="text-xs text-muted-foreground truncate">{lead.customer_email}</p>
                           {prods.length > 0 && <p className="text-xs text-muted-foreground mt-0.5 truncate">{prods.map(p => p.name).join(", ")}</p>}
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-semibold text-sm">R$ {Number(lead.total_value || 0).toFixed(2).replace(".", ",")}</p>
-                          <p className="text-xs text-muted-foreground">{format(new Date(lead.created_at), "dd/MM HH:mm")}</p>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            <p className="font-semibold text-sm">R$ {Number(lead.total_value || 0).toFixed(2).replace(".", ",")}</p>
+                            <p className="text-xs text-muted-foreground">{format(new Date(lead.created_at), "dd/MM HH:mm")}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(lead.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
