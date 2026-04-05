@@ -64,6 +64,23 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token");
+
+  // GET = endpoint de teste para validar se a URL está correta
+  if (req.method === "GET") {
+    console.log("[corvex] GET test ping received, token:", token || "MISSING");
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        message: "Webhook Corvex ativo e funcionando",
+        token_received: !!token,
+        timestamp: new Date().toISOString(),
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -72,8 +89,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const token = url.searchParams.get("token");
+    console.log("[corvex] POST received, token:", token || "MISSING");
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Missing 'token' query parameter" }), {
@@ -83,7 +99,7 @@ Deno.serve(async (req) => {
     }
 
     const payload = await req.json();
-    console.log("[corvex] received event:", payload.event, "status:", payload.status);
+    console.log("[corvex] event:", payload.event, "| status:", payload.status, "| method:", payload.method, "| token:", token);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
