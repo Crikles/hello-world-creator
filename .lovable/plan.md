@@ -1,35 +1,34 @@
 
 
-## Plano: Ajustar webhook-luna para capturar PIX e atualizar Tutorial
+## Plano: Ajustar webhook-adoorei para recuperação de PIX pendente
 
 ### Diagnóstico
 
-O payload da Luna mostra que ela **envia** dados de PIX que não estamos capturando:
-- `payment.qrcode` — código Copia e Cola do PIX
-- `checkout_url` — URL de checkout do cliente (já capturada)
+O payload da Adoorei **não envia** QR Code, Copia e Cola, nem URL de checkout do cliente. Apenas envia `payment_method: "pix"` e `status: "pending"`.
 
-Além disso, o webhook da Luna ainda tem **deduplicação de 24h** (linhas 173-181) que deveria ter sido removida.
+Problemas atuais no código:
+1. **Deduplicação de 24h por email** (linhas 235-243) ainda ativa — precisa ser substituída por deduplicação por `transaction_token` (campo `number` do payload)
+2. **`checkout_url` vazio** — correto, pois Adoorei não fornece URL de pagamento
+3. **Sem `pix_code`** — correto, Adoorei não envia dados de PIX no payload
 
 ### Alterações
 
-**1. `supabase/functions/webhook-luna/index.ts`**
-- Capturar `payment.qrcode` como `pix_code` no lead de recuperação
-- Remover o bloco de deduplicação por email nas últimas 24h (linhas 173-181)
-- Adicionar deduplicação por `transaction_token` (campo `id` do payload) para evitar reprocessamento do mesmo pedido
+**1. `supabase/functions/webhook-adoorei/index.ts`**
+- Remover deduplicação por email nas últimas 24h (linhas 235-243)
+- Adicionar deduplicação por `transaction_token` no `raw_payload`: verificar se já existe um `recovery_lead` com `raw_payload->>'resource'` contendo o mesmo `number` para essa loja
+- Manter `checkout_url` vazio e sem `pix_code` (Adoorei não fornece esses dados)
 
 **2. `src/pages/RecuperacaoVendas.tsx`** — Tabela do Tutorial
-- Atualizar Luna: `qrcode: false` → `qrcode: false`, `copiaECola: true`, `urlCheckout: true`
-- (A Luna envia o código Copia e Cola via `payment.qrcode`, mas não envia imagem QR Code — o sistema gera a imagem automaticamente se houver `pix_code`)
+- Confirmar que Adoorei está com `qrcode: false`, `copiaECola: false`, `urlCheckout: false`
 
-Espera, na verdade o `payment.qrcode` é o código texto do PIX (copia e cola). O sistema já converte isso em QR Code imagem automaticamente no `send-recovery-email`. Então Luna suporta tanto QR Code quanto Copia e Cola.
+**3. Redeploy** da function `webhook-adoorei`
 
-Atualização na tabela:
-- Luna: `qrcode: true`, `copiaECola: true`, `urlCheckout: true`
-
-**3. Redeploy** da function `webhook-luna`
+### O que o email da Adoorei vai conter
+- Valor correto em reais
+- Lista de produtos
+- **Sem** QR Code, **sem** Copia e Cola, **sem** botão CTA (igual à Zedy)
 
 ### Resultado esperado
-- Lead de PIX pendente da Luna salvo com `pix_code` (copia e cola) e `checkout_url`
-- Email enviado com QR Code, Copia e Cola e botão CTA
 - Sem leads duplicados do mesmo pedido (deduplicação por transaction token)
+- Email da Adoorei sai apenas com informações do pedido, sem dados de pagamento PIX
 
