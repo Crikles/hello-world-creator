@@ -247,6 +247,8 @@ Deno.serve(async (req) => {
       ps_reforco_urgencia: config.ps_reforco_urgencia || "",
       codigo_cupom: config.codigo_cupom || "",
       descricao_cupom: config.descricao_cupom || "",
+      pix_code: lead.pix_code || "",
+      pix_qrcode_url: lead.pix_qrcode_url || "",
     };
 
     const s = parseSettings(config.corpo_email || "", config);
