@@ -1,34 +1,52 @@
 
 
-## Plano: Ajustar webhook-adoorei para recuperação de PIX pendente
+## Plano: Corrigir envios mostrando "Manual" em vez do checkout correto
 
 ### Diagnóstico
 
-O payload da Adoorei **não envia** QR Code, Copia e Cola, nem URL de checkout do cliente. Apenas envia `payment_method: "pix"` e `status: "pending"`.
+O problema é o **limite de 1000 linhas do Supabase**. A query na linha 287-291 do `Envios.tsx` busca todos os `pedidos` com `envio_id` vinculado, mas existem **12.342 pedidos** linkados. Como o Supabase retorna no máximo 1000 por request, os envios além dos primeiros 1000 ficam sem mapeamento e aparecem como "Manual".
 
-Problemas atuais no código:
-1. **Deduplicação de 24h por email** (linhas 235-243) ainda ativa — precisa ser substituída por deduplicação por `transaction_token` (campo `number` do payload)
-2. **`checkout_url` vazio** — correto, pois Adoorei não fornece URL de pagamento
-3. **Sem `pix_code`** — correto, Adoorei não envia dados de PIX no payload
+### Alteração
 
-### Alterações
+**1. `src/pages/Envios.tsx` — Corrigir query de pedidos (linhas 283-304)**
 
-**1. `supabase/functions/webhook-adoorei/index.ts`**
-- Remover deduplicação por email nas últimas 24h (linhas 235-243)
-- Adicionar deduplicação por `transaction_token` no `raw_payload`: verificar se já existe um `recovery_lead` com `raw_payload->>'resource'` contendo o mesmo `number` para essa loja
-- Manter `checkout_url` vazio e sem `pix_code` (Adoorei não fornece esses dados)
+Implementar paginação na busca de pedidos para carregar todos os registros:
 
-**2. `src/pages/RecuperacaoVendas.tsx`** — Tabela do Tutorial
-- Confirmar que Adoorei está com `qrcode: false`, `copiaECola: false`, `urlCheckout: false`
-
-**3. Redeploy** da function `webhook-adoorei`
-
-### O que o email da Adoorei vai conter
-- Valor correto em reais
-- Lista de produtos
-- **Sem** QR Code, **sem** Copia e Cola, **sem** botão CTA (igual à Zedy)
+```typescript
+queryFn: async () => {
+  if (!loja) return { origemMap: {}, metodoMap: {} };
+  const origemMap: Record<string, string> = {};
+  const metodoMap: Record<string, string> = {};
+  
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from("pedidos")
+      .select("envio_id, checkout_provider, method")
+      .eq("loja_id", loja.id)
+      .not("envio_id", "is", null)
+      .range(from, from + pageSize - 1);
+    
+    if (error || !data || data.length === 0) break;
+    
+    for (const p of data) {
+      if (p.envio_id) {
+        origemMap[p.envio_id] = p.checkout_provider;
+        if (p.method) metodoMap[p.envio_id] = p.method;
+      }
+    }
+    
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  
+  return { origemMap, metodoMap };
+},
+```
 
 ### Resultado esperado
-- Sem leads duplicados do mesmo pedido (deduplicação por transaction token)
-- Email da Adoorei sai apenas com informações do pedido, sem dados de pagamento PIX
+- Todos os 12.342+ pedidos vinculados serão carregados
+- Envios criados via checkout (Vega, Zedy, Luna, Corvex, Adoorei) mostrarão o nome correto do checkout e método de pagamento
+- Nenhum envio de checkout aparecerá como "Manual" incorretamente
 
