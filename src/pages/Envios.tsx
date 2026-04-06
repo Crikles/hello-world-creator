@@ -284,19 +284,26 @@ export default function Envios() {
     queryKey: ["pedido-origem", loja?.id],
     queryFn: async () => {
       if (!loja) return { origemMap: {}, metodoMap: {} };
-      const { data, error } = await supabase
-        .from("pedidos")
-        .select("envio_id, checkout_provider, method")
-        .eq("loja_id", loja.id)
-        .not("envio_id", "is", null);
-      if (error || !data) return { origemMap: {}, metodoMap: {} };
       const origemMap: Record<string, string> = {};
       const metodoMap: Record<string, string> = {};
-      for (const p of data) {
-        if (p.envio_id) {
-          origemMap[p.envio_id] = p.checkout_provider;
-          if (p.method) metodoMap[p.envio_id] = p.method;
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("pedidos")
+          .select("envio_id, checkout_provider, method")
+          .eq("loja_id", loja.id)
+          .not("envio_id", "is", null)
+          .range(from, from + pageSize - 1);
+        if (error || !data || data.length === 0) break;
+        for (const p of data) {
+          if (p.envio_id) {
+            origemMap[p.envio_id] = p.checkout_provider;
+            if (p.method) metodoMap[p.envio_id] = p.method;
+          }
         }
+        if (data.length < pageSize) break;
+        from += pageSize;
       }
       return { origemMap, metodoMap };
     },
