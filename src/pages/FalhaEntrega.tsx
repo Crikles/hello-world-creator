@@ -116,6 +116,50 @@ export default function FalhaEntrega() {
         },
     });
 
+    const bulkApproveMutation = useMutation({
+        mutationFn: async (ids: string[]) => {
+            if (!loja?.id) throw new Error("Loja não encontrada");
+            const results: { id: string; ok: boolean }[] = [];
+            for (let i = 0; i < ids.length; i++) {
+                setBulkProgress({ current: i + 1, total: ids.length });
+                try {
+                    const result = await triggerNextEmail(ids[i], loja.id, true);
+                    results.push({ id: ids[i], ok: !!result });
+                } catch {
+                    results.push({ id: ids[i], ok: false });
+                }
+            }
+            return results;
+        },
+        onSuccess: (results) => {
+            const ok = results.filter((r) => r.ok).length;
+            const fail = results.length - ok;
+            setSelectedIds(new Set());
+            setBulkProgress(null);
+            queryClient.invalidateQueries({ queryKey: ["falha-envios"] });
+            queryClient.invalidateQueries({ queryKey: ["envios"] });
+            toast.success(`${ok} pagamento(s) aprovado(s)${fail > 0 ? `, ${fail} falha(s)` : ""}`);
+        },
+        onError: () => {
+            setBulkProgress(null);
+            toast.error("Erro ao processar aprovações em massa");
+        },
+    });
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const handleTabChange = (newTab: string) => {
+        setTab(newTab);
+        setSelectedIds(new Set());
+    };
+
     const pendentes = envios.filter((e) => e.falha_status === "pendente");
     const aprovados = envios.filter((e) => e.falha_status === "aprovado");
     const currentList = tab === "pendentes" ? pendentes : aprovados;
