@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     AlertTriangle,
@@ -43,6 +44,8 @@ import { formatProduto } from "@/lib/format-produto";
 export default function FalhaEntrega() {
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("pendentes");
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
     const queryClient = useQueryClient();
     const { loja } = useLoja();
 
