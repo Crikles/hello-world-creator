@@ -344,14 +344,23 @@ export default function FalhaEntrega() {
                     {filteredList.map((envio, idx) => (
                         <div
                             key={envio.id}
-                            className="glass glow-border-hover rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] animate-stagger-in group"
+                            className={`glass glow-border-hover rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] animate-stagger-in group ${selectedIds.has(envio.id) ? "ring-2 ring-primary/40" : ""}`}
                             style={{ animationDelay: `${idx * 0.05}s` }}
                         >
                             {/* Header */}
                             <div className="flex items-start justify-between mb-3">
-                                <div className="min-w-0 flex-1">
-                                    <p className="font-semibold text-foreground truncate">{envio.cliente_nome}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{envio.cliente_email}</p>
+                                <div className="flex items-start gap-2 min-w-0 flex-1">
+                                    {tab === "pendentes" && (
+                                        <Checkbox
+                                            checked={selectedIds.has(envio.id)}
+                                            onCheckedChange={() => toggleSelect(envio.id)}
+                                            className="mt-0.5 shrink-0"
+                                        />
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold text-foreground truncate">{envio.cliente_nome}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{envio.cliente_email}</p>
+                                    </div>
                                 </div>
                                 <Badge
                                     variant="secondary"
