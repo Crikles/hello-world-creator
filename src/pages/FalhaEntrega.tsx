@@ -246,23 +246,64 @@ export default function FalhaEntrega() {
             {/* Action Bar */}
             <div className="glass-strong glow-border rounded-xl p-3">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-                    <Tabs value={tab} onValueChange={setTab} className="w-auto">
-                        <TabsList className="glass h-8">
-                            <TabsTrigger value="pendentes" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
-                                <Clock className="h-3 w-3" />
-                                Pendentes
-                                {totalPendentes > 0 && (
-                                    <span className="ml-0.5 bg-destructive/80 text-destructive-foreground text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                                        {totalPendentes}
-                                    </span>
+                    <div className="flex items-center gap-3">
+                        <Tabs value={tab} onValueChange={handleTabChange} className="w-auto">
+                            <TabsList className="glass h-8">
+                                <TabsTrigger value="pendentes" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
+                                    <Clock className="h-3 w-3" />
+                                    Pendentes
+                                    {totalPendentes > 0 && (
+                                        <span className="ml-0.5 bg-destructive/80 text-destructive-foreground text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                                            {totalPendentes}
+                                        </span>
+                                    )}
+                                </TabsTrigger>
+                                <TabsTrigger value="aprovados" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Aprovados
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+
+                        {tab === "pendentes" && pendentes.length > 0 && (
+                            <>
+                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                                    <Checkbox
+                                        checked={pendentes.length > 0 && selectedIds.size === pendentes.length}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                setSelectedIds(new Set(pendentes.map((e) => e.id)));
+                                            } else {
+                                                setSelectedIds(new Set());
+                                            }
+                                        }}
+                                    />
+                                    Selecionar todos
+                                </label>
+
+                                {selectedIds.size > 0 && (
+                                    <Button
+                                        size="sm"
+                                        className="h-7 text-xs shimmer-btn gap-1"
+                                        disabled={bulkApproveMutation.isPending}
+                                        onClick={() => bulkApproveMutation.mutate(Array.from(selectedIds))}
+                                    >
+                                        {bulkApproveMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                Aprovando {bulkProgress?.current}/{bulkProgress?.total}...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ShieldCheck className="h-3 w-3" />
+                                                Aprovar ({selectedIds.size})
+                                            </>
+                                        )}
+                                    </Button>
                                 )}
-                            </TabsTrigger>
-                            <TabsTrigger value="aprovados" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Aprovados
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                            </>
+                        )}
+                    </div>
 
                     <div className="relative w-full md:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
