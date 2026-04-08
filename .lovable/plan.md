@@ -1,33 +1,35 @@
 
-## Plano: Adicionar dados PIX à recuperação da Zedy
+
+## Plano: Gerar QR Code PIX via API externa para Zedy
 
 ### Contexto
 
-O payload da Zedy no status `waiting_payment` contém o campo `pixQrCode` com o código Copia e Cola do PIX. Atualmente o webhook ignora esse dado e insere o lead com `checkout_url` e `pix_code` vazios.
+A Zedy envia o código Copia e Cola do PIX (`pixQrCode`) mas não envia imagem QR. Vamos usar a API pública `https://api.qrserver.com/v1/create-qr-code/` para gerar a imagem do QR Code a partir do código PIX.
 
 ### Alterações
 
-**1. `supabase/functions/webhook-zedy/index.ts`** — No bloco de recovery (linha ~130), adicionar `pix_code` ao insert do lead:
+**1. `supabase/functions/webhook-zedy/index.ts`** — No bloco de recovery (linha ~130), após capturar `payload.pixQrCode`, gerar a URL do QR Code:
 
 ```typescript
-pix_code: payload.pixQrCode || "",
+const pixCode = payload.pixQrCode || "";
+const pixQrcodeUrl = pixCode 
+  ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`
+  : "";
 ```
 
-O campo `pix_qrcode_url` ficará vazio — a edge function `send-recovery-email` já possui lógica de auto-reparo que gera a imagem QR a partir do `pix_code` quando `pix_qrcode_url` está vazio.
+E no insert do `recovery_leads`, adicionar:
+```typescript
+pix_qrcode_url: pixQrcodeUrl,
+```
 
-**2. `src/pages/RecuperacaoVendas.tsx`** — Atualizar a linha da Zedy na tabela de checkouts:
+**2. `src/pages/RecuperacaoVendas.tsx`** — Atualizar Zedy na tabela para `qrcode: true`:
 
 ```typescript
-// De:
-{ name: "Zedy", qrcode: false, copiaECola: false, urlCheckout: false }
-// Para:
-{ name: "Zedy", qrcode: false, copiaECola: true, urlCheckout: false }
+{ name: "Zedy", qrcode: true, copiaECola: true, urlCheckout: false }
 ```
-
-QR Code fica `false` porque a Zedy não envia imagem QR (apenas o texto), mas o sistema gera automaticamente via auto-reparo. Copia e Cola fica `true` porque o campo `pixQrCode` está disponível.
 
 ### Resultado esperado
-- Leads de recuperação da Zedy terão o código PIX Copia e Cola preenchido
-- E-mails de recuperação incluirão a seção de Copia e Cola do PIX
-- A imagem QR será gerada automaticamente pelo sistema de auto-reparo no `send-recovery-email`
-- Tabela de compatibilidade atualizada
+- Leads de recuperação da Zedy terão `pix_qrcode_url` preenchido com a URL da imagem QR gerada dinamicamente
+- E-mails de recuperação exibirão o QR Code + Copia e Cola
+- Tabela de compatibilidade atualizada mostrando QR Code como disponível para Zedy
+
