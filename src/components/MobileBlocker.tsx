@@ -18,13 +18,12 @@ export function MobileBlocker({ children }: { children: ReactNode }) {
 
   if (isMobile) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background p-8 text-center">
-        <Monitor className="h-16 w-16 text-muted-foreground mb-6" />
-        <h1 className="text-2xl font-bold text-foreground mb-3">
-          Acesso Indisponível
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0a0a0a] p-8 text-center">
+        <h1 className="text-xl font-semibold text-[#888] mb-2">
+          503
         </h1>
-        <p className="text-muted-foreground max-w-sm">
-          Esta plataforma está disponível apenas para computadores. Acesse pelo seu desktop para continuar.
+        <p className="text-[#666] text-sm">
+          Serviço temporariamente indisponível. Tente novamente mais tarde.
         </p>
       </div>
     );
