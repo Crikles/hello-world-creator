@@ -96,6 +96,11 @@ export default function Pagamento() {
     const [tax, setTax] = useState<TaxSettings>(DEFAULT_TAX);
 
     useEffect(() => {
+        document.title = "Pagamento - Taxação";
+        return () => { document.title = "Rastreio de Encomendas"; };
+    }, []);
+
+    useEffect(() => {
         if (!envioId) {
             setError("Link de pagamento inválido ou expirado");
             setLoading(false);
