@@ -124,8 +124,12 @@ Deno.serve(async (req) => {
               }));
               const totalValue = (payload.commission?.totalPriceInCents || 0) / 100;
 
-              // Zedy actions[0].url is an admin URL, not a customer checkout page — leave checkout_url empty
-              console.log("[webhook-zedy] Recovery data:", { email, tipo: recoveryTipo, totalValue, orderId, productsCount: recoveryProducts.length });
+              const pixCode = payload.pixQrCode || "";
+              const pixQrcodeUrl = pixCode
+                ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`
+                : "";
+
+              console.log("[webhook-zedy] Recovery data:", { email, tipo: recoveryTipo, totalValue, orderId, productsCount: recoveryProducts.length, hasPixCode: !!pixCode });
 
               await supabase.from("recovery_leads").insert({
                 loja_id: lojaId,
@@ -135,7 +139,8 @@ Deno.serve(async (req) => {
                 products: recoveryProducts,
                 total_value: totalValue,
                 checkout_url: "",
-                pix_code: payload.pixQrCode || "",
+                pix_code: pixCode,
+                pix_qrcode_url: pixQrcodeUrl,
                 raw_payload: payload,
                 status: "pendente",
                 tipo: recoveryTipo,
