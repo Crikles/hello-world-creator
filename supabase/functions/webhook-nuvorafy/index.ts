@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
     const transactionToken = String(order.id || `nuvorafy_${Date.now()}`);
 
     // Map event
+    const orderStatus = (order.status || "").toLowerCase();
     const eventType = event === "order.paid" ? "sale" : event;
 
     // 1. Log the webhook
@@ -162,7 +163,74 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
-    // 4. If order.paid and no envio linked yet, create envio
+    // 4. Recovery: if status is "processing" and method is PIX, create recovery lead
+    if (orderStatus === "processing" && method.includes("pix")) {
+      try {
+        const { data: recoveryConfig } = await supabase
+          .from("recovery_config")
+          .select("ativo")
+          .eq("loja_id", lojaId)
+          .eq("tipo", "pix_pendente")
+          .maybeSingle();
+
+        if (recoveryConfig?.ativo) {
+          const customerEmail = order.customer_email || "";
+
+          if (customerEmail) {
+            // Deduplication by transaction_token
+            const { data: existingLead } = await supabase
+              .from("recovery_leads")
+              .select("id")
+              .eq("loja_id", lojaId)
+              .eq("tipo", "pix_pendente")
+              .eq("raw_payload->>transaction_token", transactionToken)
+              .maybeSingle();
+
+            if (!existingLead) {
+              const recoveryProducts = normalizedProducts.map((p: any) => ({
+                name: p.title,
+                value: 0,
+                qty: p.quantity || 1,
+              }));
+
+              const checkoutUrl = order.checkout_url || order.payment_url || "";
+
+              const { data: insertedLead } = await supabase
+                .from("recovery_leads")
+                .insert({
+                  loja_id: lojaId,
+                  customer_name: order.customer_name || "",
+                  customer_email: customerEmail,
+                  customer_phone: order.customer_phone || "",
+                  products: recoveryProducts,
+                  total_value: totalPrice / 100,
+                  checkout_url: checkoutUrl,
+                  raw_payload: { ...payload, transaction_token: transactionToken },
+                  status: "pendente",
+                  tipo: "pix_pendente",
+                })
+                .select("id")
+                .single();
+
+              if (insertedLead) {
+                // Fire-and-forget email + SMS
+                supabase.functions.invoke("send-recovery-email", {
+                  body: { loja_id: lojaId, customer_email: customerEmail, tipo: "pix_pendente" },
+                }).catch((e) => console.error("[recovery-email] error:", e));
+
+                supabase.functions.invoke("send-recovery-sms", {
+                  body: { lead_id: insertedLead.id, loja_id: lojaId, tipo: "pix_pendente" },
+                }).catch((e) => console.error("[recovery-sms] error:", e));
+              }
+            }
+          }
+        }
+      } catch (recoveryErr) {
+        console.error("[nuvorafy-recovery] error:", recoveryErr);
+      }
+    }
+
+    // 5. If order.paid and no envio linked yet, create envio
     if (event === "order.paid" && !existingPedido?.envio_id && pedidoId) {
       // Check payment method filter
       const { data: integrationConfig } = await supabase
@@ -243,7 +311,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5. Mark webhook as processed
+    // 6. Mark webhook as processed
     await supabase
       .from("webhook_logs")
       .update({ processed: true })
