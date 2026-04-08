@@ -1,44 +1,51 @@
 
 
-## Plano: Remover vazamento de "Magnus Frete" nas páginas públicas
+## Plano: Bloquear indexação do Google e solicitar remoção
 
-### Diagnóstico
+### Situação atual
 
-O problema é o `<title>Magnus Frete</title>` no `index.html`. Como as páginas públicas de rastreio (`/r/:code`), pagamento (`/p/:id`), falha na entrega (`/f/:id`) e taxação **nunca definem `document.title`**, o título da aba do navegador mostra "Magnus Frete" para todos os leads. Se o lead pesquisar "Magnus Frete" no Google, encontra o site.
+O `robots.txt` está com `Allow: /` para **todos os bots**, incluindo Googlebot. Isso permite que o Google indexe todas as páginas do site, incluindo a de login que mostra "Magnus Frete".
 
-Além disso, as meta tags OG no `index.html` também contêm "Magnus Frete" — visíveis quando alguém compartilha o link.
+### O que podemos fazer
 
-### Alterações
+**1. Bloquear indexação futura (imediato)**
 
-**1. `index.html` — Título genérico**
+- **`robots.txt`**: Trocar para `Disallow: /` para Googlebot e demais bots de busca. Manter `Allow` apenas para bots de preview social (Twitter, Facebook) para que links compartilhados continuem mostrando preview.
+- **`index.html`**: Adicionar `<meta name="robots" content="noindex, nofollow">` no `<head>` como camada extra de proteção.
 
-Trocar o título e meta tags de "Magnus Frete" para algo neutro como "Rastreio de Encomendas":
+**2. Remover páginas já indexadas (manual, fora do código)**
 
-- `<title>Rastreio de Encomendas</title>`
-- `og:title` → "Rastreio de Encomendas"
-- `twitter:title` → "Rastreio de Encomendas"
-- Remover `<meta name="author" content="Lovable" />`
-- Remover `<meta name="twitter:site" content="@Lovable" />`
+O Google leva semanas para respeitar o `robots.txt` atualizado. Para acelerar a remoção:
+- Acesse o [Google Search Console](https://search.google.com/search-console) → cadastre o domínio `magnusfrete.com` → use a ferramenta **"Remoções"** para solicitar remoção temporária da URL. Isso remove em 24-48h.
+- A tag `noindex` fará o Google remover permanentemente quando re-rastrear.
 
-**2. `src/pages/Rastreio.tsx` — Definir título dinâmico**
+### Alterações no código
 
-Adicionar `useEffect` que define `document.title` com base na transportadora detectada:
-- VETOR → "Vetor Transportes - Rastreio"
-- JL → "JL Transportes - Rastreio"
-- Fallback → "Rastreio de Encomendas"
+**`public/robots.txt`**
+```
+User-agent: Googlebot
+Disallow: /
 
-**3. `src/pages/FalhaEntrega.tsx` (página pública `/f/:id`)** — Definir título dinâmico:
-- "Atualização de Entrega"
+User-agent: Bingbot
+Disallow: /
 
-**4. `src/pages/Pagamento.tsx` (página pública `/p/:id`)** — Definir título dinâmico:
-- "Pagamento - Taxação"
+User-agent: *
+Disallow: /
 
-**5. Páginas internas (Dashboard, Login, etc.)** — Definir título como "Magnus Frete" via `useEffect`
+User-agent: Twitterbot
+Allow: /
 
-Isso garante que páginas internas mantêm "Magnus Frete" no título, mas nenhuma página pública vaza essa informação.
+User-agent: facebookexternalhit
+Allow: /
+```
+
+**`index.html`** — Adicionar no `<head>`:
+```html
+<meta name="robots" content="noindex, nofollow">
+```
 
 ### Resultado esperado
-- Nenhum lead verá "Magnus Frete" na aba do navegador ou em previews de links compartilhados
-- Páginas internas continuam mostrando "Magnus Frete"
-- Meta tags OG limpas de referências ao Magnus e Lovable
+- Nenhum bot de busca indexará novas páginas
+- Previews de links no WhatsApp/Twitter/Facebook continuam funcionando
+- Páginas já indexadas serão removidas automaticamente em algumas semanas (ou em 24-48h via Google Search Console)
 
