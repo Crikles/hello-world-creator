@@ -74,26 +74,27 @@ Deno.serve(async (req) => {
     }
 
     const event = payload.event || "";
-    // Nuvorafy sends data in payload.data (camelCase), fallback to payload.order for compatibility
-    const order = payload.data || payload.order || {};
-    const transactionToken = String(order.orderId || order.id || `nuvorafy_${Date.now()}`);
+    // Nuvorafy sends data in payload.order (snake_case), fallback to payload.data for compatibility
+    const order = payload.order || payload.data || {};
+    const transactionToken = String(order.id || order.orderId || `nuvorafy_${Date.now()}`);
+    const orderNumber = order.order_number || order.orderNumber || "";
 
     // Map event
     const orderStatus = (order.status || "").toLowerCase();
     const eventType = event === "order.paid" ? "sale" : event;
 
-    // Normalize fields with camelCase + snake_case fallbacks
-    const customerName = order.customerName || order.customer_name || null;
-    const customerEmail = order.customerEmail || order.customer_email || null;
-    const customerDocument = order.customerDocument || order.customerCpf || order.customer_cpf || order.customer_document || null;
-    const customerPhone = order.customerPhone || order.customer_phone || null;
-    const shippingAddress = order.shippingAddress || order.shipping_address || null;
-    const shippingZip = order.shippingZip || order.shipping_zip || null;
-    const shippingCity = order.shippingCity || order.shipping_city || null;
-    const shippingState = order.shippingState || order.shipping_state || null;
-    const rawPaymentMethod = (order.paymentMethod || order.payment_method || "").toLowerCase();
+    // Normalize fields with snake_case + camelCase fallbacks
+    const customerName = order.customer_name || order.customerName || null;
+    const customerEmail = order.customer_email || order.customerEmail || null;
+    const customerDocument = order.customer_cpf || order.customerCpf || order.customer_document || order.customerDocument || null;
+    const customerPhone = order.customer_phone || order.customerPhone || null;
+    const shippingAddress = order.shipping_address || order.shippingAddress || null;
+    const shippingZip = order.shipping_zip || order.shippingZip || null;
+    const shippingCity = order.shipping_city || order.shippingCity || null;
+    const shippingState = order.shipping_state || order.shippingState || null;
+    const rawPaymentMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
     const rawAmount = parseFloat(String(order.amount || "0"));
-    const checkoutUrl = order.checkoutUrl || order.checkout_url || order.payment_url || "";
+    const checkoutUrl = order.checkout_url || order.checkoutUrl || order.payment_url || "";
 
     // 1. Log the webhook
     await supabase.from("webhook_logs").insert({
@@ -107,15 +108,17 @@ Deno.serve(async (req) => {
 
     // 2. Normalize products
     const items = order.items || [];
-    // If amount <= 1000, assume reais; otherwise assume centavos
-    const totalPrice = rawAmount <= 1000 ? Math.round(rawAmount * 100) : Math.round(rawAmount);
+    // Amount is always in reais (e.g. 149.90), convert to centavos
+    const totalPrice = Math.round(rawAmount * 100);
 
-    const normalizedProducts = items.map((item: any) => ({
-      code: "",
-      title: item.name || item.title || "",
-      quantity: parseInt(String(item.quantity || "1"), 10),
-      amount: 0,
-    }));
+    const normalizedProducts = items.length > 0
+      ? items.map((item: any) => ({
+          code: "",
+          title: item.name || item.title || "",
+          quantity: parseInt(String(item.quantity || "1"), 10),
+          amount: 0,
+        }))
+      : [{ code: "", title: orderNumber ? `Pedido ${orderNumber}` : "Produto Nuvorafy", quantity: 1, amount: 0 }];
 
     // Normalize payment method
     let method = rawPaymentMethod;
