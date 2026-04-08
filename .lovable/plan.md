@@ -1,35 +1,46 @@
 
 
-## Plano: Gerar QR Code PIX via API externa para Zedy
+## Plano: Corrigir mapeamento do payload Nuvorafy
 
-### Contexto
+### Problema
 
-A Zedy envia o código Copia e Cola do PIX (`pixQrCode`) mas não envia imagem QR. Vamos usar a API pública `https://api.qrserver.com/v1/create-qr-code/` para gerar a imagem do QR Code a partir do código PIX.
+O webhook atual lê `payload.order` mas a Nuvorafy envia os dados em `payload.data`. Os campos também usam camelCase (`customerName`, `customerEmail`, `paymentMethod`, `orderId`) em vez de snake_case.
 
-### Alterações
+Resultado: pedido criado com todos os campos vazios/nulos.
 
-**1. `supabase/functions/webhook-zedy/index.ts`** — No bloco de recovery (linha ~130), após capturar `payload.pixQrCode`, gerar a URL do QR Code:
+### Alteração em `supabase/functions/webhook-nuvorafy/index.ts`
 
-```typescript
-const pixCode = payload.pixQrCode || "";
-const pixQrcodeUrl = pixCode 
-  ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`
-  : "";
+Corrigir o mapeamento de campos:
+
+```
+// ANTES (errado)
+const order = payload.order || {};
+const transactionToken = String(order.id || `nuvorafy_${Date.now()}`);
+
+// DEPOIS (correto)
+const order = payload.data || payload.order || {};
+const transactionToken = String(order.orderId || order.id || `nuvorafy_${Date.now()}`);
 ```
 
-E no insert do `recovery_leads`, adicionar:
-```typescript
-pix_qrcode_url: pixQrcodeUrl,
-```
+Corrigir os campos de cliente (camelCase):
 
-**2. `src/pages/RecuperacaoVendas.tsx`** — Atualizar Zedy na tabela para `qrcode: true`:
+| Campo atual (errado) | Campo correto |
+|---|---|
+| `order.customer_name` | `order.customerName` |
+| `order.customer_email` | `order.customerEmail` |
+| `order.customer_cpf` | `order.customerCpf` ou `order.customerDocument` |
+| `order.customer_phone` | `order.customerPhone` |
+| `order.payment_method` | `order.paymentMethod` |
+| `order.shipping_address` | `order.shippingAddress` |
+| `order.shipping_zip` | `order.shippingZip` |
+| `order.shipping_city` | `order.shippingCity` |
+| `order.shipping_state` | `order.shippingState` |
+| `order.amount` | `order.amount` (valor em reais, sem multiplicar por 100 se ja vier em centavos -- validar) |
 
-```typescript
-{ name: "Zedy", qrcode: true, copiaECola: true, urlCheckout: false }
-```
+Adicionar fallbacks para ambos os formatos (camelCase e snake_case) para máxima compatibilidade.
 
 ### Resultado esperado
-- Leads de recuperação da Zedy terão `pix_qrcode_url` preenchido com a URL da imagem QR gerada dinamicamente
-- E-mails de recuperação exibirão o QR Code + Copia e Cola
-- Tabela de compatibilidade atualizada mostrando QR Code como disponível para Zedy
+- Pedidos Nuvorafy criados com nome, email, telefone e endereço corretos
+- `transaction_token` usa o `orderId` real em vez de timestamp
+- Envios gerados com dados completos do cliente
 
