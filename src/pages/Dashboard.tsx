@@ -39,6 +39,10 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  useEffect(() => {
+    document.title = "Magnus Frete - Dashboard";
+  }, []);
+
   // Server-side counts for cards (no 1000 limit)
   const { data: counts } = useQuery({
     queryKey: ["envios-counts", loja?.id],

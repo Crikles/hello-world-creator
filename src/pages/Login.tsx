@@ -13,6 +13,10 @@ export default function Login() {
   const [resending, setResending] = useState(false);
   const isLogistics = isLogisticsDomain();
 
+  useEffect(() => {
+    document.title = "Magnus Frete - Login";
+  }, []);
+
   const handleLogin = async (email: string, password: string) => {
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
