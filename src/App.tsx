@@ -10,6 +10,7 @@ import { LojaProvider } from "@/contexts/LojaContext";
 import { BatchProgressProvider } from "@/contexts/BatchProgressContext";
 import { isLogisticsDomain, getLogisticsProvider } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { MobileBlocker } from "@/components/MobileBlocker";
 import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -203,7 +204,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          {logistics ? <LogisticsRoutes /> : <PanelRoutes />}
+          {logistics ? <LogisticsRoutes /> : <MobileBlocker><PanelRoutes /></MobileBlocker>}
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
