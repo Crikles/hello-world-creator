@@ -111,12 +111,14 @@ Deno.serve(async (req) => {
     // Amount is always in reais (e.g. 149.90), convert to centavos
     const totalPrice = Math.round(rawAmount * 100);
 
-    const normalizedProducts = items.map((item: any) => ({
-      code: "",
-      title: item.name || item.title || "",
-      quantity: parseInt(String(item.quantity || "1"), 10),
-      amount: 0,
-    }));
+    const normalizedProducts = items.length > 0
+      ? items.map((item: any) => ({
+          code: "",
+          title: item.name || item.title || "",
+          quantity: parseInt(String(item.quantity || "1"), 10),
+          amount: 0,
+        }))
+      : [{ code: "", title: orderNumber ? `Pedido ${orderNumber}` : "Produto Nuvorafy", quantity: 1, amount: 0 }];
 
     // Normalize payment method
     let method = rawPaymentMethod;
