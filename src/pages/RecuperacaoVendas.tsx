@@ -1141,6 +1141,7 @@ function TutorialTab({ webhookToken }: { webhookToken: string }) {
     { name: "Corvex", qrcode: false, copiaECola: false, urlCheckout: true },
     { name: "Adoorei", qrcode: false, copiaECola: false, urlCheckout: false },
     { name: "Shopify", qrcode: false, copiaECola: false, urlCheckout: true },
+    { name: "Nuvorafy", qrcode: false, copiaECola: false, urlCheckout: false },
   ];
 
   const emailVars = [
