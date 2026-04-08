@@ -1,59 +1,44 @@
 
 
-## Plano: Aprovação em massa na Falha na Entrega
+## Plano: Remover vazamento de "Magnus Frete" nas páginas públicas
 
-### O que será feito
+### Diagnóstico
 
-Adicionar seleção múltipla de cards pendentes com checkbox e um botão "Aprovar Selecionados" que processa todos sequencialmente.
+O problema é o `<title>Magnus Frete</title>` no `index.html`. Como as páginas públicas de rastreio (`/r/:code`), pagamento (`/p/:id`), falha na entrega (`/f/:id`) e taxação **nunca definem `document.title`**, o título da aba do navegador mostra "Magnus Frete" para todos os leads. Se o lead pesquisar "Magnus Frete" no Google, encontra o site.
 
-### Alterações em `src/pages/FalhaEntrega.tsx`
+Além disso, as meta tags OG no `index.html` também contêm "Magnus Frete" — visíveis quando alguém compartilha o link.
 
-**1. Novo estado de seleção**
-- `selectedIds: Set<string>` para rastrear os IDs selecionados
-- Checkbox "Selecionar todos" na barra de ações (ao lado das tabs), visível apenas na aba "pendentes"
-- Limpar seleção ao trocar de aba
+### Alterações
 
-**2. Checkbox em cada card pendente**
-- Adicionar um `Checkbox` no canto superior esquerdo de cada card pendente
-- Toggle do ID no `selectedIds` ao clicar
+**1. `index.html` — Título genérico**
 
-**3. Botão "Aprovar Selecionados"**
-- Aparece na barra de ações quando há itens selecionados
-- Mostra quantidade selecionada: "Aprovar (5)"
-- Ao clicar, exibe confirmação via toast ou dialog
-- Processa sequencialmente chamando `triggerNextEmail` para cada envio selecionado
-- Mostra progresso: "Aprovando 3/5..."
-- Ao finalizar, limpa seleção e invalida cache
+Trocar o título e meta tags de "Magnus Frete" para algo neutro como "Rastreio de Encomendas":
 
-**4. Mutation de aprovação em massa**
-```typescript
-const bulkApproveMutation = useMutation({
-  mutationFn: async (ids: string[]) => {
-    const results = [];
-    for (const id of ids) {
-      const result = await triggerNextEmail(id, loja!.id, true);
-      results.push({ id, result });
-    }
-    return results;
-  },
-  onSuccess: (results) => {
-    const ok = results.filter(r => r.result).length;
-    const fail = results.length - ok;
-    setSelectedIds(new Set());
-    queryClient.invalidateQueries({ queryKey: ["falha-envios"] });
-    queryClient.invalidateQueries({ queryKey: ["envios"] });
-    toast.success(`${ok} pagamento(s) aprovado(s)${fail > 0 ? `, ${fail} falha(s)` : ""}`);
-  },
-});
-```
+- `<title>Rastreio de Encomendas</title>`
+- `og:title` → "Rastreio de Encomendas"
+- `twitter:title` → "Rastreio de Encomendas"
+- Remover `<meta name="author" content="Lovable" />`
+- Remover `<meta name="twitter:site" content="@Lovable" />`
 
-### Layout da barra de ações (aba pendentes)
-```text
-[✓ Selecionar todos] [Aprovar (N) ▶]          [🔍 Buscar...]
-```
+**2. `src/pages/Rastreio.tsx` — Definir título dinâmico**
+
+Adicionar `useEffect` que define `document.title` com base na transportadora detectada:
+- VETOR → "Vetor Transportes - Rastreio"
+- JL → "JL Transportes - Rastreio"
+- Fallback → "Rastreio de Encomendas"
+
+**3. `src/pages/FalhaEntrega.tsx` (página pública `/f/:id`)** — Definir título dinâmico:
+- "Atualização de Entrega"
+
+**4. `src/pages/Pagamento.tsx` (página pública `/p/:id`)** — Definir título dinâmico:
+- "Pagamento - Taxação"
+
+**5. Páginas internas (Dashboard, Login, etc.)** — Definir título como "Magnus Frete" via `useEffect`
+
+Isso garante que páginas internas mantêm "Magnus Frete" no título, mas nenhuma página pública vaza essa informação.
 
 ### Resultado esperado
-- Usuário pode marcar vários cards e aprovar todos de uma vez
-- Feedback visual durante processamento
-- Seleção limpa automaticamente após conclusão
+- Nenhum lead verá "Magnus Frete" na aba do navegador ou em previews de links compartilhados
+- Páginas internas continuam mostrando "Magnus Frete"
+- Meta tags OG limpas de referências ao Magnus e Lovable
 
