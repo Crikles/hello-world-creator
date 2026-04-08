@@ -1,60 +1,41 @@
 
 
-## Plano: Corrigir mapeamento do webhook Nuvorafy conforme documentação oficial
+## Plano: Corrigir dados incompletos da Nuvorafy
 
-### Problema
+### Diagnóstico
 
-O código atual na linha 78 prioriza `payload.data` sobre `payload.order`:
+O payload REAL da Nuvorafy (`raw_payload` no banco) envia os dados em `payload.data` (não `payload.order`) e inclui **apenas**:
+- `customerName`, `customerEmail`, `orderId`, `orderNumber`, `paymentMethod`, `amount`, `status`
+
+**Campos que a documentação promete mas NÃO envia**: `items`, `shipping_address`, `shipping_city`, `shipping_state`, `shipping_zip`, `customer_phone`, `customer_cpf`
+
+Isso causa endereço placeholder na DANFE e produto como "Pedido 260408-..."
+
+### Alterações
+
+**1. `supabase/functions/webhook-nuvorafy/index.ts`** — Corrigir prioridade de extração:
+
 ```typescript
+// ANTES (não funciona - payload real vem em .data)
+const order = payload.order || payload.data || {};
+
+// DEPOIS (priorizar .data que é o formato real)
 const order = payload.data || payload.order || {};
 ```
 
-A documentação oficial confirma que os dados vêm em `payload.order` com campos em **snake_case** (`customer_name`, `customer_email`, `shipping_address`, etc.) e que `items` contém os produtos. O mapeamento anterior foi baseado em suposições incorretas.
+**2. DANFE / Envio** — Como a Nuvorafy simplesmente não envia endereço nem produtos no payload real, não há como extrair esses dados do webhook. As opções são:
 
-Além disso, o `amount` é sempre em **reais** (ex: `149.90`), não em centavos. A lógica atual `rawAmount <= 1000` é frágil e incorreta.
+- **Endereço**: O envio será criado sem endereço. O usuário precisará preencher manualmente na tela de envios, ou a Nuvorafy precisa corrigir o payload deles para incluir os campos documentados.
+- **Produto**: Manter o fallback "Pedido {orderNumber}" já que não temos o nome real do produto.
 
-### Alterações em `supabase/functions/webhook-nuvorafy/index.ts`
+**3. Melhorar fallback na DANFE** — Em `src/components/danfe/DanfePreview.tsx`, quando endereço está vazio, mostrar "—" em vez de valores placeholder como "Rua Exemplo, 123" que confundem o usuário.
 
-1. **Linha 78** — Priorizar `payload.order`:
-```typescript
-const order = payload.order || payload.data || {};
-```
+### Resumo
 
-2. **Linha 79** — Usar `order.id` como primário (a doc mostra `id` como UUID):
-```typescript
-const transactionToken = String(order.id || order.orderId || `nuvorafy_${Date.now()}`);
-```
+A Nuvorafy não está enviando os dados que a própria documentação promete. Vamos:
+1. Corrigir a prioridade `payload.data` sobre `payload.order`
+2. Remover placeholders enganosos da DANFE quando dados estão vazios
+3. O nome do produto continuará como "Pedido {número}" até a Nuvorafy incluir `items` no webhook
 
-3. **Linhas 86-93** — Priorizar snake_case nos campos:
-```typescript
-const customerName = order.customer_name || order.customerName || null;
-const customerEmail = order.customer_email || order.customerEmail || null;
-const customerDocument = order.customer_cpf || order.customerCpf || order.customer_document || null;
-const customerPhone = order.customer_phone || order.customerPhone || null;
-const shippingAddress = order.shipping_address || order.shippingAddress || null;
-const shippingZip = order.shipping_zip || order.shippingZip || null;
-const shippingCity = order.shipping_city || order.shippingCity || null;
-const shippingState = order.shipping_state || order.shippingState || null;
-```
-
-4. **Linha 94** — Adicionar `shipping_method` como fallback de método de pagamento:
-```typescript
-const rawPaymentMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-```
-
-5. **Linha 111** — Amount é sempre reais, converter para centavos:
-```typescript
-const totalPrice = Math.round(rawAmount * 100);
-```
-
-6. **Adicionar `orderNumber`** para fallback de produto quando `items` vazio:
-```typescript
-const orderNumber = order.order_number || order.orderNumber || "";
-```
-E no `produtoJson`, se `items` vazio, usar `Pedido ${orderNumber}`.
-
-### Resultado esperado
-- Pedidos Nuvorafy criados com todos os dados (nome, email, CPF, telefone, endereço, produtos)
-- Valores convertidos corretamente de reais para centavos
-- Produtos listados pelo nome real do item
+Recomendação: entrar em contato com o suporte da Nuvorafy para solicitar que enviem `items`, `shipping_*` e `customer_phone`/`customer_cpf` no payload conforme a documentação deles promete.
 
