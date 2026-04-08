@@ -227,6 +227,12 @@ export default function Rastreio() {
     const logoUrl = isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
     const primaryColor = isVetor ? "#1B5E20" : isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
 
+    useEffect(() => {
+        const title = isVetor ? "Vetor Transportes - Rastreio" : isJadlog ? "JADLOG - Rastreio" : "JL Transportes - Rastreio";
+        document.title = title;
+        return () => { document.title = "Rastreio de Encomendas"; };
+    }, [isVetor, isJadlog]);
+
     const progress = totalEventos > 0 && envio
         ? Math.min(100, Math.round((envio.ultimo_evento_ordem / totalEventos) * 100))
         : 0;

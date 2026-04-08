@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatProduto } from "@/lib/format-produto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,10 @@ export default function Dashboard() {
   const { loja } = useLoja();
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    document.title = "Magnus Frete - Dashboard";
+  }, []);
 
   // Server-side counts for cards (no 1000 limit)
   const { data: counts } = useQuery({
