@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     // Nuvorafy sends data in payload.order (snake_case), fallback to payload.data for compatibility
     const order = payload.order || payload.data || {};
     const transactionToken = String(order.id || order.orderId || `nuvorafy_${Date.now()}`);
-    const orderNumber = order.order_number || order.orderNumber || "";
+    const orderNumber = order.order_number || order.orderNumber || order.cart_number || "";
 
     // Map event
     const orderStatus = (order.status || "").toLowerCase();
@@ -93,21 +93,22 @@ Deno.serve(async (req) => {
     const shippingCity = order.shipping_city || order.shippingCity || null;
     const shippingState = order.shipping_state || order.shippingState || null;
     const rawPaymentMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-    const rawAmount = parseFloat(String(order.amount || "0"));
-    const checkoutUrl = order.checkout_url || order.checkoutUrl || order.payment_url || "";
+    const rawAmount = parseFloat(String(order.amount || order.total_amount || "0"));
+    const checkoutUrl = order.checkout_link || order.checkout_url || order.checkoutUrl || order.payment_url || "";
+    const pixCode = order.pix_code || order.pixCode || "";
 
     // 1. Log the webhook
     await supabase.from("webhook_logs").insert({
       checkout_provider: "nuvorafy",
       event_type: eventType,
-      status: order.status || "paid",
+      status: order.status || event,
       payload,
       processed: false,
       loja_id: lojaId,
     });
 
-    // 2. Normalize products
-    const items = order.items || [];
+    // 2. Normalize products (supports both items and cart_items)
+    const items = order.items || order.cart_items || [];
     // Amount is always in reais (e.g. 149.90), convert to centavos
     const totalPrice = Math.round(rawAmount * 100);
 
@@ -130,63 +131,72 @@ Deno.serve(async (req) => {
       method = "boleto";
     }
 
-    // 3. Upsert into pedidos
-    const pedidoData = {
-      checkout_provider: "nuvorafy",
-      transaction_token: transactionToken,
-      status: order.status || "paid",
-      method,
-      total_price: totalPrice,
-      customer_name: customerName,
-      customer_document: customerDocument,
-      customer_email: customerEmail,
-      customer_phone: customerPhone,
-      address_street: shippingAddress,
-      address_number: null,
-      address_district: null,
-      address_zip_code: shippingZip,
-      address_city: shippingCity,
-      address_state: shippingState,
-      address_country: null,
-      address_complement: null,
-      products: normalizedProducts,
-      raw_payload: payload,
-      loja_id: lojaId,
-    };
+    // 3. Upsert into pedidos (skip for cart.abandoned)
+    let pedidoId: string | undefined;
+    let existingPedido: any = null;
 
-    const { data: existingPedido } = await supabase
-      .from("pedidos")
-      .select("id, envio_id")
-      .eq("checkout_provider", "nuvorafy")
-      .eq("transaction_token", transactionToken)
-      .eq("loja_id", lojaId)
-      .maybeSingle();
+    if (event !== "cart.abandoned") {
+      const pedidoData = {
+        checkout_provider: "nuvorafy",
+        transaction_token: transactionToken,
+        status: order.status || "paid",
+        method,
+        total_price: totalPrice,
+        customer_name: customerName,
+        customer_document: customerDocument,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        address_street: shippingAddress,
+        address_number: null,
+        address_district: null,
+        address_zip_code: shippingZip,
+        address_city: shippingCity,
+        address_state: shippingState,
+        address_country: null,
+        address_complement: null,
+        products: normalizedProducts,
+        raw_payload: payload,
+        loja_id: lojaId,
+      };
 
-    let pedidoId: string;
-
-    if (existingPedido) {
-      await supabase
+      const { data: existing } = await supabase
         .from("pedidos")
-        .update({ ...pedidoData, updated_at: new Date().toISOString() })
-        .eq("id", existingPedido.id);
-      pedidoId = existingPedido.id;
-    } else {
-      const { data: newPedido } = await supabase
-        .from("pedidos")
-        .insert(pedidoData)
-        .select("id")
-        .single();
-      pedidoId = newPedido?.id;
+        .select("id, envio_id")
+        .eq("checkout_provider", "nuvorafy")
+        .eq("transaction_token", transactionToken)
+        .eq("loja_id", lojaId)
+        .maybeSingle();
+
+      existingPedido = existing;
+
+      if (existingPedido) {
+        await supabase
+          .from("pedidos")
+          .update({ ...pedidoData, updated_at: new Date().toISOString() })
+          .eq("id", existingPedido.id);
+        pedidoId = existingPedido.id;
+      } else {
+        const { data: newPedido } = await supabase
+          .from("pedidos")
+          .insert(pedidoData)
+          .select("id")
+          .single();
+        pedidoId = newPedido?.id;
+      }
     }
 
-    // 4. Recovery: if status is "processing" and method is PIX, create recovery lead
-    if (orderStatus === "processing" && method.includes("pix")) {
+    // 4. Recovery: order.pending (PIX) or cart.abandoned
+    const isPixPending = event === "order.pending" || (orderStatus === "pending" && method === "pix") || (orderStatus === "processing" && method.includes("pix"));
+    const isCartAbandoned = event === "cart.abandoned";
+
+    if (isPixPending || isCartAbandoned) {
+      const recoveryTipo = isCartAbandoned ? "carrinho" : "pix_pendente";
       try {
         const { data: recoveryConfig } = await supabase
           .from("recovery_config")
           .select("ativo")
           .eq("loja_id", lojaId)
-          .eq("tipo", "pix_pendente")
+          .eq("tipo", recoveryTipo)
           .maybeSingle();
 
         if (recoveryConfig?.ativo) {
@@ -195,7 +205,7 @@ Deno.serve(async (req) => {
               .from("recovery_leads")
               .select("id")
               .eq("loja_id", lojaId)
-              .eq("tipo", "pix_pendente")
+              .eq("tipo", recoveryTipo)
               .eq("raw_payload->>transaction_token", transactionToken)
               .maybeSingle();
 
@@ -205,6 +215,11 @@ Deno.serve(async (req) => {
                 value: 0,
                 qty: p.quantity || 1,
               }));
+
+              // Generate QR Code URL from pix_code if available
+              const pixQrcodeUrl = pixCode
+                ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`
+                : "";
 
               const { data: insertedLead } = await supabase
                 .from("recovery_leads")
@@ -216,20 +231,22 @@ Deno.serve(async (req) => {
                   products: recoveryProducts,
                   total_value: totalPrice / 100,
                   checkout_url: checkoutUrl,
+                  pix_code: pixCode,
+                  pix_qrcode_url: pixQrcodeUrl,
                   raw_payload: { ...payload, transaction_token: transactionToken },
                   status: "pendente",
-                  tipo: "pix_pendente",
+                  tipo: recoveryTipo,
                 })
                 .select("id")
                 .single();
 
               if (insertedLead) {
                 supabase.functions.invoke("send-recovery-email", {
-                  body: { loja_id: lojaId, customer_email: customerEmail, tipo: "pix_pendente" },
+                  body: { loja_id: lojaId, customer_email: customerEmail, tipo: recoveryTipo },
                 }).catch((e) => console.error("[recovery-email] error:", e));
 
                 supabase.functions.invoke("send-recovery-sms", {
-                  body: { lead_id: insertedLead.id, loja_id: lojaId, tipo: "pix_pendente" },
+                  body: { lead_id: insertedLead.id, loja_id: lojaId, tipo: recoveryTipo },
                 }).catch((e) => console.error("[recovery-sms] error:", e));
               }
             }
