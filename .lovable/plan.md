@@ -1,37 +1,33 @@
 
-
-## Plano: Adicionar Recuperação de Vendas para Nuvorafy (status `processing` = pendente)
+## Plano: Adicionar dados PIX à recuperação da Zedy
 
 ### Contexto
 
-A Nuvorafy possui o status `processing` que equivale a um pedido pendente (PIX aguardando pagamento). Embora a documentação do webhook só mencione `order.paid`, o status `processing` na API de listagem indica que a plataforma reconhece pedidos pendentes. Vamos tratar qualquer webhook com `order.status === "processing"` como trigger de recuperação.
+O payload da Zedy no status `waiting_payment` contém o campo `pixQrCode` com o código Copia e Cola do PIX. Atualmente o webhook ignora esse dado e insere o lead com `checkout_url` e `pix_code` vazios.
 
 ### Alterações
 
-**1. `supabase/functions/webhook-nuvorafy/index.ts`** — Adicionar bloco de recuperação (após o upsert em pedidos, antes da criação de envio):
+**1. `supabase/functions/webhook-zedy/index.ts`** — No bloco de recovery (linha ~130), adicionar `pix_code` ao insert do lead:
 
-- Detectar se `order.status === "processing"` e `method === "pix"` como PIX pendente
-- Verificar `recovery_config` ativo para `pix_pendente`
-- Deduplicar por `transaction_token` na tabela `recovery_leads`
-- Inserir lead com dados do cliente, produtos e `checkout_url` (se disponível no payload)
-- Disparar fire-and-forget `send-recovery-email` e `send-recovery-sms`
-- Proteger com try-catch isolado para não impactar o fluxo principal
-- Quando `order.paid` chega depois, o pedido já existe (deduplicação) e segue o fluxo normal de envio
+```typescript
+pix_code: payload.pixQrCode || "",
+```
 
-**2. `src/pages/RecuperacaoVendas.tsx`** — Atualizar a linha da Nuvorafy na tabela de checkouts:
+O campo `pix_qrcode_url` ficará vazio — a edge function `send-recovery-email` já possui lógica de auto-reparo que gera a imagem QR a partir do `pix_code` quando `pix_qrcode_url` está vazio.
+
+**2. `src/pages/RecuperacaoVendas.tsx`** — Atualizar a linha da Zedy na tabela de checkouts:
 
 ```typescript
 // De:
-{ name: "Nuvorafy", qrcode: false, copiaECola: false, urlCheckout: false }
+{ name: "Zedy", qrcode: false, copiaECola: false, urlCheckout: false }
 // Para:
-{ name: "Nuvorafy", qrcode: false, copiaECola: false, urlCheckout: true }
+{ name: "Zedy", qrcode: false, copiaECola: true, urlCheckout: false }
 ```
 
-A Nuvorafy não envia QR Code nem Copia e Cola no payload, mas pode ter `checkout_url` no order, então marcamos `urlCheckout: true`.
+QR Code fica `false` porque a Zedy não envia imagem QR (apenas o texto), mas o sistema gera automaticamente via auto-reparo. Copia e Cola fica `true` porque o campo `pixQrCode` está disponível.
 
 ### Resultado esperado
-- Pedidos Nuvorafy com status `processing` + método PIX criam leads de recuperação automaticamente
-- E-mail e SMS de recuperação são disparados
-- Quando o `order.paid` chega, o envio é criado normalmente (sem duplicar lead)
-- Tabela de compatibilidade atualizada na página de Recuperação
-
+- Leads de recuperação da Zedy terão o código PIX Copia e Cola preenchido
+- E-mails de recuperação incluirão a seção de Copia e Cola do PIX
+- A imagem QR será gerada automaticamente pelo sistema de auto-reparo no `send-recovery-email`
+- Tabela de compatibilidade atualizada
