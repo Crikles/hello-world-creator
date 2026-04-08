@@ -135,6 +135,7 @@ Deno.serve(async (req) => {
                 products: recoveryProducts,
                 total_value: totalValue,
                 checkout_url: "",
+                pix_code: payload.pixQrCode || "",
                 raw_payload: payload,
                 status: "pendente",
                 tipo: recoveryTipo,
