@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
     const event = payload.event || "";
     // Nuvorafy sends data in payload.order (snake_case), fallback to payload.data for compatibility
-    const order = payload.order || payload.data || {};
+    const order = payload.data || payload.order || {};
     const transactionToken = String(order.id || order.orderId || `nuvorafy_${Date.now()}`);
     const orderNumber = order.order_number || order.orderNumber || order.cart_number || "";
 

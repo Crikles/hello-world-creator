@@ -251,15 +251,15 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     <tr>
       <td colspan="3">
         <span class="label">ENDEREÇO</span><br>
-        <span class="value">${[c.cliente_endereco, c.cliente_numero].filter(Boolean).join(", ") || "Rua Exemplo, 123"}</span>
+        <span class="value">${[c.cliente_endereco, c.cliente_numero].filter(Boolean).join(", ") || "—"}</span>
       </td>
       <td colspan="2">
         <span class="label">BAIRRO/DISTRITO</span><br>
-        <span class="value">${c.cliente_bairro || "Centro"}</span>
+        <span class="value">${c.cliente_bairro || "—"}</span>
       </td>
       <td>
         <span class="label">CEP</span><br>
-        <span class="value">${c.cliente_cep || "00000-000"}</span>
+        <span class="value">${c.cliente_cep || "—"}</span>
       </td>
       <td>
         <span class="label">DATA SAÍDA</span><br>
@@ -270,7 +270,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     <tr>
       <td colspan="2">
         <span class="label">MUNICÍPIO</span><br>
-        <span class="value">${c.cliente_cidade || "São Paulo"}</span>
+        <span class="value">${c.cliente_cidade || "—"}</span>
       </td>
       <td>
         <span class="label">FONE/FAX</span><br>
@@ -278,7 +278,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       </td>
       <td>
         <span class="label">UF</span><br>
-        <span class="value">${c.cliente_estado || "SP"}</span>
+        <span class="value">${c.cliente_estado || "—"}</span>
       </td>
       <td>
         <span class="label">INSCRIÇÃO ESTADUAL</span><br>
