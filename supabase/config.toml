@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.send-recovery-email]
 verify_jwt = false
+
+[functions.webhook-nuvorafy]
+verify_jwt = false
