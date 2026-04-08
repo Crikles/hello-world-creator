@@ -11,7 +11,6 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // GET for connectivity test
   if (req.method === "GET") {
     return new Response(JSON.stringify({ ok: true, provider: "nuvorafy" }), {
       status: 200,
@@ -75,12 +74,26 @@ Deno.serve(async (req) => {
     }
 
     const event = payload.event || "";
-    const order = payload.order || {};
-    const transactionToken = String(order.id || `nuvorafy_${Date.now()}`);
+    // Nuvorafy sends data in payload.data (camelCase), fallback to payload.order for compatibility
+    const order = payload.data || payload.order || {};
+    const transactionToken = String(order.orderId || order.id || `nuvorafy_${Date.now()}`);
 
     // Map event
     const orderStatus = (order.status || "").toLowerCase();
     const eventType = event === "order.paid" ? "sale" : event;
+
+    // Normalize fields with camelCase + snake_case fallbacks
+    const customerName = order.customerName || order.customer_name || null;
+    const customerEmail = order.customerEmail || order.customer_email || null;
+    const customerDocument = order.customerDocument || order.customerCpf || order.customer_cpf || order.customer_document || null;
+    const customerPhone = order.customerPhone || order.customer_phone || null;
+    const shippingAddress = order.shippingAddress || order.shipping_address || null;
+    const shippingZip = order.shippingZip || order.shipping_zip || null;
+    const shippingCity = order.shippingCity || order.shipping_city || null;
+    const shippingState = order.shippingState || order.shipping_state || null;
+    const rawPaymentMethod = (order.paymentMethod || order.payment_method || "").toLowerCase();
+    const rawAmount = parseFloat(String(order.amount || "0"));
+    const checkoutUrl = order.checkoutUrl || order.checkout_url || order.payment_url || "";
 
     // 1. Log the webhook
     await supabase.from("webhook_logs").insert({
@@ -92,25 +105,25 @@ Deno.serve(async (req) => {
       loja_id: lojaId,
     });
 
-    // 2. Normalize data from Nuvorafy payload
+    // 2. Normalize products
     const items = order.items || [];
-    const totalPrice = Math.round(parseFloat(String(order.amount || "0")) * 100);
+    // If amount <= 1000, assume reais; otherwise assume centavos
+    const totalPrice = rawAmount <= 1000 ? Math.round(rawAmount * 100) : Math.round(rawAmount);
 
     const normalizedProducts = items.map((item: any) => ({
       code: "",
-      title: item.name || "",
+      title: item.name || item.title || "",
       quantity: parseInt(String(item.quantity || "1"), 10),
       amount: 0,
     }));
 
     // Normalize payment method
-    const rawMethod = (order.payment_method || "").toLowerCase();
-    let method = rawMethod;
-    if (rawMethod.includes("credit") || rawMethod.includes("cartao") || rawMethod.includes("card")) {
+    let method = rawPaymentMethod;
+    if (rawPaymentMethod.includes("credit") || rawPaymentMethod.includes("cartao") || rawPaymentMethod.includes("card")) {
       method = "credit_card";
-    } else if (rawMethod.includes("pix")) {
+    } else if (rawPaymentMethod.includes("pix")) {
       method = "pix";
-    } else if (rawMethod.includes("boleto")) {
+    } else if (rawPaymentMethod.includes("boleto")) {
       method = "boleto";
     }
 
@@ -121,16 +134,16 @@ Deno.serve(async (req) => {
       status: order.status || "paid",
       method,
       total_price: totalPrice,
-      customer_name: order.customer_name || null,
-      customer_document: order.customer_cpf || null,
-      customer_email: order.customer_email || null,
-      customer_phone: order.customer_phone || null,
-      address_street: order.shipping_address || null,
+      customer_name: customerName,
+      customer_document: customerDocument,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
+      address_street: shippingAddress,
       address_number: null,
       address_district: null,
-      address_zip_code: order.shipping_zip || null,
-      address_city: order.shipping_city || null,
-      address_state: order.shipping_state || null,
+      address_zip_code: shippingZip,
+      address_city: shippingCity,
+      address_state: shippingState,
       address_country: null,
       address_complement: null,
       products: normalizedProducts,
@@ -174,10 +187,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recoveryConfig?.ativo) {
-          const customerEmail = order.customer_email || "";
-
           if (customerEmail) {
-            // Deduplication by transaction_token
             const { data: existingLead } = await supabase
               .from("recovery_leads")
               .select("id")
@@ -193,15 +203,13 @@ Deno.serve(async (req) => {
                 qty: p.quantity || 1,
               }));
 
-              const checkoutUrl = order.checkout_url || order.payment_url || "";
-
               const { data: insertedLead } = await supabase
                 .from("recovery_leads")
                 .insert({
                   loja_id: lojaId,
-                  customer_name: order.customer_name || "",
+                  customer_name: customerName || "",
                   customer_email: customerEmail,
-                  customer_phone: order.customer_phone || "",
+                  customer_phone: customerPhone || "",
                   products: recoveryProducts,
                   total_value: totalPrice / 100,
                   checkout_url: checkoutUrl,
@@ -213,7 +221,6 @@ Deno.serve(async (req) => {
                 .single();
 
               if (insertedLead) {
-                // Fire-and-forget email + SMS
                 supabase.functions.invoke("send-recovery-email", {
                   body: { loja_id: lojaId, customer_email: customerEmail, tipo: "pix_pendente" },
                 }).catch((e) => console.error("[recovery-email] error:", e));
@@ -232,7 +239,6 @@ Deno.serve(async (req) => {
 
     // 5. If order.paid and no envio linked yet, create envio
     if (event === "order.paid" && !existingPedido?.envio_id && pedidoId) {
-      // Check payment method filter
       const { data: integrationConfig } = await supabase
         .from("checkout_integrations")
         .select("filtro_metodo")
@@ -262,27 +268,25 @@ Deno.serve(async (req) => {
       );
       const totalQuantidade = normalizedProducts.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
 
-      // Get empresa
       const { data: empresaData } = await supabase
         .from("empresas")
         .select("id")
         .eq("loja_id", lojaId)
         .maybeSingle();
 
-      // Parse CEP (remove hyphen)
-      const cepClean = (order.shipping_zip || "").replace(/\D/g, "");
+      const cepClean = (shippingZip || "").replace(/\D/g, "");
 
       const envioData = {
-        cliente_nome: order.customer_name || "Cliente Nuvorafy",
-        cliente_email: order.customer_email || "sem-email@nuvorafy.com",
-        cliente_cpf: order.customer_cpf || null,
-        cliente_telefone: order.customer_phone || null,
-        cliente_endereco: order.shipping_address || null,
+        cliente_nome: customerName || "Cliente Nuvorafy",
+        cliente_email: customerEmail || "sem-email@nuvorafy.com",
+        cliente_cpf: customerDocument,
+        cliente_telefone: customerPhone,
+        cliente_endereco: shippingAddress,
         cliente_numero: null,
         cliente_bairro: null,
         cliente_cep: cepClean || null,
-        cliente_cidade: order.shipping_city || null,
-        cliente_estado: order.shipping_state || null,
+        cliente_cidade: shippingCity,
+        cliente_estado: shippingState,
         cliente_complemento: null,
         produto: produtoJson || "Produto Nuvorafy",
         quantidade: totalQuantidade || 1,
@@ -304,7 +308,6 @@ Deno.serve(async (req) => {
           .update({ envio_id: newEnvio.id })
           .eq("id", pedidoId);
 
-        // Fire-and-forget WhatsApp for new order
         supabase.functions.invoke("auto-whatsapp-new-order", {
           body: { envio_id: newEnvio.id, loja_id: lojaId }
         }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
