@@ -1,41 +1,27 @@
 
 
-## Plano: Corrigir dados incompletos da Nuvorafy
+## Plano: Atualizar webhook Nuvorafy conforme documentação atualizada
 
-### Diagnóstico
+### Problema
 
-O payload REAL da Nuvorafy (`raw_payload` no banco) envia os dados em `payload.data` (não `payload.order`) e inclui **apenas**:
-- `customerName`, `customerEmail`, `orderId`, `orderNumber`, `paymentMethod`, `amount`, `status`
+A documentação atualizada da Nuvorafy confirma que os dados vêm em `payload.order` (não `payload.data`) e o campo de ID do pedido é `order.order_id` (não `order.id`). O código atual prioriza `payload.data` e não lê `order_id`.
 
-**Campos que a documentação promete mas NÃO envia**: `items`, `shipping_address`, `shipping_city`, `shipping_state`, `shipping_zip`, `customer_phone`, `customer_cpf`
+### Alterações em `supabase/functions/webhook-nuvorafy/index.ts`
 
-Isso causa endereço placeholder na DANFE e produto como "Pedido 260408-..."
-
-### Alterações
-
-**1. `supabase/functions/webhook-nuvorafy/index.ts`** — Corrigir prioridade de extração:
-
+**1. Linha 78** — Inverter prioridade para `payload.order` primeiro:
 ```typescript
-// ANTES (não funciona - payload real vem em .data)
 const order = payload.order || payload.data || {};
-
-// DEPOIS (priorizar .data que é o formato real)
-const order = payload.data || payload.order || {};
 ```
 
-**2. DANFE / Envio** — Como a Nuvorafy simplesmente não envia endereço nem produtos no payload real, não há como extrair esses dados do webhook. As opções são:
+**2. Linha 79** — Adicionar `order.order_id` como primeira opção de ID:
+```typescript
+const transactionToken = String(order.order_id || order.id || order.orderId || `nuvorafy_${Date.now()}`);
+```
 
-- **Endereço**: O envio será criado sem endereço. O usuário precisará preencher manualmente na tela de envios, ou a Nuvorafy precisa corrigir o payload deles para incluir os campos documentados.
-- **Produto**: Manter o fallback "Pedido {orderNumber}" já que não temos o nome real do produto.
+Apenas essas 2 linhas precisam mudar. Todo o restante (campos snake_case, items, cart_items, pix_code, checkout_link) já está mapeado corretamente conforme a nova documentação.
 
-**3. Melhorar fallback na DANFE** — Em `src/components/danfe/DanfePreview.tsx`, quando endereço está vazio, mostrar "—" em vez de valores placeholder como "Rua Exemplo, 123" que confundem o usuário.
-
-### Resumo
-
-A Nuvorafy não está enviando os dados que a própria documentação promete. Vamos:
-1. Corrigir a prioridade `payload.data` sobre `payload.order`
-2. Remover placeholders enganosos da DANFE quando dados estão vazios
-3. O nome do produto continuará como "Pedido {número}" até a Nuvorafy incluir `items` no webhook
-
-Recomendação: entrar em contato com o suporte da Nuvorafy para solicitar que enviem `items`, `shipping_*` e `customer_phone`/`customer_cpf` no payload conforme a documentação deles promete.
+### Resultado esperado
+- Pedidos criados com `transaction_token` usando o `order_id` correto
+- Dados extraídos de `payload.order` conforme a documentação oficial
+- Mantém fallback para `payload.data` caso payloads antigos ainda cheguem
 
