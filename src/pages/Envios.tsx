@@ -557,18 +557,18 @@ export default function Envios() {
   // Pre-click: show confirmation dialog
   const handleAvancarTodosClick = () => {
     const ids = selectedIdsRef.current;
-    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
-    setBatchConfirm({ type: "avancar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "do filtro ativo" });
+    setBatchConfirm({ type: "avancar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "da página" });
   };
 
   const handleForcarTodosClick = () => {
     const ids = selectedIdsRef.current;
-    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
     if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
-    setBatchConfirm({ type: "forcar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "do filtro ativo" });
+    setBatchConfirm({ type: "forcar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "da página" });
   };
 
   const handleBatchConfirmed = async () => {
@@ -577,7 +577,7 @@ export default function Envios() {
     setBatchConfirm(null);
 
     const ids = selectedIdsRef.current;
-    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
     const targets = isForce
       ? base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0)
       : base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
@@ -622,65 +622,10 @@ export default function Envios() {
     }
   };
 
-  const filteredEnvios = envios.filter((e) => {
-    const searchLower = search.toLowerCase();
-    const matchSearch =
-      e.cliente_nome.toLowerCase().includes(searchLower) ||
-      e.produto.toLowerCase().includes(searchLower) ||
-      (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(searchLower)) ||
-      e.cliente_email.toLowerCase().includes(searchLower) ||
-      e.valor.toString().includes(searchLower);
-
-    const matchStatus = filterStatus === "todos"
-      || e.status_label === filterStatus
-      || (filterStatus === "Pendente" && e.status === "pendente" && !e.status_label);
-
-    let matchDate = true;
-    if (dateRange.from) {
-      const envioDate = new Date(e.created_at);
-      const start = startOfDay(dateRange.from);
-      const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-      matchDate = isWithinInterval(envioDate, { start, end });
-    }
-
-    let matchMetodo = true;
-    if (filterMetodo !== "todos") {
-      const metodo = pedidoMetodoMap[e.id];
-      if (filterMetodo === "pix") {
-        matchMetodo = !!metodo && metodo.toLowerCase().includes("pix");
-      } else if (filterMetodo === "cartao") {
-        const m = (metodo || "").toLowerCase();
-        matchMetodo = m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit");
-      } else if (filterMetodo === "boleto") {
-        matchMetodo = !!metodo && metodo.toLowerCase().includes("boleto");
-      }
-    }
-
-    let matchOrigem = true;
-    if (filterOrigem !== "todos") {
-      const provider = pedidoOrigemMap[e.id];
-      if (filterOrigem === "manual") {
-        matchOrigem = !provider;
-      } else if (filterOrigem === "api_externa") {
-        matchOrigem = provider === "api_externa";
-      } else {
-        matchOrigem = provider === filterOrigem;
-      }
-    }
-
-    return matchSearch && matchStatus && matchDate && matchMetodo && matchOrigem;
-  });
-
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterStatus, filterMetodo, filterOrigem, dateRange.from, dateRange.to]);
-
-  const totalPages = Math.ceil(filteredEnvios.length / itemsPerPage);
-  const paginatedEnvios = filteredEnvios.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  }, [debouncedSearch, filterStatus, filterMetodo, filterOrigem, dateRange.from, dateRange.to]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const ROW_HEIGHT = 52;
@@ -840,10 +785,10 @@ export default function Envios() {
   };
 
   // Metrics
-  const totalCount = envios.length;
-  const pendentesCount = envios.filter((e) => e.status === "pendente").length;
-  const transitoCount = envios.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega" || e.status === "coletado" || e.status === "centro_local").length;
-  const entreguesCount = envios.filter((e) => e.status === "entregue").length;
+  const totalCount = stats?.total ?? 0;
+  const pendentesCount = stats?.pendentes ?? 0;
+  const transitoCount = Number(stats?.em_transito ?? 0);
+  const entreguesCount = stats?.entregues ?? 0;
 
   const metrics = [
     { label: "Total", value: totalCount, icon: Package, delay: 0 },
