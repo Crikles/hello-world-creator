@@ -105,6 +105,7 @@ const statusOptions = [
 export default function Envios() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [filterMetodo, setFilterMetodo] = useState<string>("todos");
   const [filterOrigem, setFilterOrigem] = useState<string>("todos");
