@@ -242,6 +242,12 @@ export default function Envios() {
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   // Force re-render every second for countdown display
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
