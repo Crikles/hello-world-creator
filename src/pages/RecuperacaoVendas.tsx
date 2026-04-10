@@ -1221,7 +1221,7 @@ function TutorialTab({ webhookToken, lojaId }: { webhookToken: string; lojaId: s
                 <Mail className="h-4 w-4 text-primary" />
                 <span className="text-sm font-semibold text-foreground">E-mail</span>
               </div>
-              <p className="text-2xl font-bold text-primary">0,10</p>
+              <p className="text-2xl font-bold text-primary">{(pricing?.emailPix ?? 0.10).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-[10px] text-muted-foreground">moedas por envio</p>
               <div className="flex gap-2 justify-center mt-1">
                 <Badge variant="outline" className="text-[9px]">PIX Pendente</Badge>
@@ -1232,7 +1232,7 @@ function TutorialTab({ webhookToken, lojaId }: { webhookToken: string; lojaId: s
                 <Smartphone className="h-4 w-4 text-primary" />
                 <span className="text-sm font-semibold text-foreground">SMS</span>
               </div>
-              <p className="text-2xl font-bold text-primary">0,15</p>
+              <p className="text-2xl font-bold text-primary">{(pricing?.smsPix ?? 0.15).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-[10px] text-muted-foreground">moedas por envio</p>
               <div className="flex gap-2 justify-center mt-1">
                 <Badge variant="outline" className="text-[9px]">PIX Pendente</Badge>
