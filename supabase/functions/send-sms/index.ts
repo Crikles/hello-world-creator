@@ -97,14 +97,13 @@ Deno.serve(async (req) => {
 
     const firstName = (envio.cliente_nome || "").split(" ")[0];
     const code = envio.codigo_rastreio || "";
-    // SMS uses direct tracking domain (shorter, cleaner for SMS)
-    // Fetch tracking base URL from system_config
-    const { data: trackingConfig } = await supabase
-      .from("system_config")
-      .select("label")
-      .eq("key", "tracking_base_url")
-      .single();
-    const baseUrl = trackingConfig?.label || "https://rastreio.jltransportelogistica.com";
+    // Determine tracking domain based on carrier
+    const transportadora = (envio.transportadora || "").toLowerCase();
+    const isVetor = transportadora.includes("vetor") || 
+                    (code && code.toUpperCase().endsWith("VT"));
+    const baseUrl = isVetor 
+      ? "https://vetortransportesltda.com"
+      : "https://rastreio.jltransportelogistica.com";
     const link = `${baseUrl}/r/${code}`;
 
     const message = removeAccents(
