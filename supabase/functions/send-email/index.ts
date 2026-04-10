@@ -1135,7 +1135,7 @@ Deno.serve(async (req) => {
     }
 
     // Fetch postagem_config for sender email + whatsapp
-    let emailRemetente = "noreply@jltransportes.pro";
+    let emailRemetente = "noreply@holdingtransportesbr.com";
     let whatsappVendedor = "";
     const isJadlog = envio.transportadora?.toUpperCase().includes("JADLOG");
     const isVetor = envio.transportadora?.toUpperCase().includes("VETOR");
