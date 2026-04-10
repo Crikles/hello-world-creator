@@ -187,16 +187,6 @@ export default function Dashboard() {
   const emTransito = counts?.emTransito ?? 0;
   const entregues = counts?.entregues ?? 0;
 
-  const chartDataMap = new Map<string, { receita: number; pedidos: number }>();
-  chartEnvios.forEach((e) => {
-    const day = format(new Date(e.created_at), "dd/MM");
-    const existing = chartDataMap.get(day) || { receita: 0, pedidos: 0 };
-    existing.receita += Number(e.valor || 0);
-    existing.pedidos += 1;
-    chartDataMap.set(day, existing);
-  });
-  const chartData = Array.from(chartDataMap.entries())
-    .map(([name, vals]) => ({ name, ...vals }));
 
   const cards = [
     { title: "Total de Pedidos", value: total, icon: Package },
