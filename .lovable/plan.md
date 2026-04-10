@@ -1,49 +1,37 @@
 
 
-## Diagnóstico: Dashboard lenta e com delay
+## Plano: Otimizar carregamento da página de Envios
 
-### Problemas identificados
+### Problema
+A página Envios busca **TODOS** os registros da loja em loops de 1.000 (envios + pedidos), totalizando 6+ requests HTTP sequenciais para lojas com muitos registros. Tudo é filtrado e paginado no client-side.
 
-**1. Delay no carregamento:**
-O dashboard faz **3 consultas pesadas** que buscam TODOS os envios da loja no client-side:
-- **Faturamento**: busca todos os registros em loops de 1.000 para somar `valor` (ex: yaveh = 2.133 registros = 3 requests)
-- **Gráfico**: busca todos os registros com `valor` e `created_at` em loops de 1.000
-- **Contagens**: 5 queries paralelas (mais leve, usa `count: exact`)
+### Solução: Paginação e contagens server-side
 
-Para a loja yaveh com 2.133 envios, são pelo menos **9 requests HTTP** antes do dashboard renderizar.
-
-**2. Gráfico com aparência estranha:**
-O formato de data `dd/MM` (sem ano) faz com que dados de anos diferentes se misturem no mesmo ponto. Além disso, mostrar TODOS os dados históricos sem filtro deixa o gráfico muito denso.
-
-### Solução proposta
-
-**A. Criar uma database function para faturamento (elimina loops):**
+**A. Criar função de contagens (stats cards):**
 ```sql
-CREATE FUNCTION get_loja_faturamento(p_loja_id uuid)
-RETURNS numeric AS $$
-  SELECT COALESCE(SUM(valor), 0) FROM envios 
-  WHERE loja_id = p_loja_id AND deleted_at IS NULL
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+CREATE FUNCTION get_envios_stats(p_loja_id uuid)
+RETURNS TABLE(total bigint, pendentes bigint, em_transito bigint, entregues bigint)
 ```
+Elimina a necessidade de buscar todos os registros só para contar.
 
-**B. Criar uma database function para dados do gráfico (agregação server-side):**
+**B. Criar função de listagem paginada com filtros:**
 ```sql
-CREATE FUNCTION get_loja_chart_data(p_loja_id uuid)
-RETURNS TABLE(dia date, receita numeric, pedidos bigint) AS $$
-  SELECT created_at::date, SUM(valor), COUNT(*) FROM envios
-  WHERE loja_id = p_loja_id AND deleted_at IS NULL
-  GROUP BY created_at::date ORDER BY created_at::date
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+CREATE FUNCTION get_envios_paginated(
+  p_loja_id uuid, p_search text, p_status text,
+  p_page int, p_per_page int
+)
+RETURNS TABLE(... campos do envio + origem + metodo_pagamento ...)
 ```
+Faz JOIN com `pedidos` server-side para trazer origem e método de pagamento junto, eliminando a query separada de pedidos. Aplica filtros no SQL.
 
-**C. Atualizar Dashboard.tsx:**
-- Substituir o loop de faturamento por `supabase.rpc('get_loja_faturamento', { p_loja_id })`
-- Substituir o loop do gráfico por `supabase.rpc('get_loja_chart_data', { p_loja_id })`
-- Formatar datas do gráfico como `dd/MM/yy` para distinguir anos
-- Resultado: de **9+ requests** para **4 requests** (faturamento, chart, counts, recent)
+**C. Atualizar `src/pages/Envios.tsx`:**
+- Substituir o loop de envios por `supabase.rpc('get_envios_paginated', {...})`
+- Substituir contagens manuais por `supabase.rpc('get_envios_stats', {...})`
+- Remover a query separada de pedidos (dados vêm junto)
+- Manter filtros de busca, status, data, método e origem — enviados como parâmetros para a função
 
 ### Resultado esperado
-- Dashboard carrega 3-5x mais rápido
-- Gráfico mostra datas com ano para evitar sobreposição
-- Menos carga no banco e no client
+- De **6+ requests sequenciais** para **2 requests paralelos** (stats + página atual)
+- Carregamento quase instantâneo independente do volume de dados
+- Filtros e paginação processados no banco (muito mais rápido)
 
