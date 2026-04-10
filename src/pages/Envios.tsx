@@ -261,63 +261,60 @@ export default function Envios() {
     return `${m}m ${s.toString().padStart(2, "0")}s`;
   };
 
-  const { data: envios = [] } = useQuery({
-    queryKey: ["envios", loja?.id],
+  // Stats via server-side RPC (instant counts)
+  const { data: stats } = useQuery({
+    queryKey: ["envios-stats", loja?.id],
     queryFn: async () => {
-      if (!loja) return [];
-      const all: any[] = [];
-      const pageSize = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("envios")
-          .select("*")
-          .eq("loja_id", loja.id)
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false })
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        all.push(...(data || []));
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-      return all;
+      if (!loja) return { total: 0, pendentes: 0, em_transito: 0, entregues: 0 };
+      const { data, error } = await supabase.rpc("get_envios_stats", { p_loja_id: loja.id });
+      if (error) throw error;
+      return (data as any)?.[0] || { total: 0, pendentes: 0, em_transito: 0, entregues: 0 };
     },
     enabled: !!loja,
   });
 
-  // Fetch pedidos linked to envios to determine origin (webhook vs manual) and payment method
-  const { data: pedidoData = { origemMap: {}, metodoMap: {} } } = useQuery<{ origemMap: Record<string, string>; metodoMap: Record<string, string> }>({
-    queryKey: ["pedido-origem", loja?.id],
+  // Paginated envios via server-side RPC (with filters + pedido join)
+  const { data: paginatedResult = [] } = useQuery({
+    queryKey: ["envios-paginated", loja?.id, debouncedSearch, filterStatus, filterMetodo, filterOrigem, dateRange.from?.toISOString(), dateRange.to?.toISOString(), currentPage, itemsPerPage],
     queryFn: async () => {
-      if (!loja) return { origemMap: {}, metodoMap: {} };
-      const origemMap: Record<string, string> = {};
-      const metodoMap: Record<string, string> = {};
-      let from = 0;
-      const pageSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("pedidos")
-          .select("envio_id, checkout_provider, method")
-          .eq("loja_id", loja.id)
-          .not("envio_id", "is", null)
-          .range(from, from + pageSize - 1);
-        if (error || !data || data.length === 0) break;
-        for (const p of data) {
-          if (p.envio_id) {
-            origemMap[p.envio_id] = p.checkout_provider;
-            if (p.method) metodoMap[p.envio_id] = p.method;
-          }
-        }
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-      return { origemMap, metodoMap };
+      if (!loja) return [];
+      const { data, error } = await supabase.rpc("get_envios_paginated", {
+        p_loja_id: loja.id,
+        p_search: debouncedSearch || '',
+        p_status: filterStatus,
+        p_metodo: filterMetodo,
+        p_origem: filterOrigem,
+        p_date_from: dateRange.from ? startOfDay(dateRange.from).toISOString() : null,
+        p_date_to: dateRange.to ? endOfDay(dateRange.to).toISOString() : dateRange.from ? endOfDay(dateRange.from).toISOString() : null,
+        p_page: currentPage,
+        p_per_page: itemsPerPage,
+      });
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!loja,
   });
-  const pedidoOrigemMap = pedidoData.origemMap;
-  const pedidoMetodoMap = pedidoData.metodoMap;
+
+  const paginatedEnvios = paginatedResult as any[];
+  const totalFilteredCount = paginatedEnvios.length > 0 ? Number(paginatedEnvios[0].total_count) : 0;
+  const totalPages = Math.ceil(totalFilteredCount / itemsPerPage);
+
+  // Derive origem/metodo maps from paginated data
+  const pedidoOrigemMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of paginatedEnvios) {
+      if (e.origem) map[e.id] = e.origem;
+    }
+    return map;
+  }, [paginatedEnvios]);
+
+  const pedidoMetodoMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of paginatedEnvios) {
+      if (e.metodo_pagamento) map[e.id] = e.metodo_pagamento;
+    }
+    return map;
+  }, [paginatedEnvios]);
 
   const getMetodoLabel = (method: string) => {
     const m = method.toLowerCase();
