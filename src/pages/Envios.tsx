@@ -24,7 +24,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
-import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -105,6 +105,7 @@ const statusOptions = [
 export default function Envios() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [filterMetodo, setFilterMetodo] = useState<string>("todos");
   const [filterOrigem, setFilterOrigem] = useState<string>("todos");
@@ -241,6 +242,12 @@ export default function Envios() {
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   // Force re-render every second for countdown display
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
@@ -254,63 +261,60 @@ export default function Envios() {
     return `${m}m ${s.toString().padStart(2, "0")}s`;
   };
 
-  const { data: envios = [] } = useQuery({
-    queryKey: ["envios", loja?.id],
+  // Stats via server-side RPC (instant counts)
+  const { data: stats } = useQuery({
+    queryKey: ["envios-stats", loja?.id],
     queryFn: async () => {
-      if (!loja) return [];
-      const all: any[] = [];
-      const pageSize = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("envios")
-          .select("*")
-          .eq("loja_id", loja.id)
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false })
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        all.push(...(data || []));
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-      return all;
+      if (!loja) return { total: 0, pendentes: 0, em_transito: 0, entregues: 0 };
+      const { data, error } = await supabase.rpc("get_envios_stats", { p_loja_id: loja.id });
+      if (error) throw error;
+      return (data as any)?.[0] || { total: 0, pendentes: 0, em_transito: 0, entregues: 0 };
     },
     enabled: !!loja,
   });
 
-  // Fetch pedidos linked to envios to determine origin (webhook vs manual) and payment method
-  const { data: pedidoData = { origemMap: {}, metodoMap: {} } } = useQuery<{ origemMap: Record<string, string>; metodoMap: Record<string, string> }>({
-    queryKey: ["pedido-origem", loja?.id],
+  // Paginated envios via server-side RPC (with filters + pedido join)
+  const { data: paginatedResult = [] } = useQuery({
+    queryKey: ["envios-paginated", loja?.id, debouncedSearch, filterStatus, filterMetodo, filterOrigem, dateRange.from?.toISOString(), dateRange.to?.toISOString(), currentPage, itemsPerPage],
     queryFn: async () => {
-      if (!loja) return { origemMap: {}, metodoMap: {} };
-      const origemMap: Record<string, string> = {};
-      const metodoMap: Record<string, string> = {};
-      let from = 0;
-      const pageSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("pedidos")
-          .select("envio_id, checkout_provider, method")
-          .eq("loja_id", loja.id)
-          .not("envio_id", "is", null)
-          .range(from, from + pageSize - 1);
-        if (error || !data || data.length === 0) break;
-        for (const p of data) {
-          if (p.envio_id) {
-            origemMap[p.envio_id] = p.checkout_provider;
-            if (p.method) metodoMap[p.envio_id] = p.method;
-          }
-        }
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-      return { origemMap, metodoMap };
+      if (!loja) return [];
+      const { data, error } = await supabase.rpc("get_envios_paginated", {
+        p_loja_id: loja.id,
+        p_search: debouncedSearch || '',
+        p_status: filterStatus,
+        p_metodo: filterMetodo,
+        p_origem: filterOrigem,
+        p_date_from: dateRange.from ? startOfDay(dateRange.from).toISOString() : null,
+        p_date_to: dateRange.to ? endOfDay(dateRange.to).toISOString() : dateRange.from ? endOfDay(dateRange.from).toISOString() : null,
+        p_page: currentPage,
+        p_per_page: itemsPerPage,
+      });
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!loja,
   });
-  const pedidoOrigemMap = pedidoData.origemMap;
-  const pedidoMetodoMap = pedidoData.metodoMap;
+
+  const paginatedEnvios = paginatedResult as any[];
+  const totalFilteredCount = paginatedEnvios.length > 0 ? Number(paginatedEnvios[0].total_count) : 0;
+  const totalPages = Math.ceil(totalFilteredCount / itemsPerPage);
+
+  // Derive origem/metodo maps from paginated data
+  const pedidoOrigemMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of paginatedEnvios) {
+      if (e.origem) map[e.id] = e.origem;
+    }
+    return map;
+  }, [paginatedEnvios]);
+
+  const pedidoMetodoMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of paginatedEnvios) {
+      if (e.metodo_pagamento) map[e.id] = e.metodo_pagamento;
+    }
+    return map;
+  }, [paginatedEnvios]);
 
   const getMetodoLabel = (method: string) => {
     const m = method.toLowerCase();
@@ -337,7 +341,7 @@ export default function Envios() {
   };
 
   // Fetch event counts per template_id for progress calculation
-  const templateIdsKey = envios.map(e => e.postagem_template_id).filter(Boolean).join(",");
+  const templateIdsKey = paginatedEnvios.map(e => e.postagem_template_id).filter(Boolean).join(",");
   const { data: eventCountMap = {} } = useQuery<Record<string, number>>({
     queryKey: ["event-count-map", loja?.id, templateIdsKey],
     queryFn: async () => {
@@ -350,7 +354,7 @@ export default function Envios() {
       if (!config) return {};
 
       const templateIds = [...new Set(
-        envios.map(e => e.postagem_template_id).filter(Boolean) as string[]
+        paginatedEnvios.map(e => e.postagem_template_id).filter(Boolean) as string[]
       )];
       if (config.template_ativo_id && !templateIds.includes(config.template_ativo_id)) {
         templateIds.push(config.template_ativo_id);
@@ -376,7 +380,7 @@ export default function Envios() {
       }
       return map;
     },
-    enabled: !!loja && envios.length > 0,
+    enabled: !!loja && paginatedEnvios.length > 0,
   });
 
   // Realtime listener for envios updates
@@ -388,7 +392,8 @@ export default function Envios() {
         "postgres_changes",
         { event: "*", schema: "public", table: "envios", filter: `loja_id=eq.${loja.id}` },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["envios", loja.id] });
+          queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+          queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
         }
       )
       .subscribe();
@@ -421,7 +426,7 @@ export default function Envios() {
             console.log("AUTO: Starting new shipment", newEnvio.id);
             try {
               await triggerNextEmail(newEnvio.id, loja.id);
-              queryClient.invalidateQueries({ queryKey: ["envios", loja.id] });
+              queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
               toast.success(`Auto: envio ${newEnvio.cliente_nome} iniciado!`);
             } catch (err: any) {
               if (err instanceof InsufficientBalanceError) {
@@ -445,7 +450,7 @@ export default function Envios() {
       return result;
     },
     onSuccess: (_data, envioId) => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       setCooldowns((prev) => ({ ...prev, [envioId]: Date.now() + 120000 }));
       toast.success("Avançado!");
     },
@@ -466,7 +471,7 @@ export default function Envios() {
       return result;
     },
     onSuccess: (_data, envioId) => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       setCooldowns((prev) => ({ ...prev, [envioId]: Date.now() + 120000 }));
       toast.success("Avanço forçado!");
     },
@@ -485,7 +490,7 @@ export default function Envios() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       queryClient.invalidateQueries({ queryKey: ["taxacao-envios"] });
       toast.success("Envio removido.");
       setSelectedIds((prev) => {
@@ -511,7 +516,7 @@ export default function Envios() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       queryClient.invalidateQueries({ queryKey: ["taxacao-envios"] });
       toast.success(`${selectedIds.size} envio(s) removido(s).`);
       setSelectedIds(new Set());
@@ -526,9 +531,9 @@ export default function Envios() {
     return !pa || new Date(pa) <= new Date();
   };
 
-  // INICIAR PENDENTES: only starts envios at stage 0
+  // INICIAR PENDENTES: only starts envios at stage 0 (from current page)
   const handleIniciarPendentes = async () => {
-    const pendentes = envios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
+    const pendentes = paginatedEnvios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
     if (pendentes.length === 0) return toast.info("Nenhum envio pendente na estaca zero.");
     let count = 0;
     for (const envio of pendentes) {
@@ -543,7 +548,8 @@ export default function Envios() {
         }
       }
     }
-    queryClient.invalidateQueries({ queryKey: ["envios"] });
+    queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+    queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
     setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) iniciado(s)!`);
   };
@@ -551,18 +557,18 @@ export default function Envios() {
   // Pre-click: show confirmation dialog
   const handleAvancarTodosClick = () => {
     const ids = selectedIdsRef.current;
-    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
-    setBatchConfirm({ type: "avancar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "do filtro ativo" });
+    setBatchConfirm({ type: "avancar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "da página" });
   };
 
   const handleForcarTodosClick = () => {
     const ids = selectedIdsRef.current;
-    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
     const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
     if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
-    setBatchConfirm({ type: "forcar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "do filtro ativo" });
+    setBatchConfirm({ type: "forcar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "da página" });
   };
 
   const handleBatchConfirmed = async () => {
@@ -571,7 +577,7 @@ export default function Envios() {
     setBatchConfirm(null);
 
     const ids = selectedIdsRef.current;
-    const base = ids.size > 0 ? envios.filter((e) => ids.has(e.id)) : filteredEnvios;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
     const targets = isForce
       ? base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0)
       : base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
@@ -606,7 +612,7 @@ export default function Envios() {
       }
 
       if (updated > 0) {
-        queryClient.invalidateQueries({ queryKey: ["envios"] });
+        queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
         toast.success(
           `${updated} envio(s) agendado(s) para ${isForce ? "avanço forçado" : "avanço"}. O servidor processará automaticamente em até 5 minutos.`
         );
@@ -616,65 +622,10 @@ export default function Envios() {
     }
   };
 
-  const filteredEnvios = envios.filter((e) => {
-    const searchLower = search.toLowerCase();
-    const matchSearch =
-      e.cliente_nome.toLowerCase().includes(searchLower) ||
-      e.produto.toLowerCase().includes(searchLower) ||
-      (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(searchLower)) ||
-      e.cliente_email.toLowerCase().includes(searchLower) ||
-      e.valor.toString().includes(searchLower);
-
-    const matchStatus = filterStatus === "todos"
-      || e.status_label === filterStatus
-      || (filterStatus === "Pendente" && e.status === "pendente" && !e.status_label);
-
-    let matchDate = true;
-    if (dateRange.from) {
-      const envioDate = new Date(e.created_at);
-      const start = startOfDay(dateRange.from);
-      const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-      matchDate = isWithinInterval(envioDate, { start, end });
-    }
-
-    let matchMetodo = true;
-    if (filterMetodo !== "todos") {
-      const metodo = pedidoMetodoMap[e.id];
-      if (filterMetodo === "pix") {
-        matchMetodo = !!metodo && metodo.toLowerCase().includes("pix");
-      } else if (filterMetodo === "cartao") {
-        const m = (metodo || "").toLowerCase();
-        matchMetodo = m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit");
-      } else if (filterMetodo === "boleto") {
-        matchMetodo = !!metodo && metodo.toLowerCase().includes("boleto");
-      }
-    }
-
-    let matchOrigem = true;
-    if (filterOrigem !== "todos") {
-      const provider = pedidoOrigemMap[e.id];
-      if (filterOrigem === "manual") {
-        matchOrigem = !provider;
-      } else if (filterOrigem === "api_externa") {
-        matchOrigem = provider === "api_externa";
-      } else {
-        matchOrigem = provider === filterOrigem;
-      }
-    }
-
-    return matchSearch && matchStatus && matchDate && matchMetodo && matchOrigem;
-  });
-
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterStatus, filterMetodo, filterOrigem, dateRange.from, dateRange.to]);
-
-  const totalPages = Math.ceil(filteredEnvios.length / itemsPerPage);
-  const paginatedEnvios = filteredEnvios.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  }, [debouncedSearch, filterStatus, filterMetodo, filterOrigem, dateRange.from, dateRange.to]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const ROW_HEIGHT = 52;
@@ -710,7 +661,7 @@ export default function Envios() {
   };
 
   const handleExportCSV = useCallback(() => {
-    if (filteredEnvios.length === 0) {
+    if (paginatedEnvios.length === 0) {
       toast.info("Nenhum envio para exportar.");
       return;
     }
@@ -721,7 +672,7 @@ export default function Envios() {
       }
       return val;
     };
-    const rows = filteredEnvios.map((e) => {
+    const rows = paginatedEnvios.map((e) => {
       const trackingUrl = e.codigo_rastreio
         ? `https://${getTrackingDomain(e)}/rastreio?codigo=${e.codigo_rastreio}`
         : "";
@@ -747,16 +698,16 @@ export default function Envios() {
     link.download = `envios_${format(new Date(), "yyyy-MM-dd")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`${filteredEnvios.length} envio(s) exportado(s) como CSV!`);
-  }, [filteredEnvios, getTrackingDomain]);
+    toast.success(`${paginatedEnvios.length} envio(s) exportado(s) como CSV!`);
+  }, [paginatedEnvios, getTrackingDomain]);
 
   const handleExportXLSX = useCallback(() => {
-    if (filteredEnvios.length === 0) {
+    if (paginatedEnvios.length === 0) {
       toast.info("Nenhum envio para exportar.");
       return;
     }
     const headers = ["Nome", "Email", "Telefone", "Produto", "Valor", "Código Rastreio", "Link Rastreio", "Status", "Data"];
-    const data = filteredEnvios.map((e) => {
+    const data = paginatedEnvios.map((e) => {
       const trackingUrl = e.codigo_rastreio
         ? `https://${getTrackingDomain(e)}/rastreio?codigo=${e.codigo_rastreio}`
         : "";
@@ -787,8 +738,8 @@ export default function Envios() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Envios");
     XLSX.writeFile(wb, `envios_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
-    toast.success(`${filteredEnvios.length} envio(s) exportado(s) como Excel!`);
-  }, [filteredEnvios, getTrackingDomain]);
+    toast.success(`${paginatedEnvios.length} envio(s) exportado(s) como Excel!`);
+  }, [paginatedEnvios, getTrackingDomain]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -834,10 +785,10 @@ export default function Envios() {
   };
 
   // Metrics
-  const totalCount = envios.length;
-  const pendentesCount = envios.filter((e) => e.status === "pendente").length;
-  const transitoCount = envios.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega" || e.status === "coletado" || e.status === "centro_local").length;
-  const entreguesCount = envios.filter((e) => e.status === "entregue").length;
+  const totalCount = stats?.total ?? 0;
+  const pendentesCount = stats?.pendentes ?? 0;
+  const transitoCount = Number(stats?.em_transito ?? 0);
+  const entreguesCount = stats?.entregues ?? 0;
 
   const metrics = [
     { label: "Total", value: totalCount, icon: Package, delay: 0 },
@@ -929,7 +880,7 @@ export default function Envios() {
                     onClick={handleAvancarTodosClick}
                   >
                     <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Avançar Todos (${selectedIds.size > 0 ? selectedIds.size : filteredEnvios.length})`}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Avançar Todos (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
                   </Button>
                   <Button
                     variant="ghost"
@@ -939,7 +890,7 @@ export default function Envios() {
                     onClick={handleForcarTodosClick}
                   >
                     <Zap className="h-3.5 w-3.5 mr-1 text-yellow-500" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : filteredEnvios.length})`}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
                   </Button>
                 </>
               )}
@@ -1085,7 +1036,7 @@ export default function Envios() {
         </div>
 
         {/* Content */}
-        {filteredEnvios.length === 0 ? (
+        {paginatedEnvios.length === 0 ? (
           /* Empty State */
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="relative mb-6">
@@ -1311,11 +1262,11 @@ export default function Envios() {
           </div>
 
           {/* Pagination */}
-          {filteredEnvios.length > 0 && (
+          {totalFilteredCount > 0 && (
             <div className="flex items-center justify-between glass glow-border rounded-xl px-4 py-3 mt-2">
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">
-                  Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredEnvios.length)} de {filteredEnvios.length} envios
+                  Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, totalFilteredCount)} de {totalFilteredCount} envios
                 </span>
                 <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); localStorage.setItem('envios_per_page', v); }}>
                   <SelectTrigger className="h-7 w-[80px] text-xs">
