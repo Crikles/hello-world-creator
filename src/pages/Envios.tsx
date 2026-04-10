@@ -661,7 +661,7 @@ export default function Envios() {
   };
 
   const handleExportCSV = useCallback(() => {
-    if (filteredEnvios.length === 0) {
+    if (paginatedEnvios.length === 0) {
       toast.info("Nenhum envio para exportar.");
       return;
     }
@@ -672,7 +672,7 @@ export default function Envios() {
       }
       return val;
     };
-    const rows = filteredEnvios.map((e) => {
+    const rows = paginatedEnvios.map((e) => {
       const trackingUrl = e.codigo_rastreio
         ? `https://${getTrackingDomain(e)}/rastreio?codigo=${e.codigo_rastreio}`
         : "";
@@ -698,16 +698,16 @@ export default function Envios() {
     link.download = `envios_${format(new Date(), "yyyy-MM-dd")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`${filteredEnvios.length} envio(s) exportado(s) como CSV!`);
-  }, [filteredEnvios, getTrackingDomain]);
+    toast.success(`${paginatedEnvios.length} envio(s) exportado(s) como CSV!`);
+  }, [paginatedEnvios, getTrackingDomain]);
 
   const handleExportXLSX = useCallback(() => {
-    if (filteredEnvios.length === 0) {
+    if (paginatedEnvios.length === 0) {
       toast.info("Nenhum envio para exportar.");
       return;
     }
     const headers = ["Nome", "Email", "Telefone", "Produto", "Valor", "Código Rastreio", "Link Rastreio", "Status", "Data"];
-    const data = filteredEnvios.map((e) => {
+    const data = paginatedEnvios.map((e) => {
       const trackingUrl = e.codigo_rastreio
         ? `https://${getTrackingDomain(e)}/rastreio?codigo=${e.codigo_rastreio}`
         : "";
@@ -738,8 +738,8 @@ export default function Envios() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Envios");
     XLSX.writeFile(wb, `envios_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
-    toast.success(`${filteredEnvios.length} envio(s) exportado(s) como Excel!`);
-  }, [filteredEnvios, getTrackingDomain]);
+    toast.success(`${paginatedEnvios.length} envio(s) exportado(s) como Excel!`);
+  }, [paginatedEnvios, getTrackingDomain]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -880,7 +880,7 @@ export default function Envios() {
                     onClick={handleAvancarTodosClick}
                   >
                     <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Avançar Todos (${selectedIds.size > 0 ? selectedIds.size : filteredEnvios.length})`}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Avançar Todos (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
                   </Button>
                   <Button
                     variant="ghost"
@@ -890,7 +890,7 @@ export default function Envios() {
                     onClick={handleForcarTodosClick}
                   >
                     <Zap className="h-3.5 w-3.5 mr-1 text-yellow-500" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : filteredEnvios.length})`}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
                   </Button>
                 </>
               )}
@@ -1036,7 +1036,7 @@ export default function Envios() {
         </div>
 
         {/* Content */}
-        {filteredEnvios.length === 0 ? (
+        {paginatedEnvios.length === 0 ? (
           /* Empty State */
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="relative mb-6">
@@ -1262,11 +1262,11 @@ export default function Envios() {
           </div>
 
           {/* Pagination */}
-          {filteredEnvios.length > 0 && (
+          {paginatedEnvios.length > 0 && (
             <div className="flex items-center justify-between glass glow-border rounded-xl px-4 py-3 mt-2">
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">
-                  Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredEnvios.length)} de {filteredEnvios.length} envios
+                  Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, paginatedEnvios.length)} de {paginatedEnvios.length} envios
                 </span>
                 <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); localStorage.setItem('envios_per_page', v); }}>
                   <SelectTrigger className="h-7 w-[80px] text-xs">
