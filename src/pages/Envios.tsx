@@ -341,7 +341,7 @@ export default function Envios() {
   };
 
   // Fetch event counts per template_id for progress calculation
-  const templateIdsKey = envios.map(e => e.postagem_template_id).filter(Boolean).join(",");
+  const templateIdsKey = paginatedEnvios.map(e => e.postagem_template_id).filter(Boolean).join(",");
   const { data: eventCountMap = {} } = useQuery<Record<string, number>>({
     queryKey: ["event-count-map", loja?.id, templateIdsKey],
     queryFn: async () => {
@@ -354,7 +354,7 @@ export default function Envios() {
       if (!config) return {};
 
       const templateIds = [...new Set(
-        envios.map(e => e.postagem_template_id).filter(Boolean) as string[]
+        paginatedEnvios.map(e => e.postagem_template_id).filter(Boolean) as string[]
       )];
       if (config.template_ativo_id && !templateIds.includes(config.template_ativo_id)) {
         templateIds.push(config.template_ativo_id);
@@ -380,7 +380,7 @@ export default function Envios() {
       }
       return map;
     },
-    enabled: !!loja && envios.length > 0,
+    enabled: !!loja && paginatedEnvios.length > 0,
   });
 
   // Realtime listener for envios updates
@@ -392,7 +392,8 @@ export default function Envios() {
         "postgres_changes",
         { event: "*", schema: "public", table: "envios", filter: `loja_id=eq.${loja.id}` },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["envios", loja.id] });
+          queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+          queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
         }
       )
       .subscribe();
