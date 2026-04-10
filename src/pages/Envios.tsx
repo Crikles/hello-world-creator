@@ -426,7 +426,7 @@ export default function Envios() {
             console.log("AUTO: Starting new shipment", newEnvio.id);
             try {
               await triggerNextEmail(newEnvio.id, loja.id);
-              queryClient.invalidateQueries({ queryKey: ["envios", loja.id] });
+              queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
               toast.success(`Auto: envio ${newEnvio.cliente_nome} iniciado!`);
             } catch (err: any) {
               if (err instanceof InsufficientBalanceError) {
@@ -450,7 +450,7 @@ export default function Envios() {
       return result;
     },
     onSuccess: (_data, envioId) => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       setCooldowns((prev) => ({ ...prev, [envioId]: Date.now() + 120000 }));
       toast.success("Avançado!");
     },
@@ -471,7 +471,7 @@ export default function Envios() {
       return result;
     },
     onSuccess: (_data, envioId) => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       setCooldowns((prev) => ({ ...prev, [envioId]: Date.now() + 120000 }));
       toast.success("Avanço forçado!");
     },
@@ -490,7 +490,7 @@ export default function Envios() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       queryClient.invalidateQueries({ queryKey: ["taxacao-envios"] });
       toast.success("Envio removido.");
       setSelectedIds((prev) => {
@@ -516,7 +516,7 @@ export default function Envios() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       queryClient.invalidateQueries({ queryKey: ["taxacao-envios"] });
       toast.success(`${selectedIds.size} envio(s) removido(s).`);
       setSelectedIds(new Set());
@@ -612,7 +612,7 @@ export default function Envios() {
       }
 
       if (updated > 0) {
-        queryClient.invalidateQueries({ queryKey: ["envios"] });
+        queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
         toast.success(
           `${updated} envio(s) agendado(s) para ${isForce ? "avanço forçado" : "avanço"}. O servidor processará automaticamente em até 5 minutos.`
         );
