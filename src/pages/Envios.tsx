@@ -24,7 +24,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
-import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
