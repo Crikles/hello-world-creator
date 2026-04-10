@@ -65,53 +65,30 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
-  // Faturamento: fetch all valores recursively
+  // Faturamento: server-side aggregation
   const { data: faturamento = 0 } = useQuery({
     queryKey: ["envios-faturamento", loja?.id],
     queryFn: async () => {
       if (!loja) return 0;
-      let total = 0;
-      const pageSize = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("envios")
-          .select("valor")
-          .eq("loja_id", loja.id)
-          .is("deleted_at", null)
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        total += (data || []).reduce((sum, e) => sum + Number(e.valor || 0), 0);
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-      return total;
+      const { data, error } = await supabase.rpc("get_loja_faturamento", { p_loja_id: loja.id });
+      if (error) throw error;
+      return Number(data) || 0;
     },
     enabled: !!loja,
   });
 
-  // Chart data: all time, paginated
-  const { data: chartEnvios = [] } = useQuery({
+  // Chart data: server-side aggregation
+  const { data: chartData = [] } = useQuery({
     queryKey: ["envios-chart", loja?.id],
     queryFn: async () => {
       if (!loja) return [];
-      const pageSize = 1000;
-      let from = 0;
-      let all: { valor: number; created_at: string }[] = [];
-      while (true) {
-        const { data, error } = await supabase
-          .from("envios")
-          .select("valor, created_at")
-          .eq("loja_id", loja.id)
-          .is("deleted_at", null)
-          .order("created_at", { ascending: true })
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        all = all.concat(data || []);
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-      return all;
+      const { data, error } = await supabase.rpc("get_loja_chart_data", { p_loja_id: loja.id });
+      if (error) throw error;
+      return (data || []).map((row: { dia: string; receita: number; pedidos: number }) => ({
+        name: format(new Date(row.dia + "T00:00:00"), "dd/MM/yy"),
+        receita: Number(row.receita),
+        pedidos: Number(row.pedidos),
+      }));
     },
     enabled: !!loja,
   });
@@ -210,16 +187,6 @@ export default function Dashboard() {
   const emTransito = counts?.emTransito ?? 0;
   const entregues = counts?.entregues ?? 0;
 
-  const chartDataMap = new Map<string, { receita: number; pedidos: number }>();
-  chartEnvios.forEach((e) => {
-    const day = format(new Date(e.created_at), "dd/MM");
-    const existing = chartDataMap.get(day) || { receita: 0, pedidos: 0 };
-    existing.receita += Number(e.valor || 0);
-    existing.pedidos += 1;
-    chartDataMap.set(day, existing);
-  });
-  const chartData = Array.from(chartDataMap.entries())
-    .map(([name, vals]) => ({ name, ...vals }));
 
   const cards = [
     { title: "Total de Pedidos", value: total, icon: Package },

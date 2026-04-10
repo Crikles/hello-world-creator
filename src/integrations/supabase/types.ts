@@ -1816,6 +1816,15 @@ export type Database = {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
       }
+      get_loja_chart_data: {
+        Args: { p_loja_id: string }
+        Returns: {
+          dia: string
+          pedidos: number
+          receita: number
+        }[]
+      }
+      get_loja_faturamento: { Args: { p_loja_id: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
