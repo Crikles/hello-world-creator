@@ -1055,7 +1055,7 @@ export default function RecuperacaoVendas() {
   const { loja } = useLoja();
 
   useEffect(() => {
-    if (user && user.email !== "vdklanca@gmail.com") {
+    if (user && user.email !== "vdklanca@gmail.com" && user.email !== "backupativado@gmail.com") {
       navigate(loja ? `/loja/${loja.id}` : "/lojas", { replace: true });
     }
   }, [user, loja, navigate]);
