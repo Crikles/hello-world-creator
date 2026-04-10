@@ -1,0 +1,1 @@
+UPDATE postagem_config SET email_remetente = 'noreply@holdingtransportesbr.com' WHERE email_remetente = 'noreply@jltransportes.pro';
