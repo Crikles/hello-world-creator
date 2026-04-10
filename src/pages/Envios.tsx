@@ -531,9 +531,9 @@ export default function Envios() {
     return !pa || new Date(pa) <= new Date();
   };
 
-  // INICIAR PENDENTES: only starts envios at stage 0
+  // INICIAR PENDENTES: only starts envios at stage 0 (from current page)
   const handleIniciarPendentes = async () => {
-    const pendentes = envios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
+    const pendentes = paginatedEnvios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
     if (pendentes.length === 0) return toast.info("Nenhum envio pendente na estaca zero.");
     let count = 0;
     for (const envio of pendentes) {
@@ -548,7 +548,8 @@ export default function Envios() {
         }
       }
     }
-    queryClient.invalidateQueries({ queryKey: ["envios"] });
+    queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+    queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
     setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) iniciado(s)!`);
   };
