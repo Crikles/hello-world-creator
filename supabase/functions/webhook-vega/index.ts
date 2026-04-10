@@ -9,13 +9,12 @@ const corsHeaders = {
 
 /* ── Helpers ── */
 
-/** Convert Vega price (always in centavos as integer or string) to reais */
-function centavosToReais(raw: unknown): number {
+/** Parse a numeric value from raw input (strips non-numeric chars) */
+function parseNumericValue(raw: unknown): number {
   if (raw == null) return 0;
   const n = Number(String(raw).replace(/[^0-9.-]/g, ""));
   if (isNaN(n)) return 0;
-  // Vega sends 500 meaning R$5,00 (centavos)
-  return n / 100;
+  return n;
 }
 
 /** Resolve checkout URL from multiple Vega payload fields */
@@ -29,12 +28,14 @@ function resolveCheckoutUrl(payload: Record<string, unknown>): string {
   ).trim();
 }
 
-/** Extract products from Vega V1 (plans[].products[]) or V2 (products[]) */
+/** Extract products from Vega V1 (plans[].products[]) or V2 (products[])
+ *  NOTE: Vega sends values already in Reais (e.g. 48.90), NOT centavos.
+ */
 function extractProducts(payload: Record<string, unknown>): Array<{
   code: string;
   title: string;
   description: string;
-  amount: number; // centavos (raw)
+  amount: number; // Reais
   quantity: number;
 }> {
   const products = payload.products as any[] | undefined;
@@ -43,7 +44,7 @@ function extractProducts(payload: Record<string, unknown>): Array<{
       code: String(p.id || p.code || ""),
       title: String(p.name || p.title || "Produto"),
       description: String(p.description || ""),
-      amount: Number(String(p.value || p.amount || 0).replace(/[^0-9.-]/g, "")) || 0,
+      amount: parseNumericValue(p.value || p.amount || 0),
       quantity: Number(p.amount || p.quantity || 1),
     }));
   }
@@ -58,7 +59,7 @@ function extractProducts(payload: Record<string, unknown>): Array<{
             code: String(p.id || ""),
             title: String(p.name || "Produto"),
             description: String(p.description || ""),
-            amount: Number(String(p.value || plan.value || 0).replace(/[^0-9.-]/g, "")) || 0,
+            amount: parseNumericValue(p.value || plan.value || 0),
             quantity: Number(p.amount || 1),
           });
         }
@@ -185,9 +186,9 @@ Deno.serve(async (req) => {
     const customer = payload.customer || {};
     const address = payload.address || {};
     const normalizedProducts = extractProducts(payload);
-    const totalPriceReais = centavosToReais(payload.total_price);
 
-    // Total price in centavos for pedidos table (keeps original format)
+    // Vega sends total_price already in Reais (e.g. 48.90)
+    const totalPriceReais = parseNumericValue(payload.total_price);
     const totalPriceCentavos = Math.round(totalPriceReais * 100);
 
     // Upsert into pedidos
@@ -258,10 +259,10 @@ Deno.serve(async (req) => {
         if (recoveryConfig?.ativo) {
           const checkoutUrl = resolveCheckoutUrl(payload);
 
-          // Products for recovery lead: values in reais
+          // Products for recovery lead: values already in Reais
           const recoveryProducts = normalizedProducts.map((p: any) => ({
             name: p.title || p.name || "Produto",
-            value: (Number(p.amount) || 0) / 100,
+            value: p.amount || 0,
             qty: Number(p.quantity || 1),
           }));
 
