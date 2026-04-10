@@ -1115,7 +1115,7 @@ export default function RecuperacaoVendas() {
         </TabsContent>
 
         <TabsContent value="tutorial">
-          <TutorialTab webhookToken={loja.webhook_token} />
+          <TutorialTab webhookToken={loja.webhook_token} lojaId={loja.id} />
         </TabsContent>
       </Tabs>
     </div>
@@ -1123,9 +1123,45 @@ export default function RecuperacaoVendas() {
 }
 
 /* ─── Tutorial Tab ─── */
-function TutorialTab({ webhookToken }: { webhookToken: string }) {
+function TutorialTab({ webhookToken, lojaId }: { webhookToken: string; lojaId: string }) {
+  const { user } = useAuth();
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-recovery?token=${webhookToken}&tipo=`;
   const [copied, setCopied] = useState<string | null>(null);
+
+  // Fetch real pricing from system_config + custom_prices
+  const { data: pricing } = useQuery({
+    queryKey: ["recovery-pricing", lojaId, user?.id],
+    queryFn: async () => {
+      // Get loja owner
+      const { data: loja } = await supabase.from("lojas").select("user_id").eq("id", lojaId).single();
+      const userId = loja?.user_id;
+
+      // Get system config costs
+      const { data: sysConfigs } = await supabase
+        .from("system_config")
+        .select("key, value")
+        .in("key", ["custo_recovery_email_pix", "custo_recovery_sms_pix", "custo_recovery_email_carrinho", "custo_recovery_sms_carrinho"]);
+
+      const sysMap: Record<string, number> = {};
+      (sysConfigs || []).forEach((c) => { sysMap[c.key] = c.value; });
+
+      // Get custom prices if any
+      let customPrices: Record<string, number> = {};
+      if (userId) {
+        const { data: profile } = await supabase.from("profiles").select("custom_prices").eq("id", userId).maybeSingle();
+        customPrices = (profile?.custom_prices || {}) as Record<string, number>;
+      }
+
+      const resolve = (key: string, fallback: number) =>
+        typeof customPrices[key] === "number" ? customPrices[key] : (sysMap[key] ?? fallback);
+
+      return {
+        emailPix: resolve("custo_recovery_email_pix", 0.10),
+        smsPix: resolve("custo_recovery_sms_pix", 0.15),
+      };
+    },
+    enabled: !!lojaId,
+  });
 
   const copyUrl = (tipo: string) => {
     navigator.clipboard.writeText(webhookUrl + tipo);
