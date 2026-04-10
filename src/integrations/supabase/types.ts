@@ -1816,6 +1816,67 @@ export type Database = {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
       }
+      get_envios_paginated: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_loja_id: string
+          p_metodo?: string
+          p_origem?: string
+          p_page?: number
+          p_per_page?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          cfop: string
+          cliente_bairro: string
+          cliente_cep: string
+          cliente_cidade: string
+          cliente_complemento: string
+          cliente_cpf: string
+          cliente_email: string
+          cliente_endereco: string
+          cliente_estado: string
+          cliente_nome: string
+          cliente_numero: string
+          cliente_telefone: string
+          codigo_rastreio: string
+          created_at: string
+          cst: string
+          deleted_at: string
+          empresa_id: string
+          id: string
+          loja_id: string
+          metodo_pagamento: string
+          ncm_sh: string
+          nfe_chave_acesso: string
+          nfe_numero: string
+          nfe_serie: string
+          origem: string
+          postagem_template_id: string
+          produto: string
+          proximo_avanco_em: string
+          quantidade: number
+          status: Database["public"]["Enums"]["shipment_status"]
+          status_label: string
+          total_count: number
+          transportadora: string
+          ultimo_evento_ordem: number
+          unidade: string
+          updated_at: string
+          valor: number
+        }[]
+      }
+      get_envios_stats: {
+        Args: { p_loja_id: string }
+        Returns: {
+          em_transito: number
+          entregues: number
+          pendentes: number
+          total: number
+        }[]
+      }
       get_loja_chart_data: {
         Args: { p_loja_id: string }
         Returns: {
