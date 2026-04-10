@@ -1262,11 +1262,11 @@ export default function Envios() {
           </div>
 
           {/* Pagination */}
-          {paginatedEnvios.length > 0 && (
+          {totalFilteredCount > 0 && (
             <div className="flex items-center justify-between glass glow-border rounded-xl px-4 py-3 mt-2">
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">
-                  Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, paginatedEnvios.length)} de {paginatedEnvios.length} envios
+                  Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, totalFilteredCount)} de {totalFilteredCount} envios
                 </span>
                 <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); localStorage.setItem('envios_per_page', v); }}>
                   <SelectTrigger className="h-7 w-[80px] text-xs">
