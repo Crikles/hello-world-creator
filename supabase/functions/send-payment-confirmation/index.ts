@@ -56,9 +56,8 @@ function buildEmailFromTags(corpo: string, vars: Record<string, string>, empresa
   const saudacao = replaceTemplateVars(rawSaudacao, vars);
   const mensagem = replaceTemplateVars(rawMensagem, vars);
   const rodape = replaceTemplateVars(rawRodape, vars);
-  const mostrarRodape = parseConfBool(resolvedCorpo, "conf_mostrar_rodape", true);
-  const corPrimaria = parseConfTag(resolvedCorpo, "conf_cor_primaria") || parseConfTag(resolvedCorpo, "conf_cor_header") || "#16a34a";
-  const corTexto = parseConfTag(resolvedCorpo, "conf_cor_texto") || "#333333";
+  const corPrimaria = parseConfTag(corpo, "conf_cor_primaria") || parseConfTag(corpo, "conf_cor_header") || "#16a34a";
+  const corTexto = parseConfTag(corpo, "conf_cor_texto") || "#333333";
 
   const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
   const logoSection = empresa?.logo_url

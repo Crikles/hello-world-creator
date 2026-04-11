@@ -45,7 +45,7 @@ function extractProducts(payload: Record<string, unknown>): Array<{
       title: String(p.name || p.title || "Produto"),
       description: String(p.description || ""),
       amount: parseNumericValue(p.value || p.amount || 0),
-      quantity: Number(p.amount || p.quantity || 1),
+      quantity: Number(p.quantity || 1),
     }));
   }
   // V1: plans[].products[]
