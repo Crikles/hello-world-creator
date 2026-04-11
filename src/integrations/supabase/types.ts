@@ -187,6 +187,7 @@ export type Database = {
           ativo: boolean
           corpo_email: string
           created_at: string
+          email_remetente_nome: string | null
           enviar_email: boolean
           enviar_sms: boolean
           id: string
@@ -199,6 +200,7 @@ export type Database = {
           ativo?: boolean
           corpo_email?: string
           created_at?: string
+          email_remetente_nome?: string | null
           enviar_email?: boolean
           enviar_sms?: boolean
           id?: string
@@ -211,6 +213,7 @@ export type Database = {
           ativo?: boolean
           corpo_email?: string
           created_at?: string
+          email_remetente_nome?: string | null
           enviar_email?: boolean
           enviar_sms?: boolean
           id?: string
