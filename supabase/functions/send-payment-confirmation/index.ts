@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
           const subject = replaceTemplateVars(config.assunto_email, templateVars);
 
           // Build HTML: use metadata tags if present, otherwise default
-          const htmlBody = (config.corpo_email && config.corpo_email.includes("{{conf_"))
+          const htmlBody = (config.corpo_email && (config.corpo_email.includes("[conf_") || config.corpo_email.includes("{{conf_")))
             ? buildEmailFromTags(config.corpo_email, templateVars, empresa)
             : buildDefaultEmailHtml(templateVars, empresa);
 
