@@ -191,22 +191,103 @@ function replacePreviewVars(text: string): string {
 /* ─── Historico Tab with pagination + filters ─── */
 const PER_PAGE = 10;
 
+interface GroupedLog {
+  pedido_id: string | null;
+  nome: string;
+  email: string;
+  telefone: string;
+  email_status: "sent" | "failed" | "none";
+  sms_status: "sent" | "failed" | "none";
+  custo_total: number;
+  created_at: string;
+}
+
 function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean }) {
+  const { loja } = useLoja();
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [page, setPage] = useState(1);
 
+  // Fetch pedidos for client info
+  const pedidoIds = useMemo(() => {
+    const ids = new Set<string>();
+    logs.forEach((l) => { if (l.pedido_id) ids.add(l.pedido_id); });
+    return Array.from(ids);
+  }, [logs]);
+
+  const { data: pedidos } = useQuery({
+    queryKey: ["confirmacao-pedidos", loja?.id, pedidoIds],
+    queryFn: async () => {
+      if (!pedidoIds.length) return [];
+      const { data } = await supabase
+        .from("pedidos")
+        .select("id, customer_name, customer_email, customer_phone")
+        .in("id", pedidoIds);
+      return data || [];
+    },
+    enabled: !!loja && pedidoIds.length > 0,
+  });
+
+  const pedidoMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    (pedidos || []).forEach((p) => { map[p.id] = p; });
+    return map;
+  }, [pedidos]);
+
+  // Group logs by pedido_id (or by destinatario if no pedido_id)
+  const grouped = useMemo(() => {
+    const groups: Record<string, GroupedLog> = {};
+
+    logs.forEach((log) => {
+      const key = log.pedido_id || log.destinatario || log.id;
+
+      if (!groups[key]) {
+        const pedido = log.pedido_id ? pedidoMap[log.pedido_id] : null;
+        groups[key] = {
+          pedido_id: log.pedido_id,
+          nome: pedido?.customer_name || "-",
+          email: pedido?.customer_email || (log.tipo === "email" ? log.destinatario : ""),
+          telefone: pedido?.customer_phone || (log.tipo === "sms" ? log.destinatario : ""),
+          email_status: "none",
+          sms_status: "none",
+          custo_total: 0,
+          created_at: log.created_at,
+        };
+      }
+
+      const g = groups[key];
+      g.custo_total += Number(log.custo || 0);
+
+      if (log.tipo === "email") {
+        g.email_status = log.status as "sent" | "failed";
+        if (!g.email) g.email = log.destinatario;
+      } else if (log.tipo === "sms") {
+        g.sms_status = log.status as "sent" | "failed";
+        if (!g.telefone) g.telefone = log.destinatario;
+      }
+
+      // Use earliest date
+      if (log.created_at < g.created_at) g.created_at = log.created_at;
+    });
+
+    return Object.values(groups).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [logs, pedidoMap]);
+
   const filtered = useMemo(() => {
-    let result = logs;
+    let result = grouped;
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((l) => l.destinatario?.toLowerCase().includes(q));
+      result = result.filter((g) =>
+        g.nome.toLowerCase().includes(q) ||
+        g.email.toLowerCase().includes(q) ||
+        g.telefone.includes(q)
+      );
     }
     if (dateFilter) {
-      result = result.filter((l) => l.created_at?.startsWith(dateFilter));
+      result = result.filter((g) => g.created_at.startsWith(dateFilter));
     }
     return result;
-  }, [logs, search, dateFilter]);
+  }, [grouped, search, dateFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const currentPage = Math.min(page, totalPages);
@@ -214,19 +295,29 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
 
   useEffect(() => { setPage(1); }, [search, dateFilter]);
 
+  const StatusBadge = ({ status, type }: { status: string; type: "email" | "sms" }) => {
+    const icon = type === "email" ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />;
+    if (status === "sent") return (
+      <Badge className="bg-green-500/10 text-green-600 gap-1">{icon} <CheckCircle2 className="h-3 w-3" /></Badge>
+    );
+    if (status === "failed") return (
+      <Badge variant="destructive" className="gap-1">{icon} <XCircle className="h-3 w-3" /></Badge>
+    );
+    return <Badge variant="outline" className="gap-1 opacity-40">{icon} —</Badge>;
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Histórico de Confirmações</CardTitle>
-        <CardDescription>Notificações enviadas</CardDescription>
+        <CardDescription>Notificações enviadas por cliente</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por destinatário..."
+              placeholder="Buscar por nome, email ou telefone..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -257,71 +348,45 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Destinatário</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead className="text-center">Email</TableHead>
+                    <TableHead className="text-center">SMS</TableHead>
                     <TableHead>Custo</TableHead>
                     <TableHead>Data</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginated.map((log: any) => (
-                    <TableRow key={log.id}>
-                      <TableCell>
-                        {log.tipo === "email" ? (
-                          <Badge variant="outline" className="gap-1">
-                            <Mail className="h-3 w-3" /> Email
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="gap-1">
-                            <MessageSquare className="h-3 w-3" /> SMS
-                          </Badge>
-                        )}
+                  {paginated.map((g, idx) => (
+                    <TableRow key={g.pedido_id || idx}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
+                          {g.nome}
+                        </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{log.destinatario}</TableCell>
-                      <TableCell>
-                        {log.status === "sent" ? (
-                          <Badge className="bg-green-500/10 text-green-600 gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Enviado
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="gap-1">
-                            <XCircle className="h-3 w-3" /> Falhou
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{Number(log.custo).toFixed(2)}</TableCell>
-                      <TableCell className="text-xs">
-                        {format(new Date(log.created_at), "dd/MM/yyyy HH:mm")}
-                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{g.email || "—"}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{g.telefone || "—"}</TableCell>
+                      <TableCell className="text-center"><StatusBadge status={g.email_status} type="email" /></TableCell>
+                      <TableCell className="text-center"><StatusBadge status={g.sms_status} type="sms" /></TableCell>
+                      <TableCell>{g.custo_total.toFixed(2)}</TableCell>
+                      <TableCell className="text-xs">{format(new Date(g.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
 
-            {/* Pagination */}
             <div className="flex items-center justify-between pt-2">
               <p className="text-xs text-muted-foreground">
-                {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} — Página {currentPage} de {totalPages}
+                {filtered.length} cliente{filtered.length !== 1 ? "s" : ""} — Página {currentPage} de {totalPages}
               </p>
               <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={currentPage <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage >= totalPages} onClick={() => setPage((p) => p + 1)}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
