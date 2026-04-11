@@ -57,45 +57,48 @@ function SectionToggle({ label, icon: Icon, checked, onChange, children }: {
 /* ─── Settings Type ─── */
 interface ConfSettings {
   saudacao: string;
+  mostrar_saudacao: boolean;
   mostrar_resumo: boolean;
   mensagem: string;
+  mostrar_mensagem: boolean;
   mostrar_cta: boolean;
   texto_botao: string;
   url_cta: string;
   rodape: string;
-  cor_header: string;
-  cor_botao: string;
-  cor_destaque: string;
+  mostrar_rodape: boolean;
+  cor_primaria: string;
   cor_texto: string;
 }
 
 const DEFAULTS: ConfSettings = {
-  saudacao: "Olá {{nome}}, seu pagamento foi confirmado com sucesso! ✅",
+  saudacao: "Olá {{nome}}, seu pagamento foi confirmado com sucesso!",
+  mostrar_saudacao: true,
   mostrar_resumo: true,
   mensagem: "Seu pedido já está sendo processado. Em breve você receberá mais informações sobre o envio.",
+  mostrar_mensagem: true,
   mostrar_cta: false,
   texto_botao: "Acompanhar Pedido",
   url_cta: "",
   rodape: "Obrigado pela sua compra!",
-  cor_header: "#16a34a",
-  cor_botao: "#16a34a",
-  cor_destaque: "#16a34a",
-  cor_texto: "#334155",
+  mostrar_rodape: true,
+  cor_primaria: "#16a34a",
+  cor_texto: "#333333",
 };
 
 /* ─── Serialize / Parse metadata tags ─── */
 function serializeToCorpo(s: ConfSettings): string {
   return [
     `{{conf_saudacao:${s.saudacao}}}`,
+    `{{conf_mostrar_saudacao:${s.mostrar_saudacao}}}`,
     `{{conf_mostrar_resumo:${s.mostrar_resumo}}}`,
     `{{conf_mensagem:${s.mensagem}}}`,
+    `{{conf_mostrar_mensagem:${s.mostrar_mensagem}}}`,
     `{{conf_mostrar_cta:${s.mostrar_cta}}}`,
     `{{conf_texto_botao:${s.texto_botao}}}`,
     `{{conf_url_cta:${s.url_cta}}}`,
     `{{conf_rodape:${s.rodape}}}`,
-    `{{conf_cor_header:${s.cor_header}}}`,
-    `{{conf_cor_botao:${s.cor_botao}}}`,
-    `{{conf_cor_destaque:${s.cor_destaque}}}`,
+    `{{conf_mostrar_rodape:${s.mostrar_rodape}}}`,
+    `{{conf_cor_primaria:${s.cor_primaria}}}`,
     `{{conf_cor_texto:${s.cor_texto}}}`,
   ].join("");
 }
@@ -105,15 +108,16 @@ function parseFromCorpo(corpo: string): Partial<ConfSettings> {
   const bool = (tag: string, def: boolean) => { const v = m(tag); return v === undefined ? def : v === "true"; };
   return {
     saudacao: m("conf_saudacao") || undefined,
+    mostrar_saudacao: bool("conf_mostrar_saudacao", DEFAULTS.mostrar_saudacao),
     mostrar_resumo: bool("conf_mostrar_resumo", DEFAULTS.mostrar_resumo),
     mensagem: m("conf_mensagem") || undefined,
+    mostrar_mensagem: bool("conf_mostrar_mensagem", DEFAULTS.mostrar_mensagem),
     mostrar_cta: bool("conf_mostrar_cta", DEFAULTS.mostrar_cta),
     texto_botao: m("conf_texto_botao") || undefined,
     url_cta: m("conf_url_cta") ?? undefined,
     rodape: m("conf_rodape") || undefined,
-    cor_header: m("conf_cor_header") || undefined,
-    cor_botao: m("conf_cor_botao") || undefined,
-    cor_destaque: m("conf_cor_destaque") || undefined,
+    mostrar_rodape: bool("conf_mostrar_rodape", DEFAULTS.mostrar_rodape),
+    cor_primaria: m("conf_cor_primaria") || m("conf_cor_header") || undefined,
     cor_texto: m("conf_cor_texto") || undefined,
   };
 }
