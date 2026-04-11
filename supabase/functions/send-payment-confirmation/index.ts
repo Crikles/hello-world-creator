@@ -24,37 +24,93 @@ function replaceTemplateVars(template: string, vars: Record<string, string>): st
   return result;
 }
 
-function buildDefaultEmailHtml(vars: Record<string, string>, empresa: any): string {
-  const logoSection = empresa?.logo_url
-    ? `<img src="${empresa.logo_url}" alt="${empresa.nome_fantasia || ''}" style="max-height:60px;margin-bottom:16px;" />`
-    : "";
-  const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
+/* ─── Parse metadata tags from corpo_email ─── */
+function parseConfTag(corpo: string, tag: string): string | undefined {
+  return corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1];
+}
 
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/></head>
+function parseConfBool(corpo: string, tag: string, def: boolean): boolean {
+  const v = parseConfTag(corpo, tag);
+  return v === undefined ? def : v === "true";
+}
+
+/* ─── Build email HTML from metadata tags ─── */
+function buildEmailFromTags(corpo: string, vars: Record<string, string>, empresa: any): string {
+  const saudacao = parseConfTag(corpo, "conf_saudacao") || `Olá ${vars.nome}, seu pagamento foi confirmado com sucesso! ✅`;
+  const mostrarResumo = parseConfBool(corpo, "conf_mostrar_resumo", true);
+  const mensagem = parseConfTag(corpo, "conf_mensagem") || "Seu pedido já está sendo processado.";
+  const mostrarCta = parseConfBool(corpo, "conf_mostrar_cta", false);
+  const textoBotao = parseConfTag(corpo, "conf_texto_botao") || "Acompanhar Pedido";
+  const urlCta = parseConfTag(corpo, "conf_url_cta") || "";
+  const rodape = parseConfTag(corpo, "conf_rodape") || "Obrigado pela sua compra!";
+  const corHeader = parseConfTag(corpo, "conf_cor_header") || "#16a34a";
+  const corBotao = parseConfTag(corpo, "conf_cor_botao") || "#16a34a";
+  const corDestaque = parseConfTag(corpo, "conf_cor_destaque") || "#16a34a";
+  const corTexto = parseConfTag(corpo, "conf_cor_texto") || "#334155";
+
+  const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
+  const logoSection = empresa?.logo_url
+    ? `<img src="${empresa.logo_url}" alt="${empresaNome}" style="max-height:60px;margin-bottom:16px;border-radius:8px;" />`
+    : "";
+
+  const sections: string[] = [];
+
+  // Header
+  sections.push(`<tr><td style="background:${corHeader};padding:32px;text-align:center;">
+    ${logoSection}
+    <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:800;">Pagamento Confirmado! ✅</h1>
+  </td></tr>`);
+
+  // Saudação
+  sections.push(`<tr><td style="padding:32px 32px 16px;">
+    <p style="font-size:16px;color:#1e293b;margin:0 0 16px;line-height:1.6;">${replaceTemplateVars(saudacao, vars)}</p>
+  </td></tr>`);
+
+  // Resumo
+  if (mostrarResumo) {
+    sections.push(`<tr><td style="padding:0 32px 16px;">
+      <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;margin-bottom:8px;">
+        <tr><td style="color:#64748b;font-size:14px;">Produto</td><td style="color:#0f172a;font-size:14px;font-weight:bold;">${vars.produto}</td></tr>
+        <tr><td style="color:#64748b;font-size:14px;border-top:1px solid #e2e8f0;">Valor</td><td style="color:${corDestaque};font-size:14px;font-weight:bold;border-top:1px solid #e2e8f0;">R$ ${vars.valor}</td></tr>
+      </table>
+    </td></tr>`);
+  }
+
+  // Mensagem
+  if (mensagem) {
+    sections.push(`<tr><td style="padding:0 32px 16px;">
+      <p style="font-size:14px;color:${corTexto};margin:0;line-height:1.7;">${replaceTemplateVars(mensagem, vars)}</p>
+    </td></tr>`);
+  }
+
+  // CTA
+  if (mostrarCta && textoBotao && urlCta) {
+    sections.push(`<tr><td style="padding:8px 32px 24px;text-align:center;">
+      <a href="${urlCta}" style="display:inline-block;background:${corBotao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
+        ${textoBotao}
+      </a>
+    </td></tr>`);
+  }
+
+  // Rodapé
+  sections.push(`<tr><td style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
+    <p style="font-size:13px;color:#94a3b8;margin:0;">${replaceTemplateVars(rodape, vars)}</p>
+    <p style="font-size:11px;color:#cbd5e1;margin:8px 0 0;">${empresaNome}</p>
+  </td></tr>`);
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
-  <tr><td style="background:#16a34a;padding:32px;text-align:center;">
-    ${logoSection}
-    <h1 style="color:#ffffff;margin:0;font-size:24px;">Pagamento Confirmado! ✅</h1>
-  </td></tr>
-  <tr><td style="padding:32px;">
-    <p style="font-size:16px;color:#1e293b;margin:0 0 16px;">Olá <strong>${vars.nome}</strong>,</p>
-    <p style="font-size:16px;color:#475569;margin:0 0 24px;">Seu pagamento foi confirmado com sucesso! Confira os detalhes:</p>
-    <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;margin-bottom:24px;">
-      <tr><td style="color:#64748b;font-size:14px;">Produto</td><td style="color:#0f172a;font-size:14px;font-weight:bold;">${vars.produto}</td></tr>
-      <tr><td style="color:#64748b;font-size:14px;border-top:1px solid #e2e8f0;">Valor</td><td style="color:#16a34a;font-size:14px;font-weight:bold;border-top:1px solid #e2e8f0;">R$ ${vars.valor}</td></tr>
-    </table>
-    <p style="font-size:14px;color:#475569;margin:0;">Obrigado pela sua compra! Seu pedido já está sendo processado.</p>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
-    <p style="font-size:12px;color:#94a3b8;margin:0;">${empresaNome}</p>
-  </td></tr>
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+${sections.join("")}
 </table>
-</td></tr></table>
-</body></html>`;
+</td></tr></table></body></html>`;
+}
+
+/* ─── Fallback for configs without metadata tags (legacy) ─── */
+function buildDefaultEmailHtml(vars: Record<string, string>, empresa: any): string {
+  return buildEmailFromTags("", vars, empresa);
 }
 
 Deno.serve(async (req) => {
@@ -126,7 +182,7 @@ Deno.serve(async (req) => {
       .eq("loja_id", loja_id)
       .maybeSingle();
 
-    // 5. Get costs from system_config + custom_prices
+    // 5. Get costs
     const { data: custos } = await supabase
       .from("system_config")
       .select("key, value")
@@ -135,7 +191,6 @@ Deno.serve(async (req) => {
     const custoMap: Record<string, number> = {};
     (custos || []).forEach((c: any) => { custoMap[c.key] = c.value; });
 
-    // Check custom prices
     const { data: profile } = await supabase
       .from("profiles")
       .select("custom_prices")
@@ -174,7 +229,6 @@ Deno.serve(async (req) => {
       if (!resendKey) {
         console.error("[payment-confirmation] No Resend API key configured");
       } else {
-        // Debit credits
         const { data: debited } = await supabase.rpc("debit_user_credits", {
           _user_id: loja.user_id,
           _quantidade: custoEmail,
@@ -190,12 +244,14 @@ Deno.serve(async (req) => {
           });
         } else {
           const subject = replaceTemplateVars(config.assunto_email, templateVars);
-          const htmlBody = config.corpo_email
-            ? replaceTemplateVars(config.corpo_email, templateVars)
+
+          // Build HTML: use metadata tags if present, otherwise default
+          const htmlBody = (config.corpo_email && config.corpo_email.includes("{{conf_"))
+            ? buildEmailFromTags(config.corpo_email, templateVars, empresa)
             : buildDefaultEmailHtml(templateVars, empresa);
 
-          const fromName = empresa?.nome_fantasia || empresa?.razao_social || "Loja";
-          const fromEmail = `${fromName} <contato@recuperacaodenegocios.com>`;
+          const remetenteNome = config.email_remetente_nome || empresa?.nome_fantasia || empresa?.razao_social || "Loja";
+          const fromEmail = `${remetenteNome} <contato@recuperacaodenegocios.com>`;
 
           try {
             const emailRes = await fetch("https://api.resend.com/emails", {
