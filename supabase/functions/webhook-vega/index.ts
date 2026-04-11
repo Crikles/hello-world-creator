@@ -76,7 +76,6 @@ function extractProducts(payload: Record<string, unknown>): Array<{
       quantity: Number(p.quantity || 1),
     }));
   }
-  // V1: plans[].products[]
   const plans = payload.plans as any[] | undefined;
   if (Array.isArray(plans)) {
     const result: any[] = [];
