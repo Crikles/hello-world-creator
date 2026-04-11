@@ -9,14 +9,6 @@ const corsHeaders = {
 
 /* ── Helpers ── */
 
-/** Parse a numeric value from raw input (strips non-numeric chars) */
-function parseNumericValue(raw: unknown): number {
-  if (raw == null) return 0;
-  const n = Number(String(raw).replace(/[^0-9.-]/g, ""));
-  if (isNaN(n)) return 0;
-  return n;
-}
-
 /** Vega may send money either in Reais with decimals (48.90) or in centavos as integer (500). */
 function normalizeVegaMoneyToReais(raw: unknown): number {
   if (raw == null) return 0;
