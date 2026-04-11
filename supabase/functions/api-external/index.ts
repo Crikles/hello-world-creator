@@ -219,6 +219,11 @@ Deno.serve(async (req) => {
       body: { envio_id: newEnvio.id, loja_id: lojaId }
     }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
 
+    // Fire-and-forget payment confirmation email/SMS
+    supabase.functions.invoke("send-payment-confirmation", {
+      body: { pedido_id: newPedido.id, loja_id: lojaId }
+    }).catch((err) => console.error("[payment-confirmation] invoke error:", err));
+
     // 6. Mark webhook as processed
     await supabase
       .from("webhook_logs")
