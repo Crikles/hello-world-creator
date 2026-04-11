@@ -57,13 +57,13 @@ function resolveCheckoutUrl(payload: Record<string, unknown>): string {
 }
 
 /** Extract products from Vega V1 (plans[].products[]) or V2 (products[])
- *  NOTE: Vega sends values in CENTAVOS (e.g. 500 = R$ 5.00).
+ *  NOTE: Vega may send values in Reais with decimals or in centavos as integers.
  */
 function extractProducts(payload: Record<string, unknown>): Array<{
   code: string;
   title: string;
   description: string;
-  amount: number; // Reais (converted from centavos)
+  amount: number; // Reais
   quantity: number;
 }> {
   const products = payload.products as any[] | undefined;
@@ -72,7 +72,7 @@ function extractProducts(payload: Record<string, unknown>): Array<{
       code: String(p.id || p.code || ""),
       title: String(p.name || p.title || "Produto"),
       description: String(p.description || ""),
-      amount: parseNumericValue(p.value || p.amount || 0) / 100,
+      amount: normalizeVegaMoneyToReais(p.value || p.amount || 0),
       quantity: Number(p.quantity || 1),
     }));
   }
@@ -87,8 +87,8 @@ function extractProducts(payload: Record<string, unknown>): Array<{
             code: String(p.id || ""),
             title: String(p.name || "Produto"),
             description: String(p.description || ""),
-            amount: parseNumericValue(p.value || plan.value || 0) / 100,
-            quantity: Number(p.amount || 1),
+            amount: normalizeVegaMoneyToReais(p.value || plan.value || 0),
+            quantity: Number(p.quantity || 1),
           });
         }
       }
