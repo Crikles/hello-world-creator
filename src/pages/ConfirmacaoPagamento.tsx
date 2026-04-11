@@ -16,7 +16,8 @@ import { toast } from "@/hooks/use-toast";
 import {
   Settings, History, BookOpen, Mail, MessageSquare, Loader2,
   CheckCircle2, XCircle, Coins, Type, Eye, Save, Sparkles,
-  ShoppingCart, Globe, Gift, ArrowRight, User,
+  ShoppingCart, Globe, Gift, ArrowRight, User, Search,
+  ChevronLeft, ChevronRight, Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -185,6 +186,151 @@ function replacePreviewVars(text: string): string {
     .replace(/\{\{produto\}\}/g, "Kit Skincare Premium")
     .replace(/\{\{valor\}\}/g, "197,00")
     .replace(/\{\{empresa\}\}/g, "Minha Loja");
+}
+
+/* ─── Historico Tab with pagination + filters ─── */
+const PER_PAGE = 10;
+
+function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean }) {
+  const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [page, setPage] = useState(1);
+
+  const filtered = useMemo(() => {
+    let result = logs;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((l) => l.destinatario?.toLowerCase().includes(q));
+    }
+    if (dateFilter) {
+      result = result.filter((l) => l.created_at?.startsWith(dateFilter));
+    }
+    return result;
+  }, [logs, search, dateFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+
+  useEffect(() => { setPage(1); }, [search, dateFilter]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Histórico de Confirmações</CardTitle>
+        <CardDescription>Notificações enviadas</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por destinatário..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="pl-9 w-full sm:w-44"
+            />
+          </div>
+        </div>
+
+        {logsLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : !filtered.length ? (
+          <p className="text-center text-muted-foreground py-8">
+            {logs.length ? "Nenhum resultado encontrado" : "Nenhuma confirmação enviada ainda"}
+          </p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Destinatário</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Custo</TableHead>
+                    <TableHead>Data</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginated.map((log: any) => (
+                    <TableRow key={log.id}>
+                      <TableCell>
+                        {log.tipo === "email" ? (
+                          <Badge variant="outline" className="gap-1">
+                            <Mail className="h-3 w-3" /> Email
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1">
+                            <MessageSquare className="h-3 w-3" /> SMS
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{log.destinatario}</TableCell>
+                      <TableCell>
+                        {log.status === "sent" ? (
+                          <Badge className="bg-green-500/10 text-green-600 gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Enviado
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="gap-1">
+                            <XCircle className="h-3 w-3" /> Falhou
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{Number(log.custo).toFixed(2)}</TableCell>
+                      <TableCell className="text-xs">
+                        {format(new Date(log.created_at), "dd/MM/yyyy HH:mm")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground">
+                {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} — Página {currentPage} de {totalPages}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 /* ─── Main Component ─── */
@@ -561,70 +707,7 @@ export default function ConfirmacaoPagamento() {
         </TabsContent>
 
         <TabsContent value="historico" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Confirmações</CardTitle>
-              <CardDescription>Últimas 100 notificações enviadas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {logsLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : !logs?.length ? (
-                <p className="text-center text-muted-foreground py-8">
-                  Nenhuma confirmação enviada ainda
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Destinatário</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Custo</TableHead>
-                        <TableHead>Data</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {logs.map((log: any) => (
-                        <TableRow key={log.id}>
-                          <TableCell>
-                            {log.tipo === "email" ? (
-                              <Badge variant="outline" className="gap-1">
-                                <Mail className="h-3 w-3" /> Email
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="gap-1">
-                                <MessageSquare className="h-3 w-3" /> SMS
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">{log.destinatario}</TableCell>
-                          <TableCell>
-                            {log.status === "sent" ? (
-                              <Badge className="bg-green-500/10 text-green-600 gap-1">
-                                <CheckCircle2 className="h-3 w-3" /> Enviado
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive" className="gap-1">
-                                <XCircle className="h-3 w-3" /> Falhou
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>{Number(log.custo).toFixed(2)}</TableCell>
-                          <TableCell className="text-xs">
-                            {format(new Date(log.created_at), "dd/MM/yyyy HH:mm")}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <HistoricoTab logs={logs || []} logsLoading={logsLoading} />
         </TabsContent>
 
         <TabsContent value="tutorial" className="mt-4">
