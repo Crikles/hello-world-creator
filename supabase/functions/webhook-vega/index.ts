@@ -17,11 +17,14 @@ function normalizeVegaMoneyToReais(raw: unknown): number {
   if (!text) return 0;
 
   const cleaned = text.replace(/[^0-9,.-]/g, "");
-  const hasComma = cleaned.includes(",");
-  const hasDot = cleaned.includes(".");
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
 
-  if (hasComma || hasDot) {
-    const normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  if (decimalIndex >= 0) {
+    const intPart = cleaned.slice(0, decimalIndex).replace(/[^0-9-]/g, "");
+    const fracPart = cleaned.slice(decimalIndex + 1).replace(/\D/g, "").slice(0, 2);
+    const normalized = `${intPart || "0"}.${fracPart || "0"}`;
     const reais = Number(normalized);
     return Number.isFinite(reais) ? reais : 0;
   }
