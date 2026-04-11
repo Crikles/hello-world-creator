@@ -187,9 +187,9 @@ Deno.serve(async (req) => {
     const address = payload.address || {};
     const normalizedProducts = extractProducts(payload);
 
-    // Vega sends total_price already in Reais (e.g. 48.90)
-    const totalPriceReais = parseNumericValue(payload.total_price);
-    const totalPriceCentavos = Math.round(totalPriceReais * 100);
+    // Vega sends total_price in centavos (e.g. 500 = R$ 5.00)
+    const totalPriceCentavos = parseNumericValue(payload.total_price);
+    const totalPriceReais = totalPriceCentavos / 100;
 
     // Upsert into pedidos
     const pedidoData = {
