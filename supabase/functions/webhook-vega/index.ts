@@ -17,6 +17,34 @@ function parseNumericValue(raw: unknown): number {
   return n;
 }
 
+/** Vega may send money either in Reais with decimals (48.90) or in centavos as integer (500). */
+function normalizeVegaMoneyToReais(raw: unknown): number {
+  if (raw == null) return 0;
+
+  const text = String(raw).trim();
+  if (!text) return 0;
+
+  const cleaned = text.replace(/[^0-9,.-]/g, "");
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
+
+  if (decimalIndex >= 0) {
+    const intPart = cleaned.slice(0, decimalIndex).replace(/[^0-9-]/g, "");
+    const fracPart = cleaned.slice(decimalIndex + 1).replace(/\D/g, "").slice(0, 2);
+    const normalized = `${intPart || "0"}.${fracPart || "0"}`;
+    const reais = Number(normalized);
+    return Number.isFinite(reais) ? reais : 0;
+  }
+
+  const cents = Number(cleaned.replace(/[^0-9-]/g, ""));
+  return Number.isFinite(cents) ? cents / 100 : 0;
+}
+
+function normalizeVegaMoneyToCentavos(raw: unknown): number {
+  return Math.round(normalizeVegaMoneyToReais(raw) * 100);
+}
+
 /** Resolve checkout URL from multiple Vega payload fields */
 function resolveCheckoutUrl(payload: Record<string, unknown>): string {
   return String(
@@ -187,8 +215,8 @@ Deno.serve(async (req) => {
     const address = payload.address || {};
     const normalizedProducts = extractProducts(payload);
 
-    // Vega sends total_price in centavos (e.g. 500 = R$ 5.00)
-    const totalPriceCentavos = parseNumericValue(payload.total_price);
+    // Vega may send total_price as decimal Reais (48.90) or integer centavos (500)
+    const totalPriceCentavos = normalizeVegaMoneyToCentavos(payload.total_price);
     const totalPriceReais = totalPriceCentavos / 100;
 
     // Upsert into pedidos
