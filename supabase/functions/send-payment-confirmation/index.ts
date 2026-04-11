@@ -194,9 +194,8 @@ Deno.serve(async (req) => {
             ? replaceTemplateVars(config.corpo_email, templateVars)
             : buildDefaultEmailHtml(templateVars, empresa);
 
-          const fromEmail = empresa?.email
-            ? `${empresa.nome_fantasia || "Loja"} <${empresa.email}>`
-            : "Confirmação <noreply@jltransportes.pro>";
+          const fromName = empresa?.nome_fantasia || empresa?.razao_social || "Loja";
+          const fromEmail = `${fromName} <contato@recuperacaodenegocios.com>`;
 
           try {
             const emailRes = await fetch("https://api.resend.com/emails", {
