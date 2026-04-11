@@ -568,7 +568,7 @@ export default function ConfirmacaoPagamento() {
         </p>
       </div>
 
-      <Tabs defaultValue="config" className="w-full" keepMounted>
+      <Tabs defaultValue="config" className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="config" className="flex items-center gap-2">
             <Settings className="h-4 w-4" /> Configuração
