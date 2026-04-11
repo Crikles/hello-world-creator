@@ -284,15 +284,23 @@ Deno.serve(async (req) => {
         .single();
 
       if (newEnvio) {
-        await supabase
+        // Race condition protection: only link envio if pedido still has no envio_id
+        const { data: updateResult } = await supabase
           .from("pedidos")
           .update({ envio_id: newEnvio.id })
-          .eq("id", pedidoId);
+          .eq("id", pedidoId)
+          .is("envio_id", null)
+          .select("id")
+          .maybeSingle();
 
-        // Fire-and-forget WhatsApp for new order
-        supabase.functions.invoke("auto-whatsapp-new-order", {
-          body: { envio_id: newEnvio.id, loja_id: lojaId }
-        }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
+        if (!updateResult) {
+          console.log("[webhook-luna] Race condition detected, deleting duplicate envio:", newEnvio.id);
+          await supabase.from("envios").delete().eq("id", newEnvio.id);
+        } else {
+          supabase.functions.invoke("auto-whatsapp-new-order", {
+            body: { envio_id: newEnvio.id, loja_id: lojaId }
+          }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
+        }
       }
     }
 
