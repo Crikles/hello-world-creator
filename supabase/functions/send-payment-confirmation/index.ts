@@ -36,17 +36,20 @@ function parseConfBool(corpo: string, tag: string, def: boolean): boolean {
 
 /* ─── Build email HTML from metadata tags ─── */
 function buildEmailFromTags(corpo: string, vars: Record<string, string>, empresa: any): string {
-  const saudacao = parseConfTag(corpo, "conf_saudacao") || `Olá ${vars.nome}, seu pagamento foi confirmado com sucesso! ✅`;
-  const mostrarResumo = parseConfBool(corpo, "conf_mostrar_resumo", true);
-  const mensagem = parseConfTag(corpo, "conf_mensagem") || "Seu pedido já está sendo processado.";
-  const mostrarCta = parseConfBool(corpo, "conf_mostrar_cta", false);
-  const textoBotao = parseConfTag(corpo, "conf_texto_botao") || "Acompanhar Pedido";
-  const urlCta = parseConfTag(corpo, "conf_url_cta") || "";
-  const rodape = parseConfTag(corpo, "conf_rodape") || "Obrigado pela sua compra!";
-  const corHeader = parseConfTag(corpo, "conf_cor_header") || "#16a34a";
-  const corBotao = parseConfTag(corpo, "conf_cor_botao") || "#16a34a";
-  const corDestaque = parseConfTag(corpo, "conf_cor_destaque") || "#16a34a";
-  const corTexto = parseConfTag(corpo, "conf_cor_texto") || "#334155";
+  // Replace template vars FIRST to resolve nested {{nome}} etc before parsing conf tags
+  const resolvedCorpo = replaceTemplateVars(corpo, vars);
+
+  const saudacao = parseConfTag(resolvedCorpo, "conf_saudacao") || `Olá ${vars.nome}, seu pagamento foi confirmado com sucesso! ✅`;
+  const mostrarResumo = parseConfBool(resolvedCorpo, "conf_mostrar_resumo", true);
+  const mensagem = parseConfTag(resolvedCorpo, "conf_mensagem") || "Seu pedido já está sendo processado.";
+  const mostrarCta = parseConfBool(resolvedCorpo, "conf_mostrar_cta", false);
+  const textoBotao = parseConfTag(resolvedCorpo, "conf_texto_botao") || "Acompanhar Pedido";
+  const urlCta = parseConfTag(resolvedCorpo, "conf_url_cta") || "";
+  const rodape = parseConfTag(resolvedCorpo, "conf_rodape") || "Obrigado pela sua compra!";
+  const corHeader = parseConfTag(resolvedCorpo, "conf_cor_header") || "#16a34a";
+  const corBotao = parseConfTag(resolvedCorpo, "conf_cor_botao") || "#16a34a";
+  const corDestaque = parseConfTag(resolvedCorpo, "conf_cor_destaque") || "#16a34a";
+  const corTexto = parseConfTag(resolvedCorpo, "conf_cor_texto") || "#334155";
 
   const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
   const logoSection = empresa?.logo_url
@@ -55,18 +58,15 @@ function buildEmailFromTags(corpo: string, vars: Record<string, string>, empresa
 
   const sections: string[] = [];
 
-  // Header
   sections.push(`<tr><td style="background:${corHeader};padding:32px;text-align:center;">
     ${logoSection}
     <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:800;">Pagamento Confirmado! ✅</h1>
   </td></tr>`);
 
-  // Saudação
   sections.push(`<tr><td style="padding:32px 32px 16px;">
-    <p style="font-size:16px;color:#1e293b;margin:0 0 16px;line-height:1.6;">${replaceTemplateVars(saudacao, vars)}</p>
+    <p style="font-size:16px;color:#1e293b;margin:0 0 16px;line-height:1.6;">${saudacao}</p>
   </td></tr>`);
 
-  // Resumo
   if (mostrarResumo) {
     sections.push(`<tr><td style="padding:0 32px 16px;">
       <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;margin-bottom:8px;">
@@ -76,14 +76,12 @@ function buildEmailFromTags(corpo: string, vars: Record<string, string>, empresa
     </td></tr>`);
   }
 
-  // Mensagem
   if (mensagem) {
     sections.push(`<tr><td style="padding:0 32px 16px;">
-      <p style="font-size:14px;color:${corTexto};margin:0;line-height:1.7;">${replaceTemplateVars(mensagem, vars)}</p>
+      <p style="font-size:14px;color:${corTexto};margin:0;line-height:1.7;">${mensagem}</p>
     </td></tr>`);
   }
 
-  // CTA
   if (mostrarCta && textoBotao && urlCta) {
     sections.push(`<tr><td style="padding:8px 32px 24px;text-align:center;">
       <a href="${urlCta}" style="display:inline-block;background:${corBotao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
@@ -92,9 +90,8 @@ function buildEmailFromTags(corpo: string, vars: Record<string, string>, empresa
     </td></tr>`);
   }
 
-  // Rodapé
   sections.push(`<tr><td style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
-    <p style="font-size:13px;color:#94a3b8;margin:0;">${replaceTemplateVars(rodape, vars)}</p>
+    <p style="font-size:13px;color:#94a3b8;margin:0;">${rodape}</p>
     <p style="font-size:11px;color:#cbd5e1;margin:8px 0 0;">${empresaNome}</p>
   </td></tr>`);
 
@@ -202,12 +199,12 @@ Deno.serve(async (req) => {
     const custoSms = customPrices["custo_confirmacao_sms"] ?? custoMap["custo_confirmacao_sms"] ?? 0.12;
 
     // Parse product name
-    let produtoNome = pedido.customer_name || "Produto";
+    let produtoNome = "Produto";
     try {
       if (pedido.products) {
         const prods = typeof pedido.products === "string" ? JSON.parse(pedido.products) : pedido.products;
         if (Array.isArray(prods) && prods.length > 0) {
-          produtoNome = prods.map((p: any) => p.title || p.nome || "Produto").join(", ");
+          produtoNome = prods.map((p: any) => p.title || p.nome || p.name || "Produto").join(", ");
         }
       }
     } catch { /* ignore */ }
