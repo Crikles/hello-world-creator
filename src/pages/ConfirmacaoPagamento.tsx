@@ -416,6 +416,7 @@ export default function ConfirmacaoPagamento() {
   const { loja } = useLoja();
   const queryClient = useQueryClient();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [activeTab, setActiveTab] = useState("config");
 
   // Config query
   const { data: config, isLoading: configLoading } = useQuery({
@@ -568,7 +569,7 @@ export default function ConfirmacaoPagamento() {
         </p>
       </div>
 
-      <Tabs defaultValue="config" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="config" className="flex items-center gap-2">
             <Settings className="h-4 w-4" /> Configuração
@@ -581,7 +582,7 @@ export default function ConfirmacaoPagamento() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="config" className="space-y-4 mt-4">
+        <TabsContent value="config" forceMount className={`space-y-4 mt-4 ${activeTab !== "config" ? "hidden" : ""}`}>
           {/* Status + Custos */}
           <Card>
             <CardHeader>
