@@ -1,90 +1,48 @@
 
 
-## Nova Funcionalidade: Confirmação de Pagamento (Email + SMS)
+## Refatorar Confirmação de Pagamento: Editor Visual + Preview + Email Remetente
 
-### Entendimento
+### Problema Atual
+A página usa um `Textarea` para editar HTML bruto, sem preview do email. O usuário não consegue visualizar como o email ficará.
 
-Uma nova página no painel onde, ao receber um pedido `paid` via webhook (Zedy, Luna, Vega, etc.), o sistema automaticamente envia:
-- **Email de "Pagamento Confirmado"** personalizado com dados da empresa
-- **SMS de "Pagamento Confirmado"**
+### Solução
 
-Isso é **separado** do fluxo de Envios/Postagens. O pedido continua sendo criado normalmente nos Envios, mas esse novo módulo dispara notificações instantâneas de confirmação de compra.
+Reescrever a aba "Configuração" da página `ConfirmacaoPagamento.tsx` seguindo o padrão da RecuperacaoVendas:
 
-**Custos:** 0,50 moedas/email + 0,12 moedas/SMS, debitados via `debit_user_credits`.
+**1. Editor visual com seções toggleáveis (lado esquerdo)**
 
-### Arquitetura
+Campos editáveis por seção (sem HTML):
+- **Saudação** — texto customizável (ex: "Olá {{nome}}, seu pagamento foi confirmado!")
+- **Resumo do Pedido** — toggle para mostrar produto + valor
+- **Mensagem Principal** — textarea para texto livre
+- **Botão CTA** — texto + URL customizáveis
+- **Rodapé** — texto final
+- **Cores** — color pickers para título, texto, destaque, botão
+- **Email Remetente (FROM)** — campo de input para o usuário definir o nome remetente (ex: "Minha Loja")
 
-```text
-Webhook (Zedy/Luna/Vega/etc)
-  └─ status === "paid"
-       ├─ Fluxo atual (cria envio, postagens, etc.)
-       └─ [NOVO] Verifica confirmacao_pagamento_config
-            ├─ Se ativo + saldo → invoke send-payment-confirmation
-            └─ Registra em confirmacao_pagamento_log
+**2. Preview em tempo real (lado direito)**
+
+- Iframe com o HTML renderizado, igual à RecuperacaoVendas
+- Atualiza ao vivo conforme o usuário edita
+- Barra simulando cliente de email (dots vermelha/amarela/verde + assunto + destinatário)
+
+**3. Serialização no `corpo_email`**
+
+Usar o mesmo padrão de metadata tags da RecuperacaoVendas para salvar as configurações no campo `corpo_email`:
+```
+{{conf_saudacao:texto}}{{conf_mostrar_resumo:true}}{{conf_mensagem:texto}}...
 ```
 
-### Alterações
+**4. Atualizar Edge Function**
 
-**1. Banco de Dados (2 novas tabelas + 1 config)**
+O `send-payment-confirmation` precisa fazer o parse dessas tags e montar o HTML final (em vez de usar o corpo_email como HTML direto).
 
-- **`confirmacao_pagamento_config`** — Configuração por loja
-  - `loja_id`, `ativo`, `enviar_email`, `enviar_sms`
-  - `assunto_email`, `corpo_email` (template HTML personalizado)
-  - `sms_template` (template SMS)
-  - RLS: `user_owns_loja`
+**5. Migração DB**
 
-- **`confirmacao_pagamento_log`** — Log de envios
-  - `loja_id`, `pedido_id`, `tipo` (email/sms), `status`, `custo`, `destinatario`
-  - RLS: `user_owns_loja` + service_role
+Adicionar coluna `email_remetente_nome` à tabela `confirmacao_pagamento_config` para o campo "from".
 
-- **`system_config`** — Inserir chaves de custo padrão:
-  - `custo_confirmacao_email` = 0.50
-  - `custo_confirmacao_sms` = 0.12
-
-**2. Nova Edge Function: `send-payment-confirmation`**
-
-- Recebe `pedido_id` e `loja_id`
-- Busca config da loja em `confirmacao_pagamento_config`
-- Busca dados da empresa em `empresas`
-- Monta email personalizado com dados do pedido + empresa
-- Usa a **nova chave Resend** (secret a ser adicionada depois) para enviar email
-- Envia SMS via IntegraX (mesma integração existente)
-- Debita créditos: 0,50 email + 0,12 SMS
-- Registra em `confirmacao_pagamento_log`
-
-**3. Modificar Webhooks (Zedy, Luna, Vega, Corvex, Nuvorafy, Shopify, Adoorei)**
-
-No bloco `status === "paid"`, após criar o envio, adicionar fire-and-forget:
-```typescript
-supabase.functions.invoke("send-payment-confirmation", {
-  body: { pedido_id: pedidoId, loja_id: lojaId }
-}).catch(e => console.error("[payment-confirmation]", e));
-```
-
-**4. Nova Página: `src/pages/ConfirmacaoPagamento.tsx`**
-
-Abas:
-- **Configuração** — Ativar/desativar email e SMS, editar templates
-- **Histórico** — Tabela com log de confirmações enviadas (status, custo, data)
-- **Tutorial** — Explicação do fluxo, custos dinâmicos do DB
-
-**5. Rota + Sidebar**
-
-- Rota: `/loja/:lojaId/confirmacao-pagamento`
-- Menu na seção "Operações" com ícone `CreditCard` ou `BadgeCheck`
-- Acessível a todos os usuários (sem restrição como Recuperação)
-
-**6. Secret Resend**
-
-A nova chave de API do Resend será adicionada posteriormente pelo usuário. Usaremos o nome `RESEND_CONFIRMATION_API_KEY`.
-
-### Resumo do Fluxo
-
-1. Pedido pago chega via webhook → cria envio normalmente
-2. Se `confirmacao_pagamento_config.ativo = true` para a loja:
-   - Verifica saldo do dono da loja
-   - Envia email de "Compra Aprovada" com dados personalizados da empresa
-   - Envia SMS de "Compra Aprovada"
-   - Debita 0,50 + 0,12 moedas
-3. Tudo registrado no log para auditoria
+### Arquivos Modificados
+- `src/pages/ConfirmacaoPagamento.tsx` — reescrita completa da aba config
+- `supabase/functions/send-payment-confirmation/index.ts` — parse das tags + usar `email_remetente_nome`
+- Nova migração SQL — adicionar coluna `email_remetente_nome`
 
