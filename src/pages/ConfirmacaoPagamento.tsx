@@ -652,7 +652,7 @@ export default function ConfirmacaoPagamento() {
               {/* Visual Sections */}
               {enviarEmail && (
                 <div className="space-y-3">
-                  <SectionToggle label="Saudação" icon={Type} checked={true} onChange={() => {}}>
+                  <SectionToggle label="Saudação" icon={Type} checked={settings.mostrar_saudacao} onChange={(v) => set("mostrar_saudacao", v)}>
                     <Textarea
                       value={settings.saudacao}
                       onChange={(e) => set("saudacao", e.target.value)}
@@ -665,7 +665,7 @@ export default function ConfirmacaoPagamento() {
                     <p className="text-xs text-muted-foreground">Mostra automaticamente o produto e valor do pedido</p>
                   </SectionToggle>
 
-                  <SectionToggle label="Mensagem Principal" icon={Sparkles} checked={true} onChange={() => {}}>
+                  <SectionToggle label="Mensagem Principal" icon={Sparkles} checked={settings.mostrar_mensagem} onChange={(v) => set("mostrar_mensagem", v)}>
                     <Textarea
                       value={settings.mensagem}
                       onChange={(e) => set("mensagem", e.target.value)}
@@ -679,7 +679,7 @@ export default function ConfirmacaoPagamento() {
                     <Input value={settings.url_cta} onChange={(e) => set("url_cta", e.target.value)} placeholder="https://sualoja.com/rastreio" className="text-sm" />
                   </SectionToggle>
 
-                  <SectionToggle label="Rodapé" icon={Globe} checked={true} onChange={() => {}}>
+                  <SectionToggle label="Rodapé" icon={Globe} checked={settings.mostrar_rodape} onChange={(v) => set("mostrar_rodape", v)}>
                     <Input value={settings.rodape} onChange={(e) => set("rodape", e.target.value)} placeholder="Obrigado pela sua compra!" className="text-sm" />
                   </SectionToggle>
 
@@ -692,9 +692,7 @@ export default function ConfirmacaoPagamento() {
                       <span className="text-sm font-semibold text-foreground">Cores</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <ColorPicker label="Header" value={settings.cor_header} onChange={(v) => set("cor_header", v)} />
-                      <ColorPicker label="Botão" value={settings.cor_botao} onChange={(v) => set("cor_botao", v)} />
-                      <ColorPicker label="Destaque" value={settings.cor_destaque} onChange={(v) => set("cor_destaque", v)} />
+                      <ColorPicker label="Cor Principal" value={settings.cor_primaria} onChange={(v) => set("cor_primaria", v)} />
                       <ColorPicker label="Texto" value={settings.cor_texto} onChange={(v) => set("cor_texto", v)} />
                     </div>
                   </div>
