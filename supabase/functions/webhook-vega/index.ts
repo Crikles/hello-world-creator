@@ -29,13 +29,13 @@ function resolveCheckoutUrl(payload: Record<string, unknown>): string {
 }
 
 /** Extract products from Vega V1 (plans[].products[]) or V2 (products[])
- *  NOTE: Vega sends values already in Reais (e.g. 48.90), NOT centavos.
+ *  NOTE: Vega sends values in CENTAVOS (e.g. 500 = R$ 5.00).
  */
 function extractProducts(payload: Record<string, unknown>): Array<{
   code: string;
   title: string;
   description: string;
-  amount: number; // Reais
+  amount: number; // Reais (converted from centavos)
   quantity: number;
 }> {
   const products = payload.products as any[] | undefined;
@@ -44,7 +44,7 @@ function extractProducts(payload: Record<string, unknown>): Array<{
       code: String(p.id || p.code || ""),
       title: String(p.name || p.title || "Produto"),
       description: String(p.description || ""),
-      amount: parseNumericValue(p.value || p.amount || 0),
+      amount: parseNumericValue(p.value || p.amount || 0) / 100,
       quantity: Number(p.quantity || 1),
     }));
   }
@@ -59,7 +59,7 @@ function extractProducts(payload: Record<string, unknown>): Array<{
             code: String(p.id || ""),
             title: String(p.name || "Produto"),
             description: String(p.description || ""),
-            amount: parseNumericValue(p.value || plan.value || 0),
+            amount: parseNumericValue(p.value || plan.value || 0) / 100,
             quantity: Number(p.amount || 1),
           });
         }
@@ -187,9 +187,9 @@ Deno.serve(async (req) => {
     const address = payload.address || {};
     const normalizedProducts = extractProducts(payload);
 
-    // Vega sends total_price already in Reais (e.g. 48.90)
-    const totalPriceReais = parseNumericValue(payload.total_price);
-    const totalPriceCentavos = Math.round(totalPriceReais * 100);
+    // Vega sends total_price in centavos (e.g. 500 = R$ 5.00)
+    const totalPriceCentavos = parseNumericValue(payload.total_price);
+    const totalPriceReais = totalPriceCentavos / 100;
 
     // Upsert into pedidos
     const pedidoData = {
