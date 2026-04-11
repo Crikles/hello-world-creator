@@ -26,6 +26,10 @@ function replaceTemplateVars(template: string, vars: Record<string, string>): st
 
 /* ─── Parse metadata tags from corpo_email ─── */
 function parseConfTag(corpo: string, tag: string): string | undefined {
+  // New format: [conf_tag:value]
+  const n = corpo.match(new RegExp(`\\[${tag}:([^\\]]*)\\]`));
+  if (n) return n[1];
+  // Legacy format: {{conf_tag:value}}
   return corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1];
 }
 
