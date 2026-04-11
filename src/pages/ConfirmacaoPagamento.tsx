@@ -85,40 +85,42 @@ const DEFAULTS: ConfSettings = {
   cor_texto: "#333333",
 };
 
-/* ─── Serialize / Parse metadata tags ─── */
+/* ─── Serialize / Parse metadata tags using [] to avoid clash with {{nome}} ─── */
 function serializeToCorpo(s: ConfSettings): string {
+  const t = (k: string, v: string | boolean) => `[conf_${k}:${v}]`;
   return [
-    `{{conf_saudacao:${s.saudacao}}}`,
-    `{{conf_mostrar_saudacao:${s.mostrar_saudacao}}}`,
-    `{{conf_mostrar_resumo:${s.mostrar_resumo}}}`,
-    `{{conf_mensagem:${s.mensagem}}}`,
-    `{{conf_mostrar_mensagem:${s.mostrar_mensagem}}}`,
-    `{{conf_mostrar_cta:${s.mostrar_cta}}}`,
-    `{{conf_texto_botao:${s.texto_botao}}}`,
-    `{{conf_url_cta:${s.url_cta}}}`,
-    `{{conf_rodape:${s.rodape}}}`,
-    `{{conf_mostrar_rodape:${s.mostrar_rodape}}}`,
-    `{{conf_cor_primaria:${s.cor_primaria}}}`,
-    `{{conf_cor_texto:${s.cor_texto}}}`,
+    t("saudacao", s.saudacao), t("mostrar_saudacao", s.mostrar_saudacao),
+    t("mostrar_resumo", s.mostrar_resumo), t("mensagem", s.mensagem),
+    t("mostrar_mensagem", s.mostrar_mensagem), t("mostrar_cta", s.mostrar_cta),
+    t("texto_botao", s.texto_botao), t("url_cta", s.url_cta),
+    t("rodape", s.rodape), t("mostrar_rodape", s.mostrar_rodape),
+    t("cor_primaria", s.cor_primaria), t("cor_texto", s.cor_texto),
   ].join("");
 }
 
 function parseFromCorpo(corpo: string): Partial<ConfSettings> {
-  const m = (tag: string) => corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1];
+  const m = (tag: string): string | undefined => {
+    // New format: [conf_tag:value]
+    const n = corpo.match(new RegExp(`\\[conf_${tag}:([^\\]]*)\\]`));
+    if (n) return n[1];
+    // Legacy format: {{conf_tag:value}}
+    const l = corpo.match(new RegExp(`\\{\\{conf_${tag}:(.*?)\\}\\}`));
+    return l?.[1];
+  };
   const bool = (tag: string, def: boolean) => { const v = m(tag); return v === undefined ? def : v === "true"; };
   return {
-    saudacao: m("conf_saudacao") || undefined,
-    mostrar_saudacao: bool("conf_mostrar_saudacao", DEFAULTS.mostrar_saudacao),
-    mostrar_resumo: bool("conf_mostrar_resumo", DEFAULTS.mostrar_resumo),
-    mensagem: m("conf_mensagem") || undefined,
-    mostrar_mensagem: bool("conf_mostrar_mensagem", DEFAULTS.mostrar_mensagem),
-    mostrar_cta: bool("conf_mostrar_cta", DEFAULTS.mostrar_cta),
-    texto_botao: m("conf_texto_botao") || undefined,
-    url_cta: m("conf_url_cta") ?? undefined,
-    rodape: m("conf_rodape") || undefined,
-    mostrar_rodape: bool("conf_mostrar_rodape", DEFAULTS.mostrar_rodape),
-    cor_primaria: m("conf_cor_primaria") || m("conf_cor_header") || undefined,
-    cor_texto: m("conf_cor_texto") || undefined,
+    saudacao: m("saudacao") || undefined,
+    mostrar_saudacao: bool("mostrar_saudacao", DEFAULTS.mostrar_saudacao),
+    mostrar_resumo: bool("mostrar_resumo", DEFAULTS.mostrar_resumo),
+    mensagem: m("mensagem") || undefined,
+    mostrar_mensagem: bool("mostrar_mensagem", DEFAULTS.mostrar_mensagem),
+    mostrar_cta: bool("mostrar_cta", DEFAULTS.mostrar_cta),
+    texto_botao: m("texto_botao") || undefined,
+    url_cta: m("url_cta") ?? undefined,
+    rodape: m("rodape") || undefined,
+    mostrar_rodape: bool("mostrar_rodape", DEFAULTS.mostrar_rodape),
+    cor_primaria: m("cor_primaria") || m("cor_header") || undefined,
+    cor_texto: m("cor_texto") || undefined,
   };
 }
 
