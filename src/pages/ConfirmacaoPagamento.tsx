@@ -16,7 +16,8 @@ import { toast } from "@/hooks/use-toast";
 import {
   Settings, History, BookOpen, Mail, MessageSquare, Loader2,
   CheckCircle2, XCircle, Coins, Type, Eye, Save, Sparkles,
-  ShoppingCart, Globe, Gift, ArrowRight, User,
+  ShoppingCart, Globe, Gift, ArrowRight, User, Search,
+  ChevronLeft, ChevronRight, Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
 
