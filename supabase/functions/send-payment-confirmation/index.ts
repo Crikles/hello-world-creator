@@ -40,18 +40,22 @@ function parseConfBool(corpo: string, tag: string, def: boolean): boolean {
 
 /* ─── Build email HTML from metadata tags ─── */
 function buildEmailFromTags(corpo: string, vars: Record<string, string>, empresa: any): string {
-  // Replace template vars FIRST to resolve nested {{nome}} etc before parsing conf tags
-  const resolvedCorpo = replaceTemplateVars(corpo, vars);
+  // Parse conf tags from raw corpo first (new [] format doesn't conflict with {{nome}})
+  const rawSaudacao = parseConfTag(corpo, "conf_saudacao") || `Olá {{nome}}, seu pagamento foi confirmado com sucesso!`;
+  const mostrarSaudacao = parseConfBool(corpo, "conf_mostrar_saudacao", true);
+  const mostrarResumo = parseConfBool(corpo, "conf_mostrar_resumo", true);
+  const rawMensagem = parseConfTag(corpo, "conf_mensagem") || "Seu pedido já está sendo processado.";
+  const mostrarMensagem = parseConfBool(corpo, "conf_mostrar_mensagem", true);
+  const mostrarCta = parseConfBool(corpo, "conf_mostrar_cta", false);
+  const textoBotao = parseConfTag(corpo, "conf_texto_botao") || "Acompanhar Pedido";
+  const urlCta = parseConfTag(corpo, "conf_url_cta") || "";
+  const rawRodape = parseConfTag(corpo, "conf_rodape") || "Obrigado pela sua compra!";
+  const mostrarRodape = parseConfBool(corpo, "conf_mostrar_rodape", true);
 
-  const saudacao = parseConfTag(resolvedCorpo, "conf_saudacao") || `Olá ${vars.nome}, seu pagamento foi confirmado com sucesso!`;
-  const mostrarSaudacao = parseConfBool(resolvedCorpo, "conf_mostrar_saudacao", true);
-  const mostrarResumo = parseConfBool(resolvedCorpo, "conf_mostrar_resumo", true);
-  const mensagem = parseConfTag(resolvedCorpo, "conf_mensagem") || "Seu pedido já está sendo processado.";
-  const mostrarMensagem = parseConfBool(resolvedCorpo, "conf_mostrar_mensagem", true);
-  const mostrarCta = parseConfBool(resolvedCorpo, "conf_mostrar_cta", false);
-  const textoBotao = parseConfTag(resolvedCorpo, "conf_texto_botao") || "Acompanhar Pedido";
-  const urlCta = parseConfTag(resolvedCorpo, "conf_url_cta") || "";
-  const rodape = parseConfTag(resolvedCorpo, "conf_rodape") || "Obrigado pela sua compra!";
+  // Now replace template variables like {{nome}}, {{produto}}, etc.
+  const saudacao = replaceTemplateVars(rawSaudacao, vars);
+  const mensagem = replaceTemplateVars(rawMensagem, vars);
+  const rodape = replaceTemplateVars(rawRodape, vars);
   const mostrarRodape = parseConfBool(resolvedCorpo, "conf_mostrar_rodape", true);
   const corPrimaria = parseConfTag(resolvedCorpo, "conf_cor_primaria") || parseConfTag(resolvedCorpo, "conf_cor_header") || "#16a34a";
   const corTexto = parseConfTag(resolvedCorpo, "conf_cor_texto") || "#333333";
