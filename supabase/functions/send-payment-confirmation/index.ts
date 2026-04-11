@@ -39,67 +39,82 @@ function buildEmailFromTags(corpo: string, vars: Record<string, string>, empresa
   // Replace template vars FIRST to resolve nested {{nome}} etc before parsing conf tags
   const resolvedCorpo = replaceTemplateVars(corpo, vars);
 
-  const saudacao = parseConfTag(resolvedCorpo, "conf_saudacao") || `Olá ${vars.nome}, seu pagamento foi confirmado com sucesso! ✅`;
+  const saudacao = parseConfTag(resolvedCorpo, "conf_saudacao") || `Olá ${vars.nome}, seu pagamento foi confirmado com sucesso!`;
+  const mostrarSaudacao = parseConfBool(resolvedCorpo, "conf_mostrar_saudacao", true);
   const mostrarResumo = parseConfBool(resolvedCorpo, "conf_mostrar_resumo", true);
   const mensagem = parseConfTag(resolvedCorpo, "conf_mensagem") || "Seu pedido já está sendo processado.";
+  const mostrarMensagem = parseConfBool(resolvedCorpo, "conf_mostrar_mensagem", true);
   const mostrarCta = parseConfBool(resolvedCorpo, "conf_mostrar_cta", false);
   const textoBotao = parseConfTag(resolvedCorpo, "conf_texto_botao") || "Acompanhar Pedido";
   const urlCta = parseConfTag(resolvedCorpo, "conf_url_cta") || "";
   const rodape = parseConfTag(resolvedCorpo, "conf_rodape") || "Obrigado pela sua compra!";
-  const corHeader = parseConfTag(resolvedCorpo, "conf_cor_header") || "#16a34a";
-  const corBotao = parseConfTag(resolvedCorpo, "conf_cor_botao") || "#16a34a";
-  const corDestaque = parseConfTag(resolvedCorpo, "conf_cor_destaque") || "#16a34a";
-  const corTexto = parseConfTag(resolvedCorpo, "conf_cor_texto") || "#334155";
+  const mostrarRodape = parseConfBool(resolvedCorpo, "conf_mostrar_rodape", true);
+  const corPrimaria = parseConfTag(resolvedCorpo, "conf_cor_primaria") || parseConfTag(resolvedCorpo, "conf_cor_header") || "#16a34a";
+  const corTexto = parseConfTag(resolvedCorpo, "conf_cor_texto") || "#333333";
 
   const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
   const logoSection = empresa?.logo_url
-    ? `<img src="${empresa.logo_url}" alt="${empresaNome}" style="max-height:60px;margin-bottom:16px;border-radius:8px;" />`
+    ? `<td style="width:40px;"><img src="${empresa.logo_url}" alt="${empresaNome}" style="max-height:36px;border-radius:6px;" /></td>`
     : "";
 
   const sections: string[] = [];
 
-  sections.push(`<tr><td style="background:${corHeader};padding:32px;text-align:center;">
-    ${logoSection}
-    <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:800;">Pagamento Confirmado! ✅</h1>
+  // Simple header
+  sections.push(`<tr><td style="padding:24px 32px 16px;border-bottom:2px solid ${corPrimaria};">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      ${logoSection}
+      <td style="padding-left:${empresa?.logo_url ? '12' : '0'}px;">
+        <p style="margin:0;font-size:15px;font-weight:700;color:${corPrimaria};">Pagamento Confirmado</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#888;">${empresaNome}</p>
+      </td>
+    </tr></table>
   </td></tr>`);
 
-  sections.push(`<tr><td style="padding:32px 32px 16px;">
-    <p style="font-size:16px;color:#1e293b;margin:0 0 16px;line-height:1.6;">${saudacao}</p>
-  </td></tr>`);
+  // Saudação
+  if (mostrarSaudacao) {
+    sections.push(`<tr><td style="padding:24px 32px 8px;">
+      <p style="font-size:15px;color:#222;margin:0;line-height:1.5;">${saudacao}</p>
+    </td></tr>`);
+  }
 
+  // Resumo
   if (mostrarResumo) {
-    sections.push(`<tr><td style="padding:0 32px 16px;">
-      <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;margin-bottom:8px;">
-        <tr><td style="color:#64748b;font-size:14px;">Produto</td><td style="color:#0f172a;font-size:14px;font-weight:bold;">${vars.produto}</td></tr>
-        <tr><td style="color:#64748b;font-size:14px;border-top:1px solid #e2e8f0;">Valor</td><td style="color:${corDestaque};font-size:14px;font-weight:bold;border-top:1px solid #e2e8f0;">R$ ${vars.valor}</td></tr>
+    sections.push(`<tr><td style="padding:12px 32px;">
+      <table width="100%" cellpadding="8" cellspacing="0" style="background:#f9f9f9;border-radius:6px;border:1px solid #eee;">
+        <tr><td style="color:#666;font-size:13px;">Produto</td><td style="color:#222;font-size:13px;font-weight:600;text-align:right;">${vars.produto}</td></tr>
+        <tr><td style="color:#666;font-size:13px;border-top:1px solid #eee;">Valor</td><td style="color:${corPrimaria};font-size:13px;font-weight:600;text-align:right;border-top:1px solid #eee;">R$ ${vars.valor}</td></tr>
       </table>
     </td></tr>`);
   }
 
-  if (mensagem) {
-    sections.push(`<tr><td style="padding:0 32px 16px;">
-      <p style="font-size:14px;color:${corTexto};margin:0;line-height:1.7;">${mensagem}</p>
+  // Mensagem
+  if (mostrarMensagem && mensagem) {
+    sections.push(`<tr><td style="padding:8px 32px;">
+      <p style="font-size:14px;color:${corTexto};margin:0;line-height:1.6;">${mensagem}</p>
     </td></tr>`);
   }
 
+  // CTA
   if (mostrarCta && textoBotao && urlCta) {
-    sections.push(`<tr><td style="padding:8px 32px 24px;text-align:center;">
-      <a href="${urlCta}" style="display:inline-block;background:${corBotao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
+    sections.push(`<tr><td style="padding:16px 32px;text-align:center;">
+      <a href="${urlCta}" style="display:inline-block;background:${corPrimaria};color:#ffffff;padding:10px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
         ${textoBotao}
       </a>
     </td></tr>`);
   }
 
-  sections.push(`<tr><td style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
-    <p style="font-size:13px;color:#94a3b8;margin:0;">${rodape}</p>
-    <p style="font-size:11px;color:#cbd5e1;margin:8px 0 0;">${empresaNome}</p>
-  </td></tr>`);
+  // Rodapé
+  if (mostrarRodape) {
+    sections.push(`<tr><td style="padding:20px 32px 24px;border-top:1px solid #eee;">
+      <p style="font-size:12px;color:#999;margin:0;text-align:center;">${rodape}</p>
+    </td></tr>`);
+  }
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:20px 0;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
 ${sections.join("")}
 </table>
 </td></tr></table></body></html>`;
