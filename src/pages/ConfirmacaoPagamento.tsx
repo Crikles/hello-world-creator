@@ -57,45 +57,48 @@ function SectionToggle({ label, icon: Icon, checked, onChange, children }: {
 /* ─── Settings Type ─── */
 interface ConfSettings {
   saudacao: string;
+  mostrar_saudacao: boolean;
   mostrar_resumo: boolean;
   mensagem: string;
+  mostrar_mensagem: boolean;
   mostrar_cta: boolean;
   texto_botao: string;
   url_cta: string;
   rodape: string;
-  cor_header: string;
-  cor_botao: string;
-  cor_destaque: string;
+  mostrar_rodape: boolean;
+  cor_primaria: string;
   cor_texto: string;
 }
 
 const DEFAULTS: ConfSettings = {
-  saudacao: "Olá {{nome}}, seu pagamento foi confirmado com sucesso! ✅",
+  saudacao: "Olá {{nome}}, seu pagamento foi confirmado com sucesso!",
+  mostrar_saudacao: true,
   mostrar_resumo: true,
   mensagem: "Seu pedido já está sendo processado. Em breve você receberá mais informações sobre o envio.",
+  mostrar_mensagem: true,
   mostrar_cta: false,
   texto_botao: "Acompanhar Pedido",
   url_cta: "",
   rodape: "Obrigado pela sua compra!",
-  cor_header: "#16a34a",
-  cor_botao: "#16a34a",
-  cor_destaque: "#16a34a",
-  cor_texto: "#334155",
+  mostrar_rodape: true,
+  cor_primaria: "#16a34a",
+  cor_texto: "#333333",
 };
 
 /* ─── Serialize / Parse metadata tags ─── */
 function serializeToCorpo(s: ConfSettings): string {
   return [
     `{{conf_saudacao:${s.saudacao}}}`,
+    `{{conf_mostrar_saudacao:${s.mostrar_saudacao}}}`,
     `{{conf_mostrar_resumo:${s.mostrar_resumo}}}`,
     `{{conf_mensagem:${s.mensagem}}}`,
+    `{{conf_mostrar_mensagem:${s.mostrar_mensagem}}}`,
     `{{conf_mostrar_cta:${s.mostrar_cta}}}`,
     `{{conf_texto_botao:${s.texto_botao}}}`,
     `{{conf_url_cta:${s.url_cta}}}`,
     `{{conf_rodape:${s.rodape}}}`,
-    `{{conf_cor_header:${s.cor_header}}}`,
-    `{{conf_cor_botao:${s.cor_botao}}}`,
-    `{{conf_cor_destaque:${s.cor_destaque}}}`,
+    `{{conf_mostrar_rodape:${s.mostrar_rodape}}}`,
+    `{{conf_cor_primaria:${s.cor_primaria}}}`,
     `{{conf_cor_texto:${s.cor_texto}}}`,
   ].join("");
 }
@@ -105,15 +108,16 @@ function parseFromCorpo(corpo: string): Partial<ConfSettings> {
   const bool = (tag: string, def: boolean) => { const v = m(tag); return v === undefined ? def : v === "true"; };
   return {
     saudacao: m("conf_saudacao") || undefined,
+    mostrar_saudacao: bool("conf_mostrar_saudacao", DEFAULTS.mostrar_saudacao),
     mostrar_resumo: bool("conf_mostrar_resumo", DEFAULTS.mostrar_resumo),
     mensagem: m("conf_mensagem") || undefined,
+    mostrar_mensagem: bool("conf_mostrar_mensagem", DEFAULTS.mostrar_mensagem),
     mostrar_cta: bool("conf_mostrar_cta", DEFAULTS.mostrar_cta),
     texto_botao: m("conf_texto_botao") || undefined,
     url_cta: m("conf_url_cta") ?? undefined,
     rodape: m("conf_rodape") || undefined,
-    cor_header: m("conf_cor_header") || undefined,
-    cor_botao: m("conf_cor_botao") || undefined,
-    cor_destaque: m("conf_cor_destaque") || undefined,
+    mostrar_rodape: bool("conf_mostrar_rodape", DEFAULTS.mostrar_rodape),
+    cor_primaria: m("conf_cor_primaria") || m("conf_cor_header") || undefined,
     cor_texto: m("conf_cor_texto") || undefined,
   };
 }
@@ -122,59 +126,67 @@ function parseFromCorpo(corpo: string): Partial<ConfSettings> {
 function buildPreviewHtml(s: ConfSettings, empresaNome: string, logoUrl: string): string {
   const sections: string[] = [];
 
-  // Header
+  // Simple header line
   sections.push(`
-    <tr><td style="background:${s.cor_header};padding:32px;text-align:center;">
-      ${logoUrl ? `<img src="${logoUrl}" alt="${empresaNome}" style="max-height:60px;margin-bottom:16px;border-radius:8px;" />` : ""}
-      <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:800;">Pagamento Confirmado! ✅</h1>
+    <tr><td style="padding:24px 32px 16px;border-bottom:2px solid ${s.cor_primaria};">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        ${logoUrl ? `<td style="width:40px;"><img src="${logoUrl}" alt="${empresaNome}" style="max-height:36px;border-radius:6px;" /></td>` : ""}
+        <td style="padding-left:${logoUrl ? '12' : '0'}px;">
+          <p style="margin:0;font-size:15px;font-weight:700;color:${s.cor_primaria};">Pagamento Confirmado</p>
+          <p style="margin:2px 0 0;font-size:12px;color:#888;">${empresaNome}</p>
+        </td>
+      </tr></table>
     </td></tr>`);
 
   // Saudação
-  sections.push(`
-    <tr><td style="padding:32px 32px 16px;">
-      <p style="font-size:16px;color:#1e293b;margin:0 0 16px;line-height:1.6;">${replacePreviewVars(s.saudacao)}</p>
+  if (s.mostrar_saudacao) {
+    sections.push(`
+    <tr><td style="padding:24px 32px 8px;">
+      <p style="font-size:15px;color:#222;margin:0;line-height:1.5;">${replacePreviewVars(s.saudacao)}</p>
     </td></tr>`);
+  }
 
   // Resumo
   if (s.mostrar_resumo) {
     sections.push(`
-    <tr><td style="padding:0 32px 16px;">
-      <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;margin-bottom:8px;">
-        <tr><td style="color:#64748b;font-size:14px;">Produto</td><td style="color:#0f172a;font-size:14px;font-weight:bold;">Kit Skincare Premium</td></tr>
-        <tr><td style="color:#64748b;font-size:14px;border-top:1px solid #e2e8f0;">Valor</td><td style="color:${s.cor_destaque};font-size:14px;font-weight:bold;border-top:1px solid #e2e8f0;">R$ 197,00</td></tr>
+    <tr><td style="padding:12px 32px;">
+      <table width="100%" cellpadding="8" cellspacing="0" style="background:#f9f9f9;border-radius:6px;border:1px solid #eee;">
+        <tr><td style="color:#666;font-size:13px;">Produto</td><td style="color:#222;font-size:13px;font-weight:600;text-align:right;">Kit Skincare Premium</td></tr>
+        <tr><td style="color:#666;font-size:13px;border-top:1px solid #eee;">Valor</td><td style="color:${s.cor_primaria};font-size:13px;font-weight:600;text-align:right;border-top:1px solid #eee;">R$ 197,00</td></tr>
       </table>
     </td></tr>`);
   }
 
   // Mensagem
-  if (s.mensagem) {
+  if (s.mostrar_mensagem && s.mensagem) {
     sections.push(`
-    <tr><td style="padding:0 32px 16px;">
-      <p style="font-size:14px;color:${s.cor_texto};margin:0;line-height:1.7;">${replacePreviewVars(s.mensagem)}</p>
+    <tr><td style="padding:8px 32px;">
+      <p style="font-size:14px;color:${s.cor_texto};margin:0;line-height:1.6;">${replacePreviewVars(s.mensagem)}</p>
     </td></tr>`);
   }
 
   // CTA
   if (s.mostrar_cta && s.texto_botao) {
     sections.push(`
-    <tr><td style="padding:8px 32px 24px;text-align:center;">
-      <a href="#" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
+    <tr><td style="padding:16px 32px;text-align:center;">
+      <a href="#" style="display:inline-block;background:${s.cor_primaria};color:#ffffff;padding:10px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
         ${s.texto_botao}
       </a>
     </td></tr>`);
   }
 
   // Rodapé
-  sections.push(`
-    <tr><td style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:13px;color:#94a3b8;margin:0;">${replacePreviewVars(s.rodape)}</p>
-      <p style="font-size:11px;color:#cbd5e1;margin:8px 0 0;">${empresaNome}</p>
+  if (s.mostrar_rodape) {
+    sections.push(`
+    <tr><td style="padding:20px 32px 24px;border-top:1px solid #eee;">
+      <p style="font-size:12px;color:#999;margin:0;text-align:center;">${replacePreviewVars(s.rodape)}</p>
     </td></tr>`);
+  }
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
-<body style="margin:0;padding:20px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
-<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+<body style="margin:0;padding:20px;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
 ${sections.join("")}
 </table></td></tr></table></body></html>`;
 }
@@ -640,7 +652,7 @@ export default function ConfirmacaoPagamento() {
               {/* Visual Sections */}
               {enviarEmail && (
                 <div className="space-y-3">
-                  <SectionToggle label="Saudação" icon={Type} checked={true} onChange={() => {}}>
+                  <SectionToggle label="Saudação" icon={Type} checked={settings.mostrar_saudacao} onChange={(v) => set("mostrar_saudacao", v)}>
                     <Textarea
                       value={settings.saudacao}
                       onChange={(e) => set("saudacao", e.target.value)}
@@ -653,7 +665,7 @@ export default function ConfirmacaoPagamento() {
                     <p className="text-xs text-muted-foreground">Mostra automaticamente o produto e valor do pedido</p>
                   </SectionToggle>
 
-                  <SectionToggle label="Mensagem Principal" icon={Sparkles} checked={true} onChange={() => {}}>
+                  <SectionToggle label="Mensagem Principal" icon={Sparkles} checked={settings.mostrar_mensagem} onChange={(v) => set("mostrar_mensagem", v)}>
                     <Textarea
                       value={settings.mensagem}
                       onChange={(e) => set("mensagem", e.target.value)}
@@ -667,7 +679,7 @@ export default function ConfirmacaoPagamento() {
                     <Input value={settings.url_cta} onChange={(e) => set("url_cta", e.target.value)} placeholder="https://sualoja.com/rastreio" className="text-sm" />
                   </SectionToggle>
 
-                  <SectionToggle label="Rodapé" icon={Globe} checked={true} onChange={() => {}}>
+                  <SectionToggle label="Rodapé" icon={Globe} checked={settings.mostrar_rodape} onChange={(v) => set("mostrar_rodape", v)}>
                     <Input value={settings.rodape} onChange={(e) => set("rodape", e.target.value)} placeholder="Obrigado pela sua compra!" className="text-sm" />
                   </SectionToggle>
 
@@ -680,9 +692,7 @@ export default function ConfirmacaoPagamento() {
                       <span className="text-sm font-semibold text-foreground">Cores</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <ColorPicker label="Header" value={settings.cor_header} onChange={(v) => set("cor_header", v)} />
-                      <ColorPicker label="Botão" value={settings.cor_botao} onChange={(v) => set("cor_botao", v)} />
-                      <ColorPicker label="Destaque" value={settings.cor_destaque} onChange={(v) => set("cor_destaque", v)} />
+                      <ColorPicker label="Cor Principal" value={settings.cor_primaria} onChange={(v) => set("cor_primaria", v)} />
                       <ColorPicker label="Texto" value={settings.cor_texto} onChange={(v) => set("cor_texto", v)} />
                     </div>
                   </div>
