@@ -9,12 +9,32 @@ const corsHeaders = {
 
 /* ── Helpers ── */
 
-/** Parse a numeric value from raw input (strips non-numeric chars) */
-function parseNumericValue(raw: unknown): number {
+/** Vega may send money either in Reais with decimals (48.90) or in centavos as integer (500). */
+function normalizeVegaMoneyToReais(raw: unknown): number {
   if (raw == null) return 0;
-  const n = Number(String(raw).replace(/[^0-9.-]/g, ""));
-  if (isNaN(n)) return 0;
-  return n;
+
+  const text = String(raw).trim();
+  if (!text) return 0;
+
+  const cleaned = text.replace(/[^0-9,.-]/g, "");
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
+
+  if (decimalIndex >= 0) {
+    const intPart = cleaned.slice(0, decimalIndex).replace(/[^0-9-]/g, "");
+    const fracPart = cleaned.slice(decimalIndex + 1).replace(/\D/g, "").slice(0, 2);
+    const normalized = `${intPart || "0"}.${fracPart || "0"}`;
+    const reais = Number(normalized);
+    return Number.isFinite(reais) ? reais : 0;
+  }
+
+  const cents = Number(cleaned.replace(/[^0-9-]/g, ""));
+  return Number.isFinite(cents) ? cents / 100 : 0;
+}
+
+function normalizeVegaMoneyToCentavos(raw: unknown): number {
+  return Math.round(normalizeVegaMoneyToReais(raw) * 100);
 }
 
 /** Resolve checkout URL from multiple Vega payload fields */
@@ -29,13 +49,13 @@ function resolveCheckoutUrl(payload: Record<string, unknown>): string {
 }
 
 /** Extract products from Vega V1 (plans[].products[]) or V2 (products[])
- *  NOTE: Vega sends values in CENTAVOS (e.g. 500 = R$ 5.00).
+ *  NOTE: Vega may send values in Reais with decimals or in centavos as integers.
  */
 function extractProducts(payload: Record<string, unknown>): Array<{
   code: string;
   title: string;
   description: string;
-  amount: number; // Reais (converted from centavos)
+  amount: number; // Reais
   quantity: number;
 }> {
   const products = payload.products as any[] | undefined;
@@ -44,11 +64,10 @@ function extractProducts(payload: Record<string, unknown>): Array<{
       code: String(p.id || p.code || ""),
       title: String(p.name || p.title || "Produto"),
       description: String(p.description || ""),
-      amount: parseNumericValue(p.value || p.amount || 0) / 100,
+      amount: normalizeVegaMoneyToReais(p.value || p.amount || 0),
       quantity: Number(p.quantity || 1),
     }));
   }
-  // V1: plans[].products[]
   const plans = payload.plans as any[] | undefined;
   if (Array.isArray(plans)) {
     const result: any[] = [];
@@ -59,8 +78,8 @@ function extractProducts(payload: Record<string, unknown>): Array<{
             code: String(p.id || ""),
             title: String(p.name || "Produto"),
             description: String(p.description || ""),
-            amount: parseNumericValue(p.value || plan.value || 0) / 100,
-            quantity: Number(p.amount || 1),
+            amount: normalizeVegaMoneyToReais(p.value || plan.value || 0),
+            quantity: Number(p.quantity || 1),
           });
         }
       }
@@ -187,8 +206,8 @@ Deno.serve(async (req) => {
     const address = payload.address || {};
     const normalizedProducts = extractProducts(payload);
 
-    // Vega sends total_price in centavos (e.g. 500 = R$ 5.00)
-    const totalPriceCentavos = parseNumericValue(payload.total_price);
+    // Vega may send total_price as decimal Reais (48.90) or integer centavos (500)
+    const totalPriceCentavos = normalizeVegaMoneyToCentavos(payload.total_price);
     const totalPriceReais = totalPriceCentavos / 100;
 
     // Upsert into pedidos
