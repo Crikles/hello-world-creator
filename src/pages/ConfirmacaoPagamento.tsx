@@ -500,7 +500,7 @@ export default function ConfirmacaoPagamento() {
       setAssuntoEmail(config.assunto_email);
       setSmsTemplate(config.sms_template);
       setEmailRemetenteNome((config as any).email_remetente_nome || "");
-      if (config.corpo_email && config.corpo_email.includes("{{conf_")) {
+      if (config.corpo_email && (config.corpo_email.includes("[conf_") || config.corpo_email.includes("{{conf_"))) {
         const parsed = parseFromCorpo(config.corpo_email);
         setSettings(prev => ({ ...prev, ...parsed }));
       }
