@@ -562,70 +562,7 @@ export default function ConfirmacaoPagamento() {
         </TabsContent>
 
         <TabsContent value="historico" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Confirmações</CardTitle>
-              <CardDescription>Últimas 100 notificações enviadas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {logsLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : !logs?.length ? (
-                <p className="text-center text-muted-foreground py-8">
-                  Nenhuma confirmação enviada ainda
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Destinatário</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Custo</TableHead>
-                        <TableHead>Data</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {logs.map((log: any) => (
-                        <TableRow key={log.id}>
-                          <TableCell>
-                            {log.tipo === "email" ? (
-                              <Badge variant="outline" className="gap-1">
-                                <Mail className="h-3 w-3" /> Email
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="gap-1">
-                                <MessageSquare className="h-3 w-3" /> SMS
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">{log.destinatario}</TableCell>
-                          <TableCell>
-                            {log.status === "sent" ? (
-                              <Badge className="bg-green-500/10 text-green-600 gap-1">
-                                <CheckCircle2 className="h-3 w-3" /> Enviado
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive" className="gap-1">
-                                <XCircle className="h-3 w-3" /> Falhou
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>{Number(log.custo).toFixed(2)}</TableCell>
-                          <TableCell className="text-xs">
-                            {format(new Date(log.created_at), "dd/MM/yyyy HH:mm")}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <HistoricoTab logs={logs || []} logsLoading={logsLoading} />
         </TabsContent>
 
         <TabsContent value="tutorial" className="mt-4">
