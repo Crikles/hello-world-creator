@@ -126,59 +126,67 @@ function parseFromCorpo(corpo: string): Partial<ConfSettings> {
 function buildPreviewHtml(s: ConfSettings, empresaNome: string, logoUrl: string): string {
   const sections: string[] = [];
 
-  // Header
+  // Simple header line
   sections.push(`
-    <tr><td style="background:${s.cor_header};padding:32px;text-align:center;">
-      ${logoUrl ? `<img src="${logoUrl}" alt="${empresaNome}" style="max-height:60px;margin-bottom:16px;border-radius:8px;" />` : ""}
-      <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:800;">Pagamento Confirmado! ✅</h1>
+    <tr><td style="padding:24px 32px 16px;border-bottom:2px solid ${s.cor_primaria};">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        ${logoUrl ? `<td style="width:40px;"><img src="${logoUrl}" alt="${empresaNome}" style="max-height:36px;border-radius:6px;" /></td>` : ""}
+        <td style="padding-left:${logoUrl ? '12' : '0'}px;">
+          <p style="margin:0;font-size:15px;font-weight:700;color:${s.cor_primaria};">Pagamento Confirmado</p>
+          <p style="margin:2px 0 0;font-size:12px;color:#888;">${empresaNome}</p>
+        </td>
+      </tr></table>
     </td></tr>`);
 
   // Saudação
-  sections.push(`
-    <tr><td style="padding:32px 32px 16px;">
-      <p style="font-size:16px;color:#1e293b;margin:0 0 16px;line-height:1.6;">${replacePreviewVars(s.saudacao)}</p>
+  if (s.mostrar_saudacao) {
+    sections.push(`
+    <tr><td style="padding:24px 32px 8px;">
+      <p style="font-size:15px;color:#222;margin:0;line-height:1.5;">${replacePreviewVars(s.saudacao)}</p>
     </td></tr>`);
+  }
 
   // Resumo
   if (s.mostrar_resumo) {
     sections.push(`
-    <tr><td style="padding:0 32px 16px;">
-      <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;margin-bottom:8px;">
-        <tr><td style="color:#64748b;font-size:14px;">Produto</td><td style="color:#0f172a;font-size:14px;font-weight:bold;">Kit Skincare Premium</td></tr>
-        <tr><td style="color:#64748b;font-size:14px;border-top:1px solid #e2e8f0;">Valor</td><td style="color:${s.cor_destaque};font-size:14px;font-weight:bold;border-top:1px solid #e2e8f0;">R$ 197,00</td></tr>
+    <tr><td style="padding:12px 32px;">
+      <table width="100%" cellpadding="8" cellspacing="0" style="background:#f9f9f9;border-radius:6px;border:1px solid #eee;">
+        <tr><td style="color:#666;font-size:13px;">Produto</td><td style="color:#222;font-size:13px;font-weight:600;text-align:right;">Kit Skincare Premium</td></tr>
+        <tr><td style="color:#666;font-size:13px;border-top:1px solid #eee;">Valor</td><td style="color:${s.cor_primaria};font-size:13px;font-weight:600;text-align:right;border-top:1px solid #eee;">R$ 197,00</td></tr>
       </table>
     </td></tr>`);
   }
 
   // Mensagem
-  if (s.mensagem) {
+  if (s.mostrar_mensagem && s.mensagem) {
     sections.push(`
-    <tr><td style="padding:0 32px 16px;">
-      <p style="font-size:14px;color:${s.cor_texto};margin:0;line-height:1.7;">${replacePreviewVars(s.mensagem)}</p>
+    <tr><td style="padding:8px 32px;">
+      <p style="font-size:14px;color:${s.cor_texto};margin:0;line-height:1.6;">${replacePreviewVars(s.mensagem)}</p>
     </td></tr>`);
   }
 
   // CTA
   if (s.mostrar_cta && s.texto_botao) {
     sections.push(`
-    <tr><td style="padding:8px 32px 24px;text-align:center;">
-      <a href="#" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
+    <tr><td style="padding:16px 32px;text-align:center;">
+      <a href="#" style="display:inline-block;background:${s.cor_primaria};color:#ffffff;padding:10px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
         ${s.texto_botao}
       </a>
     </td></tr>`);
   }
 
   // Rodapé
-  sections.push(`
-    <tr><td style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:13px;color:#94a3b8;margin:0;">${replacePreviewVars(s.rodape)}</p>
-      <p style="font-size:11px;color:#cbd5e1;margin:8px 0 0;">${empresaNome}</p>
+  if (s.mostrar_rodape) {
+    sections.push(`
+    <tr><td style="padding:20px 32px 24px;border-top:1px solid #eee;">
+      <p style="font-size:12px;color:#999;margin:0;text-align:center;">${replacePreviewVars(s.rodape)}</p>
     </td></tr>`);
+  }
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
-<body style="margin:0;padding:20px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
-<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+<body style="margin:0;padding:20px;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
 ${sections.join("")}
 </table></td></tr></table></body></html>`;
 }
