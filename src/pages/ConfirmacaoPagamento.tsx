@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,13 +13,186 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { Settings, History, BookOpen, Mail, MessageSquare, Loader2, CheckCircle2, XCircle, Coins } from "lucide-react";
+import {
+  Settings, History, BookOpen, Mail, MessageSquare, Loader2,
+  CheckCircle2, XCircle, Coins, Type, Eye, Save, Sparkles,
+  ShoppingCart, Globe, Gift, ArrowRight, User,
+} from "lucide-react";
 import { format } from "date-fns";
 
+/* ─── Color Picker ─── */
+function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[10px] font-medium text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <input type="color" value={value.length === 7 ? value : "#000000"} onChange={(e) => onChange(e.target.value)} className="w-7 h-7 rounded cursor-pointer border border-border/50" />
+        <Input value={value} onChange={(e) => onChange(e.target.value)} className="text-[10px] font-mono flex-1 bg-transparent border-border/50 h-7 px-1.5" />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Section Toggle ─── */
+function SectionToggle({ label, icon: Icon, checked, onChange, children }: {
+  label: string; icon: React.ElementType; checked: boolean; onChange: (v: boolean) => void; children?: React.ReactNode;
+}) {
+  return (
+    <div className="glass glow-border rounded-xl p-4 animate-stagger-in">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Icon className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">{label}</span>
+        </div>
+        <Switch checked={checked} onCheckedChange={onChange} />
+      </div>
+      {checked && children && <div className="space-y-3 mt-2">{children}</div>}
+    </div>
+  );
+}
+
+/* ─── Settings Type ─── */
+interface ConfSettings {
+  saudacao: string;
+  mostrar_resumo: boolean;
+  mensagem: string;
+  mostrar_cta: boolean;
+  texto_botao: string;
+  url_cta: string;
+  rodape: string;
+  cor_header: string;
+  cor_botao: string;
+  cor_destaque: string;
+  cor_texto: string;
+}
+
+const DEFAULTS: ConfSettings = {
+  saudacao: "Olá {{nome}}, seu pagamento foi confirmado com sucesso! ✅",
+  mostrar_resumo: true,
+  mensagem: "Seu pedido já está sendo processado. Em breve você receberá mais informações sobre o envio.",
+  mostrar_cta: false,
+  texto_botao: "Acompanhar Pedido",
+  url_cta: "",
+  rodape: "Obrigado pela sua compra!",
+  cor_header: "#16a34a",
+  cor_botao: "#16a34a",
+  cor_destaque: "#16a34a",
+  cor_texto: "#334155",
+};
+
+/* ─── Serialize / Parse metadata tags ─── */
+function serializeToCorpo(s: ConfSettings): string {
+  return [
+    `{{conf_saudacao:${s.saudacao}}}`,
+    `{{conf_mostrar_resumo:${s.mostrar_resumo}}}`,
+    `{{conf_mensagem:${s.mensagem}}}`,
+    `{{conf_mostrar_cta:${s.mostrar_cta}}}`,
+    `{{conf_texto_botao:${s.texto_botao}}}`,
+    `{{conf_url_cta:${s.url_cta}}}`,
+    `{{conf_rodape:${s.rodape}}}`,
+    `{{conf_cor_header:${s.cor_header}}}`,
+    `{{conf_cor_botao:${s.cor_botao}}}`,
+    `{{conf_cor_destaque:${s.cor_destaque}}}`,
+    `{{conf_cor_texto:${s.cor_texto}}}`,
+  ].join("");
+}
+
+function parseFromCorpo(corpo: string): Partial<ConfSettings> {
+  const m = (tag: string) => corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1];
+  const bool = (tag: string, def: boolean) => { const v = m(tag); return v === undefined ? def : v === "true"; };
+  return {
+    saudacao: m("conf_saudacao") || undefined,
+    mostrar_resumo: bool("conf_mostrar_resumo", DEFAULTS.mostrar_resumo),
+    mensagem: m("conf_mensagem") || undefined,
+    mostrar_cta: bool("conf_mostrar_cta", DEFAULTS.mostrar_cta),
+    texto_botao: m("conf_texto_botao") || undefined,
+    url_cta: m("conf_url_cta") ?? undefined,
+    rodape: m("conf_rodape") || undefined,
+    cor_header: m("conf_cor_header") || undefined,
+    cor_botao: m("conf_cor_botao") || undefined,
+    cor_destaque: m("conf_cor_destaque") || undefined,
+    cor_texto: m("conf_cor_texto") || undefined,
+  };
+}
+
+/* ─── Build email HTML for preview ─── */
+function buildPreviewHtml(s: ConfSettings, empresaNome: string, logoUrl: string): string {
+  const sections: string[] = [];
+
+  // Header
+  sections.push(`
+    <tr><td style="background:${s.cor_header};padding:32px;text-align:center;">
+      ${logoUrl ? `<img src="${logoUrl}" alt="${empresaNome}" style="max-height:60px;margin-bottom:16px;border-radius:8px;" />` : ""}
+      <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:800;">Pagamento Confirmado! ✅</h1>
+    </td></tr>`);
+
+  // Saudação
+  sections.push(`
+    <tr><td style="padding:32px 32px 16px;">
+      <p style="font-size:16px;color:#1e293b;margin:0 0 16px;line-height:1.6;">${replacePreviewVars(s.saudacao)}</p>
+    </td></tr>`);
+
+  // Resumo
+  if (s.mostrar_resumo) {
+    sections.push(`
+    <tr><td style="padding:0 32px 16px;">
+      <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;margin-bottom:8px;">
+        <tr><td style="color:#64748b;font-size:14px;">Produto</td><td style="color:#0f172a;font-size:14px;font-weight:bold;">Kit Skincare Premium</td></tr>
+        <tr><td style="color:#64748b;font-size:14px;border-top:1px solid #e2e8f0;">Valor</td><td style="color:${s.cor_destaque};font-size:14px;font-weight:bold;border-top:1px solid #e2e8f0;">R$ 197,00</td></tr>
+      </table>
+    </td></tr>`);
+  }
+
+  // Mensagem
+  if (s.mensagem) {
+    sections.push(`
+    <tr><td style="padding:0 32px 16px;">
+      <p style="font-size:14px;color:${s.cor_texto};margin:0;line-height:1.7;">${replacePreviewVars(s.mensagem)}</p>
+    </td></tr>`);
+  }
+
+  // CTA
+  if (s.mostrar_cta && s.texto_botao) {
+    sections.push(`
+    <tr><td style="padding:8px 32px 24px;text-align:center;">
+      <a href="#" style="display:inline-block;background:${s.cor_botao};color:#ffffff;padding:14px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">
+        ${s.texto_botao}
+      </a>
+    </td></tr>`);
+  }
+
+  // Rodapé
+  sections.push(`
+    <tr><td style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="font-size:13px;color:#94a3b8;margin:0;">${replacePreviewVars(s.rodape)}</p>
+      <p style="font-size:11px;color:#cbd5e1;margin:8px 0 0;">${empresaNome}</p>
+    </td></tr>`);
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:20px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
+<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+${sections.join("")}
+</table></td></tr></table></body></html>`;
+}
+
+function replacePreviewVars(text: string): string {
+  return text
+    .replace(/\{\{nome\}\}/g, "Maria")
+    .replace(/\{\{nome_completo\}\}/g, "Maria Silva")
+    .replace(/\{\{produto\}\}/g, "Kit Skincare Premium")
+    .replace(/\{\{valor\}\}/g, "197,00")
+    .replace(/\{\{empresa\}\}/g, "Minha Loja");
+}
+
+/* ─── Main Component ─── */
 export default function ConfirmacaoPagamento() {
   const { user } = useAuth();
   const { loja } = useLoja();
   const queryClient = useQueryClient();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Config query
   const { data: config, isLoading: configLoading } = useQuery({
@@ -27,6 +200,20 @@ export default function ConfirmacaoPagamento() {
     queryFn: async () => {
       const { data } = await supabase
         .from("confirmacao_pagamento_config")
+        .select("*")
+        .eq("loja_id", loja!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!loja,
+  });
+
+  // Empresa query
+  const { data: empresa } = useQuery({
+    queryKey: ["empresa", loja?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("empresas")
         .select("*")
         .eq("loja_id", loja!.id)
         .maybeSingle();
@@ -69,8 +256,15 @@ export default function ConfirmacaoPagamento() {
   const [enviarEmail, setEnviarEmail] = useState(true);
   const [enviarSms, setEnviarSms] = useState(true);
   const [assuntoEmail, setAssuntoEmail] = useState("Pagamento Confirmado! ✅ Seu pedido {{produto}} foi aprovado");
-  const [corpoEmail, setCorpoEmail] = useState("");
   const [smsTemplate, setSmsTemplate] = useState("Ola {{nome}}! Seu pagamento de R${{valor}} foi confirmado. Obrigado pela compra!");
+  const [emailRemetenteNome, setEmailRemetenteNome] = useState("");
+  const [settings, setSettings] = useState<ConfSettings>({ ...DEFAULTS });
+
+  const set = <K extends keyof ConfSettings>(key: K, val: ConfSettings[K]) =>
+    setSettings(prev => ({ ...prev, [key]: val }));
+
+  const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "Minha Loja";
+  const logoUrl = empresa?.logo_url || "";
 
   useEffect(() => {
     if (config) {
@@ -78,21 +272,37 @@ export default function ConfirmacaoPagamento() {
       setEnviarEmail(config.enviar_email);
       setEnviarSms(config.enviar_sms);
       setAssuntoEmail(config.assunto_email);
-      setCorpoEmail(config.corpo_email);
       setSmsTemplate(config.sms_template);
+      setEmailRemetenteNome((config as any).email_remetente_nome || "");
+      if (config.corpo_email && config.corpo_email.includes("{{conf_")) {
+        const parsed = parseFromCorpo(config.corpo_email);
+        setSettings(prev => ({ ...prev, ...parsed }));
+      }
     }
   }, [config]);
 
+  // Preview HTML
+  const previewHtml = useMemo(() => buildPreviewHtml(settings, empresaNome, logoUrl), [settings, empresaNome, logoUrl]);
+
+  useEffect(() => {
+    if (iframeRef.current) {
+      const doc = iframeRef.current.contentDocument;
+      if (doc) { doc.open(); doc.write(previewHtml); doc.close(); }
+    }
+  }, [previewHtml]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const corpo = serializeToCorpo(settings);
+      const payload: Record<string, unknown> = {
         loja_id: loja!.id,
         ativo,
         enviar_email: enviarEmail,
         enviar_sms: enviarSms,
         assunto_email: assuntoEmail,
-        corpo_email: corpoEmail,
+        corpo_email: corpo,
         sms_template: smsTemplate,
+        email_remetente_nome: emailRemetenteNome,
       };
 
       if (config) {
@@ -149,6 +359,7 @@ export default function ConfirmacaoPagamento() {
         </TabsList>
 
         <TabsContent value="config" className="space-y-4 mt-4">
+          {/* Status + Custos */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -161,101 +372,192 @@ export default function ConfirmacaoPagamento() {
                 </div>
               </CardTitle>
               <CardDescription>
-                Quando ativo, cada pedido pago via webhook envia automaticamente um email e/ou SMS de confirmação
+                Quando ativo, cada pedido pago envia automaticamente email e/ou SMS de confirmação
+                <span className="ml-2">
+                  <Badge variant="secondary"><Coins className="h-3 w-3 mr-1" /> Email: {custoEmail.toFixed(2)}</Badge>
+                  {" "}
+                  <Badge variant="secondary"><Coins className="h-3 w-3 mr-1" /> SMS: {custoSms.toFixed(2)}</Badge>
+                </span>
               </CardDescription>
             </CardHeader>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Mail className="h-5 w-5 text-primary" />
-                  Email de Confirmação
-                  <Badge variant="secondary" className="ml-auto">
-                    <Coins className="h-3 w-3 mr-1" />
-                    {custoEmail.toFixed(2)} moedas
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Switch checked={enviarEmail} onCheckedChange={setEnviarEmail} />
-                  <Label>Enviar email de confirmação</Label>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* LEFT: Editor */}
+            <div className="space-y-4">
+              {/* Email toggle + remetente */}
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={enviarEmail} onCheckedChange={setEnviarEmail} />
+                    <Label className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-primary" /> Enviar email de confirmação
+                    </Label>
+                  </div>
+
+                  {enviarEmail && (
+                    <>
+                      <div>
+                        <Label className="text-xs">Nome do Remetente (FROM)</Label>
+                        <Input
+                          value={emailRemetenteNome}
+                          onChange={(e) => setEmailRemetenteNome(e.target.value)}
+                          placeholder={empresaNome}
+                          className="mt-1"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Aparecerá como: <strong>{emailRemetenteNome || empresaNome}</strong> &lt;contato@recuperacaodenegocios.com&gt;
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Assunto do Email</Label>
+                        <Input
+                          value={assuntoEmail}
+                          onChange={(e) => setAssuntoEmail(e.target.value)}
+                          placeholder="Pagamento Confirmado! ✅"
+                          className="mt-1"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Variáveis: {"{{nome}}"}, {"{{produto}}"}, {"{{valor}}"}, {"{{empresa}}"}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Visual Sections */}
+              {enviarEmail && (
+                <div className="space-y-3">
+                  <SectionToggle label="Saudação" icon={Type} checked={true} onChange={() => {}}>
+                    <Textarea
+                      value={settings.saudacao}
+                      onChange={(e) => set("saudacao", e.target.value)}
+                      className="text-sm min-h-[60px]"
+                      placeholder="Olá {{nome}}, seu pagamento foi confirmado!"
+                    />
+                  </SectionToggle>
+
+                  <SectionToggle label="Resumo do Pedido" icon={ShoppingCart} checked={settings.mostrar_resumo} onChange={(v) => set("mostrar_resumo", v)}>
+                    <p className="text-xs text-muted-foreground">Mostra automaticamente o produto e valor do pedido</p>
+                  </SectionToggle>
+
+                  <SectionToggle label="Mensagem Principal" icon={Sparkles} checked={true} onChange={() => {}}>
+                    <Textarea
+                      value={settings.mensagem}
+                      onChange={(e) => set("mensagem", e.target.value)}
+                      className="text-sm min-h-[60px]"
+                      placeholder="Seu pedido está sendo processado..."
+                    />
+                  </SectionToggle>
+
+                  <SectionToggle label="Botão CTA" icon={ArrowRight} checked={settings.mostrar_cta} onChange={(v) => set("mostrar_cta", v)}>
+                    <Input value={settings.texto_botao} onChange={(e) => set("texto_botao", e.target.value)} placeholder="Acompanhar Pedido" className="text-sm" />
+                    <Input value={settings.url_cta} onChange={(e) => set("url_cta", e.target.value)} placeholder="https://sualoja.com/rastreio" className="text-sm" />
+                  </SectionToggle>
+
+                  <SectionToggle label="Rodapé" icon={Globe} checked={true} onChange={() => {}}>
+                    <Input value={settings.rodape} onChange={(e) => set("rodape", e.target.value)} placeholder="Obrigado pela sua compra!" className="text-sm" />
+                  </SectionToggle>
+
+                  {/* Cores */}
+                  <div className="glass glow-border rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Eye className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold text-foreground">Cores</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <ColorPicker label="Header" value={settings.cor_header} onChange={(v) => set("cor_header", v)} />
+                      <ColorPicker label="Botão" value={settings.cor_botao} onChange={(v) => set("cor_botao", v)} />
+                      <ColorPicker label="Destaque" value={settings.cor_destaque} onChange={(v) => set("cor_destaque", v)} />
+                      <ColorPicker label="Texto" value={settings.cor_texto} onChange={(v) => set("cor_texto", v)} />
+                    </div>
+                  </div>
                 </div>
-                {enviarEmail && (
-                  <>
+              )}
+
+              {/* SMS */}
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={enviarSms} onCheckedChange={setEnviarSms} />
+                    <Label className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-primary" /> Enviar SMS de confirmação
+                    </Label>
+                  </div>
+                  {enviarSms && (
                     <div>
-                      <Label>Assunto do Email</Label>
-                      <Input
-                        value={assuntoEmail}
-                        onChange={(e) => setAssuntoEmail(e.target.value)}
-                        placeholder="Pagamento Confirmado! ✅"
-                        className="mt-1"
+                      <Label className="text-xs">Template do SMS</Label>
+                      <Textarea
+                        value={smsTemplate}
+                        onChange={(e) => setSmsTemplate(e.target.value)}
+                        placeholder="Mensagem do SMS..."
+                        className="mt-1 min-h-[80px]"
                       />
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-[10px] text-muted-foreground mt-1">
                         Variáveis: {"{{nome}}"}, {"{{produto}}"}, {"{{valor}}"}, {"{{empresa}}"}
                       </p>
                     </div>
-                    <div>
-                      <Label>Corpo do Email (HTML)</Label>
-                      <Textarea
-                        value={corpoEmail}
-                        onChange={(e) => setCorpoEmail(e.target.value)}
-                        placeholder="Deixe vazio para usar o template padrão bonito"
-                        className="mt-1 min-h-[120px] font-mono text-xs"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Deixe vazio para usar o template padrão com dados da empresa
-                      </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="w-full"
+              >
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Salvar Configuração
+              </Button>
+            </div>
+
+            {/* RIGHT: Preview */}
+            {enviarEmail && (
+              <div className="space-y-4">
+                {/* Inbox simulation */}
+                <div className="rounded-xl border bg-card p-4 space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                    Preview da Caixa de Entrada
+                  </p>
+                  <div className="flex items-start gap-3">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <Mail className="h-4 w-4 text-primary" />
                     </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  SMS de Confirmação
-                  <Badge variant="secondary" className="ml-auto">
-                    <Coins className="h-3 w-3 mr-1" />
-                    {custoSms.toFixed(2)} moedas
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Switch checked={enviarSms} onCheckedChange={setEnviarSms} />
-                  <Label>Enviar SMS de confirmação</Label>
-                </div>
-                {enviarSms && (
-                  <div>
-                    <Label>Template do SMS</Label>
-                    <Textarea
-                      value={smsTemplate}
-                      onChange={(e) => setSmsTemplate(e.target.value)}
-                      placeholder="Mensagem do SMS..."
-                      className="mt-1 min-h-[80px]"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Variáveis: {"{{nome}}"}, {"{{produto}}"}, {"{{valor}}"}, {"{{empresa}}"}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-sm text-foreground truncate">
+                          {emailRemetenteNome || empresaNome}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground whitespace-nowrap ml-2">agora</span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground truncate">{replacePreviewVars(assuntoEmail)}</p>
+                      <p className="text-xs text-muted-foreground truncate">{replacePreviewVars(settings.saudacao).substring(0, 90)}...</p>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </div>
 
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-            className="w-full md:w-auto"
-          >
-            {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Salvar Configuração
-          </Button>
+                {/* Email body preview */}
+                <div className="rounded-xl border bg-muted/30 overflow-hidden" style={{ minHeight: 500 }}>
+                  <div className="flex items-center gap-1.5 px-3 py-2 border-b bg-card">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                    <span className="text-[10px] text-muted-foreground ml-2">Email Preview</span>
+                  </div>
+                  <iframe
+                    ref={iframeRef}
+                    title="Email Preview"
+                    className="w-full border-0"
+                    sandbox="allow-same-origin"
+                    style={{ minHeight: 470 }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="historico" className="mt-4">
@@ -336,14 +638,8 @@ export default function ConfirmacaoPagamento() {
                 <p>Vá na aba Configuração e ative o switch principal. Escolha se deseja enviar email, SMS ou ambos.</p>
               </div>
               <div className="space-y-2">
-                <h3 className="font-semibold text-foreground">2. Personalize os templates</h3>
-                <p>
-                  Customize o assunto e corpo do email, e o template do SMS. Use variáveis como{" "}
-                  <code className="bg-muted px-1 rounded">{"{{nome}}"}</code>,{" "}
-                  <code className="bg-muted px-1 rounded">{"{{produto}}"}</code>,{" "}
-                  <code className="bg-muted px-1 rounded">{"{{valor}}"}</code>,{" "}
-                  <code className="bg-muted px-1 rounded">{"{{empresa}}"}</code>.
-                </p>
+                <h3 className="font-semibold text-foreground">2. Personalize visualmente</h3>
+                <p>Use o editor visual para customizar cada seção do email. O preview ao lado mostra em tempo real como ficará.</p>
               </div>
               <div className="space-y-2">
                 <h3 className="font-semibold text-foreground">3. Automático!</h3>
