@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.webhook-nuvorafy]
 verify_jwt = false
+
+[functions.send-payment-confirmation]
+verify_jwt = false

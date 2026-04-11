@@ -302,6 +302,11 @@ Deno.serve(async (req) => {
           supabase.functions.invoke("auto-whatsapp-new-order", {
             body: { envio_id: newEnvio.id, loja_id: lojaId }
           }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
+
+          // Fire-and-forget payment confirmation email/SMS
+          supabase.functions.invoke("send-payment-confirmation", {
+            body: { pedido_id: pedidoId, loja_id: lojaId }
+          }).catch((err) => console.error("[payment-confirmation] invoke error:", err));
         }
       }
     }

@@ -181,6 +181,104 @@ export type Database = {
         }
         Relationships: []
       }
+      confirmacao_pagamento_config: {
+        Row: {
+          assunto_email: string
+          ativo: boolean
+          corpo_email: string
+          created_at: string
+          enviar_email: boolean
+          enviar_sms: boolean
+          id: string
+          loja_id: string
+          sms_template: string
+          updated_at: string
+        }
+        Insert: {
+          assunto_email?: string
+          ativo?: boolean
+          corpo_email?: string
+          created_at?: string
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          id?: string
+          loja_id: string
+          sms_template?: string
+          updated_at?: string
+        }
+        Update: {
+          assunto_email?: string
+          ativo?: boolean
+          corpo_email?: string
+          created_at?: string
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          id?: string
+          loja_id?: string
+          sms_template?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confirmacao_pagamento_config_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      confirmacao_pagamento_log: {
+        Row: {
+          created_at: string
+          custo: number
+          destinatario: string
+          error_reason: string | null
+          id: string
+          loja_id: string
+          pedido_id: string | null
+          status: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          custo?: number
+          destinatario: string
+          error_reason?: string | null
+          id?: string
+          loja_id: string
+          pedido_id?: string | null
+          status?: string
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          custo?: number
+          destinatario?: string
+          error_reason?: string | null
+          id?: string
+          loja_id?: string
+          pedido_id?: string | null
+          status?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confirmacao_pagamento_log_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "confirmacao_pagamento_log_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creditos: {
         Row: {
           id: string
