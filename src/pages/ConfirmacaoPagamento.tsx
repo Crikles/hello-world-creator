@@ -294,7 +294,7 @@ export default function ConfirmacaoPagamento() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const corpo = serializeToCorpo(settings);
-      const payload: Record<string, unknown> = {
+      const payload = {
         loja_id: loja!.id,
         ativo,
         enviar_email: enviarEmail,
@@ -302,8 +302,8 @@ export default function ConfirmacaoPagamento() {
         assunto_email: assuntoEmail,
         corpo_email: corpo,
         sms_template: smsTemplate,
-        email_remetente_nome: emailRemetenteNome,
-      };
+      } as any;
+      payload.email_remetente_nome = emailRemetenteNome;
 
       if (config) {
         await supabase
