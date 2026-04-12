@@ -1,49 +1,53 @@
 
 
-## Diagnóstico
+## Plano: Criar Template Prolongado
 
-### Problema 1: Valor errado no painel de Rastreio
-O payload da Vega envia `products[].amount: 500` (que é o **preço** em Reais) e `products[].quantity: 1`. Porém, no webhook-vega, linha 48, o código faz:
-```
-quantity: Number(p.amount || p.quantity || 1)
-```
-Como `p.amount` (500) é avaliado primeiro e é truthy, a **quantidade** está sendo definida como 500 em vez de 1. Isso faz o envio mostrar "quantidade: 500" e o produto aparecer como "Produto Dois Rifa (x500)".
+### Contexto
+O sistema possui 3 templates de sistema (IDs `...0001`, `...0002`, `...0004`). Preciso criar um 4o template "Prolongado" com muitos eventos intermediários para prolongar o rastreio, similar ao print onde há ~12 atualizações antes da entrega.
 
-### Problema 2: Confirmação de Pagamento não chegou
-A Edge Function `send-payment-confirmation` está **crashando** com o erro:
-```
-SyntaxError: Identifier 'mostrarRodape' has already been declared (line 48:9)
-```
-A variável `mostrarRodape` é declarada na linha 53 e novamente na linha 59. Também há referência a `resolvedCorpo` (linha 59-61) que não existe nesse escopo. Isso foi introduzido na refatoração anterior do template.
+### Eventos do Template Prolongado (~15 eventos)
+Baseado no screenshot, o template terá eventos que "enrolam" com múltiplas atualizações de movimento:
 
----
+| Ordem | Status Label | Nome | Delay (horas) |
+|-------|-------------|------|---------------|
+| 1 | Postado | Pedido separado | 0 |
+| 2 | Coletado | Coletado pela Transportadora | 24 |
+| 3 | Em Trânsito | Objeto em transferência | 48 |
+| 4 | Em Trânsito | Em trânsito para unidade de tratamento | 48 |
+| 5 | Em Trânsito | Em trânsito para unidade de tratamento estadual | 72 |
+| 6 | Em Trânsito | Seu pacote está em movimento | 48 |
+| 7 | Em Trânsito | Seu pacote está em movimento | 120 |
+| 8 | Em Trânsito | Seu pacote está em movimento | 120 |
+| 9 | Em Trânsito | Seu pacote está em movimento | 120 |
+| 10 | Em Trânsito | Seu pacote está em movimento | 72 |
+| 11 | Centro Local | Seu pacote está próximo | 48 |
+| 12 | Centro Local | Seu pacote está próximo | 48 |
+| 13 | Saiu para Entrega | Saiu para entrega | 24 |
+| 14 | Entregue | Pedido entregue | 240 |
 
-## Plano de Correção
+### Implementação
 
-### 1. Corrigir extração de quantidade no webhook-vega
-Na função `extractProducts`, trocar a ordem de prioridade para que `quantity` seja lido antes de `amount`:
-```typescript
-quantity: Number(p.quantity || 1),  // Remover p.amount daqui
-```
+#### 1. Migration SQL
+Criar o template de sistema com ID fixo `00000000-0000-0000-0000-000000000005` e tipo `prolongado`, com todos os 14 eventos na tabela `postagem_eventos`. Cada evento terá `enviar_email: true`, `assunto_email` e `corpo_email` padrão. O evento de NF-e será incluído como ordem 1.
 
-### 2. Corrigir variável duplicada no send-payment-confirmation
-- Remover a segunda declaração de `mostrarRodape` (linha 59)
-- Remover as referências a `resolvedCorpo` (linhas 59-61) e usar `corpo` diretamente para as tags `conf_cor_primaria` e `conf_cor_texto`, que já foram parseadas antes
+#### 2. Atualizar `Postagens.tsx`
+- Adicionar o ID `...0005` à query de `systemEventos` (linha 180-184)
+- Pronto — o restante do código já renderiza templates de sistema dinamicamente
 
-### 3. Redeployar ambas as Edge Functions
+#### 3. Atualizar `AdminTemplates.tsx`
+Nenhuma alteração necessária — já carrega todos os templates de sistema.
 
-### 4. Corrigir envios existentes com quantidade errada
-Atualizar os envios recentes da Vega que têm quantidade 500 para a quantidade correta (1).
+#### 4. Atualizar `emailTemplates.ts`
+Adicionar entradas no `defaultSectionsByEvent` e `emojiMap` para novos status labels caso necessário (os existentes já cobrem "Em Trânsito", "Centro Local", etc.).
 
----
+#### 5. SMS Templates
+Criar registros na tabela `sms_templates` para os status do template prolongado que ainda não existam (a maioria já existe pois reutiliza os mesmos `status_key`).
 
-## Detalhes Técnicos
+#### 6. Atualizar `rastreio-info` (Edge Function)
+Nenhuma alteração necessária — já suporta múltiplos eventos do mesmo status_label.
 
-**Arquivo 1**: `supabase/functions/webhook-vega/index.ts` — linha 48
-- De: `quantity: Number(p.amount || p.quantity || 1)`
-- Para: `quantity: Number(p.quantity || 1)`
-
-**Arquivo 2**: `supabase/functions/send-payment-confirmation/index.ts` — linhas 53-61
-- Remover linhas 59-61 (duplicadas/inválidas)
-- As variáveis `corPrimaria` e `corTexto` devem usar `corpo` como parâmetro do `parseConfTag`
+### Resumo
+- 1 migration SQL (template + ~14 eventos + SMS templates novos se necessário)
+- 1 edit em `Postagens.tsx` (adicionar ID na query)
+- Tudo pronto para o usuário selecionar e usar imediatamente
 
