@@ -672,8 +672,8 @@ export default function Rastreio() {
                                 </div>
                                 <div>
                                     <h5>Informações</h5>
-                                    <a href="#">Termos de serviço</a>
-                                    <a href="#">Política de privacidade</a>
+                                     <a href="/termos">Termos de serviço</a>
+                                     <a href="/privacidade">Política de privacidade</a>
                                 </div>
                             </div>
                         </div>
@@ -947,8 +947,8 @@ export default function Rastreio() {
                                 </div>
                                 <div>
                                     <h5>Informações</h5>
-                                    <a href="#">Termos de serviço</a>
-                                    <a href="#">Política de privacidade</a>
+                                     <a href="/termos">Termos de serviço</a>
+                                     <a href="/privacidade">Política de privacidade</a>
                                 </div>
                             </div>
                         </div>
@@ -1363,8 +1363,8 @@ export default function Rastreio() {
                             </div>
                             <div className="f-col">
                                 <h5>INFORMAÇÕES</h5>
-                                <a href="#">Termos de Serviço</a>
-                                <a href="#">Política de Privacidade</a>
+                                 <a href="/termos">Termos de Serviço</a>
+                                 <a href="/privacidade">Política de Privacidade</a>
                             </div>
                         </div>
                     </div>
