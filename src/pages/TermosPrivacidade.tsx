@@ -40,15 +40,12 @@ export default function TermosPrivacidade({ tipo }: Props) {
     }
   `;
 
-  const logoSrc = isVetor ? "/logo-total.svg" : "/logo-jadlog.svg";
-
   return (
     <>
       <style>{styles}</style>
       <div className="tp-page">
         <nav className="tp-nav">
           <div className="tp-nav-inner">
-            <img src={logoSrc} alt={empresaCurta} className="tp-nav-logo" />
             <span className="tp-nav-brand">{empresaCurta}</span>
           </div>
         </nav>
