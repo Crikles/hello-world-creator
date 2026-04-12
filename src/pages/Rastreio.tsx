@@ -20,6 +20,14 @@ import {
     Clock,
     Globe,
     RefreshCw,
+    BarChart3,
+    ThumbsUp,
+    Radio,
+    Users,
+    MapPinned,
+    History,
+    Keyboard,
+    Eye,
 } from "lucide-react";
 
 /* ─── Neighbor (Vizinho) Logic ─── */
