@@ -40,8 +40,6 @@ export default function TermosPrivacidade({ tipo }: Props) {
     }
   `;
 
-  const logoSrc = isVetor ? "/logo-total.svg" : "/logo-jadlog.svg";
-
   return (
     <>
       <style>{styles}</style>
