@@ -2468,6 +2468,20 @@ const jlStyles = `
   .jl-partners-track { gap: 1rem; }
   .jl-partner-card { padding: 16px 20px; }
   .jl-partner-logo { height: 45px; }
+  .jl-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .jl-stat-number { font-size: 22px; }
+  .jl-stats-bar { padding: 32px 20px; }
+  .jl-howit { padding: 60px 20px; }
+  .jl-howit-title { font-size: 24px; }
+  .jl-howit-steps { flex-direction: column; align-items: center; gap: 32px; }
+  .jl-step-line { display: none !important; }
+  .jl-about { padding: 60px 20px; }
+  .jl-about-inner { grid-template-columns: 1fr; gap: 32px; }
+  .jl-about-card-dark { padding: 28px; }
+  .jl-about-card-dark h2 { font-size: 22px; }
+  .jl-features { padding: 60px 20px; }
+  .jl-features-title { font-size: 22px; margin-bottom: 32px; }
+  .jl-features-grid { grid-template-columns: 1fr; gap: 16px; }
 }
 
 /* ── JL Partners Carousel ── */
