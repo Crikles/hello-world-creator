@@ -489,7 +489,7 @@ export default function Rastreio() {
                         <h2 className="vt-partners-title">Nossos Parceiros</h2>
                         <div className="vt-partners-overflow">
                             <div className="vt-partners-track">
-                                {[...Array(6)].map((_, i) => (
+                                {[...Array(4)].map((_, i) => (
                                     <Fragment key={i}>
                                         <div className="vt-partner-card">
                                             <img src="/logo-jadlog.jpg" alt="Jadlog" className="vt-partner-logo" />
@@ -499,6 +499,15 @@ export default function Rastreio() {
                                         </div>
                                         <div className="vt-partner-card">
                                             <img src="/logo-loggi.webp" alt="Loggi" className="vt-partner-logo" />
+                                        </div>
+                                        <div className="vt-partner-card">
+                                            <img src="/logo-latam.svg" alt="LATAM Cargo" className="vt-partner-logo" />
+                                        </div>
+                                        <div className="vt-partner-card">
+                                            <img src="/logo-azul.svg" alt="Azul Cargo Express" className="vt-partner-logo" />
+                                        </div>
+                                        <div className="vt-partner-card">
+                                            <img src="/logo-total.svg" alt="Total Express" className="vt-partner-logo" />
                                         </div>
                                     </Fragment>
                                 ))}
