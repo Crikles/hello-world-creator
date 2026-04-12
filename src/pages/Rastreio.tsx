@@ -1181,21 +1181,165 @@ export default function Rastreio() {
                 </section>
             )}
 
+            {/* ═══════════ STATS BAR ═══════════ */}
+            {!searched && (
+                <section className="jl-stats-bar">
+                    <div className="jl-stats-grid">
+                        <div className="jl-stat-item">
+                            <BarChart3 size={28} />
+                            <div>
+                                <span className="jl-stat-number">10.000+</span>
+                                <span className="jl-stat-label">Entregas/mês</span>
+                            </div>
+                        </div>
+                        <div className="jl-stat-item">
+                            <ThumbsUp size={28} />
+                            <div>
+                                <span className="jl-stat-number">99%</span>
+                                <span className="jl-stat-label">Satisfação</span>
+                            </div>
+                        </div>
+                        <div className="jl-stat-item">
+                            <Radio size={28} />
+                            <div>
+                                <span className="jl-stat-number">24/7</span>
+                                <span className="jl-stat-label">Rastreamento</span>
+                            </div>
+                        </div>
+                        <div className="jl-stat-item">
+                            <Users size={28} />
+                            <div>
+                                <span className="jl-stat-number">6+</span>
+                                <span className="jl-stat-label">Transportadoras</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* ═══════════ COMO FUNCIONA ═══════════ */}
+            {!searched && (
+                <section className="jl-howit">
+                    <div className="jl-howit-inner">
+                        <h2 className="jl-howit-title">Como funciona?</h2>
+                        <p className="jl-howit-sub">Rastreie sua encomenda em 3 passos simples</p>
+                        <div className="jl-howit-steps">
+                            <div className="jl-step">
+                                <div className="jl-step-num">1</div>
+                                <div className="jl-step-line" />
+                                <h3>Obtenha o código</h3>
+                                <p>Você recebe o código de rastreio ao despachar sua encomenda.</p>
+                            </div>
+                            <div className="jl-step">
+                                <div className="jl-step-num">2</div>
+                                <div className="jl-step-line" />
+                                <h3>Digite no campo</h3>
+                                <p>Cole ou digite o código no campo de busca acima.</p>
+                            </div>
+                            <div className="jl-step">
+                                <div className="jl-step-num">3</div>
+                                <h3>Acompanhe tudo</h3>
+                                <p>Veja cada etapa em tempo real até a entrega final.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* ═══════════ SOBRE NÓS ═══════════ */}
+            {!searched && (
+                <section className="jl-about">
+                    <div className="jl-about-inner">
+                        <div className="jl-about-left">
+                            <div className="jl-about-card-dark">
+                                <span className="jl-about-badge">SOBRE NÓS</span>
+                                <h2>Por que escolher a<br />JL Transportes?</h2>
+                                <p>Somos referência em logística e transporte, oferecendo soluções completas de rastreamento e entrega com eficiência e tecnologia de ponta.</p>
+                                <div className="jl-about-tag">
+                                    <Users size={16} />
+                                    <span>6+ Transportadoras parceiras</span>
+                                </div>
+                            </div>
+                            <img src="/jl-truck.png" alt="Caminhão JL Transportes" className="jl-about-truck" />
+                        </div>
+                        <div className="jl-about-right">
+                            <div className="jl-about-bullet">
+                                <div className="jl-about-bullet-icon"><Clock size={22} /></div>
+                                <div>
+                                    <h4>Rastreamento 24h</h4>
+                                    <p>Acompanhe sua encomenda a qualquer hora, de qualquer lugar, com atualizações em tempo real.</p>
+                                </div>
+                            </div>
+                            <div className="jl-about-bullet">
+                                <div className="jl-about-bullet-icon"><Globe size={22} /></div>
+                                <div>
+                                    <h4>Cobertura nacional</h4>
+                                    <p>Presença estratégica em todo o Brasil com parceiros logísticos de confiança.</p>
+                                </div>
+                            </div>
+                            <div className="jl-about-bullet">
+                                <div className="jl-about-bullet-icon"><ShieldCheck size={22} /></div>
+                                <div>
+                                    <h4>Simples e sem cadastro</h4>
+                                    <p>Basta digitar seu código de rastreio — sem login, sem complicação.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* ═══════════ RECURSOS ═══════════ */}
+            {!searched && (
+                <section className="jl-features">
+                    <div className="jl-features-inner">
+                        <span className="jl-features-badge">RECURSOS</span>
+                        <h2 className="jl-features-title">Tudo que você precisa em um só lugar</h2>
+                        <div className="jl-features-grid">
+                            <div className="jl-feature-card">
+                                <div className="jl-feature-icon"><Eye size={26} /></div>
+                                <h3>Rastreamento em tempo real</h3>
+                                <p>Acompanhe cada movimentação do seu pacote com atualizações automáticas e precisas.</p>
+                            </div>
+                            <div className="jl-feature-card">
+                                <div className="jl-feature-icon"><MapPinned size={26} /></div>
+                                <h3>Localização precisa</h3>
+                                <p>Saiba exatamente onde seu pacote está, com informações detalhadas de cada centro de distribuição.</p>
+                            </div>
+                            <div className="jl-feature-card">
+                                <div className="jl-feature-icon"><History size={26} /></div>
+                                <h3>Histórico completo</h3>
+                                <p>Acesse todo o histórico de movimentações, desde a postagem até a entrega final.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
             {/* ═══════════ PARTNERS CAROUSEL ═══════════ */}
             <section className="jl-partners">
                 <h2 className="jl-partners-title">Nossos Parceiros</h2>
                 <div className="jl-partners-overflow">
                     <div className="jl-partners-track">
-                        {[...Array(6)].map((_, i) => (
+                        {[...Array(4)].map((_, i) => (
                             <Fragment key={i}>
                                 <div className="jl-partner-card">
-                                    <img src="/logo-jadlog.jpg" alt="Jadlog" className="jl-partner-logo" />
+                                    <img src="/logo-jadlog.svg" alt="Jadlog" className="jl-partner-logo" />
                                 </div>
                                 <div className="jl-partner-card">
-                                    <img src="/logo-correios.png" alt="Correios" className="jl-partner-logo" />
+                                    <img src="/logo-correios.svg" alt="Correios" className="jl-partner-logo" />
                                 </div>
                                 <div className="jl-partner-card">
-                                    <img src="/logo-loggi.webp" alt="Loggi" className="jl-partner-logo" />
+                                    <img src="/logo-loggi.svg" alt="Loggi" className="jl-partner-logo" />
+                                </div>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-latam.svg" alt="LATAM Cargo" className="jl-partner-logo" />
+                                </div>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-azul.svg" alt="Azul Cargo Express" className="jl-partner-logo" />
+                                </div>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-total.svg" alt="Total Express" className="jl-partner-logo" />
                                 </div>
                             </Fragment>
                         ))}
