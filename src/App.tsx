@@ -12,6 +12,7 @@ import { isLogisticsDomain, getLogisticsProvider } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MobileBlocker } from "@/components/MobileBlocker";
 import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
+import TermosPrivacidade from "./pages/TermosPrivacidade";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Lojas from "./pages/Lojas";
@@ -73,6 +74,8 @@ function LogisticsRoutes() {
       <Route path="/f/:envioId" element={<PagamentoFalha />} />
       <Route path="/r" element={<Rastreio />} />
       <Route path="/r/:codigoParam" element={<Rastreio />} />
+      <Route path="/termos" element={<TermosPrivacidade tipo="termos" />} />
+      <Route path="/privacidade" element={<TermosPrivacidade tipo="privacidade" />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
