@@ -492,13 +492,13 @@ export default function Rastreio() {
                                 {[...Array(4)].map((_, i) => (
                                     <Fragment key={i}>
                                         <div className="vt-partner-card">
-                                            <img src="/logo-jadlog.jpg" alt="Jadlog" className="vt-partner-logo" />
+                                            <img src="/logo-jadlog.svg" alt="Jadlog" className="vt-partner-logo" />
                                         </div>
                                         <div className="vt-partner-card">
-                                            <img src="/logo-correios.png" alt="Correios" className="vt-partner-logo" />
+                                            <img src="/logo-correios.svg" alt="Correios" className="vt-partner-logo" />
                                         </div>
                                         <div className="vt-partner-card">
-                                            <img src="/logo-loggi.webp" alt="Loggi" className="vt-partner-logo" />
+                                            <img src="/logo-loggi.svg" alt="Loggi" className="vt-partner-logo" />
                                         </div>
                                         <div className="vt-partner-card">
                                             <img src="/logo-latam.svg" alt="LATAM Cargo" className="vt-partner-logo" />
