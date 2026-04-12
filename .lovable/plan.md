@@ -1,40 +1,39 @@
 
 
-## Plano: Redesign do site Vetor Transportes com mais conteúdo
+## Plano: Adicionar seções extras ao site da JL Transportes (igual à Vetor)
 
 ### O que será feito
 
-Adicionar 4 novas seções ao site da Vetor (entre Benefits e Partners), além de incorporar a foto do caminhão enviada. O layout será responsivo para mobile e desktop.
+Replicar as 4 seções adicionais do site da Vetor para o site da JL Transportes, adaptando cores (indigo/dark theme) e conteúdo. Também incorporar a foto do caminhão JL enviada.
 
-### Novas seções (na ordem)
+### Novas seções (inseridas entre Results e Partners, exibidas quando `!searched`)
 
-**1. Barra de Estatísticas** (após o hero, antes dos benefits)
-- Faixa verde escuro com 4 métricas: "10.000+ Entregas/mês", "99% Satisfação", "24/7 Rastreamento", "6+ Transportadoras"
-- Ícones em cada métrica, texto branco
+**1. Barra de Estatísticas**
+- Faixa dark com 4 métricas: "10.000+ Entregas/mês", "99% Satisfação", "24/7 Rastreamento", "6+ Transportadoras"
+- Estilo indigo/dark theme
 
-**2. Seção "Como Funciona"** (após benefits)
-- Fundo verde escuro, 3 passos conectados por linha horizontal
-- Passo 1: "Obtenha o código" — Passo 2: "Digite no campo" — Passo 3: "Acompanhe tudo"
-- Números em círculos verdes com linha conectora
+**2. "Como Funciona"**
+- 3 passos: Obtenha o código → Digite no campo → Acompanhe tudo
+- Fundo escuro com acentos indigo
 
-**3. Seção "Sobre Nós / Por que escolher a Vetor?"** (após "Como Funciona")
-- Layout 2 colunas: esquerda = card escuro com texto + badge "6+ Transportadoras" + foto do caminhão; direita = 3 bullet points com ícones (Rastreamento 24h, Cobertura nacional, Simples e sem cadastro)
-- A foto do caminhão será copiada para `public/vetor-truck.png` e usada nesta seção
+**3. "Sobre Nós / Por que escolher a JL?"**
+- Layout 2 colunas com foto do caminhão JL (`public/jl-truck.png`)
+- Bullet points: Rastreamento 24h, Cobertura nacional, Simples e sem cadastro
 
-**4. Seção "Recursos"** (após "Sobre Nós")
-- Badge "RECURSOS", título "Tudo que você precisa em um só lugar"
+**4. "Recursos"**
 - 3 cards: Rastreamento em tempo real, Localização precisa, Histórico completo
 
 ### Alterações técnicas
 
-- **Arquivo**: `src/pages/Rastreio.tsx`
-  - Adicionar JSX das 4 seções no bloco `isVetor` (entre Benefits e Partners, só quando `!searched`)
-  - Adicionar CSS correspondente no `vetorStyles` com media queries para mobile
-- **Asset**: Copiar `user-uploads://Design_sem_nome-3.png` → `public/vetor-truck.png`
+- **Asset**: Copiar `user-uploads://jl.png` → `public/jl-truck.png`
+- **`src/pages/Rastreio.tsx`**:
+  - Inserir 4 seções JSX no bloco JL (entre hero/results e partners, condicionadas a `!searched`) usando prefixo CSS `jl-` para as novas classes
+  - Adicionar CSS correspondente no `jlStyles` com media queries para mobile
+  - Atualizar partner logos para usar os SVGs novos (`.svg` em vez de `.jpg`/`.png`/`.webp`)
 
 ### Responsividade
-- Stats bar: 4 colunas desktop → 2x2 grid mobile
-- Como Funciona: horizontal desktop → vertical mobile
-- Sobre Nós: 2 colunas desktop → empilhado mobile
-- Recursos: 3 colunas desktop → 1 coluna mobile
+- Stats bar: 4 colunas desktop → 2x2 mobile
+- Como Funciona: horizontal → vertical mobile
+- Sobre Nós: 2 colunas → empilhado mobile
+- Recursos: 3 colunas → 1 coluna mobile
 
