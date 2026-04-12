@@ -348,6 +348,141 @@ export default function Rastreio() {
                     </section>
                 )}
 
+                {/* ── Stats Bar ── */}
+                {!searched && (
+                    <section className="vt-stats-bar">
+                        <div className="vt-stats-grid">
+                            <div className="vt-stat-item">
+                                <BarChart3 size={28} />
+                                <div>
+                                    <span className="vt-stat-number">10.000+</span>
+                                    <span className="vt-stat-label">Entregas/mês</span>
+                                </div>
+                            </div>
+                            <div className="vt-stat-item">
+                                <ThumbsUp size={28} />
+                                <div>
+                                    <span className="vt-stat-number">99%</span>
+                                    <span className="vt-stat-label">Satisfação</span>
+                                </div>
+                            </div>
+                            <div className="vt-stat-item">
+                                <Radio size={28} />
+                                <div>
+                                    <span className="vt-stat-number">24/7</span>
+                                    <span className="vt-stat-label">Rastreamento</span>
+                                </div>
+                            </div>
+                            <div className="vt-stat-item">
+                                <Users size={28} />
+                                <div>
+                                    <span className="vt-stat-number">6+</span>
+                                    <span className="vt-stat-label">Transportadoras</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Como Funciona ── */}
+                {!searched && (
+                    <section className="vt-howit">
+                        <div className="vt-howit-inner">
+                            <h2 className="vt-howit-title">Como funciona?</h2>
+                            <p className="vt-howit-sub">Rastreie sua encomenda em 3 passos simples</p>
+                            <div className="vt-howit-steps">
+                                <div className="vt-step">
+                                    <div className="vt-step-num">1</div>
+                                    <div className="vt-step-line" />
+                                    <h3>Obtenha o código</h3>
+                                    <p>Você recebe o código de rastreio ao despachar sua encomenda.</p>
+                                </div>
+                                <div className="vt-step">
+                                    <div className="vt-step-num">2</div>
+                                    <div className="vt-step-line" />
+                                    <h3>Digite no campo</h3>
+                                    <p>Cole ou digite o código no campo de busca acima.</p>
+                                </div>
+                                <div className="vt-step">
+                                    <div className="vt-step-num">3</div>
+                                    <h3>Acompanhe tudo</h3>
+                                    <p>Veja cada etapa em tempo real até a entrega final.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Sobre Nós / Por que escolher ── */}
+                {!searched && (
+                    <section className="vt-about">
+                        <div className="vt-about-inner">
+                            <div className="vt-about-left">
+                                <div className="vt-about-card-dark">
+                                    <span className="vt-about-badge">SOBRE NÓS</span>
+                                    <h2>Por que escolher a<br />Vetor Transportes?</h2>
+                                    <p>Somos referência em logística e transporte, oferecendo soluções completas de rastreamento e entrega com eficiência e tecnologia de ponta.</p>
+                                    <div className="vt-about-tag">
+                                        <Users size={16} />
+                                        <span>6+ Transportadoras parceiras</span>
+                                    </div>
+                                </div>
+                                <img src="/vetor-truck.png" alt="Caminhão Vetor Transportes" className="vt-about-truck" />
+                            </div>
+                            <div className="vt-about-right">
+                                <div className="vt-about-bullet">
+                                    <div className="vt-about-bullet-icon"><Clock size={22} /></div>
+                                    <div>
+                                        <h4>Rastreamento 24h</h4>
+                                        <p>Acompanhe sua encomenda a qualquer hora, de qualquer lugar, com atualizações em tempo real.</p>
+                                    </div>
+                                </div>
+                                <div className="vt-about-bullet">
+                                    <div className="vt-about-bullet-icon"><Globe size={22} /></div>
+                                    <div>
+                                        <h4>Cobertura nacional</h4>
+                                        <p>Presença estratégica em todo o Brasil com parceiros logísticos de confiança.</p>
+                                    </div>
+                                </div>
+                                <div className="vt-about-bullet">
+                                    <div className="vt-about-bullet-icon"><ShieldCheck size={22} /></div>
+                                    <div>
+                                        <h4>Simples e sem cadastro</h4>
+                                        <p>Basta digitar seu código de rastreio — sem login, sem complicação.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Recursos ── */}
+                {!searched && (
+                    <section className="vt-features">
+                        <div className="vt-features-inner">
+                            <span className="vt-features-badge">RECURSOS</span>
+                            <h2 className="vt-features-title">Tudo que você precisa em um só lugar</h2>
+                            <div className="vt-features-grid">
+                                <div className="vt-feature-card">
+                                    <div className="vt-feature-icon"><Eye size={26} /></div>
+                                    <h3>Rastreamento em tempo real</h3>
+                                    <p>Acompanhe cada movimentação do seu pacote com atualizações automáticas e precisas.</p>
+                                </div>
+                                <div className="vt-feature-card">
+                                    <div className="vt-feature-icon"><MapPinned size={26} /></div>
+                                    <h3>Localização precisa</h3>
+                                    <p>Saiba exatamente onde seu pacote está, com informações detalhadas de cada centro de distribuição.</p>
+                                </div>
+                                <div className="vt-feature-card">
+                                    <div className="vt-feature-icon"><History size={26} /></div>
+                                    <h3>Histórico completo</h3>
+                                    <p>Acesse todo o histórico de movimentações, desde a postagem até a entrega final.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
                 {/* ── Partners ── */}
                 {(
                     <section className="vt-partners">
