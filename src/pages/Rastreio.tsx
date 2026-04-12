@@ -20,6 +20,14 @@ import {
     Clock,
     Globe,
     RefreshCw,
+    BarChart3,
+    ThumbsUp,
+    Radio,
+    Users,
+    MapPinned,
+    History,
+    Keyboard,
+    Eye,
 } from "lucide-react";
 
 /* ─── Neighbor (Vizinho) Logic ─── */
@@ -335,6 +343,141 @@ export default function Rastreio() {
                                 <div className="vt-benefit-icon"><ShieldCheck size={24} /></div>
                                 <h3>Parceiro oficial</h3>
                                 <p>Integração direta com Jadlog, Correios e Loggi.</p>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Stats Bar ── */}
+                {!searched && (
+                    <section className="vt-stats-bar">
+                        <div className="vt-stats-grid">
+                            <div className="vt-stat-item">
+                                <BarChart3 size={28} />
+                                <div>
+                                    <span className="vt-stat-number">10.000+</span>
+                                    <span className="vt-stat-label">Entregas/mês</span>
+                                </div>
+                            </div>
+                            <div className="vt-stat-item">
+                                <ThumbsUp size={28} />
+                                <div>
+                                    <span className="vt-stat-number">99%</span>
+                                    <span className="vt-stat-label">Satisfação</span>
+                                </div>
+                            </div>
+                            <div className="vt-stat-item">
+                                <Radio size={28} />
+                                <div>
+                                    <span className="vt-stat-number">24/7</span>
+                                    <span className="vt-stat-label">Rastreamento</span>
+                                </div>
+                            </div>
+                            <div className="vt-stat-item">
+                                <Users size={28} />
+                                <div>
+                                    <span className="vt-stat-number">6+</span>
+                                    <span className="vt-stat-label">Transportadoras</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Como Funciona ── */}
+                {!searched && (
+                    <section className="vt-howit">
+                        <div className="vt-howit-inner">
+                            <h2 className="vt-howit-title">Como funciona?</h2>
+                            <p className="vt-howit-sub">Rastreie sua encomenda em 3 passos simples</p>
+                            <div className="vt-howit-steps">
+                                <div className="vt-step">
+                                    <div className="vt-step-num">1</div>
+                                    <div className="vt-step-line" />
+                                    <h3>Obtenha o código</h3>
+                                    <p>Você recebe o código de rastreio ao despachar sua encomenda.</p>
+                                </div>
+                                <div className="vt-step">
+                                    <div className="vt-step-num">2</div>
+                                    <div className="vt-step-line" />
+                                    <h3>Digite no campo</h3>
+                                    <p>Cole ou digite o código no campo de busca acima.</p>
+                                </div>
+                                <div className="vt-step">
+                                    <div className="vt-step-num">3</div>
+                                    <h3>Acompanhe tudo</h3>
+                                    <p>Veja cada etapa em tempo real até a entrega final.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Sobre Nós / Por que escolher ── */}
+                {!searched && (
+                    <section className="vt-about">
+                        <div className="vt-about-inner">
+                            <div className="vt-about-left">
+                                <div className="vt-about-card-dark">
+                                    <span className="vt-about-badge">SOBRE NÓS</span>
+                                    <h2>Por que escolher a<br />Vetor Transportes?</h2>
+                                    <p>Somos referência em logística e transporte, oferecendo soluções completas de rastreamento e entrega com eficiência e tecnologia de ponta.</p>
+                                    <div className="vt-about-tag">
+                                        <Users size={16} />
+                                        <span>6+ Transportadoras parceiras</span>
+                                    </div>
+                                </div>
+                                <img src="/vetor-truck.png" alt="Caminhão Vetor Transportes" className="vt-about-truck" />
+                            </div>
+                            <div className="vt-about-right">
+                                <div className="vt-about-bullet">
+                                    <div className="vt-about-bullet-icon"><Clock size={22} /></div>
+                                    <div>
+                                        <h4>Rastreamento 24h</h4>
+                                        <p>Acompanhe sua encomenda a qualquer hora, de qualquer lugar, com atualizações em tempo real.</p>
+                                    </div>
+                                </div>
+                                <div className="vt-about-bullet">
+                                    <div className="vt-about-bullet-icon"><Globe size={22} /></div>
+                                    <div>
+                                        <h4>Cobertura nacional</h4>
+                                        <p>Presença estratégica em todo o Brasil com parceiros logísticos de confiança.</p>
+                                    </div>
+                                </div>
+                                <div className="vt-about-bullet">
+                                    <div className="vt-about-bullet-icon"><ShieldCheck size={22} /></div>
+                                    <div>
+                                        <h4>Simples e sem cadastro</h4>
+                                        <p>Basta digitar seu código de rastreio — sem login, sem complicação.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Recursos ── */}
+                {!searched && (
+                    <section className="vt-features">
+                        <div className="vt-features-inner">
+                            <span className="vt-features-badge">RECURSOS</span>
+                            <h2 className="vt-features-title">Tudo que você precisa em um só lugar</h2>
+                            <div className="vt-features-grid">
+                                <div className="vt-feature-card">
+                                    <div className="vt-feature-icon"><Eye size={26} /></div>
+                                    <h3>Rastreamento em tempo real</h3>
+                                    <p>Acompanhe cada movimentação do seu pacote com atualizações automáticas e precisas.</p>
+                                </div>
+                                <div className="vt-feature-card">
+                                    <div className="vt-feature-icon"><MapPinned size={26} /></div>
+                                    <h3>Localização precisa</h3>
+                                    <p>Saiba exatamente onde seu pacote está, com informações detalhadas de cada centro de distribuição.</p>
+                                </div>
+                                <div className="vt-feature-card">
+                                    <div className="vt-feature-icon"><History size={26} /></div>
+                                    <h3>Histórico completo</h3>
+                                    <p>Acesse todo o histórico de movimentações, desde a postagem até a entrega final.</p>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -1786,6 +1929,128 @@ const vetorStyles = `
   animation: vtSpin 0.8s linear infinite; margin: 0 auto;
 }
 @keyframes vtSpin { to { transform: rotate(360deg); } }
+
+/* ── Stats Bar ── */
+.vt-stats-bar {
+  background: linear-gradient(135deg, #1B5E20 0%, #263238 100%);
+  padding: 40px 32px;
+}
+.vt-stats-grid {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+}
+.vt-stat-item {
+  display: flex; align-items: center; gap: 16px; color: white;
+  justify-content: center;
+}
+.vt-stat-item svg { opacity: 0.85; flex-shrink: 0; }
+.vt-stat-item div { display: flex; flex-direction: column; }
+.vt-stat-number { font-size: 28px; font-weight: 700; line-height: 1.1; }
+.vt-stat-label { font-size: 13px; font-weight: 400; opacity: 0.75; }
+
+/* ── Como Funciona ── */
+.vt-howit {
+  background: linear-gradient(135deg, #263238 0%, #1B5E20 100%);
+  padding: 80px 32px; text-align: center; color: white;
+}
+.vt-howit-inner { max-width: 900px; margin: 0 auto; }
+.vt-howit-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+.vt-howit-sub { font-size: 15px; opacity: 0.75; margin-bottom: 56px; }
+.vt-howit-steps { display: flex; justify-content: center; gap: 0; position: relative; }
+.vt-step {
+  flex: 1; max-width: 260px; text-align: center; position: relative; padding: 0 16px;
+}
+.vt-step-num {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #4CAF50, #1B5E20);
+  color: white; font-size: 22px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px; position: relative; z-index: 2;
+  box-shadow: 0 4px 16px rgba(76,175,80,0.4);
+}
+.vt-step-line {
+  position: absolute; top: 28px; left: calc(50% + 28px); width: calc(100% - 56px);
+  height: 2px; background: rgba(76,175,80,0.4); z-index: 1;
+}
+.vt-step:last-child .vt-step-line { display: none; }
+.vt-step h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.vt-step p { font-size: 13px; opacity: 0.7; line-height: 1.6; }
+
+/* ── Sobre Nós ── */
+.vt-about {
+  padding: 80px 32px; background: #F5F7F5;
+}
+.vt-about-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;
+}
+.vt-about-left { display: flex; flex-direction: column; gap: 24px; }
+.vt-about-card-dark {
+  background: linear-gradient(135deg, #263238, #37474F);
+  border-radius: 20px; padding: 40px; color: white;
+}
+.vt-about-badge {
+  display: inline-block; padding: 4px 14px; border-radius: 100px;
+  background: rgba(76,175,80,0.2); border: 1px solid rgba(76,175,80,0.3);
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 20px;
+}
+.vt-about-card-dark h2 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 16px; }
+.vt-about-card-dark p { font-size: 14px; opacity: 0.8; line-height: 1.7; margin-bottom: 20px; }
+.vt-about-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 10px;
+  background: rgba(76,175,80,0.15); font-size: 13px; font-weight: 600;
+}
+.vt-about-truck {
+  width: 100%; border-radius: 16px; object-fit: cover;
+  max-height: 260px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+.vt-about-right { display: flex; flex-direction: column; gap: 28px; }
+.vt-about-bullet { display: flex; gap: 18px; align-items: flex-start; }
+.vt-about-bullet-icon {
+  width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(27,94,32,0.1), rgba(76,175,80,0.06));
+  color: #1B5E20;
+  display: flex; align-items: center; justify-content: center;
+}
+.vt-about-bullet h4 { font-size: 16px; font-weight: 700; color: #37474F; margin-bottom: 6px; }
+.vt-about-bullet p { font-size: 13px; color: #6B7280; line-height: 1.6; }
+
+/* ── Recursos ── */
+.vt-features {
+  padding: 80px 32px; background: #ffffff; text-align: center;
+}
+.vt-features-inner { max-width: 1100px; margin: 0 auto; }
+.vt-features-badge {
+  display: inline-block; padding: 4px 16px; border-radius: 100px;
+  background: rgba(27,94,32,0.08); color: #1B5E20;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 16px;
+}
+.vt-features-title { font-size: 28px; font-weight: 700; color: #37474F; margin-bottom: 48px; }
+.vt-features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
+}
+.vt-feature-card {
+  padding: 40px 28px; border-radius: 16px;
+  border: 1px solid #F0F0F0; text-align: center;
+  transition: all 0.3s;
+}
+.vt-feature-card:hover {
+  border-color: rgba(27,94,32,0.15);
+  box-shadow: 0 8px 24px rgba(27,94,32,0.06);
+  transform: translateY(-2px);
+}
+.vt-feature-icon {
+  width: 60px; height: 60px; border-radius: 16px;
+  background: linear-gradient(135deg, #1B5E20, #4CAF50);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+}
+.vt-feature-card h3 { font-size: 16px; font-weight: 700; color: #37474F; margin-bottom: 10px; }
+.vt-feature-card p { font-size: 14px; color: #6B7280; line-height: 1.7; }
+
 @media (max-width: 768px) {
   .vt-nav-links { display: none; }
   .vt-nav-mobile { display: block; }
@@ -1810,6 +2075,20 @@ const vetorStyles = `
   .vt-tracking-code { font-size: 18px; }
   .vt-footer-top { flex-direction: column; gap: 32px; }
   .vt-footer-cols { flex-direction: column; gap: 24px; }
+  .vt-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .vt-stat-number { font-size: 22px; }
+  .vt-stats-bar { padding: 32px 20px; }
+  .vt-howit { padding: 60px 20px; }
+  .vt-howit-title { font-size: 24px; }
+  .vt-howit-steps { flex-direction: column; align-items: center; gap: 32px; }
+  .vt-step-line { display: none !important; }
+  .vt-about { padding: 60px 20px; }
+  .vt-about-inner { grid-template-columns: 1fr; gap: 32px; }
+  .vt-about-card-dark { padding: 28px; }
+  .vt-about-card-dark h2 { font-size: 22px; }
+  .vt-features { padding: 60px 20px; }
+  .vt-features-title { font-size: 22px; margin-bottom: 32px; }
+  .vt-features-grid { grid-template-columns: 1fr; gap: 16px; }
 }
 `;
 
