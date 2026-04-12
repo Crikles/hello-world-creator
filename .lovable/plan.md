@@ -1,39 +1,36 @@
 
 
-## Plano: Adicionar seções extras ao site da JL Transportes (igual à Vetor)
+## Plano: Criar páginas de Termos de Serviço e Política de Privacidade para Vetor e JL
 
 ### O que será feito
 
-Replicar as 4 seções adicionais do site da Vetor para o site da JL Transportes, adaptando cores (indigo/dark theme) e conteúdo. Também incorporar a foto do caminhão JL enviada.
+Criar 4 rotas novas no `LogisticsRoutes` e 2 páginas (uma para cada empresa), cada uma com conteúdo de Termos de Serviço e Política de Privacidade. Os links no footer de cada site serão atualizados para apontar para as novas rotas.
 
-### Novas seções (inseridas entre Results e Partners, exibidas quando `!searched`)
+### Novas rotas
 
-**1. Barra de Estatísticas**
-- Faixa dark com 4 métricas: "10.000+ Entregas/mês", "99% Satisfação", "24/7 Rastreamento", "6+ Transportadoras"
-- Estilo indigo/dark theme
-
-**2. "Como Funciona"**
-- 3 passos: Obtenha o código → Digite no campo → Acompanhe tudo
-- Fundo escuro com acentos indigo
-
-**3. "Sobre Nós / Por que escolher a JL?"**
-- Layout 2 colunas com foto do caminhão JL (`public/jl-truck.png`)
-- Bullet points: Rastreamento 24h, Cobertura nacional, Simples e sem cadastro
-
-**4. "Recursos"**
-- 3 cards: Rastreamento em tempo real, Localização precisa, Histórico completo
+| Rota | Empresa |
+|------|---------|
+| `/termos` | Termos de Serviço (detecta automaticamente Vetor ou JL pelo domínio) |
+| `/privacidade` | Política de Privacidade (detecta automaticamente Vetor ou JL pelo domínio) |
 
 ### Alterações técnicas
 
-- **Asset**: Copiar `user-uploads://jl.png` → `public/jl-truck.png`
-- **`src/pages/Rastreio.tsx`**:
-  - Inserir 4 seções JSX no bloco JL (entre hero/results e partners, condicionadas a `!searched`) usando prefixo CSS `jl-` para as novas classes
-  - Adicionar CSS correspondente no `jlStyles` com media queries para mobile
-  - Atualizar partner logos para usar os SVGs novos (`.svg` em vez de `.jpg`/`.png`/`.webp`)
+**1. Novo arquivo: `src/pages/TermosPrivacidade.tsx`**
+- Componente que recebe prop `tipo` ("termos" ou "privacidade")
+- Detecta `isVetor` pelo hostname (mesmo padrão do Rastreio.tsx)
+- Renderiza o conteúdo com branding correto (cores, logo, nome da empresa)
+- Layout simples: navbar no topo, conteúdo textual, footer
+- Reutiliza os mesmos estilos de navbar/footer da respectiva empresa (Vetor verde ou JL indigo)
+- Conteúdo genérico de termos/privacidade adaptado para uma empresa de transportes/logística
 
-### Responsividade
-- Stats bar: 4 colunas desktop → 2x2 mobile
-- Como Funciona: horizontal → vertical mobile
-- Sobre Nós: 2 colunas → empilhado mobile
-- Recursos: 3 colunas → 1 coluna mobile
+**2. `src/App.tsx`**
+- Adicionar 2 rotas no `LogisticsRoutes`: `/termos` e `/privacidade`
+
+**3. `src/pages/Rastreio.tsx`**
+- Atualizar os 3 footers (Vetor, JL/Jadlog, JL default) para usar `<a href="/termos">` e `<a href="/privacidade">` em vez de `href="#"`
+
+### Conteúdo das páginas
+- **Termos de Serviço**: Uso do site, limitações, responsabilidades, propriedade intelectual
+- **Política de Privacidade**: Dados coletados, uso dos dados, cookies, direitos do usuário (LGPD)
+- Textos adaptados ao contexto de rastreamento de encomendas e logística
 
