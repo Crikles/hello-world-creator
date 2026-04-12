@@ -1,38 +1,40 @@
 
 
-## Plano: Melhorar Template Prolongado com Eventos Variados
+## Plano: Redesign do site Vetor Transportes com mais conteúdo
 
-### Solução
+### O que será feito
 
-#### 1. Redesenhar os eventos (16 eventos no total)
+Adicionar 4 novas seções ao site da Vetor (entre Benefits e Partners), além de incorporar a foto do caminhão enviada. O layout será responsivo para mobile e desktop.
 
-| Ordem | Status Label | Nome | Delay (h) |
-|-------|-------------|------|-----------|
-| 1 | Postado | Nota Fiscal Emitida | 0 |
-| 2 | Coletado | Coletado pela Transportadora | 24 |
-| 3 | Em Trânsito | Objeto encaminhado para centro de distribuição | 48 |
-| 4 | Em Trânsito | Recebido na unidade de tratamento | 48 |
-| 5 | Em Trânsito | Em trânsito para unidade estadual | 72 |
-| 6 | Em Trânsito | Objeto encaminhado para filial regional | 48 |
-| 7 | Em Trânsito | Recebido na filial regional | 120 |
-| 8 | Em Trânsito | Aguardando despacho para unidade local | 96 |
-| 9 | Em Trânsito | Objeto despachado para unidade local | 72 |
-| 10 | Em Trânsito | Recebido na unidade de distribuição | 48 |
-| 11 | Centro Local | Objeto no centro de distribuição local | 48 |
-| 12 | Centro Local | Em processo de separação para entrega | 48 |
-| 13 | Centro Local | Seu pedido está próximo | 48 |
-| 14 | Centro Local | Seu pedido está próximo | 24 |
-| 15 | Saiu para Entrega | Saiu para entrega ao destinatário | 24 |
-| 16 | Entregue | Pedido entregue com sucesso | 240 |
+### Novas seções (na ordem)
 
-#### 2. Migration SQL
-- DELETE dos 14 eventos existentes do template `...0005`
-- INSERT dos 16 novos eventos com nomes variados e assuntos de email únicos
+**1. Barra de Estatísticas** (após o hero, antes dos benefits)
+- Faixa verde escuro com 4 métricas: "10.000+ Entregas/mês", "99% Satisfação", "24/7 Rastreamento", "6+ Transportadoras"
+- Ícones em cada métrica, texto branco
 
-#### 3. Layout do grid
-- Alterar `md:grid-cols-3` para `md:grid-cols-2 xl:grid-cols-4` em `Postagens.tsx`
+**2. Seção "Como Funciona"** (após benefits)
+- Fundo verde escuro, 3 passos conectados por linha horizontal
+- Passo 1: "Obtenha o código" — Passo 2: "Digite no campo" — Passo 3: "Acompanhe tudo"
+- Números em círculos verdes com linha conectora
 
-### Resumo
-- 1 migration SQL (substituir eventos, agora 16)
-- 1 edit no grid do `Postagens.tsx`
+**3. Seção "Sobre Nós / Por que escolher a Vetor?"** (após "Como Funciona")
+- Layout 2 colunas: esquerda = card escuro com texto + badge "6+ Transportadoras" + foto do caminhão; direita = 3 bullet points com ícones (Rastreamento 24h, Cobertura nacional, Simples e sem cadastro)
+- A foto do caminhão será copiada para `public/vetor-truck.png` e usada nesta seção
+
+**4. Seção "Recursos"** (após "Sobre Nós")
+- Badge "RECURSOS", título "Tudo que você precisa em um só lugar"
+- 3 cards: Rastreamento em tempo real, Localização precisa, Histórico completo
+
+### Alterações técnicas
+
+- **Arquivo**: `src/pages/Rastreio.tsx`
+  - Adicionar JSX das 4 seções no bloco `isVetor` (entre Benefits e Partners, só quando `!searched`)
+  - Adicionar CSS correspondente no `vetorStyles` com media queries para mobile
+- **Asset**: Copiar `user-uploads://Design_sem_nome-3.png` → `public/vetor-truck.png`
+
+### Responsividade
+- Stats bar: 4 colunas desktop → 2x2 grid mobile
+- Como Funciona: horizontal desktop → vertical mobile
+- Sobre Nós: 2 colunas desktop → empilhado mobile
+- Recursos: 3 colunas desktop → 1 coluna mobile
 
