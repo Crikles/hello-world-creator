@@ -634,7 +634,7 @@ export default function Postagens() {
               <Zap className="h-4 w-4 text-primary" />
               Templates Pré-configurados
             </h2>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {systemTemplates?.map((template, idx) => {
                 const evts = systemEventos?.filter((e) => e.template_id === template.id) || [];
                 const isActive = activeTemplate?.tipo === template.tipo;
