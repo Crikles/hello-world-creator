@@ -2484,6 +2484,127 @@ const jlStyles = `
   .jl-features-grid { grid-template-columns: 1fr; gap: 16px; }
 }
 
+/* ── JL Stats Bar ── */
+.jl-stats-bar {
+  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  padding: 40px 32px;
+}
+.jl-stats-grid {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+}
+.jl-stat-item {
+  display: flex; align-items: center; gap: 16px; color: white;
+  justify-content: center;
+}
+.jl-stat-item svg { opacity: 0.85; flex-shrink: 0; }
+.jl-stat-item div { display: flex; flex-direction: column; }
+.jl-stat-number { font-size: 28px; font-weight: 700; line-height: 1.1; }
+.jl-stat-label { font-size: 13px; font-weight: 400; opacity: 0.75; }
+
+/* ── JL Como Funciona ── */
+.jl-howit {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  padding: 80px 32px; text-align: center; color: white;
+}
+.jl-howit-inner { max-width: 900px; margin: 0 auto; }
+.jl-howit-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+.jl-howit-sub { font-size: 15px; opacity: 0.75; margin-bottom: 56px; }
+.jl-howit-steps { display: flex; justify-content: center; gap: 0; position: relative; }
+.jl-step {
+  flex: 1; max-width: 260px; text-align: center; position: relative; padding: 0 16px;
+}
+.jl-step-num {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  color: white; font-size: 22px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px; position: relative; z-index: 2;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+}
+.jl-step-line {
+  position: absolute; top: 28px; left: calc(50% + 28px); width: calc(100% - 56px);
+  height: 2px; background: rgba(99,102,241,0.4); z-index: 1;
+}
+.jl-step:last-child .jl-step-line { display: none; }
+.jl-step h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.jl-step p { font-size: 13px; opacity: 0.7; line-height: 1.6; }
+
+/* ── JL Sobre Nós ── */
+.jl-about {
+  padding: 80px 32px; background: #f1f5f9;
+}
+.jl-about-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;
+}
+.jl-about-left { display: flex; flex-direction: column; gap: 24px; }
+.jl-about-card-dark {
+  background: linear-gradient(135deg, #0f172a, #1e1b4b);
+  border-radius: 20px; padding: 40px; color: white;
+}
+.jl-about-badge {
+  display: inline-block; padding: 4px 14px; border-radius: 100px;
+  background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.3);
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 20px;
+}
+.jl-about-card-dark h2 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 16px; }
+.jl-about-card-dark p { font-size: 14px; opacity: 0.8; line-height: 1.7; margin-bottom: 20px; }
+.jl-about-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 10px;
+  background: rgba(99,102,241,0.15); font-size: 13px; font-weight: 600;
+}
+.jl-about-truck {
+  width: 100%; border-radius: 16px; object-fit: cover;
+  max-height: 260px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+.jl-about-right { display: flex; flex-direction: column; gap: 28px; }
+.jl-about-bullet { display: flex; gap: 18px; align-items: flex-start; }
+.jl-about-bullet-icon {
+  width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(129,140,248,0.06));
+  color: #6366f1;
+  display: flex; align-items: center; justify-content: center;
+}
+.jl-about-bullet h4 { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+.jl-about-bullet p { font-size: 13px; color: #6B7280; line-height: 1.6; }
+
+/* ── JL Recursos ── */
+.jl-features {
+  padding: 80px 32px; background: #ffffff; text-align: center;
+}
+.jl-features-inner { max-width: 1100px; margin: 0 auto; }
+.jl-features-badge {
+  display: inline-block; padding: 4px 16px; border-radius: 100px;
+  background: rgba(99,102,241,0.08); color: #6366f1;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 16px;
+}
+.jl-features-title { font-size: 28px; font-weight: 700; color: #1e293b; margin-bottom: 48px; }
+.jl-features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
+}
+.jl-feature-card {
+  padding: 40px 28px; border-radius: 16px;
+  border: 1px solid #e2e8f0; text-align: center;
+  transition: all 0.3s;
+}
+.jl-feature-card:hover {
+  border-color: rgba(99,102,241,0.2);
+  box-shadow: 0 8px 24px rgba(99,102,241,0.08);
+  transform: translateY(-2px);
+}
+.jl-feature-icon {
+  width: 60px; height: 60px; border-radius: 16px;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+}
+.jl-feature-card h3 { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 10px; }
+.jl-feature-card p { font-size: 14px; color: #6B7280; line-height: 1.7; }
+
 /* ── JL Partners Carousel ── */
 @keyframes jl-scroll {
   0% { transform: translateX(0); }
