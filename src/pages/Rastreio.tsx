@@ -298,7 +298,7 @@ export default function Rastreio() {
                         </div>
                         <h1>Rastreie sua encomenda<br />com precisão</h1>
                         <p className="vt-hero-sub">
-                            Parceira oficial Jadlog, Correios e Loggi — integração logística completa.
+                            Parceira oficial Jadlog, Correios, Loggi, LATAM Cargo, Azul Cargo e Total Express — integração logística completa.
                         </p>
                         <p className="vt-hero-desc">
                             Monitoramento em tempo real com atualizações automáticas em cada etapa do transporte.
@@ -1044,8 +1044,8 @@ export default function Rastreio() {
                             em cada etapa do caminho
                         </h1>
                         <p className="hero-desc">
-                            Rastreamento de alta precisão com sincronização em tempo real. <br />
-                            Transparência total desde o despacho até a sua porta.
+                            Parceira oficial Jadlog, Correios, Loggi, LATAM Cargo, Azul Cargo e Total Express — integração logística completa. <br />
+                            Monitoramento em tempo real com atualizações automáticas em cada etapa do transporte.
                         </p>
                     </div>
 
