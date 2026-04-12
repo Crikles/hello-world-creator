@@ -1181,21 +1181,165 @@ export default function Rastreio() {
                 </section>
             )}
 
+            {/* ═══════════ STATS BAR ═══════════ */}
+            {!searched && (
+                <section className="jl-stats-bar">
+                    <div className="jl-stats-grid">
+                        <div className="jl-stat-item">
+                            <BarChart3 size={28} />
+                            <div>
+                                <span className="jl-stat-number">10.000+</span>
+                                <span className="jl-stat-label">Entregas/mês</span>
+                            </div>
+                        </div>
+                        <div className="jl-stat-item">
+                            <ThumbsUp size={28} />
+                            <div>
+                                <span className="jl-stat-number">99%</span>
+                                <span className="jl-stat-label">Satisfação</span>
+                            </div>
+                        </div>
+                        <div className="jl-stat-item">
+                            <Radio size={28} />
+                            <div>
+                                <span className="jl-stat-number">24/7</span>
+                                <span className="jl-stat-label">Rastreamento</span>
+                            </div>
+                        </div>
+                        <div className="jl-stat-item">
+                            <Users size={28} />
+                            <div>
+                                <span className="jl-stat-number">6+</span>
+                                <span className="jl-stat-label">Transportadoras</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* ═══════════ COMO FUNCIONA ═══════════ */}
+            {!searched && (
+                <section className="jl-howit">
+                    <div className="jl-howit-inner">
+                        <h2 className="jl-howit-title">Como funciona?</h2>
+                        <p className="jl-howit-sub">Rastreie sua encomenda em 3 passos simples</p>
+                        <div className="jl-howit-steps">
+                            <div className="jl-step">
+                                <div className="jl-step-num">1</div>
+                                <div className="jl-step-line" />
+                                <h3>Obtenha o código</h3>
+                                <p>Você recebe o código de rastreio ao despachar sua encomenda.</p>
+                            </div>
+                            <div className="jl-step">
+                                <div className="jl-step-num">2</div>
+                                <div className="jl-step-line" />
+                                <h3>Digite no campo</h3>
+                                <p>Cole ou digite o código no campo de busca acima.</p>
+                            </div>
+                            <div className="jl-step">
+                                <div className="jl-step-num">3</div>
+                                <h3>Acompanhe tudo</h3>
+                                <p>Veja cada etapa em tempo real até a entrega final.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* ═══════════ SOBRE NÓS ═══════════ */}
+            {!searched && (
+                <section className="jl-about">
+                    <div className="jl-about-inner">
+                        <div className="jl-about-left">
+                            <div className="jl-about-card-dark">
+                                <span className="jl-about-badge">SOBRE NÓS</span>
+                                <h2>Por que escolher a<br />JL Transportes?</h2>
+                                <p>Somos referência em logística e transporte, oferecendo soluções completas de rastreamento e entrega com eficiência e tecnologia de ponta.</p>
+                                <div className="jl-about-tag">
+                                    <Users size={16} />
+                                    <span>6+ Transportadoras parceiras</span>
+                                </div>
+                            </div>
+                            <img src="/jl-truck.png" alt="Caminhão JL Transportes" className="jl-about-truck" />
+                        </div>
+                        <div className="jl-about-right">
+                            <div className="jl-about-bullet">
+                                <div className="jl-about-bullet-icon"><Clock size={22} /></div>
+                                <div>
+                                    <h4>Rastreamento 24h</h4>
+                                    <p>Acompanhe sua encomenda a qualquer hora, de qualquer lugar, com atualizações em tempo real.</p>
+                                </div>
+                            </div>
+                            <div className="jl-about-bullet">
+                                <div className="jl-about-bullet-icon"><Globe size={22} /></div>
+                                <div>
+                                    <h4>Cobertura nacional</h4>
+                                    <p>Presença estratégica em todo o Brasil com parceiros logísticos de confiança.</p>
+                                </div>
+                            </div>
+                            <div className="jl-about-bullet">
+                                <div className="jl-about-bullet-icon"><ShieldCheck size={22} /></div>
+                                <div>
+                                    <h4>Simples e sem cadastro</h4>
+                                    <p>Basta digitar seu código de rastreio — sem login, sem complicação.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* ═══════════ RECURSOS ═══════════ */}
+            {!searched && (
+                <section className="jl-features">
+                    <div className="jl-features-inner">
+                        <span className="jl-features-badge">RECURSOS</span>
+                        <h2 className="jl-features-title">Tudo que você precisa em um só lugar</h2>
+                        <div className="jl-features-grid">
+                            <div className="jl-feature-card">
+                                <div className="jl-feature-icon"><Eye size={26} /></div>
+                                <h3>Rastreamento em tempo real</h3>
+                                <p>Acompanhe cada movimentação do seu pacote com atualizações automáticas e precisas.</p>
+                            </div>
+                            <div className="jl-feature-card">
+                                <div className="jl-feature-icon"><MapPinned size={26} /></div>
+                                <h3>Localização precisa</h3>
+                                <p>Saiba exatamente onde seu pacote está, com informações detalhadas de cada centro de distribuição.</p>
+                            </div>
+                            <div className="jl-feature-card">
+                                <div className="jl-feature-icon"><History size={26} /></div>
+                                <h3>Histórico completo</h3>
+                                <p>Acesse todo o histórico de movimentações, desde a postagem até a entrega final.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
             {/* ═══════════ PARTNERS CAROUSEL ═══════════ */}
             <section className="jl-partners">
                 <h2 className="jl-partners-title">Nossos Parceiros</h2>
                 <div className="jl-partners-overflow">
                     <div className="jl-partners-track">
-                        {[...Array(6)].map((_, i) => (
+                        {[...Array(4)].map((_, i) => (
                             <Fragment key={i}>
                                 <div className="jl-partner-card">
-                                    <img src="/logo-jadlog.jpg" alt="Jadlog" className="jl-partner-logo" />
+                                    <img src="/logo-jadlog.svg" alt="Jadlog" className="jl-partner-logo" />
                                 </div>
                                 <div className="jl-partner-card">
-                                    <img src="/logo-correios.png" alt="Correios" className="jl-partner-logo" />
+                                    <img src="/logo-correios.svg" alt="Correios" className="jl-partner-logo" />
                                 </div>
                                 <div className="jl-partner-card">
-                                    <img src="/logo-loggi.webp" alt="Loggi" className="jl-partner-logo" />
+                                    <img src="/logo-loggi.svg" alt="Loggi" className="jl-partner-logo" />
+                                </div>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-latam.svg" alt="LATAM Cargo" className="jl-partner-logo" />
+                                </div>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-azul.svg" alt="Azul Cargo Express" className="jl-partner-logo" />
+                                </div>
+                                <div className="jl-partner-card">
+                                    <img src="/logo-total.svg" alt="Total Express" className="jl-partner-logo" />
                                 </div>
                             </Fragment>
                         ))}
@@ -2324,7 +2468,142 @@ const jlStyles = `
   .jl-partners-track { gap: 1rem; }
   .jl-partner-card { padding: 16px 20px; }
   .jl-partner-logo { height: 45px; }
+  .jl-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .jl-stat-number { font-size: 22px; }
+  .jl-stats-bar { padding: 32px 20px; }
+  .jl-howit { padding: 60px 20px; }
+  .jl-howit-title { font-size: 24px; }
+  .jl-howit-steps { flex-direction: column; align-items: center; gap: 32px; }
+  .jl-step-line { display: none !important; }
+  .jl-about { padding: 60px 20px; }
+  .jl-about-inner { grid-template-columns: 1fr; gap: 32px; }
+  .jl-about-card-dark { padding: 28px; }
+  .jl-about-card-dark h2 { font-size: 22px; }
+  .jl-features { padding: 60px 20px; }
+  .jl-features-title { font-size: 22px; margin-bottom: 32px; }
+  .jl-features-grid { grid-template-columns: 1fr; gap: 16px; }
 }
+
+/* ── JL Stats Bar ── */
+.jl-stats-bar {
+  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  padding: 40px 32px;
+}
+.jl-stats-grid {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+}
+.jl-stat-item {
+  display: flex; align-items: center; gap: 16px; color: white;
+  justify-content: center;
+}
+.jl-stat-item svg { opacity: 0.85; flex-shrink: 0; }
+.jl-stat-item div { display: flex; flex-direction: column; }
+.jl-stat-number { font-size: 28px; font-weight: 700; line-height: 1.1; }
+.jl-stat-label { font-size: 13px; font-weight: 400; opacity: 0.75; }
+
+/* ── JL Como Funciona ── */
+.jl-howit {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  padding: 80px 32px; text-align: center; color: white;
+}
+.jl-howit-inner { max-width: 900px; margin: 0 auto; }
+.jl-howit-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+.jl-howit-sub { font-size: 15px; opacity: 0.75; margin-bottom: 56px; }
+.jl-howit-steps { display: flex; justify-content: center; gap: 0; position: relative; }
+.jl-step {
+  flex: 1; max-width: 260px; text-align: center; position: relative; padding: 0 16px;
+}
+.jl-step-num {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  color: white; font-size: 22px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px; position: relative; z-index: 2;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+}
+.jl-step-line {
+  position: absolute; top: 28px; left: calc(50% + 28px); width: calc(100% - 56px);
+  height: 2px; background: rgba(99,102,241,0.4); z-index: 1;
+}
+.jl-step:last-child .jl-step-line { display: none; }
+.jl-step h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.jl-step p { font-size: 13px; opacity: 0.7; line-height: 1.6; }
+
+/* ── JL Sobre Nós ── */
+.jl-about {
+  padding: 80px 32px; background: #f1f5f9;
+}
+.jl-about-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;
+}
+.jl-about-left { display: flex; flex-direction: column; gap: 24px; }
+.jl-about-card-dark {
+  background: linear-gradient(135deg, #0f172a, #1e1b4b);
+  border-radius: 20px; padding: 40px; color: white;
+}
+.jl-about-badge {
+  display: inline-block; padding: 4px 14px; border-radius: 100px;
+  background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.3);
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 20px;
+}
+.jl-about-card-dark h2 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 16px; }
+.jl-about-card-dark p { font-size: 14px; opacity: 0.8; line-height: 1.7; margin-bottom: 20px; }
+.jl-about-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 10px;
+  background: rgba(99,102,241,0.15); font-size: 13px; font-weight: 600;
+}
+.jl-about-truck {
+  width: 100%; border-radius: 16px; object-fit: cover;
+  max-height: 260px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+.jl-about-right { display: flex; flex-direction: column; gap: 28px; }
+.jl-about-bullet { display: flex; gap: 18px; align-items: flex-start; }
+.jl-about-bullet-icon {
+  width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(129,140,248,0.06));
+  color: #6366f1;
+  display: flex; align-items: center; justify-content: center;
+}
+.jl-about-bullet h4 { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+.jl-about-bullet p { font-size: 13px; color: #6B7280; line-height: 1.6; }
+
+/* ── JL Recursos ── */
+.jl-features {
+  padding: 80px 32px; background: #ffffff; text-align: center;
+}
+.jl-features-inner { max-width: 1100px; margin: 0 auto; }
+.jl-features-badge {
+  display: inline-block; padding: 4px 16px; border-radius: 100px;
+  background: rgba(99,102,241,0.08); color: #6366f1;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 16px;
+}
+.jl-features-title { font-size: 28px; font-weight: 700; color: #1e293b; margin-bottom: 48px; }
+.jl-features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
+}
+.jl-feature-card {
+  padding: 40px 28px; border-radius: 16px;
+  border: 1px solid #e2e8f0; text-align: center;
+  transition: all 0.3s;
+}
+.jl-feature-card:hover {
+  border-color: rgba(99,102,241,0.2);
+  box-shadow: 0 8px 24px rgba(99,102,241,0.08);
+  transform: translateY(-2px);
+}
+.jl-feature-icon {
+  width: 60px; height: 60px; border-radius: 16px;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+}
+.jl-feature-card h3 { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 10px; }
+.jl-feature-card p { font-size: 14px; color: #6B7280; line-height: 1.7; }
 
 /* ── JL Partners Carousel ── */
 @keyframes jl-scroll {
