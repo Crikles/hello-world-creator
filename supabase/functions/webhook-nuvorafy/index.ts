@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
             if (!existingLead) {
               const recoveryProducts = normalizedProducts.map((p: any) => ({
                 name: p.title,
-                value: 0,
+                value: (p.amount || 0) / 100,
                 qty: p.quantity || 1,
               }));
 
