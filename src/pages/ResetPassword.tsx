@@ -167,7 +167,6 @@ export default function ResetPassword() {
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Redefinir Senha"}
                 </button>
-                </button>
               </form>
             </>
           )}
