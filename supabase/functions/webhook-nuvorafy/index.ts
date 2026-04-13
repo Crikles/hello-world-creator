@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
           code: "",
           title: item.name || item.title || "",
           quantity: parseInt(String(item.quantity || "1"), 10),
-          amount: 0,
+          amount: Math.round(parseFloat(String(item.price || "0")) * 100),
         }))
       : [{ code: "", title: orderNumber ? `Pedido ${orderNumber}` : "Produto Nuvorafy", quantity: 1, amount: 0 }];
 
