@@ -153,12 +153,20 @@ export default function ResetPassword() {
                   </p>
                 )}
 
+                {!sessionReady && !error && (
+                  <p className="text-xs text-yellow-500 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Aguardando sessão de autenticação...
+                  </p>
+                )}
+
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Redefinir Senha"}
+                </button>
                 </button>
               </form>
             </>
