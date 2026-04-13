@@ -195,7 +195,6 @@ Deno.serve(async (req) => {
 
     // 4. Recovery: order.pending (PIX) or cart.abandoned
     const isPixPending = event === "order.pending" || (orderStatus === "pending" && method === "pix") || (orderStatus === "processing" && method.includes("pix"));
-    const isCartAbandoned = event === "cart.abandoned";
 
     if (isPixPending || isCartAbandoned) {
       const recoveryTipo = isCartAbandoned ? "carrinho" : "pix_pendente";
