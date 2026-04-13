@@ -329,6 +329,18 @@ export default function Postagens() {
       if (!systemTemplate) return;
       const evts = systemEventos?.filter((e) => e.template_id === templateId) || [];
 
+      // Freeze: if there's already an active template, stamp it on in-progress shipments
+      const oldTemplateId = config?.template_ativo_id;
+      if (oldTemplateId) {
+        await supabase
+          .from("envios")
+          .update({ postagem_template_id: oldTemplateId })
+          .eq("loja_id", loja.id)
+          .is("postagem_template_id", null)
+          .neq("status", "entregue")
+          .is("deleted_at", null);
+      }
+
       const { data: newTemplate, error: tErr } = await supabase
         .from("postagem_templates")
         .insert({
