@@ -76,8 +76,16 @@ Deno.serve(async (req) => {
     const event = payload.event || "";
     // Nuvorafy sends data in payload.order (snake_case), fallback to payload.data for compatibility
     const order = payload.order || payload.data || {};
-    const transactionToken = String(order.order_id || order.id || order.orderId || `nuvorafy_${Date.now()}`);
-    const orderNumber = order.order_number || order.orderNumber || order.cart_number || "";
+    // cart.abandoned uses "id" and "cart_number"; order.paid/pending use "order_id" and "order_number"
+    const isCartAbandoned = event === "cart.abandoned";
+    const transactionToken = String(
+      isCartAbandoned
+        ? (order.id || order.order_id || `nuvorafy_${Date.now()}`)
+        : (order.order_id || order.id || order.orderId || `nuvorafy_${Date.now()}`)
+    );
+    const orderNumber = isCartAbandoned
+      ? (order.cart_number || order.order_number || "")
+      : (order.order_number || order.orderNumber || order.cart_number || "");
 
     // Map event
     const orderStatus = (order.status || "").toLowerCase();
