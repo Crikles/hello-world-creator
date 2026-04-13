@@ -46,13 +46,22 @@ export default function ResetPassword() {
       return;
     }
 
+    if (!sessionReady) {
+      setError("Sessão de autenticação ausente. Clique no link do email novamente.");
+      return;
+    }
+
     setLoading(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setLoading(false);
 
     if (updateError) {
+      if (updateError.message?.includes("session") || updateError.message?.includes("Auth session")) {
+        setError("Sessão expirada. Solicite um novo link de recuperação.");
+      } else {
+        setError(updateError.message);
+      }
       toast.error(updateError.message);
-      setError(updateError.message);
     } else {
       setSuccess(true);
       toast.success("Senha redefinida com sucesso!");
