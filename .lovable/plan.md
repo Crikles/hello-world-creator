@@ -1,25 +1,38 @@
 
 
-## Plano: Congelar template em envios ao trocar template ativo
+## Plano: Ajustar integração Nuvorafy conforme documentação atualizada
 
-### Problema
-Quando o usuário troca o template ativo na página de Postagens, envios já em andamento que não têm `postagem_template_id` definido (são `NULL`) passam a usar o novo template, alterando o fluxo no meio do caminho.
+### Gaps identificados
 
-### Solução
-Ao trocar o template ativo, antes de salvar o novo `template_ativo_id`, fazer um UPDATE em todos os envios **em andamento** (`status != 'entregue'` e `postagem_template_id IS NULL`) para gravar o template antigo neles. Assim, esses envios continuam seguindo o fluxo original.
+| Campo | Situação atual | Correção |
+|-------|---------------|----------|
+| `items[].price` | Ignorado (amount=0) | Capturar e converter para centavos |
+| `cart.abandoned` → `id` | Já tem fallback, mas `cart_number` não é usado como `order_number` prioritário | Priorizar `cart_number` para cart.abandoned |
+| `checkout_link` para order.pending | Já captura, mas precisa garantir que seja salvo no recovery lead | OK, já funciona |
+| `shipping_cost` / `discount_amount` | Não capturados | Armazenar no `raw_payload` (já salvo), não precisa de campo extra |
+| `abandoned_step` | Não capturado | Salvar no `raw_payload` do recovery lead (já acontece) |
 
-### Alterações
+### Alterações em `supabase/functions/webhook-nuvorafy/index.ts`
 
-**1. `src/pages/Postagens.tsx`**
-- Na função que salva/troca o `template_ativo_id` (ao selecionar um novo template), adicionar lógica:
-  - Se já existia um `template_ativo_id` anterior, fazer um UPDATE nos envios da loja onde `postagem_template_id IS NULL`, `status != 'entregue'`, e `deleted_at IS NULL` → setar `postagem_template_id` = template antigo
-  - Depois, salvar o novo `template_ativo_id` normalmente
+**1. Capturar preço dos itens nos produtos normalizados**
+- Atualmente `amount: 0` — mudar para usar `item.price` convertido em centavos
+- Isso melhora a exibição de produtos nos emails de recuperação e nos envios
 
-**2. `supabase/functions/advance-shipments/index.ts`** e **`src/lib/email-trigger.ts`**
-- Sem alteração necessária — já usam `shipment.postagem_template_id || config.template_ativo_id`, e com a correção acima, envios em andamento terão sempre o campo preenchido
+**2. Para `cart.abandoned`, ajustar o `transactionToken`**
+- Usar `order.id` (campo principal no cart.abandoned) como token, já que não tem `order_id`
+- Usar `order.cart_number` como `orderNumber`
+
+**3. Garantir que `total_amount` (cart.abandoned) funcione corretamente**
+- Já tem fallback `order.total_amount` — confirmar que está sendo usado
+
+**4. Melhorar os produtos de recovery para incluir valor individual**
+- Atualmente `recoveryProducts` tem `value: 0` — usar o preço do item quando disponível
+
+### Arquivos alterados
+- `supabase/functions/webhook-nuvorafy/index.ts` — ajustes nos pontos acima
 
 ### Impacto
-- Envios novos: sempre recebem o template ativo no momento da criação (já funciona)
-- Envios em andamento: ao trocar template, recebem o template antigo gravado, mantendo o fluxo original
-- Envios finalizados (entregues): não são afetados
+- Pedidos (order.paid): preços individuais dos itens serão armazenados corretamente
+- Recuperação (order.pending / cart.abandoned): leads terão valores de produtos preenchidos, melhorando emails de recuperação
+- Sem breaking changes — apenas enriquecimento de dados
 
