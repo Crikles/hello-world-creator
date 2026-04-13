@@ -1,36 +1,25 @@
 
 
-## Plano: Criar páginas de Termos de Serviço e Política de Privacidade para Vetor e JL
+## Plano: Congelar template em envios ao trocar template ativo
 
-### O que será feito
+### Problema
+Quando o usuário troca o template ativo na página de Postagens, envios já em andamento que não têm `postagem_template_id` definido (são `NULL`) passam a usar o novo template, alterando o fluxo no meio do caminho.
 
-Criar 4 rotas novas no `LogisticsRoutes` e 2 páginas (uma para cada empresa), cada uma com conteúdo de Termos de Serviço e Política de Privacidade. Os links no footer de cada site serão atualizados para apontar para as novas rotas.
+### Solução
+Ao trocar o template ativo, antes de salvar o novo `template_ativo_id`, fazer um UPDATE em todos os envios **em andamento** (`status != 'entregue'` e `postagem_template_id IS NULL`) para gravar o template antigo neles. Assim, esses envios continuam seguindo o fluxo original.
 
-### Novas rotas
+### Alterações
 
-| Rota | Empresa |
-|------|---------|
-| `/termos` | Termos de Serviço (detecta automaticamente Vetor ou JL pelo domínio) |
-| `/privacidade` | Política de Privacidade (detecta automaticamente Vetor ou JL pelo domínio) |
+**1. `src/pages/Postagens.tsx`**
+- Na função que salva/troca o `template_ativo_id` (ao selecionar um novo template), adicionar lógica:
+  - Se já existia um `template_ativo_id` anterior, fazer um UPDATE nos envios da loja onde `postagem_template_id IS NULL`, `status != 'entregue'`, e `deleted_at IS NULL` → setar `postagem_template_id` = template antigo
+  - Depois, salvar o novo `template_ativo_id` normalmente
 
-### Alterações técnicas
+**2. `supabase/functions/advance-shipments/index.ts`** e **`src/lib/email-trigger.ts`**
+- Sem alteração necessária — já usam `shipment.postagem_template_id || config.template_ativo_id`, e com a correção acima, envios em andamento terão sempre o campo preenchido
 
-**1. Novo arquivo: `src/pages/TermosPrivacidade.tsx`**
-- Componente que recebe prop `tipo` ("termos" ou "privacidade")
-- Detecta `isVetor` pelo hostname (mesmo padrão do Rastreio.tsx)
-- Renderiza o conteúdo com branding correto (cores, logo, nome da empresa)
-- Layout simples: navbar no topo, conteúdo textual, footer
-- Reutiliza os mesmos estilos de navbar/footer da respectiva empresa (Vetor verde ou JL indigo)
-- Conteúdo genérico de termos/privacidade adaptado para uma empresa de transportes/logística
-
-**2. `src/App.tsx`**
-- Adicionar 2 rotas no `LogisticsRoutes`: `/termos` e `/privacidade`
-
-**3. `src/pages/Rastreio.tsx`**
-- Atualizar os 3 footers (Vetor, JL/Jadlog, JL default) para usar `<a href="/termos">` e `<a href="/privacidade">` em vez de `href="#"`
-
-### Conteúdo das páginas
-- **Termos de Serviço**: Uso do site, limitações, responsabilidades, propriedade intelectual
-- **Política de Privacidade**: Dados coletados, uso dos dados, cookies, direitos do usuário (LGPD)
-- Textos adaptados ao contexto de rastreamento de encomendas e logística
+### Impacto
+- Envios novos: sempre recebem o template ativo no momento da criação (já funciona)
+- Envios em andamento: ao trocar template, recebem o template antigo gravado, mantendo o fluxo original
+- Envios finalizados (entregues): não são afetados
 
