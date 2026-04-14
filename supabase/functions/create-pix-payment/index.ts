@@ -127,10 +127,12 @@ Deno.serve(async (req) => {
             }
         );
 
+        console.log("CyberPay HTTP status:", cyberPayResponse.status);
         const cyberPayData = await cyberPayResponse.json();
 
         if (!cyberPayResponse.ok || !cyberPayData.success || !cyberPayData.data) {
-            console.error("CyberPay error:", cyberPayData);
+            console.error("CyberPay error (HTTP " + cyberPayResponse.status + "):", JSON.stringify(cyberPayData));
+            console.error("Request payload was:", JSON.stringify(cyberPayPayload));
             await supabase.from("pix_payments").delete().eq("id", pixPayment.id);
             return new Response(
                 JSON.stringify({
