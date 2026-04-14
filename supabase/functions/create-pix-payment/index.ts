@@ -99,9 +99,10 @@ Deno.serve(async (req) => {
         }
 
         // Call CyberPay API to create PIX transaction
-        const amountReais = amount_cents / 100;
+        // Send amount_cents directly — CyberPay may interpret as centavos
+        const amountForApi = amount_cents;
         const cyberPayPayload = {
-            amount: amountReais,
+            amount: amountForApi,
             customerName,
             customerEmail,
             customerPhone,
