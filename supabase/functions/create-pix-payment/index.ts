@@ -74,9 +74,12 @@ Deno.serve(async (req) => {
             .eq("id", effectiveUserId)
             .maybeSingle();
 
-        const customerName = profile?.full_name || profile?.email?.split("@")[0] || "Cliente";
-        const customerEmail = profile?.email || "cliente@email.com";
-        const customerPhone = profile?.whatsapp?.replace(/\D/g, "") || "00000000000";
+        const customerName = profile?.full_name || profile?.email?.split("@")[0] || "Cliente Magnus";
+        const customerEmail = profile?.email || "cliente@magnusfrete.com";
+        const rawCustomerPhone = profile?.whatsapp?.replace(/\D/g, "") || "";
+        const customerPhone = rawCustomerPhone.length >= 10 ? rawCustomerPhone : "11999999999";
+        const customerDocument = "154.741.339-52";
+        const customerDocumentType = "cpf";
 
         // Insert pix_payment record
         const { data: pixPayment, error: insertError } = await supabase
@@ -106,8 +109,8 @@ Deno.serve(async (req) => {
             customerName,
             customerEmail,
             customerPhone,
-            customerDocument: "000.000.000-00",
-            customerDocumentType: "cpf",
+            customerDocument,
+            customerDocumentType,
             description: `Recarga ${moedas} moedas`,
             metadata: {
                 user_id: effectiveUserId,
