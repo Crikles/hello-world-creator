@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-        const openPixApiKey = Deno.env.get("OPENPIX_API_KEY")!;
+        const cyberPayApiKey = Deno.env.get("CYBERPAY_API_KEY")!;
 
         // Verify user JWT
         const supabaseAuth = createClient(supabaseUrl, anonKey, {
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
         const customerEmail = profile?.email || "cliente@email.com";
         const customerPhone = profile?.whatsapp?.replace(/\D/g, "") || "00000000000";
 
-        // Insert pix_payment record (use its ID as correlationID)
+        // Insert pix_payment record
         const { data: pixPayment, error: insertError } = await supabase
             .from("pix_payments")
             .insert({
@@ -98,53 +98,52 @@ Deno.serve(async (req) => {
             );
         }
 
-        // Call Woovi/OpenPix API to create charge
-        const openPixPayload = {
-            correlationID: pixPayment.id,
-            value: amount_cents,
-            comment: `Recarga ${moedas} moedas`,
-            customer: {
-                name: customerName,
-                email: customerEmail,
-                phone: customerPhone,
-                correlationID: effectiveUserId,
+        // Call CyberPay API to create PIX transaction
+        const amountReais = amount_cents / 100;
+        const cyberPayPayload = {
+            amount: amountReais,
+            customerName,
+            customerEmail,
+            customerPhone,
+            customerDocument: "00000000000",
+            description: `Recarga ${moedas} moedas`,
+            metadata: {
+                user_id: effectiveUserId,
+                moedas: String(moedas),
+                pix_payment_id: pixPayment.id,
             },
-            additionalInfo: [
-                { key: "user_id", value: effectiveUserId },
-                { key: "moedas", value: String(moedas) },
-            ],
         };
 
-        const openPixResponse = await fetch(
-            "https://api.openpix.com.br/api/v1/charge",
+        const cyberPayResponse = await fetch(
+            "https://api.escalecyber.com/v1/payments/transactions",
             {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: openPixApiKey,
+                    "X-API-Key": cyberPayApiKey,
                 },
-                body: JSON.stringify(openPixPayload),
+                body: JSON.stringify(cyberPayPayload),
             }
         );
 
-        const openPixData = await openPixResponse.json();
+        const cyberPayData = await cyberPayResponse.json();
 
-        if (!openPixResponse.ok || !openPixData.brCode) {
-            console.error("OpenPix error:", openPixData);
+        if (!cyberPayResponse.ok || !cyberPayData.success || !cyberPayData.data) {
+            console.error("CyberPay error:", cyberPayData);
             await supabase.from("pix_payments").delete().eq("id", pixPayment.id);
             return new Response(
                 JSON.stringify({
                     error: "Erro ao gerar PIX",
-                    details: openPixData.error || openPixData.message,
+                    details: cyberPayData.message || cyberPayData.error,
                 }),
                 { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const charge = openPixData.charge;
-        const transactionId = charge?.transactionID || charge?.correlationID || pixPayment.id;
-        const qrCodeImageUrl = charge?.qrCodeImage || "";
-        const brCode = openPixData.brCode || "";
+        const txData = cyberPayData.data;
+        const transactionId = txData.id || "";
+        const qrCodeImageUrl = txData.pix?.qrCode?.image || "";
+        const brCode = txData.pix?.qrCode?.emv || "";
 
         // Update pix_payments with transaction data
         await supabase
