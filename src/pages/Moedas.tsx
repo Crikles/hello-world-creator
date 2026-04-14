@@ -171,18 +171,23 @@ export default function Moedas() {
             }
 
             try {
-                // Check the pix_payments table directly by ID (correlationID)
-                const { data } = await supabase
-                    .from("pix_payments")
-                    .select("status")
-                    .eq("id", paymentId)
-                    .maybeSingle();
+                // Call check-pix-payment edge function (verifies with CyberPay and credits automatically)
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/check-pix-payment`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session?.access_token}`,
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    },
+                    body: JSON.stringify({ paymentId }),
+                });
 
-                if (data && data.status === "PAID") {
+                const result = await response.json();
+
+                if (result.success && result.status === "PAID") {
                     if (pollingRef.current) clearInterval(pollingRef.current);
                     setPaymentStatus("paid");
                     toast.success("Pagamento confirmado! Moedas adicionadas à sua conta.");
-                    // Refresh balance and transactions
                     queryClient.invalidateQueries({ queryKey: ["meu-saldo", user?.id] });
                     queryClient.invalidateQueries({ queryKey: ["meus-creditos-transacoes", user?.id] });
                 }
