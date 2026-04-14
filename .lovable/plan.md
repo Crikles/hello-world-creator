@@ -1,38 +1,48 @@
 
 
-## Plano: Ajustar integração Nuvorafy conforme documentação atualizada
+## Plano: Migrar pagamento PIX de Woovi para CyberPay
 
-### Gaps identificados
+### Contexto
+A CyberPay usa endpoint `POST /payments/transactions` com `X-API-Key` no header. O valor é em **reais** (não centavos). A resposta retorna `pix.qrCode.emv` (copia e cola) e `pix.qrCode.image` (QR code). O status de pagamento pode ser verificado via `GET /payments/transactions/{id}` — quando pago, retorna `status: "APPROVED"`.
 
-| Campo | Situação atual | Correção |
-|-------|---------------|----------|
-| `items[].price` | Ignorado (amount=0) | Capturar e converter para centavos |
-| `cart.abandoned` → `id` | Já tem fallback, mas `cart_number` não é usado como `order_number` prioritário | Priorizar `cart_number` para cart.abandoned |
-| `checkout_link` para order.pending | Já captura, mas precisa garantir que seja salvo no recovery lead | OK, já funciona |
-| `shipping_cost` / `discount_amount` | Não capturados | Armazenar no `raw_payload` (já salvo), não precisa de campo extra |
-| `abandoned_step` | Não capturado | Salvar no `raw_payload` do recovery lead (já acontece) |
+A documentação fornecida não inclui seção de webhooks, então usaremos **polling server-side** para detectar pagamentos.
 
-### Alterações em `supabase/functions/webhook-nuvorafy/index.ts`
+### Alterações
 
-**1. Capturar preço dos itens nos produtos normalizados**
-- Atualmente `amount: 0` — mudar para usar `item.price` convertido em centavos
-- Isso melhora a exibição de produtos nos emails de recuperação e nos envios
+**1. Secret: `CYBERPAY_API_KEY`**
+- Solicitar ao usuário a API Key da CyberPay via `add_secret`
 
-**2. Para `cart.abandoned`, ajustar o `transactionToken`**
-- Usar `order.id` (campo principal no cart.abandoned) como token, já que não tem `order_id`
-- Usar `order.cart_number` como `orderNumber`
+**2. `supabase/functions/create-pix-payment/index.ts`**
+- Trocar chamada OpenPix por CyberPay: `POST https://api.escalecyber.com/v1/payments/transactions`
+- Header `X-API-Key` em vez de `Authorization`
+- Enviar `amount` em reais (dividir `amount_cents / 100`)
+- Capturar da resposta: `data.id` (transaction ID), `data.pix.qrCode.emv` (copia e cola), `data.pix.qrCode.image` (QR image)
+- Salvar no `pix_payments` com os novos campos mapeados
 
-**3. Garantir que `total_amount` (cart.abandoned) funcione corretamente**
-- Já tem fallback `order.total_amount` — confirmar que está sendo usado
+**3. Nova Edge Function: `check-pix-payment/index.ts`**
+- Recebe `paymentId` (ID do registro em `pix_payments`)
+- Busca o `transaction_id` no banco
+- Faz `GET https://api.escalecyber.com/v1/payments/transactions/{transaction_id}` com `X-API-Key`
+- Se `status === "APPROVED"`: executa toda a lógica de creditação (mesma do webhook-woovi atual — marcar PAID, adicionar moedas, comissão de indicação, webhooks de notificação)
+- Se não aprovado: retorna status atual sem alterar nada
+- Proteção de idempotência: só processa se `pix_payments.status === 'PENDING'`
 
-**4. Melhorar os produtos de recovery para incluir valor individual**
-- Atualmente `recoveryProducts` tem `value: 0` — usar o preço do item quando disponível
+**4. `src/pages/Moedas.tsx`**
+- Alterar o polling: em vez de consultar apenas a tabela `pix_payments`, chamar a Edge Function `check-pix-payment` que verifica diretamente na CyberPay e credita automaticamente
+- Manter o intervalo de 5s e limite de 15 minutos
 
-### Arquivos alterados
-- `supabase/functions/webhook-nuvorafy/index.ts` — ajustes nos pontos acima
+**5. `webhook-woovi`**
+- Manter intacto por segurança (pagamentos antigos pendentes podem ainda receber callback)
+- Não será mais chamado para novos pagamentos
+
+### Fluxo novo
+```text
+Frontend → create-pix-payment → CyberPay API → QR Code exibido
+Frontend polling (5s) → check-pix-payment → GET CyberPay → APPROVED? → credita moedas → retorna "paid"
+```
 
 ### Impacto
-- Pedidos (order.paid): preços individuais dos itens serão armazenados corretamente
-- Recuperação (order.pending / cart.abandoned): leads terão valores de produtos preenchidos, melhorando emails de recuperação
-- Sem breaking changes — apenas enriquecimento de dados
+- Pagamentos novos usam CyberPay
+- Pagamentos antigos via Woovi continuam funcionando (webhook mantido)
+- Sem alteração no banco de dados (mesma tabela `pix_payments`)
 
