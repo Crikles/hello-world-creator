@@ -80,12 +80,45 @@ export default function Moedas() {
         enabled: !!user,
     });
 
-    // Cleanup polling on unmount
+    // On mount: check for existing pending payment and resume polling
     useEffect(() => {
+        const checkPendingPayment = async () => {
+            if (!user || !session) return;
+            try {
+                const { data: pending } = await supabase
+                    .from("pix_payments")
+                    .select("*")
+                    .eq("user_id", user.id)
+                    .eq("status", "PENDING")
+                    .not("transaction_id", "is", null)
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (pending) {
+                    // Resume this payment's UI
+                    setPixData({
+                        paymentId: pending.id,
+                        transactionId: pending.transaction_id!,
+                        qrCodeBase64: pending.qr_code_base64 || "",
+                        copyPaste: pending.copy_paste || "",
+                        expiresAt: "",
+                        amount_cents: pending.amount_cents,
+                        moedas: Number(pending.moedas),
+                    });
+                    setPaymentStatus("pending");
+                    startPolling(pending.id);
+                }
+            } catch (err) {
+                console.error("Error checking pending payment:", err);
+            }
+        };
+        checkPendingPayment();
+
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
-    }, []);
+    }, [user, session]);
 
     // Generate QR code on canvas whenever pixData changes
     useEffect(() => {

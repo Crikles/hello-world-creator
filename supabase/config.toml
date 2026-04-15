@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.send-payment-confirmation]
 verify_jwt = false
+
+[functions.cron-check-pending-pix]
+verify_jwt = false
