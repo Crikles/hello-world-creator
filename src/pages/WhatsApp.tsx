@@ -1469,6 +1469,18 @@ export default function WhatsApp() {
                                         {enviadosCount}
                                     </Badge>
                                 </Button>
+                                {sendSubTab === "enviados" && failedSaldoCount > 0 && (
+                                    <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-8 text-xs gap-1.5"
+                                        onClick={handleRetryFailed}
+                                        disabled={retryingFailed}
+                                    >
+                                        {retryingFailed ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                        Reenviar {failedSaldoCount} {failedSaldoCount === 1 ? "falha" : "falhas"} de saldo
+                                    </Button>
+                                )}
                             </div>
 
                             <div className="flex gap-2 items-center w-full sm:w-auto">
