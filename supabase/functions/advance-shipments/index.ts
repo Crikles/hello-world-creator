@@ -487,33 +487,55 @@ Deno.serve(async (req) => {
 
         for (const item of itemsToProcess) {
           try {
-            // Get instance token
-            const { data: inst } = await supabase
-              .from("whatsapp_instances")
-              .select("instance_token, instance_name, id, expires_at, loja_id")
-              .eq("id", item.instance_id)
-              .maybeSingle();
+            const nowIso = new Date().toISOString();
+            let inst: {
+              instance_token: string;
+              instance_name: string;
+              id: string;
+              expires_at: string;
+              loja_id?: string;
+            } | null = null;
+
+            if (item.instance_id) {
+              const { data: selectedInst } = await supabase
+                .from("whatsapp_instances")
+                .select("instance_token, instance_name, id, expires_at, loja_id")
+                .eq("id", item.instance_id)
+                .maybeSingle();
+              inst = selectedInst;
+            }
 
             if (!inst || !inst.instance_token || !inst.expires_at || new Date(inst.expires_at) < new Date()) {
               // Try fallback: find another active connected instance for this loja
               const { data: fallbackInsts } = await supabase
                 .from("whatsapp_instances")
-                .select("instance_token, instance_name, id, expires_at")
+                .select("instance_token, instance_name, id, expires_at, loja_id")
                 .eq("loja_id", item.loja_id)
                 .eq("status", "connected")
-                .gt("expires_at", new Date().toISOString());
+                .gt("expires_at", nowIso)
+                .order("updated_at", { ascending: false })
+                .limit(1);
 
-              const fallback = fallbackInsts?.[0];
+              const fallback = fallbackInsts?.[0] ?? null;
               if (!fallback) {
-                const reason = !inst ? "Instância não encontrada" : "Instância expirada";
+                const reason = item.instance_id
+                  ? (!inst ? "Instância não encontrada" : "Instância expirada")
+                  : "Nenhuma instância conectada";
                 await supabase
                   .from("whatsapp_send_queue")
-                  .update({ status: "failed", processed_at: new Date().toISOString(), error_reason: reason, http_status: 0 })
+                  .update({ status: "failed", processed_at: nowIso, error_reason: reason, http_status: 0 })
                   .eq("id", item.id);
                 continue;
               }
-              // Use fallback instance
-              Object.assign(inst || {}, fallback);
+
+              inst = fallback;
+
+              if (item.instance_id !== inst.id) {
+                await supabase
+                  .from("whatsapp_send_queue")
+                  .update({ instance_id: inst.id })
+                  .eq("id", item.id);
+              }
             }
 
             // Validate real instance status via UAZAPI API
@@ -537,7 +559,7 @@ Deno.serve(async (req) => {
               // Try another instance
               const { data: altInsts } = await supabase
                 .from("whatsapp_instances")
-                .select("instance_token, instance_name, id, expires_at")
+                .select("instance_token, instance_name, id, expires_at, loja_id")
                 .eq("loja_id", item.loja_id)
                 .eq("status", "connected")
                 .neq("id", inst!.id)
@@ -557,7 +579,11 @@ Deno.serve(async (req) => {
                 continue;
               }
               // Use alternative instance
-              Object.assign(inst!, altInsts[0]);
+              inst = altInsts[0];
+              await supabase
+                .from("whatsapp_send_queue")
+                .update({ instance_id: inst.id })
+                .eq("id", item.id);
             }
 
             // Parse choices
