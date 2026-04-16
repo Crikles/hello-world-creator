@@ -338,6 +338,18 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
     return result;
   }, [grouped, search, dateFilter]);
 
+  const placar = useMemo(() => {
+    let enviados = 0;
+    let pendentes = 0;
+    grouped.forEach((g) => {
+      const hasFailed = g.email_status === "failed" || g.sms_status === "failed";
+      const hasSent = g.email_status === "sent" || g.sms_status === "sent";
+      if (hasFailed) pendentes++;
+      else if (hasSent) enviados++;
+    });
+    return { enviados, pendentes, total: grouped.length };
+  }, [grouped]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
