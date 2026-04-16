@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     // 1. Check if whatsapp_auto_send is ON and get delay config
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("whatsapp_auto_send, whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url, whatsapp_delay_seconds")
+      .select("whatsapp_auto_send, whatsapp_auto_send_started_at, whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url, whatsapp_delay_seconds")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
