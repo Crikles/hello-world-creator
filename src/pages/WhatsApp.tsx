@@ -1434,6 +1434,11 @@ export default function WhatsApp() {
                                                 <span className={`text-lg font-bold tabular-nums ${isReady ? "text-green-500" : "text-foreground"}`}>
                                                     {isReady ? "Enviando..." : `${mm}:${ss}`}
                                                 </span>
+                                                {nextClienteNome && (
+                                                    <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                                                        {nextClienteNome}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     );
