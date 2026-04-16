@@ -234,7 +234,7 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
   }, [logs]);
 
   const handleRetry = async () => {
-    if (!loja) return;
+    if (!loja || retrying) return;
     setRetrying(true);
     try {
       const { data, error } = await supabase.functions.invoke("retry-failed-sends", {
@@ -242,18 +242,31 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
       });
       if (error) throw error;
       if (data?.success === false) {
-        toast({ title: "Saldo ainda insuficiente", description: "Recarregue antes de reenviar.", variant: "destructive" });
+        toast({
+          title: "Saldo ainda insuficiente",
+          description: "Recarregue antes de reenviar.",
+          variant: "destructive",
+        });
+      } else if (data?.alreadyRunning) {
+        toast({
+          title: "Reenvio já em andamento",
+          description: "Aguarde a conclusão do processamento atual.",
+        });
       } else {
         toast({
           title: "Reenvio iniciado",
-          description: `${data?.confirmacao || 0} confirmações + ${data?.whatsapp || 0} WhatsApp reenfileirados.`,
+          description: `${data?.queued || 0} mensagens em processamento. Pode levar alguns minutos.`,
         });
-        queryClient.invalidateQueries({ queryKey: ["confirmacao-log", loja.id] });
+        // bloqueia novo clique por 30s para evitar gasto duplo enquanto processa
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["confirmacao-log", loja.id] });
+        }, 30000);
       }
     } catch (err: any) {
       toast({ title: "Erro ao reenviar", description: err.message, variant: "destructive" });
     } finally {
-      setRetrying(false);
+      // mantém o botão desabilitado por 10s para impedir cliques repetidos
+      setTimeout(() => setRetrying(false), 10000);
     }
   };
 
