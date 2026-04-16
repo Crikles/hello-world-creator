@@ -1423,20 +1423,15 @@ export default function WhatsApp() {
                                     const ss = String(totalSec % 60).padStart(2, "0");
                                     const isReady = remaining <= 0;
                                     return (
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <div className={`flex items-center gap-2 glass rounded-lg px-3 py-1.5 ${isReady ? "border border-green-500/40" : "border border-yellow-500/30"}`}>
-                                                    <Clock className={`h-3.5 w-3.5 ${isReady ? "text-green-500 animate-pulse" : "text-yellow-500"}`} />
-                                                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Próximo</span>
-                                                    <span className={`text-xs font-bold tabular-nums ${isReady ? "text-green-500" : "text-yellow-500"}`}>
-                                                        {isReady ? "enviando..." : `${mm}:${ss}`}
-                                                    </span>
-                                                </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="bottom" className="text-xs">
-                                                Tempo até o próximo envio automático da fila
-                                            </TooltipContent>
-                                        </Tooltip>
+                                        <div className={`flex items-center gap-3 rounded-lg px-4 py-2 border transition-colors ${isReady ? "bg-green-500/10 border-green-500/40" : "bg-yellow-500/5 border-yellow-500/30"}`}>
+                                            <Clock className={`h-5 w-5 ${isReady ? "text-green-500 animate-pulse" : "text-yellow-500"}`} />
+                                            <div className="flex flex-col leading-tight">
+                                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Próximo envio</span>
+                                                <span className={`text-lg font-bold tabular-nums ${isReady ? "text-green-500" : "text-foreground"}`}>
+                                                    {isReady ? "Enviando..." : `${mm}:${ss}`}
+                                                </span>
+                                            </div>
+                                        </div>
                                     );
                                 })()}
 
