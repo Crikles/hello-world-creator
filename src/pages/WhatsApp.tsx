@@ -1678,6 +1678,37 @@ export default function WhatsApp() {
                             })}
                         </div>
                     )}
+
+                    {sendSubTab === "pendentes" && filteredEnvios.length > PENDENTES_PER_PAGE && (
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/30">
+                            <p className="text-[11px] text-muted-foreground">
+                                Mostrando {(currentPendentesPage - 1) * PENDENTES_PER_PAGE + 1}–{Math.min(currentPendentesPage * PENDENTES_PER_PAGE, filteredEnvios.length)} de {filteredEnvios.length}
+                            </p>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => setPendentesPage((p) => Math.max(1, p - 1))}
+                                    disabled={currentPendentesPage === 1}
+                                >
+                                    Anterior
+                                </Button>
+                                <span className="text-[11px] text-muted-foreground px-2">
+                                    {currentPendentesPage} / {totalPendentesPages}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => setPendentesPage((p) => Math.min(totalPendentesPages, p + 1))}
+                                    disabled={currentPendentesPage === totalPendentesPages}
+                                >
+                                    Próxima
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
