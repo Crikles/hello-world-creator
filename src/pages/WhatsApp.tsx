@@ -157,6 +157,8 @@ export default function WhatsApp() {
     const [phoneInput, setPhoneInput] = useState("");
     const [search, setSearch] = useState("");
     const [sendSubTab, setSendSubTab] = useState<"pendentes" | "enviados">("pendentes");
+    const [pendentesPage, setPendentesPage] = useState(1);
+    const PENDENTES_PER_PAGE = 20;
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
@@ -671,6 +673,18 @@ export default function WhatsApp() {
     // Counts for sub-tab badges
     const pendentesCount = envios.filter((e) => !sentEnvioIds.has(e.id)).length;
     const enviadosCount = envios.filter((e) => sentEnvioIds.has(e.id)).length;
+
+    // Pagination only for "pendentes" tab
+    const totalPendentesPages = sendSubTab === "pendentes"
+        ? Math.max(1, Math.ceil(filteredEnvios.length / PENDENTES_PER_PAGE))
+        : 1;
+    const currentPendentesPage = Math.min(pendentesPage, totalPendentesPages);
+    const visibleEnvios = sendSubTab === "pendentes"
+        ? filteredEnvios.slice((currentPendentesPage - 1) * PENDENTES_PER_PAGE, currentPendentesPage * PENDENTES_PER_PAGE)
+        : filteredEnvios;
+
+    // Reset to page 1 when tab or search changes
+    useEffect(() => { setPendentesPage(1); }, [sendSubTab, search]);
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
@@ -1518,7 +1532,7 @@ export default function WhatsApp() {
                         </div>
                     ) : (
                         <div className="flex flex-col gap-1.5">
-                            {filteredEnvios.map((envio, idx) => {
+                            {visibleEnvios.map((envio, idx) => {
                                 const isSending = sendingIds.has(envio.id);
                                 const isFailed = failedEnvioIds.has(envio.id) || failedIds.has(envio.id);
                                 const hasPhone = !!envio.cliente_telefone;
@@ -1662,6 +1676,37 @@ export default function WhatsApp() {
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+
+                    {sendSubTab === "pendentes" && filteredEnvios.length > PENDENTES_PER_PAGE && (
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/30">
+                            <p className="text-[11px] text-muted-foreground">
+                                Mostrando {(currentPendentesPage - 1) * PENDENTES_PER_PAGE + 1}–{Math.min(currentPendentesPage * PENDENTES_PER_PAGE, filteredEnvios.length)} de {filteredEnvios.length}
+                            </p>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => setPendentesPage((p) => Math.max(1, p - 1))}
+                                    disabled={currentPendentesPage === 1}
+                                >
+                                    Anterior
+                                </Button>
+                                <span className="text-[11px] text-muted-foreground px-2">
+                                    {currentPendentesPage} / {totalPendentesPages}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => setPendentesPage((p) => Math.min(totalPendentesPages, p + 1))}
+                                    disabled={currentPendentesPage === totalPendentesPages}
+                                >
+                                    Próxima
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>
