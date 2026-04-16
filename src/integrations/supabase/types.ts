@@ -804,6 +804,7 @@ export type Database = {
           updated_at: string
           valor_taxa_falha: number | null
           whatsapp_auto_send: boolean | null
+          whatsapp_auto_send_started_at: string | null
           whatsapp_btn_text: string | null
           whatsapp_btn2_text: string | null
           whatsapp_btn2_url: string | null
@@ -836,6 +837,7 @@ export type Database = {
           updated_at?: string
           valor_taxa_falha?: number | null
           whatsapp_auto_send?: boolean | null
+          whatsapp_auto_send_started_at?: string | null
           whatsapp_btn_text?: string | null
           whatsapp_btn2_text?: string | null
           whatsapp_btn2_url?: string | null
@@ -868,6 +870,7 @@ export type Database = {
           updated_at?: string
           valor_taxa_falha?: number | null
           whatsapp_auto_send?: boolean | null
+          whatsapp_auto_send_started_at?: string | null
           whatsapp_btn_text?: string | null
           whatsapp_btn2_text?: string | null
           whatsapp_btn2_url?: string | null
