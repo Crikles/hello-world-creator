@@ -176,7 +176,26 @@ export default function WhatsApp() {
         return () => clearInterval(t);
     }, []);
 
-    // ── User credits ──
+    // ── Next scheduled WhatsApp from the queue (for countdown) ──
+    const { data: nextScheduled } = useQuery({
+        queryKey: ["wa-next-scheduled", loja?.id],
+        queryFn: async () => {
+            if (!loja) return null;
+            const { data } = await supabase
+                .from("whatsapp_send_queue")
+                .select("scheduled_at")
+                .eq("loja_id", loja.id)
+                .eq("status", "pending")
+                .order("scheduled_at", { ascending: true })
+                .limit(1)
+                .maybeSingle();
+            return data?.scheduled_at || null;
+        },
+        enabled: !!loja,
+        refetchInterval: 15000,
+    });
+
+
     const { data: creditos } = useQuery({
         queryKey: ["creditos", user?.id],
         queryFn: async () => {
