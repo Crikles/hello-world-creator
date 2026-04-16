@@ -157,6 +157,8 @@ export default function WhatsApp() {
     const [phoneInput, setPhoneInput] = useState("");
     const [search, setSearch] = useState("");
     const [sendSubTab, setSendSubTab] = useState<"pendentes" | "enviados">("pendentes");
+    const [pendentesPage, setPendentesPage] = useState(1);
+    const PENDENTES_PER_PAGE = 20;
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
