@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     // 1. Check if whatsapp_auto_send is ON and get delay config
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("whatsapp_auto_send, whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url, whatsapp_delay_seconds")
+      .select("whatsapp_auto_send, whatsapp_auto_send_started_at, whatsapp_msg_template, whatsapp_btn_text, whatsapp_footer, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url, whatsapp_delay_seconds")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
@@ -76,12 +76,19 @@ Deno.serve(async (req) => {
     // 3. Fetch envio data
     const { data: envio } = await supabase
       .from("envios")
-      .select("cliente_nome, cliente_telefone, produto, valor, codigo_rastreio")
+      .select("cliente_nome, cliente_telefone, produto, valor, codigo_rastreio, created_at")
       .eq("id", envio_id)
       .single();
 
     if (!envio || !envio.cliente_telefone) {
       return new Response(JSON.stringify({ success: true, skipped: true, reason: "no_phone" }), { status: 200 });
+    }
+
+    // 3.5. Skip leads antigos: só processa envios criados após o auto-envio ter sido ativado
+    const startedAt = (config as any).whatsapp_auto_send_started_at;
+    if (startedAt && envio.created_at && new Date(envio.created_at).getTime() < new Date(startedAt).getTime()) {
+      console.log(`[auto-whatsapp] Skipping envio ${envio_id}: criado antes da ativação do auto-envio`);
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: "lead_antigo" }), { status: 200 });
     }
 
     // 4. Build message from template

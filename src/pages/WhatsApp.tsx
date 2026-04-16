@@ -511,12 +511,17 @@ export default function WhatsApp() {
 
     const saveAutoSendMutation = useMutation({
         mutationFn: async ({ auto, delay }: { auto: boolean; delay: number }) => {
+            const update: any = {
+                whatsapp_auto_send: auto,
+                whatsapp_delay_seconds: delay * 60,
+            };
+            // Quando ativa o auto-envio, marca o instante para que apenas leads novos sejam considerados
+            if (auto) {
+                update.whatsapp_auto_send_started_at = new Date().toISOString();
+            }
             const { error } = await supabase
                 .from("postagem_config")
-                .update({
-                    whatsapp_auto_send: auto,
-                    whatsapp_delay_seconds: delay * 60,
-                } as any)
+                .update(update)
                 .eq("loja_id", loja!.id);
             if (error) throw error;
         },

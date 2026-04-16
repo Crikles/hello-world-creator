@@ -1,0 +1,1 @@
+ALTER TABLE public.postagem_config ADD COLUMN IF NOT EXISTS whatsapp_auto_send_started_at timestamptz;
