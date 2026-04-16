@@ -36,6 +36,21 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, skipped: true, reason: "whatsapp_auto_send is OFF" }), { status: 200 });
     }
 
+    // 1.5. Check if there is a connected WhatsApp instance for this loja
+    const { data: connectedInst } = await supabase
+      .from("whatsapp_instances")
+      .select("id")
+      .eq("loja_id", loja_id)
+      .eq("status", "connected")
+      .gt("expires_at", new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    if (!connectedInst) {
+      console.log(`[auto-whatsapp] Skipping envio ${envio_id}: no connected instance for loja ${loja_id}`);
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: "no_connected_instance" }), { status: 200 });
+    }
+
     // 2. Check if already queued/sent for this envio (duplicate guard)
     const { data: existingLog } = await supabase
       .from("whatsapp_send_queue")
