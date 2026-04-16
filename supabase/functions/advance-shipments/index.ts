@@ -462,9 +462,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 3. PROCESS WHATSAPP SEND QUEUE ──
+    // ── 3. PROCESS WHATSAPP SEND QUEUE (1 per loja per cron cycle) ──
     let queueProcessed = 0;
-    const QUEUE_BATCH = 50;
+    const QUEUE_BATCH = 100;
     try {
       const { data: queueItems } = await supabase
         .from("whatsapp_send_queue")
@@ -475,7 +475,17 @@ Deno.serve(async (req) => {
         .limit(QUEUE_BATCH);
 
       if (queueItems && queueItems.length > 0) {
+        // Group by loja_id and pick only the FIRST (oldest scheduled_at) per loja
+        const firstPerLoja = new Map<string, typeof queueItems[0]>();
         for (const item of queueItems) {
+          if (!firstPerLoja.has(item.loja_id)) {
+            firstPerLoja.set(item.loja_id, item);
+          }
+        }
+        const itemsToProcess = Array.from(firstPerLoja.values());
+        console.log(`Queue: ${queueItems.length} pending items, processing ${itemsToProcess.length} (1 per loja)`);
+
+        for (const item of itemsToProcess) {
           try {
             // Get instance token
             const { data: inst } = await supabase
