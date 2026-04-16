@@ -430,13 +430,39 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
             <CardTitle>Histórico de Confirmações</CardTitle>
             <CardDescription>Notificações enviadas por cliente</CardDescription>
           </div>
-          {failedSaldoCount > 0 && (
-            <Button onClick={handleRetry} disabled={retrying} variant="default" size="sm" className="gap-2">
-              {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              Reenviar {failedSaldoCount} {failedSaldoCount === 1 ? "falha" : "falhas"} de saldo
+          {(failedSaldoCount > 0 || isProcessing) && (
+            <Button
+              onClick={handleRetry}
+              disabled={retrying || isProcessing}
+              variant="default"
+              size="sm"
+              className="gap-2"
+            >
+              {(retrying || isProcessing) ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRight className="h-4 w-4" />
+              )}
+              {isProcessing
+                ? `Processando ${activeRetry?.processados ?? 0}/${activeRetry?.total_pendentes ?? 0}…`
+                : retrying
+                  ? "Iniciando reenvio…"
+                  : `Reenviar ${failedSaldoCount} ${failedSaldoCount === 1 ? "falha" : "falhas"} de saldo`}
             </Button>
           )}
         </div>
+        {isProcessing && (
+          <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            <span>
+              Reenvio em andamento — {activeRetry?.processados ?? 0} de {activeRetry?.total_pendentes ?? 0} processados
+              {(activeRetry?.sucesso ?? 0) > 0 && ` (${activeRetry?.sucesso} OK`}
+              {(activeRetry?.falhas ?? 0) > 0 && `, ${activeRetry?.falhas} falhas`}
+              {(activeRetry?.sucesso ?? 0) > 0 && `)`}
+              . Os números abaixo atualizam em tempo real.
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-3">
