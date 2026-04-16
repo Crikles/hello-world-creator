@@ -544,13 +544,23 @@ export default function ConfirmacaoPagamento() {
   const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ["confirmacao-log", loja?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("confirmacao_pagamento_log")
-        .select("*")
-        .eq("loja_id", loja!.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      return data || [];
+      const all: any[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("confirmacao_pagamento_log")
+          .select("*")
+          .eq("loja_id", loja!.id)
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) break;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
     },
     enabled: !!loja,
   });
