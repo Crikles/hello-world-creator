@@ -1,61 +1,53 @@
 
 
-## Plano: Corrigir delay entre envios WhatsApp
+## Plano: Liberar envios atuais cancelando backlog antigo
 
-### Problema identificado
-
-Existem **dois problemas** na lógica atual:
-
-1. **Processamento ignora o delay**: O cron `advance-shipments` busca TODOS os itens da fila com `scheduled_at <= now` e envia com apenas **500ms** de intervalo (linha 610). Quando o cron roda (a cada 5 min), se 20 mensagens têm `scheduled_at` no passado, todas são disparadas de uma vez com 500ms entre elas — ignorando o delay de 5 minutos configurado.
-
-2. **Race condition no agendamento automático**: A função `auto-whatsapp-new-order` é chamada para cada envio novo. Se vários pedidos chegam simultaneamente (ex: webhook batch), todas as invocações paralelas consultam o mesmo `lastQueued` e calculam o mesmo `scheduled_at` — resultando em mensagens agendadas para o mesmo horário.
+### Problema
+A loja `backupativado@gmail.com` tem ~25.767 mensagens `pending` na fila com `scheduled_at` agendado até julho/2026. Pedidos novos são agendados **depois** do último item da fila, então ficam presos no fim da fila e nunca saem.
 
 ### Solução
+**Cancelar o backlog antigo** dessa loja específica para que novos pedidos passem a ser agendados a partir de agora.
 
-**1. `advance-shipments` — Respeitar delay no processamento**
-- Alterar a lógica de processamento da fila para enviar **apenas 1 mensagem por loja por execução do cron** (ou respeitar o delay real entre envios)
-- Após enviar uma mensagem de uma loja, pular as demais dessa loja até a próxima execução do cron
-- Manter o `scheduled_at` como filtro principal, mas agrupar por `loja_id` e processar apenas o item com `scheduled_at` mais antigo de cada loja
+### Ação técnica
 
-**2. `auto-whatsapp-new-order` — Corrigir race condition**
-- Buscar o último item da fila (qualquer status, não apenas `pending`) para calcular o próximo `scheduled_at`, evitando que invocações concorrentes vejam o mesmo "último item"
-- Considerar também itens recém-inseridos (últimos 30 min) com status `pending` ou `sent`
-
-**3. `send-whatsapp` (envio manual em lote) — Já está correto**
-- A lógica de stagger (linha 683: `baseTime + i * delaySeconds * 1000`) já escalona corretamente cada item
-- Nenhuma alteração necessária nesta função
-
-### Alterações técnicas
-
-**Arquivo: `supabase/functions/advance-shipments/index.ts`**
-- Seção "PROCESS WHATSAPP SEND QUEUE" (linhas 465-623):
-  - Agrupar itens pendentes por `loja_id`
-  - Para cada loja, processar apenas **1 item** (o de `scheduled_at` mais antigo)
-  - Após processar, os demais itens dessa loja serão processados na próxima execução do cron (5 min depois)
-  - Remover o delay fixo de 500ms (não é mais necessário pois só envia 1 por loja)
-
-**Arquivo: `supabase/functions/auto-whatsapp-new-order/index.ts`**
-- Alterar a query do `lastQueued` para incluir status `sent` e `pending` (não apenas `pending`), limitado às últimas 2h
-- Isso garante que mesmo com invocações concorrentes, o cálculo do `scheduled_at` considere mensagens já enviadas recentemente
-
-### Fluxo corrigido
-
-```text
-Automático (novos pedidos):
-  Pedido 1 → auto-whatsapp → scheduled_at = now
-  Pedido 2 (2s depois) → auto-whatsapp → scheduled_at = now + 5min
-  Pedido 3 (3s depois) → auto-whatsapp → scheduled_at = now + 10min
-
-Cron (a cada 5 min):
-  Busca pending + scheduled_at <= now
-  Agrupa por loja → envia 1 por loja
-  Próxima execução → envia a próxima de cada loja
-
-Manual (TODOS):
-  send-whatsapp → escalona com baseTime + i*delay
-  Cron processa 1 por loja a cada 5 min
+**1. Cancelar mensagens pending antigas da loja `75b3b01b-7ec5-440f-81d5-e1c0a4717b57`:**
+```sql
+UPDATE whatsapp_send_queue
+SET status = 'cancelled',
+    error_reason = 'Backlog antigo cancelado para liberar envios atuais',
+    processed_at = now()
+WHERE loja_id = '75b3b01b-7ec5-440f-81d5-e1c0a4717b57'
+  AND status = 'pending'
+  AND scheduled_at > now() + interval '1 hour';
 ```
 
-### Deploy
-- Redeploy de `advance-shipments` e `auto-whatsapp-new-order`
+Isso mantém intactas:
+- Mensagens já enviadas (`sent`)
+- Mensagens prestes a sair (próxima 1 hora)
+- Mensagens de outras lojas
+
+**2. Resultado esperado:**
+- Os 3 pedidos recentes (e qualquer novo) serão reagendados naturalmente pelo `auto-whatsapp-new-order` para os próximos slots de 5 em 5 minutos
+- Como a query do `auto-whatsapp-new-order` ignora itens `cancelled`, o cálculo do próximo `scheduled_at` voltará a ser `now()` para o próximo pedido novo
+
+**3. Verificação pós-execução:**
+- Consultar a fila para confirmar que pedidos recentes ficaram com `scheduled_at` próximo do horário atual
+- Acompanhar logs do cron `advance-shipments` na próxima execução (5 min)
+
+### Observação
+Os pedidos recentes JÁ inseridos na fila com `scheduled_at` em julho/2026 também precisam ser **reagendados para agora**, não apenas cancelados. Vou fazer um UPDATE adicional nesses específicos:
+
+```sql
+-- Reagendar os pedidos NOVOS (criados nas últimas 2h) para now()
+UPDATE whatsapp_send_queue
+SET scheduled_at = now() + (row_number_seq * interval '5 minutes')
+WHERE loja_id = '75b3b01b-7ec5-440f-81d5-e1c0a4717b57'
+  AND status = 'pending'
+  AND created_at > now() - interval '2 hours';
+```
+
+(Será aplicado escalonadamente: primeiro item agora, segundo +5min, terceiro +10min)
+
+### Sem alterações de código
+Apenas operações de dados via insert tool. Nenhuma edge function precisa ser modificada — a lógica já está correta após os fixes anteriores.
 
