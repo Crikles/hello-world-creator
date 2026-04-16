@@ -28,6 +28,7 @@ async function dispatchConfirmacaoWithRetry(
   supabaseUrl: string,
   serviceRoleKey: string,
   pedidoId: string,
+  lojaId: string,
 ): Promise<boolean> {
   for (let attempt = 0; attempt < MAX_RETRY_ON_RATELIMIT; attempt++) {
     try {
@@ -37,7 +38,7 @@ async function dispatchConfirmacaoWithRetry(
           "Content-Type": "application/json",
           "Authorization": `Bearer ${serviceRoleKey}`,
         },
-        body: JSON.stringify({ pedido_id: pedidoId, retry: true }),
+        body: JSON.stringify({ pedido_id: pedidoId, loja_id: lojaId, retry: true }),
       });
       if (resp.ok) return true;
       // 429 = rate limit
@@ -106,24 +107,28 @@ async function processInBackground(opts: {
       if (!upErr) whatsappCount = ids.length;
     }
 
-    // 2) Re-disparar confirmações de pagamento (deduplicado por pedido_id)
+    // 2) Re-disparar confirmações de pagamento (deduplicado por pedido_id+loja_id)
     const { data: confItems } = await supabase
       .from("confirmacao_pagamento_log")
-      .select("id, pedido_id")
+      .select("id, pedido_id, loja_id")
       .in("loja_id", lojaIds)
       .eq("status", "failed")
       .gte("created_at", cutoff)
       .or(orFilter)
       .not("pedido_id", "is", null);
 
-    const pedidosToRetry = Array.from(
-      new Set((confItems || []).map((i: any) => i.pedido_id as string)),
-    );
+    // Deduplicar mantendo loja_id correta para cada pedido
+    const pedidoLojaMap = new Map<string, string>();
+    for (const item of confItems || []) {
+      if (item.pedido_id && item.loja_id && !pedidoLojaMap.has(item.pedido_id)) {
+        pedidoLojaMap.set(item.pedido_id, item.loja_id);
+      }
+    }
 
     let confirmacaoOk = 0;
     let confirmacaoFail = 0;
-    for (const pedidoId of pedidosToRetry) {
-      const ok = await dispatchConfirmacaoWithRetry(supabaseUrl, serviceRoleKey, pedidoId);
+    for (const [pedidoId, lojaId] of pedidoLojaMap) {
+      const ok = await dispatchConfirmacaoWithRetry(supabaseUrl, serviceRoleKey, pedidoId, lojaId);
       if (ok) confirmacaoOk++;
       else confirmacaoFail++;
       // throttle entre cada chamada para evitar bater rate-limit
