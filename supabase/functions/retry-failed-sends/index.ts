@@ -9,11 +9,8 @@ const corsHeaders = {
 const SALDO_KEYWORDS = ["saldo", "insufficient", "insuficiente"];
 const WINDOW_HOURS = 72;
 const MAX_RETRIES = 3;
-const BATCH_DELAY_MS = 350; // delay entre cada chamada para evitar rate-limit
+const BATCH_DELAY_MS = 350;
 const MAX_RETRY_ON_RATELIMIT = 3;
-
-// Lock em memória por loja_id — impede que duplo clique processe 2x ao mesmo tempo
-const activeLocks = new Set<string>();
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void };
 
@@ -21,9 +18,6 @@ async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/**
- * Reenvia 1 confirmação com retry automático em rate-limit.
- */
 async function dispatchConfirmacaoWithRetry(
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -41,14 +35,11 @@ async function dispatchConfirmacaoWithRetry(
         body: JSON.stringify({ pedido_id: pedidoId, loja_id: lojaId, retry: true }),
       });
       if (resp.ok) return true;
-      // 429 = rate limit
       if (resp.status === 429) {
         const retryAfter = Number(resp.headers.get("retry-after") || "5");
-        console.log(`Rate-limit em ${pedidoId}, aguardando ${retryAfter}s (tentativa ${attempt + 1})`);
         await sleep(retryAfter * 1000 + 500);
         continue;
       }
-      // outro erro: loga e desiste
       const text = await resp.text().catch(() => "");
       console.error(`Falha ${resp.status} em ${pedidoId}: ${text.slice(0, 200)}`);
       return false;
@@ -57,7 +48,6 @@ async function dispatchConfirmacaoWithRetry(
       if (msg.includes("Rate limit") || msg.includes("RateLimit")) {
         const m = msg.match(/Retry after (\d+)ms/);
         const waitMs = m ? Number(m[1]) + 500 : 5000;
-        console.log(`Rate-limit (catch) em ${pedidoId}, aguardando ${waitMs}ms`);
         await sleep(waitMs);
         continue;
       }
@@ -68,21 +58,23 @@ async function dispatchConfirmacaoWithRetry(
   return false;
 }
 
-/**
- * Processa o reenvio em background.
- */
 async function processInBackground(opts: {
   supabaseUrl: string;
   serviceRoleKey: string;
   lojaIds: string[];
+  execucaoId: string;
 }) {
-  const { supabaseUrl, serviceRoleKey, lojaIds } = opts;
+  const { supabaseUrl, serviceRoleKey, lojaIds, execucaoId } = opts;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
   const orFilter = SALDO_KEYWORDS.map((k) => `error_reason.ilike.%${k}%`).join(",");
 
+  let sucesso = 0;
+  let falhas = 0;
+  let processados = 0;
+
   try {
-    // 1) Re-enfileirar WhatsApp (operação em massa, sem rate-limit)
+    // 1) Re-enqueue WhatsApp
     const { data: waItems } = await supabase
       .from("whatsapp_send_queue")
       .select("id")
@@ -92,10 +84,9 @@ async function processInBackground(opts: {
       .or(orFilter)
       .lt("retry_count", MAX_RETRIES);
 
-    let whatsappCount = 0;
     if (waItems && waItems.length > 0) {
       const ids = waItems.map((i: any) => i.id);
-      const { error: upErr } = await supabase
+      await supabase
         .from("whatsapp_send_queue")
         .update({
           status: "pending",
@@ -104,38 +95,99 @@ async function processInBackground(opts: {
           processed_at: null,
         })
         .in("id", ids);
-      if (!upErr) whatsappCount = ids.length;
     }
 
-    // 2) Re-disparar confirmações de pagamento (deduplicado por pedido_id+loja_id)
+    // 2) Re-dispatch payment confirmations (deduplicated by pedido)
     const { data: confItems } = await supabase
       .from("confirmacao_pagamento_log")
-      .select("id, pedido_id, loja_id")
+      .select("id, pedido_id, loja_id, created_at")
       .in("loja_id", lojaIds)
       .eq("status", "failed")
       .gte("created_at", cutoff)
       .or(orFilter)
-      .not("pedido_id", "is", null);
+      .not("pedido_id", "is", null)
+      .order("created_at", { ascending: false });
 
-    // Deduplicar mantendo loja_id correta para cada pedido
-    const pedidoLojaMap = new Map<string, string>();
+    // Deduplicate: keep one entry per pedido. Also skip pedidos that already
+    // have a more recent successful send (any tipo) to avoid double-charging.
+    const pedidoLojaMap = new Map<string, { lojaId: string; lastFailAt: string }>();
     for (const item of confItems || []) {
-      if (item.pedido_id && item.loja_id && !pedidoLojaMap.has(item.pedido_id)) {
-        pedidoLojaMap.set(item.pedido_id, item.loja_id);
+      if (!item.pedido_id || !item.loja_id) continue;
+      if (!pedidoLojaMap.has(item.pedido_id)) {
+        pedidoLojaMap.set(item.pedido_id, {
+          lojaId: item.loja_id,
+          lastFailAt: item.created_at,
+        });
       }
     }
 
-    let confirmacaoOk = 0;
-    let confirmacaoFail = 0;
-    for (const [pedidoId, lojaId] of pedidoLojaMap) {
-      const ok = await dispatchConfirmacaoWithRetry(supabaseUrl, serviceRoleKey, pedidoId, lojaId);
-      if (ok) confirmacaoOk++;
-      else confirmacaoFail++;
-      // throttle entre cada chamada para evitar bater rate-limit
+    // Filter out pedidos that already have a sent log AFTER the last failure
+    const allPedidoIds = Array.from(pedidoLojaMap.keys());
+    if (allPedidoIds.length > 0) {
+      const { data: sentLogs } = await supabase
+        .from("confirmacao_pagamento_log")
+        .select("pedido_id, created_at")
+        .in("pedido_id", allPedidoIds)
+        .eq("status", "sent");
+
+      const lastSentByPedido = new Map<string, string>();
+      for (const s of sentLogs || []) {
+        if (!s.pedido_id) continue;
+        const prev = lastSentByPedido.get(s.pedido_id);
+        if (!prev || s.created_at > prev) {
+          lastSentByPedido.set(s.pedido_id, s.created_at);
+        }
+      }
+
+      for (const [pid, info] of pedidoLojaMap) {
+        const lastSent = lastSentByPedido.get(pid);
+        if (lastSent && lastSent >= info.lastFailAt) {
+          pedidoLojaMap.delete(pid);
+        }
+      }
+    }
+
+    const totalReal = pedidoLojaMap.size;
+
+    // Update execução with the real total
+    await supabase
+      .from("retry_execucoes")
+      .update({
+        total_pendentes: totalReal,
+        status: "running",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", execucaoId);
+
+    for (const [pedidoId, info] of pedidoLojaMap) {
+      const ok = await dispatchConfirmacaoWithRetry(
+        supabaseUrl,
+        serviceRoleKey,
+        pedidoId,
+        info.lojaId,
+      );
+      if (ok) sucesso++;
+      else falhas++;
+      processados++;
+
+      // Update progress periodically (every 3 items or last)
+      if (processados % 3 === 0 || processados === totalReal) {
+        await supabase
+          .from("retry_execucoes")
+          .update({
+            processados,
+            sucesso,
+            falhas,
+            updated_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          })
+          .eq("id", execucaoId);
+      }
+
       await sleep(BATCH_DELAY_MS);
     }
 
-    // 3) Forçar avanço de envios
+    // 3) Force shipment advance
     await supabase
       .from("envios")
       .update({ proximo_avanco_em: new Date().toISOString() })
@@ -143,7 +195,7 @@ async function processInBackground(opts: {
       .lte("proximo_avanco_em", new Date().toISOString())
       .is("deleted_at", null);
 
-    // 4) Disparar advance-shipments (com retry simples para rate-limit)
+    // 4) Trigger advance-shipments
     for (let i = 0; i < 2; i++) {
       try {
         const r = await fetch(`${supabaseUrl}/functions/v1/advance-shipments`, {
@@ -162,14 +214,34 @@ async function processInBackground(opts: {
       }
     }
 
+    // Mark execução as done
+    await supabase
+      .from("retry_execucoes")
+      .update({
+        status: "done",
+        processados,
+        sucesso,
+        falhas,
+        finished_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        mensagem: `Concluído: ${sucesso} OK, ${falhas} falhas`,
+      })
+      .eq("id", execucaoId);
+
     console.log(
-      `[retry-failed-sends] BG done lojas=${lojaIds.length} wa=${whatsappCount} confOk=${confirmacaoOk} confFail=${confirmacaoFail}`,
+      `[retry-failed-sends] BG done execId=${execucaoId} confOk=${sucesso} confFail=${falhas}`,
     );
   } catch (err) {
     console.error("[retry-failed-sends] background error:", err);
-  } finally {
-    // libera locks
-    for (const id of lojaIds) activeLocks.delete(id);
+    await supabase
+      .from("retry_execucoes")
+      .update({
+        status: "error",
+        finished_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        mensagem: String((err as any)?.message || err).slice(0, 500),
+      })
+      .eq("id", execucaoId);
   }
 }
 
@@ -187,7 +259,6 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     let { loja_id, user_id } = body as { loja_id?: string; user_id?: string };
 
-    // Identifica usuário pelo JWT se vier do frontend
     const authHeader = req.headers.get("authorization") || "";
     if (!user_id && authHeader && authHeader !== `Bearer ${anonKey}`) {
       const supabaseAuth = createClient(supabaseUrl, anonKey, {
@@ -204,7 +275,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Resolve lojas
     let lojaIds: string[] = [];
     if (loja_id) {
       lojaIds = [loja_id];
@@ -223,21 +293,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    // GUARD: já existe processamento em andamento? evita duplo clique gastar 2x
-    const alreadyRunning = lojaIds.some((id) => activeLocks.has(id));
-    if (alreadyRunning) {
-      console.log("[retry-failed-sends] Reenvio já em andamento, ignorando duplo clique:", lojaIds);
+    // PERSISTENT LOCK: check if there's an active execution for any loja
+    const nowIso = new Date().toISOString();
+    const { data: ativas } = await supabase
+      .from("retry_execucoes")
+      .select("id, loja_id, status, total_pendentes, processados")
+      .in("loja_id", lojaIds)
+      .in("status", ["queued", "running"])
+      .gt("expires_at", nowIso);
+
+    if (ativas && ativas.length > 0) {
+      const ativa = ativas[0];
+      console.log("[retry-failed-sends] já em andamento:", ativa.id);
       return new Response(
         JSON.stringify({
           success: true,
           alreadyRunning: true,
+          execucao_id: ativa.id,
+          processados: ativa.processados,
+          total_pendentes: ativa.total_pendentes,
           message: "Reenvio já está em andamento. Aguarde a conclusão.",
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Valida saldo antes de iniciar (evita loop sem efeito)
+    // Validate balance
     const { data: lojaOwners } = await supabase
       .from("lojas")
       .select("user_id")
@@ -263,7 +344,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Conta itens pendentes para devolver na resposta
+    // Count pending items (rough estimate based on failed rows)
     const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
     const orFilter = SALDO_KEYWORDS.map((k) => `error_reason.ilike.%${k}%`).join(",");
 
@@ -275,22 +356,48 @@ Deno.serve(async (req) => {
       .gte("created_at", cutoff)
       .or(orFilter);
 
-    // ADQUIRE LOCK e dispara em background
-    for (const id of lojaIds) activeLocks.add(id);
+    // Acquire persistent lock by inserting an execution row
+    const { data: execucao, error: execErr } = await supabase
+      .from("retry_execucoes")
+      .insert({
+        loja_id: lojaIds[0],
+        status: "queued",
+        total_pendentes: queuedCount || 0,
+        processados: 0,
+        sucesso: 0,
+        falhas: 0,
+        mensagem: "Iniciando reenvio…",
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (execErr || !execucao) {
+      console.error("Falha ao criar execução:", execErr);
+      return new Response(
+        JSON.stringify({ error: "Não foi possível iniciar reenvio" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     EdgeRuntime.waitUntil(
-      processInBackground({ supabaseUrl, serviceRoleKey, lojaIds }),
+      processInBackground({
+        supabaseUrl,
+        serviceRoleKey,
+        lojaIds,
+        execucaoId: execucao.id,
+      }),
     );
 
     console.log(
-      `[retry-failed-sends] Aceito em background: lojas=${lojaIds.length} pendentes=${queuedCount}`,
+      `[retry-failed-sends] Aceito execId=${execucao.id} lojas=${lojaIds.length} pendentes=${queuedCount}`,
     );
 
-    // Resposta imediata: garante que o usuário não fica esperando e não dispara 2x
     return new Response(
       JSON.stringify({
         success: true,
         accepted: true,
+        execucao_id: execucao.id,
         queued: queuedCount || 0,
         message: "Reenvio iniciado em segundo plano. Acompanhe pelo histórico.",
       }),
