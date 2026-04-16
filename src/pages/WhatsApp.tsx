@@ -674,6 +674,18 @@ export default function WhatsApp() {
     const pendentesCount = envios.filter((e) => !sentEnvioIds.has(e.id)).length;
     const enviadosCount = envios.filter((e) => sentEnvioIds.has(e.id)).length;
 
+    // Pagination only for "pendentes" tab
+    const totalPendentesPages = sendSubTab === "pendentes"
+        ? Math.max(1, Math.ceil(filteredEnvios.length / PENDENTES_PER_PAGE))
+        : 1;
+    const currentPendentesPage = Math.min(pendentesPage, totalPendentesPages);
+    const visibleEnvios = sendSubTab === "pendentes"
+        ? filteredEnvios.slice((currentPendentesPage - 1) * PENDENTES_PER_PAGE, currentPendentesPage * PENDENTES_PER_PAGE)
+        : filteredEnvios;
+
+    // Reset to page 1 when tab or search changes
+    useEffect(() => { setPendentesPage(1); }, [sendSubTab, search]);
+
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
             setSelectedIds(new Set(filteredEnvios.map((e) => e.id)));
