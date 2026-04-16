@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
     MessageCircle, Wifi, WifiOff, QrCode, Trash2, Send, Search,
-    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply, Pencil, X, Save
+    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply, Pencil, X, Save, Smartphone
 } from "lucide-react";
 import { useLoja } from "@/contexts/LojaContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -294,7 +294,7 @@ export default function WhatsApp() {
             if (!loja?.id) return [];
             const { data } = await supabase
                 .from("whatsapp_message_log")
-                .select("envio_id, status, created_at, error_reason")
+                .select("envio_id, status, created_at, error_reason, instance_id, instance:instance_id(label, instance_name)")
                 .eq("loja_id", loja.id);
             return data || [];
         },
@@ -304,7 +304,12 @@ export default function WhatsApp() {
     const sentEnvioIds = new Set(messageLogs.filter((l) => l.status === "sent").map((l) => l.envio_id));
     const failedEnvioIds = new Set(messageLogs.filter((l) => l.status === "failed").map((l) => l.envio_id));
     const messageLogMap = Object.fromEntries(
-        messageLogs.map((l: any) => [l.envio_id, { status: l.status, created_at: l.created_at, error_reason: l.error_reason }])
+        messageLogs.map((l: any) => [l.envio_id, {
+            status: l.status,
+            created_at: l.created_at,
+            error_reason: l.error_reason,
+            instance_label: l.instance?.label || l.instance?.instance_name || null,
+        }])
     );
 
     // ── Config (template + auto-send) ──
@@ -1590,9 +1595,24 @@ export default function WhatsApp() {
                                             {/* Status / Actions */}
                                             <div className="flex items-center gap-1.5 ml-auto shrink-0">
                                                 {sendSubTab === "enviados" && logEntry?.status === "sent" && (
-                                                    <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
-                                                        <Check className="h-3 w-3 mr-0.5" /> Enviado
-                                                    </Badge>
+                                                    <>
+                                                        {(logEntry as any)?.instance_label && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px] px-1.5 py-0 h-5 max-w-[140px]">
+                                                                        <Smartphone className="h-3 w-3 mr-0.5 shrink-0" />
+                                                                        <span className="truncate">{(logEntry as any).instance_label}</span>
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="left" className="text-xs">
+                                                                    Enviado pela instância: {(logEntry as any).instance_label}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                        <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
+                                                            <Check className="h-3 w-3 mr-0.5" /> Enviado
+                                                        </Badge>
+                                                    </>
                                                 )}
 
                                                 {sendSubTab === "enviados" && logEntry?.status === "failed" && (
