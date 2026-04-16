@@ -333,11 +333,6 @@ export default function WhatsApp() {
         const r = (l.error_reason || "").toLowerCase();
         return r.includes("saldo") || r.includes("insufic");
     }).length;
-    const failedSaldoCount = messageLogs.filter((l: any) => {
-        if (l.status !== "failed") return false;
-        const r = (l.error_reason || "").toLowerCase();
-        return r.includes("saldo") || r.includes("insufic");
-    }).length;
     const messageLogMap = Object.fromEntries(
         messageLogs.map((l: any) => [l.envio_id, {
             status: l.status,
