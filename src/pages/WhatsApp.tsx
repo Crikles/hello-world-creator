@@ -1532,7 +1532,7 @@ export default function WhatsApp() {
                         </div>
                     ) : (
                         <div className="flex flex-col gap-1.5">
-                            {filteredEnvios.map((envio, idx) => {
+                            {visibleEnvios.map((envio, idx) => {
                                 const isSending = sendingIds.has(envio.id);
                                 const isFailed = failedEnvioIds.has(envio.id) || failedIds.has(envio.id);
                                 const hasPhone = !!envio.cliente_telefone;
