@@ -384,6 +384,27 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border border-border bg-card/50 p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Enviados
+            </div>
+            <div className="text-2xl font-bold text-foreground">{placar.enviados}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card/50 p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+              <XCircle className="h-3.5 w-3.5 text-destructive" /> Pendentes
+            </div>
+            <div className="text-2xl font-bold text-foreground">{placar.pendentes}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card/50 p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+              <User className="h-3.5 w-3.5 text-primary" /> Total
+            </div>
+            <div className="text-2xl font-bold text-foreground">{placar.total}</div>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
