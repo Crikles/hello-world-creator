@@ -616,8 +616,7 @@ Deno.serve(async (req) => {
             queueProcessed++;
             console.log(`Queue ${waStatus}: envio ${item.envio_id} via ${inst!.instance_name}${errorReason ? ` | ${errorReason}` : ""}`);
 
-            // Small delay between sends to avoid rate limiting
-            await new Promise(r => setTimeout(r, 500));
+            // No artificial delay needed — we only process 1 item per loja per cron cycle
           } catch (qErr) {
             console.error(`Queue item ${item.id} failed:`, qErr);
             const errMsg = qErr instanceof Error ? qErr.message : "Unknown error";

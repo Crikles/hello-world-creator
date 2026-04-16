@@ -101,11 +101,15 @@ Deno.serve(async (req) => {
     // 5. Calculate scheduled_at respecting delay
     const delaySeconds = config.whatsapp_delay_seconds || 300; // default 5 min
 
+    // Query across ALL recent statuses (pending + sent) to avoid race conditions
+    // when multiple orders arrive simultaneously
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     const { data: lastQueued } = await supabase
       .from("whatsapp_send_queue")
       .select("scheduled_at")
       .eq("loja_id", loja_id)
-      .eq("status", "pending")
+      .in("status", ["pending", "sent"])
+      .gte("created_at", twoHoursAgo)
       .order("scheduled_at", { ascending: false })
       .limit(1)
       .maybeSingle();
