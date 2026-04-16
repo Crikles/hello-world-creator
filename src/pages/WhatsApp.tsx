@@ -177,23 +177,27 @@ export default function WhatsApp() {
     }, []);
 
     // ── Next scheduled WhatsApp from the queue (for countdown) ──
-    const { data: nextScheduled } = useQuery({
-        queryKey: ["wa-next-scheduled", loja?.id],
+    const { data: nextQueued } = useQuery({
+        queryKey: ["wa-next-queued", loja?.id],
         queryFn: async () => {
             if (!loja) return null;
             const { data } = await supabase
                 .from("whatsapp_send_queue")
-                .select("scheduled_at")
+                .select("scheduled_at, envio_id, envios:envio_id(cliente_nome)")
                 .eq("loja_id", loja.id)
                 .eq("status", "pending")
                 .order("scheduled_at", { ascending: true })
                 .limit(1)
                 .maybeSingle();
-            return data?.scheduled_at || null;
+            if (!data) return null;
+            const nome = (data as any).envios?.cliente_nome ?? null;
+            return { scheduled_at: data.scheduled_at, cliente_nome: nome };
         },
         enabled: !!loja,
         refetchInterval: 15000,
     });
+    const nextScheduled = nextQueued?.scheduled_at || null;
+    const nextClienteNome = nextQueued?.cliente_nome || null;
 
 
     const { data: creditos } = useQuery({
