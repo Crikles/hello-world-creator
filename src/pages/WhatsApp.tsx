@@ -1416,6 +1416,30 @@ export default function WhatsApp() {
                             </div>
 
                             <div className="flex gap-2 items-center w-full sm:w-auto">
+                                {sendSubTab === "pendentes" && nextScheduled && autoSend && (() => {
+                                    const remaining = Math.max(0, new Date(nextScheduled).getTime() - nowTick);
+                                    const totalSec = Math.ceil(remaining / 1000);
+                                    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+                                    const ss = String(totalSec % 60).padStart(2, "0");
+                                    const isReady = remaining <= 0;
+                                    return (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className={`flex items-center gap-2 glass rounded-lg px-3 py-1.5 ${isReady ? "border border-green-500/40" : "border border-yellow-500/30"}`}>
+                                                    <Clock className={`h-3.5 w-3.5 ${isReady ? "text-green-500 animate-pulse" : "text-yellow-500"}`} />
+                                                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Próximo</span>
+                                                    <span className={`text-xs font-bold tabular-nums ${isReady ? "text-green-500" : "text-yellow-500"}`}>
+                                                        {isReady ? "enviando..." : `${mm}:${ss}`}
+                                                    </span>
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="text-xs">
+                                                Tempo até o próximo envio automático da fila
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    );
+                                })()}
+
                                 {sendSubTab === "pendentes" && (
                                     <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
                                         <Checkbox
