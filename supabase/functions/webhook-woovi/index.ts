@@ -267,6 +267,16 @@ Deno.serve(async (req) => {
           console.error("Error dispatching notification webhooks:", whErr);
         }
 
+        // Auto-retry failed sends (insufficient balance) for this user
+        fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({ user_id: pixPayment.user_id }),
+        }).catch((err) => console.error("retry-failed-sends dispatch error:", err));
+
         return new Response(
             JSON.stringify({ success: true, message: "Payment processed" }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

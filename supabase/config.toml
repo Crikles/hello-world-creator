@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.cron-check-pending-pix]
 verify_jwt = false
+
+[functions.retry-failed-sends]
+verify_jwt = false

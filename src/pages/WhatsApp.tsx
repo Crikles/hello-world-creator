@@ -171,6 +171,29 @@ export default function WhatsApp() {
     const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
     const [editingLabelValue, setEditingLabelValue] = useState("");
     const [nowTick, setNowTick] = useState(Date.now());
+    const [retryingFailed, setRetryingFailed] = useState(false);
+
+    const handleRetryFailed = async () => {
+        if (!loja) return;
+        setRetryingFailed(true);
+        try {
+            const { data, error } = await supabase.functions.invoke("retry-failed-sends", {
+                body: { loja_id: loja.id },
+            });
+            if (error) throw error;
+            if (data?.success === false) {
+                toast.error("Saldo ainda insuficiente. Recarregue antes de reenviar.");
+            } else {
+                toast.success(`${data?.whatsapp || 0} mensagens reenfileiradas.`);
+                queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log", loja.id] });
+                queryClient.invalidateQueries({ queryKey: ["whatsapp-queue", loja.id] });
+            }
+        } catch (err: any) {
+            toast.error("Erro ao reenviar: " + err.message);
+        } finally {
+            setRetryingFailed(false);
+        }
+    };
 
     // Tick every second for the countdown
     useEffect(() => {
@@ -305,6 +328,11 @@ export default function WhatsApp() {
 
     const sentEnvioIds = new Set(messageLogs.filter((l) => l.status === "sent").map((l) => l.envio_id));
     const failedEnvioIds = new Set(messageLogs.filter((l) => l.status === "failed").map((l) => l.envio_id));
+    const failedSaldoCount = messageLogs.filter((l: any) => {
+        if (l.status !== "failed") return false;
+        const r = (l.error_reason || "").toLowerCase();
+        return r.includes("saldo") || r.includes("insufic");
+    }).length;
     const messageLogMap = Object.fromEntries(
         messageLogs.map((l: any) => [l.envio_id, {
             status: l.status,
@@ -1441,6 +1469,18 @@ export default function WhatsApp() {
                                         {enviadosCount}
                                     </Badge>
                                 </Button>
+                                {sendSubTab === "enviados" && failedSaldoCount > 0 && (
+                                    <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-8 text-xs gap-1.5"
+                                        onClick={handleRetryFailed}
+                                        disabled={retryingFailed}
+                                    >
+                                        {retryingFailed ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                        Reenviar {failedSaldoCount} {failedSaldoCount === 1 ? "falha" : "falhas"} de saldo
+                                    </Button>
+                                )}
                             </div>
 
                             <div className="flex gap-2 items-center w-full sm:w-auto">

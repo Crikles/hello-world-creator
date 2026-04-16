@@ -218,9 +218,44 @@ interface GroupedLog {
 
 function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean }) {
   const { loja } = useLoja();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [retrying, setRetrying] = useState(false);
+
+  // Count failed-by-balance entries
+  const failedSaldoCount = useMemo(() => {
+    return logs.filter((l) => {
+      if (l.status !== "failed") return false;
+      const reason = (l.error_reason || "").toLowerCase();
+      return reason.includes("saldo") || reason.includes("insufic");
+    }).length;
+  }, [logs]);
+
+  const handleRetry = async () => {
+    if (!loja) return;
+    setRetrying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("retry-failed-sends", {
+        body: { loja_id: loja.id },
+      });
+      if (error) throw error;
+      if (data?.success === false) {
+        toast({ title: "Saldo ainda insuficiente", description: "Recarregue antes de reenviar.", variant: "destructive" });
+      } else {
+        toast({
+          title: "Reenvio iniciado",
+          description: `${data?.confirmacao || 0} confirmações + ${data?.whatsapp || 0} WhatsApp reenfileirados.`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["confirmacao-log", loja.id] });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao reenviar", description: err.message, variant: "destructive" });
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   // Fetch pedidos for client info
   const pedidoIds = useMemo(() => {
@@ -323,8 +358,18 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Histórico de Confirmações</CardTitle>
-        <CardDescription>Notificações enviadas por cliente</CardDescription>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <CardTitle>Histórico de Confirmações</CardTitle>
+            <CardDescription>Notificações enviadas por cliente</CardDescription>
+          </div>
+          {failedSaldoCount > 0 && (
+            <Button onClick={handleRetry} disabled={retrying} variant="default" size="sm" className="gap-2">
+              {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              Reenviar {failedSaldoCount} {failedSaldoCount === 1 ? "falha" : "falhas"} de saldo
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">

@@ -247,6 +247,16 @@ Deno.serve(async (req) => {
 
         console.log("Payment processed:", pixPayment.id, "User:", pixPayment.user_id, "Moedas:", pixPayment.moedas);
 
+        // Auto-retry failed sends (insufficient balance) for this user
+        fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${serviceRoleKey}`,
+            },
+            body: JSON.stringify({ user_id: pixPayment.user_id }),
+        }).catch((err) => console.error("retry-failed-sends dispatch error:", err));
+
         return new Response(
             JSON.stringify({ success: true, status: "PAID" }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
