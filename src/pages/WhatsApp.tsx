@@ -305,6 +305,11 @@ export default function WhatsApp() {
 
     const sentEnvioIds = new Set(messageLogs.filter((l) => l.status === "sent").map((l) => l.envio_id));
     const failedEnvioIds = new Set(messageLogs.filter((l) => l.status === "failed").map((l) => l.envio_id));
+    const failedSaldoCount = messageLogs.filter((l: any) => {
+        if (l.status !== "failed") return false;
+        const r = (l.error_reason || "").toLowerCase();
+        return r.includes("saldo") || r.includes("insufic");
+    }).length;
     const messageLogMap = Object.fromEntries(
         messageLogs.map((l: any) => [l.envio_id, {
             status: l.status,
