@@ -506,17 +506,47 @@ Deno.serve(async (req) => {
             }
 
             if (!inst || !inst.instance_token || !inst.expires_at || new Date(inst.expires_at) < new Date()) {
-              // Try fallback: find another active connected instance for this loja
-              const { data: fallbackInsts } = await supabase
+              // Try fallback with ROUND-ROBIN rotation: find all connected instances,
+              // then pick the one that was used least recently (or never used) for this loja.
+              const { data: connectedInsts } = await supabase
                 .from("whatsapp_instances")
-                .select("instance_token, instance_name, id, expires_at, loja_id")
+                .select("instance_token, instance_name, id, expires_at, loja_id, created_at")
                 .eq("loja_id", item.loja_id)
                 .eq("status", "connected")
                 .gt("expires_at", nowIso)
-                .order("updated_at", { ascending: false })
-                .limit(1);
+                .order("created_at", { ascending: true });
 
-              const fallback = fallbackInsts?.[0] ?? null;
+              let fallback: typeof inst = null;
+              if (connectedInsts && connectedInsts.length > 0) {
+                // Get last-used timestamp per instance from message log
+                const ids = connectedInsts.map((i: any) => i.id);
+                const { data: lastUsed } = await supabase
+                  .from("whatsapp_message_log")
+                  .select("instance_id, created_at")
+                  .eq("loja_id", item.loja_id)
+                  .in("instance_id", ids)
+                  .order("created_at", { ascending: false })
+                  .limit(200);
+
+                const lastUsedMap = new Map<string, string>();
+                for (const row of (lastUsed || [])) {
+                  if (row.instance_id && !lastUsedMap.has(row.instance_id)) {
+                    lastUsedMap.set(row.instance_id, row.created_at);
+                  }
+                }
+
+                // Sort: never-used first, then oldest-used first
+                const sorted = [...connectedInsts].sort((a: any, b: any) => {
+                  const aUsed = lastUsedMap.get(a.id);
+                  const bUsed = lastUsedMap.get(b.id);
+                  if (!aUsed && !bUsed) return 0;
+                  if (!aUsed) return -1;
+                  if (!bUsed) return 1;
+                  return new Date(aUsed).getTime() - new Date(bUsed).getTime();
+                });
+                fallback = sorted[0];
+                console.log(`[rotation] loja=${item.loja_id} picked instance=${fallback?.id} (least-recently-used among ${connectedInsts.length})`);
+              }
               if (!fallback) {
                 const reason = item.instance_id
                   ? (!inst ? "Instância não encontrada" : "Instância expirada")

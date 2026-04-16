@@ -1597,17 +1597,10 @@ export default function WhatsApp() {
                                                 {sendSubTab === "enviados" && logEntry?.status === "sent" && (
                                                     <>
                                                         {(logEntry as any)?.instance_label && (
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px] px-1.5 py-0 h-5 max-w-[140px]">
-                                                                        <Smartphone className="h-3 w-3 mr-0.5 shrink-0" />
-                                                                        <span className="truncate">{(logEntry as any).instance_label}</span>
-                                                                    </Badge>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent side="left" className="text-xs">
-                                                                    Enviado pela instância: {(logEntry as any).instance_label}
-                                                                </TooltipContent>
-                                                            </Tooltip>
+                                                            <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-2 py-0 h-5 whitespace-nowrap">
+                                                                <Smartphone className="h-3 w-3 mr-1 shrink-0" />
+                                                                <span>{(logEntry as any).instance_label}</span>
+                                                            </Badge>
                                                         )}
                                                         <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
                                                             <Check className="h-3 w-3 mr-0.5" /> Enviado
