@@ -1387,6 +1387,51 @@ export type Database = {
         }
         Relationships: []
       }
+      retry_execucoes: {
+        Row: {
+          expires_at: string
+          falhas: number
+          finished_at: string | null
+          id: string
+          loja_id: string
+          mensagem: string | null
+          processados: number
+          started_at: string
+          status: string
+          sucesso: number
+          total_pendentes: number
+          updated_at: string
+        }
+        Insert: {
+          expires_at?: string
+          falhas?: number
+          finished_at?: string | null
+          id?: string
+          loja_id: string
+          mensagem?: string | null
+          processados?: number
+          started_at?: string
+          status?: string
+          sucesso?: number
+          total_pendentes?: number
+          updated_at?: string
+        }
+        Update: {
+          expires_at?: string
+          falhas?: number
+          finished_at?: string | null
+          id?: string
+          loja_id?: string
+          mensagem?: string | null
+          processados?: number
+          started_at?: string
+          status?: string
+          sucesso?: number
+          total_pendentes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shopify_integrations: {
         Row: {
           access_token: string | null
