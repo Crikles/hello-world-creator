@@ -171,6 +171,29 @@ export default function WhatsApp() {
     const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
     const [editingLabelValue, setEditingLabelValue] = useState("");
     const [nowTick, setNowTick] = useState(Date.now());
+    const [retryingFailed, setRetryingFailed] = useState(false);
+
+    const handleRetryFailed = async () => {
+        if (!loja) return;
+        setRetryingFailed(true);
+        try {
+            const { data, error } = await supabase.functions.invoke("retry-failed-sends", {
+                body: { loja_id: loja.id },
+            });
+            if (error) throw error;
+            if (data?.success === false) {
+                toast.error("Saldo ainda insuficiente. Recarregue antes de reenviar.");
+            } else {
+                toast.success(`${data?.whatsapp || 0} mensagens reenfileiradas.`);
+                queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log", loja.id] });
+                queryClient.invalidateQueries({ queryKey: ["whatsapp-queue", loja.id] });
+            }
+        } catch (err: any) {
+            toast.error("Erro ao reenviar: " + err.message);
+        } finally {
+            setRetryingFailed(false);
+        }
+    };
 
     // Tick every second for the countdown
     useEffect(() => {
