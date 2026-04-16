@@ -168,6 +168,13 @@ export default function WhatsApp() {
     const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
     const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
     const [editingLabelValue, setEditingLabelValue] = useState("");
+    const [nowTick, setNowTick] = useState(Date.now());
+
+    // Tick every second for the countdown
+    useEffect(() => {
+        const t = setInterval(() => setNowTick(Date.now()), 1000);
+        return () => clearInterval(t);
+    }, []);
 
     // ── User credits ──
     const { data: creditos } = useQuery({
