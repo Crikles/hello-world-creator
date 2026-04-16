@@ -224,17 +224,47 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
   const [page, setPage] = useState(1);
   const [retrying, setRetrying] = useState(false);
 
-  // Count failed-by-balance entries
-  const failedSaldoCount = useMemo(() => {
-    return logs.filter((l) => {
-      if (l.status !== "failed") return false;
-      const reason = (l.error_reason || "").toLowerCase();
-      return reason.includes("saldo") || reason.includes("insufic");
-    }).length;
-  }, [logs]);
+  // Active retry execution (persistent lock from DB)
+  const { data: activeRetry } = useQuery({
+    queryKey: ["retry-execucao-ativa", loja?.id],
+    queryFn: async () => {
+      if (!loja) return null;
+      const { data } = await supabase
+        .from("retry_execucoes")
+        .select("*")
+        .eq("loja_id", loja.id)
+        .in("status", ["queued", "running"])
+        .gt("expires_at", new Date().toISOString())
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!loja,
+    refetchInterval: 3000,
+  });
+
+  // Realtime for retry executions
+  useEffect(() => {
+    if (!loja?.id) return;
+    const channel = supabase
+      .channel(`retry-exec-${loja.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "retry_execucoes", filter: `loja_id=eq.${loja.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["retry-execucao-ativa", loja.id] });
+          queryClient.invalidateQueries({ queryKey: ["confirmacao-log", loja.id] });
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [loja?.id, queryClient]);
+
+  const isProcessing = !!activeRetry;
 
   const handleRetry = async () => {
-    if (!loja || retrying) return;
+    if (!loja || retrying || isProcessing) return;
     setRetrying(true);
     try {
       const { data, error } = await supabase.functions.invoke("retry-failed-sends", {
@@ -257,16 +287,12 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
           title: "Reenvio iniciado",
           description: `${data?.queued || 0} mensagens em processamento. Pode levar alguns minutos.`,
         });
-        // bloqueia novo clique por 30s para evitar gasto duplo enquanto processa
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ["confirmacao-log", loja.id] });
-        }, 30000);
+        queryClient.invalidateQueries({ queryKey: ["retry-execucao-ativa", loja.id] });
       }
     } catch (err: any) {
       toast({ title: "Erro ao reenviar", description: err.message, variant: "destructive" });
     } finally {
-      // mantém o botão desabilitado por 10s para impedir cliques repetidos
-      setTimeout(() => setRetrying(false), 10000);
+      setTimeout(() => setRetrying(false), 3000);
     }
   };
 
@@ -296,7 +322,10 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
     return map;
   }, [pedidos]);
 
-  // Group logs by pedido_id (or by destinatario if no pedido_id)
+  // Group logs by pedido_id (or by destinatario if no pedido_id).
+  // CRITICAL: only the MOST RECENT status per (group, tipo) counts.
+  // logs come ordered created_at DESC, so the first time we see a (group, tipo)
+  // is the latest status — older ones must NOT overwrite it.
   const grouped = useMemo(() => {
     const groups: Record<string, GroupedLog> = {};
 
@@ -321,19 +350,32 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
       g.custo_total += Number(log.custo || 0);
 
       if (log.tipo === "email") {
-        g.email_status = log.status as "sent" | "failed";
+        // only set if we haven't seen a more recent email log for this group
+        if (g.email_status === "none") {
+          g.email_status = log.status as "sent" | "failed";
+        }
         if (!g.email) g.email = log.destinatario;
       } else if (log.tipo === "sms") {
-        g.sms_status = log.status as "sent" | "failed";
+        if (g.sms_status === "none") {
+          g.sms_status = log.status as "sent" | "failed";
+        }
         if (!g.telefone) g.telefone = log.destinatario;
       }
 
-      // Use earliest date
-      if (log.created_at < g.created_at) g.created_at = log.created_at;
+      // Use most recent date for sorting
+      if (log.created_at > g.created_at) g.created_at = log.created_at;
     });
 
     return Object.values(groups).sort((a, b) => b.created_at.localeCompare(a.created_at));
   }, [logs, pedidoMap]);
+
+  // Count failed-by-balance based on CURRENT state, not historical rows.
+  // A group is pending only if its latest email or sms status is "failed".
+  const failedSaldoCount = useMemo(() => {
+    return grouped.filter(
+      (g) => g.email_status === "failed" || g.sms_status === "failed",
+    ).length;
+  }, [grouped]);
 
   const filtered = useMemo(() => {
     let result = grouped;
