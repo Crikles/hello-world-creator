@@ -576,7 +576,31 @@ export default function ConfirmacaoPagamento() {
       return all;
     },
     enabled: !!loja,
+    refetchInterval: 5000, // fallback: atualiza a cada 5s
   });
+
+  // Realtime: invalida log automaticamente quando há mudanças na tabela
+  useEffect(() => {
+    if (!loja?.id) return;
+    const channel = supabase
+      .channel(`confirmacao-log-${loja.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "confirmacao_pagamento_log",
+          filter: `loja_id=eq.${loja.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["confirmacao-log", loja.id] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loja?.id, queryClient]);
 
   // Local state
   const [ativo, setAtivo] = useState(false);
