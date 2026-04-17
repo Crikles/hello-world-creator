@@ -380,6 +380,16 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
 
   const filtered = useMemo(() => {
     let result = grouped;
+    if (statusFilter === "pendentes") {
+      result = result.filter((g) => g.email_status === "failed" || g.sms_status === "failed");
+    } else if (statusFilter === "enviados") {
+      result = result.filter(
+        (g) =>
+          g.email_status !== "failed" &&
+          g.sms_status !== "failed" &&
+          (g.email_status === "sent" || g.sms_status === "sent"),
+      );
+    }
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((g) =>
@@ -392,7 +402,7 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
       result = result.filter((g) => g.created_at.startsWith(dateFilter));
     }
     return result;
-  }, [grouped, search, dateFilter]);
+  }, [grouped, search, dateFilter, statusFilter]);
 
   const placar = useMemo(() => {
     let enviados = 0;
