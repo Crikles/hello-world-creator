@@ -106,41 +106,63 @@ async function processInBackground(opts: {
     }
 
     // 2) Re-dispatch payment confirmations
-    // Strategy: fetch ALL recent logs for these lojas, group by (pedido, tipo),
-    // keep only the LATEST status per (pedido, tipo). A pedido is eligible to
-    // retry if its latest log on ANY channel is "failed".
-    const { data: allLogs } = await supabase
-      .from("confirmacao_pagamento_log")
-      .select("id, pedido_id, loja_id, tipo, status, error_reason, created_at")
-      .in("loja_id", lojaIds)
-      .gte("created_at", cutoff)
-      .not("pedido_id", "is", null)
-      .order("created_at", { ascending: false });
+    // Strategy: fetch ALL "failed" logs (paginated to bypass 1000 limit),
+    // then verify they're still the LATEST per (pedido, tipo) by checking
+    // if any newer "sent" exists for the same key.
+    const failedLogs: Array<{ pedido_id: string; loja_id: string; tipo: string; error_reason: string | null; created_at: string }> = [];
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error: pageErr } = await supabase
+        .from("confirmacao_pagamento_log")
+        .select("pedido_id, loja_id, tipo, error_reason, created_at")
+        .in("loja_id", lojaIds)
+        .eq("status", "failed")
+        .gte("created_at", cutoff)
+        .not("pedido_id", "is", null)
+        .order("created_at", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (pageErr) {
+        console.error("[retry-failed-sends] page error:", pageErr);
+        break;
+      }
+      if (!page || page.length === 0) break;
+      failedLogs.push(...(page as any));
+      if (page.length < PAGE) break;
+    }
 
-    // Latest status per (pedido, tipo)
-    const latestByKey = new Map<string, { pedidoId: string; lojaId: string; status: string; errorReason: string | null; createdAt: string }>();
-    for (const item of allLogs || []) {
-      if (!item.pedido_id || !item.loja_id) continue;
-      const key = `${item.pedido_id}::${item.tipo}`;
-      if (!latestByKey.has(key)) {
-        latestByKey.set(key, {
-          pedidoId: item.pedido_id,
-          lojaId: item.loja_id,
-          status: item.status,
-          errorReason: item.error_reason,
-          createdAt: item.created_at,
+    // Keep latest failure per (pedido, tipo)
+    const latestFailByKey = new Map<string, { pedidoId: string; lojaId: string; tipo: string; errorReason: string | null; createdAt: string }>();
+    for (const f of failedLogs) {
+      const key = `${f.pedido_id}::${f.tipo}`;
+      const existing = latestFailByKey.get(key);
+      if (!existing || f.created_at > existing.createdAt) {
+        latestFailByKey.set(key, {
+          pedidoId: f.pedido_id,
+          lojaId: f.loja_id,
+          tipo: f.tipo,
+          errorReason: f.error_reason,
+          createdAt: f.created_at,
         });
       }
     }
 
-    // Eligible pedidos: any with a latest "failed" status on any channel.
-    // Optionally restrict to retry-able failures (saldo / credit errors).
+    // For each (pedido, tipo) failure, check if a NEWER "sent" exists
     const pedidoLojaMap = new Map<string, { lojaId: string; lastFailAt: string }>();
-    for (const v of latestByKey.values()) {
-      if (v.status !== "failed") continue;
+    for (const v of latestFailByKey.values()) {
       const reason = (v.errorReason || "").toLowerCase();
       const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
       if (!isRetryable) continue;
+
+      const { data: newer } = await supabase
+        .from("confirmacao_pagamento_log")
+        .select("id")
+        .eq("pedido_id", v.pedidoId)
+        .eq("tipo", v.tipo)
+        .eq("status", "sent")
+        .gt("created_at", v.createdAt)
+        .limit(1);
+      if (newer && newer.length > 0) continue; // already succeeded later
+
       const existing = pedidoLojaMap.get(v.pedidoId);
       if (!existing || v.createdAt > existing.lastFailAt) {
         pedidoLojaMap.set(v.pedidoId, { lojaId: v.lojaId, lastFailAt: v.createdAt });
@@ -344,26 +366,28 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Estimate real pending pedidos: latest status per (pedido, tipo) = "failed"
+    // Estimate real pending pedidos: paginated fetch of "failed" logs.
+    // Slight over-estimate is OK; the BG job does the final dedup.
     const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
-    const { data: estimateLogs } = await supabase
-      .from("confirmacao_pagamento_log")
-      .select("pedido_id, tipo, status, error_reason, created_at")
-      .in("loja_id", lojaIds)
-      .gte("created_at", cutoff)
-      .not("pedido_id", "is", null)
-      .order("created_at", { ascending: false });
-
-    const seenLatest = new Set<string>();
     const pendingPedidos = new Set<string>();
-    for (const l of estimateLogs || []) {
-      const key = `${l.pedido_id}::${l.tipo}`;
-      if (seenLatest.has(key)) continue;
-      seenLatest.add(key);
-      if (l.status !== "failed") continue;
-      const reason = (l.error_reason || "").toLowerCase();
-      const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
-      if (isRetryable) pendingPedidos.add(l.pedido_id as string);
+    const PAGE_EST = 1000;
+    for (let from = 0; ; from += PAGE_EST) {
+      const { data: page } = await supabase
+        .from("confirmacao_pagamento_log")
+        .select("pedido_id, error_reason")
+        .in("loja_id", lojaIds)
+        .eq("status", "failed")
+        .gte("created_at", cutoff)
+        .not("pedido_id", "is", null)
+        .order("created_at", { ascending: false })
+        .range(from, from + PAGE_EST - 1);
+      if (!page || page.length === 0) break;
+      for (const l of page as any[]) {
+        const reason = (l.error_reason || "").toLowerCase();
+        const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
+        if (isRetryable) pendingPedidos.add(l.pedido_id as string);
+      }
+      if (page.length < PAGE_EST) break;
     }
     const queuedCount = pendingPedidos.size;
 
