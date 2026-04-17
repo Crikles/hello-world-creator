@@ -366,26 +366,28 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Estimate real pending pedidos: latest status per (pedido, tipo) = "failed"
+    // Estimate real pending pedidos: paginated fetch of "failed" logs.
+    // Slight over-estimate is OK; the BG job does the final dedup.
     const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
-    const { data: estimateLogs } = await supabase
-      .from("confirmacao_pagamento_log")
-      .select("pedido_id, tipo, status, error_reason, created_at")
-      .in("loja_id", lojaIds)
-      .gte("created_at", cutoff)
-      .not("pedido_id", "is", null)
-      .order("created_at", { ascending: false });
-
-    const seenLatest = new Set<string>();
     const pendingPedidos = new Set<string>();
-    for (const l of estimateLogs || []) {
-      const key = `${l.pedido_id}::${l.tipo}`;
-      if (seenLatest.has(key)) continue;
-      seenLatest.add(key);
-      if (l.status !== "failed") continue;
-      const reason = (l.error_reason || "").toLowerCase();
-      const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
-      if (isRetryable) pendingPedidos.add(l.pedido_id as string);
+    const PAGE_EST = 1000;
+    for (let from = 0; ; from += PAGE_EST) {
+      const { data: page } = await supabase
+        .from("confirmacao_pagamento_log")
+        .select("pedido_id, error_reason")
+        .in("loja_id", lojaIds)
+        .eq("status", "failed")
+        .gte("created_at", cutoff)
+        .not("pedido_id", "is", null)
+        .order("created_at", { ascending: false })
+        .range(from, from + PAGE_EST - 1);
+      if (!page || page.length === 0) break;
+      for (const l of page as any[]) {
+        const reason = (l.error_reason || "").toLowerCase();
+        const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
+        if (isRetryable) pendingPedidos.add(l.pedido_id as string);
+      }
+      if (page.length < PAGE_EST) break;
     }
     const queuedCount = pendingPedidos.size;
 
