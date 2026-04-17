@@ -253,15 +253,18 @@ export default function Moedas() {
         setPaymentStatus("idle");
         setSelectedPackage(null);
         setCopied(false);
-        // Persist cancellation so reopening the page won't bring the QR back
-        if (paymentIdToCancel && user) {
+        // Persist cancellation via edge function (RLS doesn't allow direct UPDATE from client)
+        if (paymentIdToCancel && session) {
             try {
-                await supabase
-                    .from("pix_payments")
-                    .update({ status: "CANCELED" })
-                    .eq("id", paymentIdToCancel)
-                    .eq("user_id", user.id)
-                    .eq("status", "PENDING");
+                await fetch(`${SUPABASE_URL}/functions/v1/cancel-pix-payment`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session.access_token}`,
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    },
+                    body: JSON.stringify({ payment_id: paymentIdToCancel }),
+                });
             } catch (err) {
                 console.error("Error canceling pix_payment:", err);
             }
