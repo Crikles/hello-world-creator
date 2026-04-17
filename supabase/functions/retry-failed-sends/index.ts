@@ -17,7 +17,7 @@ const SALDO_KEYWORDS = [
 ];
 const WINDOW_HOURS = 72;
 const MAX_RETRIES = 3;
-const BATCH_DELAY_MS = 350;
+const BATCH_DELAY_MS = 100;
 const MAX_RETRY_ON_RATELIMIT = 3;
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void };
@@ -146,22 +146,44 @@ async function processInBackground(opts: {
       }
     }
 
-    // For each (pedido, tipo) failure, check if a NEWER "sent" exists
+    // Bulk-fetch all "sent" logs in window for these lojas to dedupe efficiently
+    const sentKeys = new Set<string>();
+    for (let from = 0; ; from += PAGE) {
+      const { data: page } = await supabase
+        .from("confirmacao_pagamento_log")
+        .select("pedido_id, tipo, created_at")
+        .in("loja_id", lojaIds)
+        .eq("status", "sent")
+        .gte("created_at", cutoff)
+        .not("pedido_id", "is", null)
+        .range(from, from + PAGE - 1);
+      if (!page || page.length === 0) break;
+      for (const s of page as any[]) {
+        // Mark each (pedido,tipo) with the newest sent timestamp
+        const k = `${s.pedido_id}::${s.tipo}`;
+        const prev = sentKeys.has(k);
+        if (!prev) sentKeys.add(`${k}@${s.created_at}`);
+        sentKeys.add(k);
+      }
+      if (page.length < PAGE) break;
+    }
+
     const pedidoLojaMap = new Map<string, { lojaId: string; lastFailAt: string }>();
     for (const v of latestFailByKey.values()) {
       const reason = (v.errorReason || "").toLowerCase();
       const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
       if (!isRetryable) continue;
 
-      const { data: newer } = await supabase
-        .from("confirmacao_pagamento_log")
-        .select("id")
-        .eq("pedido_id", v.pedidoId)
-        .eq("tipo", v.tipo)
-        .eq("status", "sent")
-        .gt("created_at", v.createdAt)
-        .limit(1);
-      if (newer && newer.length > 0) continue; // already succeeded later
+      // Skip if a newer "sent" exists for same (pedido, tipo)
+      const key = `${v.pedidoId}::${v.tipo}`;
+      let alreadySent = false;
+      for (const sk of sentKeys) {
+        if (sk.startsWith(`${key}@`)) {
+          const sentAt = sk.split("@")[1];
+          if (sentAt > v.createdAt) { alreadySent = true; break; }
+        }
+      }
+      if (alreadySent) continue;
 
       const existing = pedidoLojaMap.get(v.pedidoId);
       if (!existing || v.createdAt > existing.lastFailAt) {
@@ -192,19 +214,17 @@ async function processInBackground(opts: {
       else falhas++;
       processados++;
 
-      // Update progress periodically (every 3 items or last)
-      if (processados % 3 === 0 || processados === totalReal) {
-        await supabase
-          .from("retry_execucoes")
-          .update({
-            processados,
-            sucesso,
-            falhas,
-            updated_at: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-          })
-          .eq("id", execucaoId);
-      }
+      // Update progress every single item for real-time UI
+      await supabase
+        .from("retry_execucoes")
+        .update({
+          processados,
+          sucesso,
+          falhas,
+          updated_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        })
+        .eq("id", execucaoId);
 
       await sleep(BATCH_DELAY_MS);
     }
