@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { pedido_id, loja_id } = await req.json();
+    const { pedido_id, loja_id, retry } = await req.json();
 
     if (!pedido_id || !loja_id) {
       return new Response(
