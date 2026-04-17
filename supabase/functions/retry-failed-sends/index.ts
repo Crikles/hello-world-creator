@@ -371,8 +371,9 @@ Deno.serve(async (req) => {
     const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
     const pendingPedidos = new Set<string>();
     const PAGE_EST = 1000;
+    let totalFetched = 0;
     for (let from = 0; ; from += PAGE_EST) {
-      const { data: page } = await supabase
+      const { data: page, error: pageErr } = await supabase
         .from("confirmacao_pagamento_log")
         .select("pedido_id, error_reason")
         .in("loja_id", lojaIds)
@@ -381,7 +382,12 @@ Deno.serve(async (req) => {
         .not("pedido_id", "is", null)
         .order("created_at", { ascending: false })
         .range(from, from + PAGE_EST - 1);
+      if (pageErr) {
+        console.error("[retry-failed-sends] estimate page error:", pageErr);
+        break;
+      }
       if (!page || page.length === 0) break;
+      totalFetched += page.length;
       for (const l of page as any[]) {
         const reason = (l.error_reason || "").toLowerCase();
         const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
@@ -390,6 +396,7 @@ Deno.serve(async (req) => {
       if (page.length < PAGE_EST) break;
     }
     const queuedCount = pendingPedidos.size;
+    console.log(`[retry-failed-sends] estimate: fetched=${totalFetched} unique_pedidos=${queuedCount} lojas=${JSON.stringify(lojaIds)} cutoff=${cutoff}`);
 
     // Acquire persistent lock by inserting an execution row
     const { data: execucao, error: execErr } = await supabase
