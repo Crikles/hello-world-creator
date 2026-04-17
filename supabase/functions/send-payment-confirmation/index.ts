@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
     }
 
     // 7. Send SMS
-    if (config.enviar_sms && pedido.customer_phone) {
+    if (config.enviar_sms && pedido.customer_phone && !alreadySentSms) {
       const integraxKey = Deno.env.get("INTEGRAX_API_KEY");
       if (!integraxKey) {
         console.error("[payment-confirmation] No INTEGRAX_API_KEY configured");
