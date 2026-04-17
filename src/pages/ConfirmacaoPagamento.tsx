@@ -477,24 +477,36 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border border-border bg-card/50 p-4">
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === "enviados" ? "todos" : "enviados")}
+            className={`text-left rounded-lg border p-4 transition-colors hover:bg-card/80 ${statusFilter === "enviados" ? "border-green-500 bg-green-500/5" : "border-border bg-card/50"}`}
+          >
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Enviados
             </div>
             <div className="text-2xl font-bold text-foreground">{placar.enviados}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card/50 p-4">
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === "pendentes" ? "todos" : "pendentes")}
+            className={`text-left rounded-lg border p-4 transition-colors hover:bg-card/80 ${statusFilter === "pendentes" ? "border-destructive bg-destructive/5" : "border-border bg-card/50"}`}
+          >
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <XCircle className="h-3.5 w-3.5 text-destructive" /> Pendentes
             </div>
             <div className="text-2xl font-bold text-foreground">{placar.pendentes}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card/50 p-4">
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("todos")}
+            className={`text-left rounded-lg border p-4 transition-colors hover:bg-card/80 ${statusFilter === "todos" ? "border-primary bg-primary/5" : "border-border bg-card/50"}`}
+          >
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <User className="h-3.5 w-3.5 text-primary" /> Total
             </div>
             <div className="text-2xl font-bold text-foreground">{placar.total}</div>
-          </div>
+          </button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
