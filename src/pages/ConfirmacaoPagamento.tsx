@@ -420,7 +420,7 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
 
-  useEffect(() => { setPage(1); }, [search, dateFilter]);
+  useEffect(() => { setPage(1); }, [search, dateFilter, statusFilter]);
 
   const StatusBadge = ({ status, type }: { status: string; type: "email" | "sms" }) => {
     const icon = type === "email" ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />;
