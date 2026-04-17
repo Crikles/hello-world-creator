@@ -6,7 +6,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const SALDO_KEYWORDS = ["saldo", "insufficient", "insuficiente"];
+// Keywords that indicate a transient failure worth retrying.
+// Includes saldo (our internal balance) AND provider-side credit errors.
+const SALDO_KEYWORDS = [
+  "saldo",
+  "insufficient",
+  "insuficiente",
+  "credit_not_debited",
+  "credit not debited",
+];
 const WINDOW_HOURS = 72;
 const MAX_RETRIES = 3;
 const BATCH_DELAY_MS = 350;
