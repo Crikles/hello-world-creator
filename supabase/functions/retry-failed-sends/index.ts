@@ -105,53 +105,45 @@ async function processInBackground(opts: {
         .in("id", ids);
     }
 
-    // 2) Re-dispatch payment confirmations (deduplicated by pedido)
-    const { data: confItems } = await supabase
+    // 2) Re-dispatch payment confirmations
+    // Strategy: fetch ALL recent logs for these lojas, group by (pedido, tipo),
+    // keep only the LATEST status per (pedido, tipo). A pedido is eligible to
+    // retry if its latest log on ANY channel is "failed".
+    const { data: allLogs } = await supabase
       .from("confirmacao_pagamento_log")
-      .select("id, pedido_id, loja_id, created_at")
+      .select("id, pedido_id, loja_id, tipo, status, error_reason, created_at")
       .in("loja_id", lojaIds)
-      .eq("status", "failed")
       .gte("created_at", cutoff)
-      .or(orFilter)
       .not("pedido_id", "is", null)
       .order("created_at", { ascending: false });
 
-    // Deduplicate: keep one entry per pedido. Also skip pedidos that already
-    // have a more recent successful send (any tipo) to avoid double-charging.
-    const pedidoLojaMap = new Map<string, { lojaId: string; lastFailAt: string }>();
-    for (const item of confItems || []) {
+    // Latest status per (pedido, tipo)
+    const latestByKey = new Map<string, { pedidoId: string; lojaId: string; status: string; errorReason: string | null; createdAt: string }>();
+    for (const item of allLogs || []) {
       if (!item.pedido_id || !item.loja_id) continue;
-      if (!pedidoLojaMap.has(item.pedido_id)) {
-        pedidoLojaMap.set(item.pedido_id, {
+      const key = `${item.pedido_id}::${item.tipo}`;
+      if (!latestByKey.has(key)) {
+        latestByKey.set(key, {
+          pedidoId: item.pedido_id,
           lojaId: item.loja_id,
-          lastFailAt: item.created_at,
+          status: item.status,
+          errorReason: item.error_reason,
+          createdAt: item.created_at,
         });
       }
     }
 
-    // Filter out pedidos that already have a sent log AFTER the last failure
-    const allPedidoIds = Array.from(pedidoLojaMap.keys());
-    if (allPedidoIds.length > 0) {
-      const { data: sentLogs } = await supabase
-        .from("confirmacao_pagamento_log")
-        .select("pedido_id, created_at")
-        .in("pedido_id", allPedidoIds)
-        .eq("status", "sent");
-
-      const lastSentByPedido = new Map<string, string>();
-      for (const s of sentLogs || []) {
-        if (!s.pedido_id) continue;
-        const prev = lastSentByPedido.get(s.pedido_id);
-        if (!prev || s.created_at > prev) {
-          lastSentByPedido.set(s.pedido_id, s.created_at);
-        }
-      }
-
-      for (const [pid, info] of pedidoLojaMap) {
-        const lastSent = lastSentByPedido.get(pid);
-        if (lastSent && lastSent >= info.lastFailAt) {
-          pedidoLojaMap.delete(pid);
-        }
+    // Eligible pedidos: any with a latest "failed" status on any channel.
+    // Optionally restrict to retry-able failures (saldo / credit errors).
+    const pedidoLojaMap = new Map<string, { lojaId: string; lastFailAt: string }>();
+    for (const v of latestByKey.values()) {
+      if (v.status !== "failed") continue;
+      const reason = (v.errorReason || "").toLowerCase();
+      const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
+      if (!isRetryable) continue;
+      const existing = pedidoLojaMap.get(v.pedidoId);
+      if (!existing || v.createdAt > existing.lastFailAt) {
+        pedidoLojaMap.set(v.pedidoId, { lojaId: v.lojaId, lastFailAt: v.createdAt });
       }
     }
 
