@@ -221,6 +221,7 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"todos" | "pendentes" | "enviados">("todos");
   const [page, setPage] = useState(1);
   const [retrying, setRetrying] = useState(false);
 
