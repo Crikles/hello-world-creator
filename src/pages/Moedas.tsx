@@ -85,12 +85,15 @@ export default function Moedas() {
         const checkPendingPayment = async () => {
             if (!user || !session) return;
             try {
+                // Only resume PIX created in the last 30 minutes; older ones are considered expired
+                const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
                 const { data: pending } = await supabase
                     .from("pix_payments")
                     .select("*")
                     .eq("user_id", user.id)
                     .eq("status", "PENDING")
                     .not("transaction_id", "is", null)
+                    .gte("created_at", cutoff)
                     .order("created_at", { ascending: false })
                     .limit(1)
                     .maybeSingle();
@@ -242,12 +245,27 @@ export default function Moedas() {
         }
     };
 
-    const handleClose = () => {
+    const handleClose = async () => {
         if (pollingRef.current) clearInterval(pollingRef.current);
+        const paymentIdToCancel = pixData?.paymentId;
+        // Optimistically clear UI
         setPixData(null);
         setPaymentStatus("idle");
         setSelectedPackage(null);
         setCopied(false);
+        // Persist cancellation so reopening the page won't bring the QR back
+        if (paymentIdToCancel && user) {
+            try {
+                await supabase
+                    .from("pix_payments")
+                    .update({ status: "CANCELED" })
+                    .eq("id", paymentIdToCancel)
+                    .eq("user_id", user.id)
+                    .eq("status", "PENDING");
+            } catch (err) {
+                console.error("Error canceling pix_payment:", err);
+            }
+        }
     };
 
     return (
