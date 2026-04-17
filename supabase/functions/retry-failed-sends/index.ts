@@ -344,17 +344,28 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Count pending items (rough estimate based on failed rows)
+    // Estimate real pending pedidos: latest status per (pedido, tipo) = "failed"
     const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
-    const orFilter = SALDO_KEYWORDS.map((k) => `error_reason.ilike.%${k}%`).join(",");
-
-    const { count: queuedCount } = await supabase
+    const { data: estimateLogs } = await supabase
       .from("confirmacao_pagamento_log")
-      .select("id", { count: "exact", head: true })
+      .select("pedido_id, tipo, status, error_reason, created_at")
       .in("loja_id", lojaIds)
-      .eq("status", "failed")
       .gte("created_at", cutoff)
-      .or(orFilter);
+      .not("pedido_id", "is", null)
+      .order("created_at", { ascending: false });
+
+    const seenLatest = new Set<string>();
+    const pendingPedidos = new Set<string>();
+    for (const l of estimateLogs || []) {
+      const key = `${l.pedido_id}::${l.tipo}`;
+      if (seenLatest.has(key)) continue;
+      seenLatest.add(key);
+      if (l.status !== "failed") continue;
+      const reason = (l.error_reason || "").toLowerCase();
+      const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
+      if (isRetryable) pendingPedidos.add(l.pedido_id as string);
+    }
+    const queuedCount = pendingPedidos.size;
 
     // Acquire persistent lock by inserting an execution row
     const { data: execucao, error: execErr } = await supabase
