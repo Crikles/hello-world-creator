@@ -242,8 +242,29 @@ Deno.serve(async (req) => {
 
     const results: { email?: string; sms?: string } = {};
 
+    // On retry, skip channels whose latest log is already "sent" to avoid double-charge
+    let alreadySentEmail = false;
+    let alreadySentSms = false;
+    if (retry) {
+      const { data: recentLogs } = await supabase
+        .from("confirmacao_pagamento_log")
+        .select("tipo, status, created_at")
+        .eq("pedido_id", pedido_id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      const seen = new Set<string>();
+      for (const l of recentLogs || []) {
+        if (seen.has(l.tipo)) continue;
+        seen.add(l.tipo);
+        if (l.status === "sent") {
+          if (l.tipo === "email") alreadySentEmail = true;
+          if (l.tipo === "sms") alreadySentSms = true;
+        }
+      }
+    }
+
     // 6. Send email
-    if (config.enviar_email && pedido.customer_email) {
+    if (config.enviar_email && pedido.customer_email && !alreadySentEmail) {
       const resendKey = Deno.env.get("RESEND_CONFIRMATION_API_KEY") || Deno.env.get("RESEND_API_KEY");
       if (!resendKey) {
         console.error("[payment-confirmation] No Resend API key configured");
