@@ -16,7 +16,7 @@ import { Smartphone, ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function WhatsAppVerificationPopup() {
-  const { user, realUser } = useAuth();
+  const { user, realUser, isImpersonating } = useAuth();
   const authUser = realUser ?? user;
   const queryClient = useQueryClient();
   const [step, setStep] = useState<"phone" | "code">("phone");
