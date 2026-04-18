@@ -17,9 +17,11 @@ const SALDO_KEYWORDS = [
 ];
 const WINDOW_HOURS = 72;
 const MAX_RETRIES = 3;
-const CONCURRENCY = 8; // process N pedidos in parallel to fit edge timeout
+const CONCURRENCY = 12; // parallel dispatches per chunk
+const CHUNK_SIZE = 60;  // pedidos processed per invocation, then self-rechain
 const PROGRESS_EVERY = 5; // update progress every N items
 const MAX_RETRY_ON_RATELIMIT = 3;
+const SOFT_DEADLINE_MS = 90_000; // bail out before edge timeout, then rechain
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void };
 
