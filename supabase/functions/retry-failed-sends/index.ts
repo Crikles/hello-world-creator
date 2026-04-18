@@ -397,6 +397,19 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     let { loja_id, user_id } = body as { loja_id?: string; user_id?: string };
 
+    // Internal rechain: continue an in-flight execution in a fresh invocation
+    if ((body as any).__rechain && (body as any).execucao_id && Array.isArray((body as any).loja_ids)) {
+      const execucaoId = (body as any).execucao_id as string;
+      const lojaIdsR = (body as any).loja_ids as string[];
+      EdgeRuntime.waitUntil(
+        processInBackground({ supabaseUrl, serviceRoleKey, lojaIds: lojaIdsR, execucaoId }),
+      );
+      return new Response(
+        JSON.stringify({ success: true, rechained: true, execucao_id: execucaoId }),
+        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const authHeader = req.headers.get("authorization") || "";
     if (!user_id && authHeader && authHeader !== `Bearer ${anonKey}`) {
       const supabaseAuth = createClient(supabaseUrl, anonKey, {
