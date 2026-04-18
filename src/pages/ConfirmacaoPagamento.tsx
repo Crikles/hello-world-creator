@@ -644,19 +644,17 @@ export default function ConfirmacaoPagamento() {
     },
   });
 
-  // Log query
+  // Log query — only fetch columns actually used by the UI to reduce payload
   const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ["confirmacao-log", loja?.id],
     queryFn: async () => {
       const all: any[] = [];
       const pageSize = 1000;
-      // Cursor pagination by created_at to avoid offset drift when new rows
-      // are being inserted concurrently (e.g. during a retry batch).
       let cursor: string | null = null;
       while (true) {
         let q = supabase
           .from("confirmacao_pagamento_log")
-          .select("*")
+          .select("id, created_at, tipo, status, destinatario, pedido_id, error_reason, custo")
           .eq("loja_id", loja!.id)
           .order("created_at", { ascending: false })
           .order("id", { ascending: false })
@@ -672,7 +670,9 @@ export default function ConfirmacaoPagamento() {
       return all;
     },
     enabled: !!loja,
-    refetchInterval: 5000, // fallback: atualiza a cada 5s
+    refetchInterval: 5000,
+    staleTime: 4000,
+    placeholderData: (prev) => prev, // keep showing previous data while refetching
   });
 
   // Realtime: invalida log automaticamente quando há mudanças na tabela
