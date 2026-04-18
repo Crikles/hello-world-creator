@@ -254,8 +254,10 @@ function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean
         "postgres_changes",
         { event: "*", schema: "public", table: "retry_execucoes", filter: `loja_id=eq.${loja.id}` },
         () => {
+          // Only invalidate the lightweight execution row.
+          // The heavy logs query has its own realtime subscription + 5s polling,
+          // so invalidating it here would cause redundant 10k-row fetches.
           queryClient.invalidateQueries({ queryKey: ["retry-execucao-ativa", loja.id] });
-          queryClient.invalidateQueries({ queryKey: ["confirmacao-log", loja.id] });
         },
       )
       .subscribe();
