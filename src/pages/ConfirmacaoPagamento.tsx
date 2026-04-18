@@ -909,7 +909,7 @@ export default function ConfirmacaoPagamento() {
         </TabsContent>
 
         <TabsContent value="historico" className="mt-4">
-          <HistoricoTab logs={logs || []} logsLoading={logsLoading} />
+          <HistoricoTab />
         </TabsContent>
 
         <TabsContent value="tutorial" className="mt-4">
