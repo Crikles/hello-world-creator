@@ -216,14 +216,21 @@ interface GroupedLog {
   created_at: string;
 }
 
-function HistoricoTab({ logs, logsLoading }: { logs: any[]; logsLoading: boolean }) {
+function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: boolean }) {
   const { loja } = useLoja();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"todos" | "pendentes" | "enviados">("todos");
   const [page, setPage] = useState(1);
   const [retrying, setRetrying] = useState(false);
+
+  // Debounce search input to avoid spamming the RPC
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // Active retry execution (persistent lock from DB)
   const { data: activeRetry } = useQuery({
