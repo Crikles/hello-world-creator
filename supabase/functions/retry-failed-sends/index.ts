@@ -17,7 +17,8 @@ const SALDO_KEYWORDS = [
 ];
 const WINDOW_HOURS = 72;
 const MAX_RETRIES = 3;
-const BATCH_DELAY_MS = 100;
+const CONCURRENCY = 8; // process N pedidos in parallel to fit edge timeout
+const PROGRESS_EVERY = 5; // update progress every N items
 const MAX_RETRY_ON_RATELIMIT = 3;
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void };
