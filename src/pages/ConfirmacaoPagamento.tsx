@@ -489,9 +489,9 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : !filtered.length ? (
+        ) : !paginated.length ? (
           <p className="text-center text-muted-foreground py-8">
-            {logs.length ? "Nenhum resultado encontrado" : "Nenhuma confirmação enviada ainda"}
+            {totalRows ? "Nenhum resultado encontrado" : "Nenhuma confirmação enviada ainda"}
           </p>
         ) : (
           <>
@@ -521,7 +521,7 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
                       <TableCell className="text-xs font-mono text-muted-foreground">{g.telefone || "—"}</TableCell>
                       <TableCell className="text-center"><StatusBadge status={g.email_status} type="email" /></TableCell>
                       <TableCell className="text-center"><StatusBadge status={g.sms_status} type="sms" /></TableCell>
-                      <TableCell>{g.custo_total.toFixed(2)}</TableCell>
+                      <TableCell>{Number(g.custo_total || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-xs">{format(new Date(g.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
                     </TableRow>
                   ))}
@@ -531,7 +531,7 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
 
             <div className="flex items-center justify-between pt-2">
               <p className="text-xs text-muted-foreground">
-                {filtered.length} cliente{filtered.length !== 1 ? "s" : ""} — Página {currentPage} de {totalPages}
+                {totalRows} cliente{totalRows !== 1 ? "s" : ""} — Página {currentPage} de {totalPages}
               </p>
               <div className="flex items-center gap-1">
                 <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)}>
