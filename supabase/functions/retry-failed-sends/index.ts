@@ -79,39 +79,47 @@ async function processInBackground(opts: {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
   const orFilter = SALDO_KEYWORDS.map((k) => `error_reason.ilike.%${k}%`).join(",");
+  const startedAt = Date.now();
 
-  let sucesso = 0;
-  let falhas = 0;
-  let processados = 0;
+  // Read current progress to resume after rechain
+  const { data: execRow } = await supabase
+    .from("retry_execucoes")
+    .select("processados, sucesso, falhas, total_pendentes")
+    .eq("id", execucaoId)
+    .single();
+
+  let sucesso = Number(execRow?.sucesso || 0);
+  let falhas = Number(execRow?.falhas || 0);
+  let processados = Number(execRow?.processados || 0);
+  const isFirstRun = processados === 0;
 
   try {
-    // 1) Re-enqueue WhatsApp
-    const { data: waItems } = await supabase
-      .from("whatsapp_send_queue")
-      .select("id")
-      .in("loja_id", lojaIds)
-      .eq("status", "failed")
-      .gte("created_at", cutoff)
-      .or(orFilter)
-      .lt("retry_count", MAX_RETRIES);
-
-    if (waItems && waItems.length > 0) {
-      const ids = waItems.map((i: any) => i.id);
-      await supabase
+    // 1) Re-enqueue WhatsApp (only on first run)
+    if (isFirstRun) {
+      const { data: waItems } = await supabase
         .from("whatsapp_send_queue")
-        .update({
-          status: "pending",
-          scheduled_at: new Date().toISOString(),
-          error_reason: null,
-          processed_at: null,
-        })
-        .in("id", ids);
+        .select("id")
+        .in("loja_id", lojaIds)
+        .eq("status", "failed")
+        .gte("created_at", cutoff)
+        .or(orFilter)
+        .lt("retry_count", MAX_RETRIES);
+
+      if (waItems && waItems.length > 0) {
+        const ids = waItems.map((i: any) => i.id);
+        await supabase
+          .from("whatsapp_send_queue")
+          .update({
+            status: "pending",
+            scheduled_at: new Date().toISOString(),
+            error_reason: null,
+            processed_at: null,
+          })
+          .in("id", ids);
+      }
     }
 
-    // 2) Re-dispatch payment confirmations
-    // Strategy: fetch ALL "failed" logs (paginated to bypass 1000 limit),
-    // then verify they're still the LATEST per (pedido, tipo) by checking
-    // if any newer "sent" exists for the same key.
+    // 2) Build the deduped list of pedidos to retry
     const failedLogs: Array<{ pedido_id: string; loja_id: string; tipo: string; error_reason: string | null; created_at: string }> = [];
     const PAGE = 1000;
     for (let from = 0; ; from += PAGE) {
@@ -133,7 +141,6 @@ async function processInBackground(opts: {
       if (page.length < PAGE) break;
     }
 
-    // Keep latest failure per (pedido, tipo)
     const latestFailByKey = new Map<string, { pedidoId: string; lojaId: string; tipo: string; errorReason: string | null; createdAt: string }>();
     for (const f of failedLogs) {
       const key = `${f.pedido_id}::${f.tipo}`;
@@ -149,7 +156,7 @@ async function processInBackground(opts: {
       }
     }
 
-    // Bulk-fetch all "sent" logs in window for these lojas to dedupe efficiently
+    // Bulk-fetch all "sent" logs to dedupe
     const sentKeys = new Set<string>();
     for (let from = 0; ; from += PAGE) {
       const { data: page } = await supabase
@@ -162,10 +169,8 @@ async function processInBackground(opts: {
         .range(from, from + PAGE - 1);
       if (!page || page.length === 0) break;
       for (const s of page as any[]) {
-        // Mark each (pedido,tipo) with the newest sent timestamp
         const k = `${s.pedido_id}::${s.tipo}`;
-        const prev = sentKeys.has(k);
-        if (!prev) sentKeys.add(`${k}@${s.created_at}`);
+        sentKeys.add(`${k}@${s.created_at}`);
         sentKeys.add(k);
       }
       if (page.length < PAGE) break;
@@ -177,7 +182,6 @@ async function processInBackground(opts: {
       const isRetryable = SALDO_KEYWORDS.some((k) => reason.includes(k)) || reason === "";
       if (!isRetryable) continue;
 
-      // Skip if a newer "sent" exists for same (pedido, tipo)
       const key = `${v.pedidoId}::${v.tipo}`;
       let alreadySent = false;
       for (const sk of sentKeys) {
@@ -194,26 +198,69 @@ async function processInBackground(opts: {
       }
     }
 
-    const totalReal = pedidoLojaMap.size;
+    const totalReal = pedidoLojaMap.size + processados; // already-processed + remaining
+    const entries = Array.from(pedidoLojaMap.entries());
 
-    // Update execução with the real total
+    // Update total + status running
     await supabase
       .from("retry_execucoes")
       .update({
         total_pendentes: totalReal,
         status: "running",
         updated_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       })
       .eq("id", execucaoId);
 
-    const entries = Array.from(pedidoLojaMap.entries());
+    if (entries.length === 0) {
+      // Nothing left — finalize
+      await supabase
+        .from("retry_execucoes")
+        .update({
+          status: "done",
+          processados,
+          sucesso,
+          falhas,
+          finished_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          mensagem: `Concluído: ${sucesso} OK, ${falhas} falhas`,
+        })
+        .eq("id", execucaoId);
+
+      // Trigger advance-shipments once at the end
+      try {
+        await supabase
+          .from("envios")
+          .update({ proximo_avanco_em: new Date().toISOString() })
+          .in("loja_id", lojaIds)
+          .lte("proximo_avanco_em", new Date().toISOString())
+          .is("deleted_at", null);
+        await fetch(`${supabaseUrl}/functions/v1/advance-shipments`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({ trigger: "retry-failed-sends" }),
+        });
+      } catch (e) {
+        console.error("[retry-failed-sends] advance-shipments error:", e);
+      }
+      console.log(`[retry-failed-sends] FINISHED execId=${execucaoId} ok=${sucesso} fail=${falhas}`);
+      return;
+    }
+
+    // Process up to CHUNK_SIZE this invocation, then rechain
+    const chunk = entries.slice(0, CHUNK_SIZE);
     let cursor = 0;
+    let bailed = false;
 
     async function worker() {
       while (true) {
+        if (Date.now() - startedAt > SOFT_DEADLINE_MS) { bailed = true; return; }
         const idx = cursor++;
-        if (idx >= entries.length) return;
-        const [pedidoId, info] = entries[idx];
+        if (idx >= chunk.length) return;
+        const [pedidoId, info] = chunk[idx];
         const ok = await dispatchConfirmacaoWithRetry(
           supabaseUrl,
           serviceRoleKey,
@@ -224,8 +271,7 @@ async function processInBackground(opts: {
         else falhas++;
         processados++;
 
-        // Update progress periodically (avoids slamming DB on every item)
-        if (processados % PROGRESS_EVERY === 0 || processados === entries.length) {
+        if (processados % PROGRESS_EVERY === 0) {
           await supabase
             .from("retry_execucoes")
             .update({
@@ -240,37 +286,55 @@ async function processInBackground(opts: {
       }
     }
 
-    const workers = Array.from({ length: Math.min(CONCURRENCY, entries.length) }, () => worker());
+    const workers = Array.from({ length: Math.min(CONCURRENCY, chunk.length) }, () => worker());
     await Promise.all(workers);
 
-    // 3) Force shipment advance
+    // Persist final progress for this chunk
     await supabase
-      .from("envios")
-      .update({ proximo_avanco_em: new Date().toISOString() })
-      .in("loja_id", lojaIds)
-      .lte("proximo_avanco_em", new Date().toISOString())
-      .is("deleted_at", null);
+      .from("retry_execucoes")
+      .update({
+        processados,
+        sucesso,
+        falhas,
+        updated_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        mensagem: `Processando… ${processados}/${totalReal}`,
+      })
+      .eq("id", execucaoId);
 
-    // 4) Trigger advance-shipments
-    for (let i = 0; i < 2; i++) {
+    const hasMore = entries.length > chunk.length || bailed;
+    if (hasMore) {
+      // Self-rechain: invoke another instance to continue
+      console.log(`[retry-failed-sends] rechaining execId=${execucaoId} done=${processados}/${totalReal}`);
       try {
-        const r = await fetch(`${supabaseUrl}/functions/v1/advance-shipments`, {
+        await fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${serviceRoleKey}`,
+            "x-rechain": "1",
           },
-          body: JSON.stringify({ trigger: "retry-failed-sends" }),
+          body: JSON.stringify({
+            __rechain: true,
+            execucao_id: execucaoId,
+            loja_ids: lojaIds,
+          }),
         });
-        if (r.status !== 429) break;
-        await sleep(5000);
-      } catch (err) {
-        console.error("advance-shipments dispatch error:", err);
-        break;
+      } catch (e) {
+        console.error("[retry-failed-sends] rechain dispatch failed:", e);
+        await supabase
+          .from("retry_execucoes")
+          .update({
+            status: "error",
+            mensagem: "Falha ao continuar reenvio (rechain). Tente novamente.",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", execucaoId);
       }
+      return;
     }
 
-    // Mark execução as done
+    // Done
     await supabase
       .from("retry_execucoes")
       .update({
@@ -284,9 +348,27 @@ async function processInBackground(opts: {
       })
       .eq("id", execucaoId);
 
-    console.log(
-      `[retry-failed-sends] BG done execId=${execucaoId} confOk=${sucesso} confFail=${falhas}`,
-    );
+    // Trigger advance-shipments at the end
+    try {
+      await supabase
+        .from("envios")
+        .update({ proximo_avanco_em: new Date().toISOString() })
+        .in("loja_id", lojaIds)
+        .lte("proximo_avanco_em", new Date().toISOString())
+        .is("deleted_at", null);
+      await fetch(`${supabaseUrl}/functions/v1/advance-shipments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceRoleKey}`,
+        },
+        body: JSON.stringify({ trigger: "retry-failed-sends" }),
+      });
+    } catch (e) {
+      console.error("[retry-failed-sends] advance-shipments error:", e);
+    }
+
+    console.log(`[retry-failed-sends] DONE execId=${execucaoId} ok=${sucesso} fail=${falhas}`);
   } catch (err) {
     console.error("[retry-failed-sends] background error:", err);
     await supabase
