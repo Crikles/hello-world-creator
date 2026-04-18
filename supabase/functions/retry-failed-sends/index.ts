@@ -291,6 +291,9 @@ async function processInBackground(opts: {
             })
             .eq("id", execucaoId);
         }
+
+        // Throttle p/ respeitar o limite de 5 req/s do provedor
+        await sleep(THROTTLE_MS);
       }
     }
 
