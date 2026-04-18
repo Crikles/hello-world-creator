@@ -17,7 +17,8 @@ const SALDO_KEYWORDS = [
 ];
 const WINDOW_HOURS = 72;
 const MAX_RETRIES = 3;
-const BATCH_DELAY_MS = 100;
+const CONCURRENCY = 8; // process N pedidos in parallel to fit edge timeout
+const PROGRESS_EVERY = 5; // update progress every N items
 const MAX_RETRY_ON_RATELIMIT = 3;
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void };
@@ -203,31 +204,42 @@ async function processInBackground(opts: {
       })
       .eq("id", execucaoId);
 
-    for (const [pedidoId, info] of pedidoLojaMap) {
-      const ok = await dispatchConfirmacaoWithRetry(
-        supabaseUrl,
-        serviceRoleKey,
-        pedidoId,
-        info.lojaId,
-      );
-      if (ok) sucesso++;
-      else falhas++;
-      processados++;
+    const entries = Array.from(pedidoLojaMap.entries());
+    let cursor = 0;
 
-      // Update progress every single item for real-time UI
-      await supabase
-        .from("retry_execucoes")
-        .update({
-          processados,
-          sucesso,
-          falhas,
-          updated_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        })
-        .eq("id", execucaoId);
+    async function worker() {
+      while (true) {
+        const idx = cursor++;
+        if (idx >= entries.length) return;
+        const [pedidoId, info] = entries[idx];
+        const ok = await dispatchConfirmacaoWithRetry(
+          supabaseUrl,
+          serviceRoleKey,
+          pedidoId,
+          info.lojaId,
+        );
+        if (ok) sucesso++;
+        else falhas++;
+        processados++;
 
-      await sleep(BATCH_DELAY_MS);
+        // Update progress periodically (avoids slamming DB on every item)
+        if (processados % PROGRESS_EVERY === 0 || processados === entries.length) {
+          await supabase
+            .from("retry_execucoes")
+            .update({
+              processados,
+              sucesso,
+              falhas,
+              updated_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+            })
+            .eq("id", execucaoId);
+        }
+      }
     }
+
+    const workers = Array.from({ length: Math.min(CONCURRENCY, entries.length) }, () => worker());
+    await Promise.all(workers);
 
     // 3) Force shipment advance
     await supabase
