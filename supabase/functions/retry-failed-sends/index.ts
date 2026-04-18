@@ -14,11 +14,19 @@ const SALDO_KEYWORDS = [
   "insuficiente",
   "credit_not_debited",
   "credit not debited",
+  // Rate limit do provedor (Resend/SMS) — também é transitório e deve ser reprocessado
+  "rate_limit",
+  "rate limit",
+  "too many requests",
+  "ratelimit",
+  "429",
 ];
 const WINDOW_HOURS = 72;
 const MAX_RETRIES = 3;
-const CONCURRENCY = 12; // parallel dispatches per chunk
+// Concorrência baixa para respeitar o limite de 5 req/s do provedor
+const CONCURRENCY = 3; // parallel dispatches per chunk
 const CHUNK_SIZE = 60;  // pedidos processed per invocation, then self-rechain
+const THROTTLE_MS = 250; // espera entre disparos de cada worker (~4 req/s por worker → respeita 5/s combinado)
 const PROGRESS_EVERY = 5; // update progress every N items
 const MAX_RETRY_ON_RATELIMIT = 3;
 const SOFT_DEADLINE_MS = 90_000; // bail out before edge timeout, then rechain
