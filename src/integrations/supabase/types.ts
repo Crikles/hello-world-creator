@@ -1965,6 +1965,36 @@ export type Database = {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
       }
+      get_confirmacao_grouped: {
+        Args: {
+          p_date?: string
+          p_limit?: number
+          p_loja_id: string
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          created_at: string
+          custo_total: number
+          email: string
+          email_status: string
+          group_key: string
+          nome: string
+          pedido_id: string
+          sms_status: string
+          telefone: string
+          total_count: number
+        }[]
+      }
+      get_confirmacao_placar: {
+        Args: { p_loja_id: string }
+        Returns: {
+          enviados: number
+          pendentes: number
+          total: number
+        }[]
+      }
       get_envios_paginated: {
         Args: {
           p_date_from?: string
