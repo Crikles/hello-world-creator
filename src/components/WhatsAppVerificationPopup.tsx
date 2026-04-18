@@ -110,7 +110,7 @@ export function WhatsAppVerificationPopup() {
   });
 
   // Don't render anything until we know the status — prevents flash
-  if (isLoading || verificationCompleted || !needsVerification) {
+  if (isImpersonating || isLoading || verificationCompleted || !needsVerification) {
     return null;
   }
 
