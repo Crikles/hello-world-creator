@@ -306,130 +306,76 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
     }
   };
 
-  // Fetch pedidos for client info
-  const pedidoIds = useMemo(() => {
-    const ids = new Set<string>();
-    logs.forEach((l) => { if (l.pedido_id) ids.add(l.pedido_id); });
-    return Array.from(ids);
-  }, [logs]);
-
-  const { data: pedidos } = useQuery({
-    queryKey: ["confirmacao-pedidos", loja?.id, pedidoIds],
+  // Server-side aggregated history (fast, paginated)
+  const { data: groupedData, isLoading: logsLoading } = useQuery({
+    queryKey: ["confirmacao-grouped", loja?.id, debouncedSearch, statusFilter, dateFilter, page],
     queryFn: async () => {
-      if (!pedidoIds.length) return [];
-      const { data } = await supabase
-        .from("pedidos")
-        .select("id, customer_name, customer_email, customer_phone")
-        .in("id", pedidoIds);
-      return data || [];
+      if (!loja) return { rows: [], total: 0 };
+      const { data, error } = await supabase.rpc("get_confirmacao_grouped", {
+        p_loja_id: loja.id,
+        p_search: debouncedSearch,
+        p_status: statusFilter,
+        p_date: dateFilter || null,
+        p_limit: PER_PAGE,
+        p_offset: (page - 1) * PER_PAGE,
+      });
+      if (error) throw error;
+      const rows = (data || []) as any[];
+      return { rows, total: Number(rows[0]?.total_count || 0) };
     },
-    enabled: !!loja && pedidoIds.length > 0,
+    enabled: !!loja,
+    refetchInterval: 5000,
+    staleTime: 4000,
+    placeholderData: (prev) => prev,
   });
 
-  const pedidoMap = useMemo(() => {
-    const map: Record<string, any> = {};
-    (pedidos || []).forEach((p) => { map[p.id] = p; });
-    return map;
-  }, [pedidos]);
+  // Server-side scoreboard (independent of pagination/filters)
+  const { data: placarData } = useQuery({
+    queryKey: ["confirmacao-placar", loja?.id],
+    queryFn: async () => {
+      if (!loja) return { enviados: 0, pendentes: 0, total: 0 };
+      const { data, error } = await supabase.rpc("get_confirmacao_placar", {
+        p_loja_id: loja.id,
+      });
+      if (error) throw error;
+      const row = (data || [])[0] as any;
+      return {
+        enviados: Number(row?.enviados || 0),
+        pendentes: Number(row?.pendentes || 0),
+        total: Number(row?.total || 0),
+      };
+    },
+    enabled: !!loja,
+    refetchInterval: 5000,
+    staleTime: 4000,
+    placeholderData: (prev) => prev,
+  });
 
-  // Group logs by pedido_id (or by destinatario if no pedido_id).
-  // CRITICAL: only the MOST RECENT status per (group, tipo) counts.
-  // logs come ordered created_at DESC, so the first time we see a (group, tipo)
-  // is the latest status — older ones must NOT overwrite it.
-  const grouped = useMemo(() => {
-    const groups: Record<string, GroupedLog> = {};
+  // Realtime: refresh both queries when log table changes
+  useEffect(() => {
+    if (!loja?.id) return;
+    const channel = supabase
+      .channel(`confirmacao-log-${loja.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "confirmacao_pagamento_log", filter: `loja_id=eq.${loja.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["confirmacao-grouped", loja.id] });
+          queryClient.invalidateQueries({ queryKey: ["confirmacao-placar", loja.id] });
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [loja?.id, queryClient]);
 
-    logs.forEach((log) => {
-      const key = log.pedido_id || log.destinatario || log.id;
-
-      if (!groups[key]) {
-        const pedido = log.pedido_id ? pedidoMap[log.pedido_id] : null;
-        groups[key] = {
-          pedido_id: log.pedido_id,
-          nome: pedido?.customer_name || "-",
-          email: pedido?.customer_email || (log.tipo === "email" ? log.destinatario : ""),
-          telefone: pedido?.customer_phone || (log.tipo === "sms" ? log.destinatario : ""),
-          email_status: "none",
-          sms_status: "none",
-          custo_total: 0,
-          created_at: log.created_at,
-        };
-      }
-
-      const g = groups[key];
-      g.custo_total += Number(log.custo || 0);
-
-      if (log.tipo === "email") {
-        // only set if we haven't seen a more recent email log for this group
-        if (g.email_status === "none") {
-          g.email_status = log.status as "sent" | "failed";
-        }
-        if (!g.email) g.email = log.destinatario;
-      } else if (log.tipo === "sms") {
-        if (g.sms_status === "none") {
-          g.sms_status = log.status as "sent" | "failed";
-        }
-        if (!g.telefone) g.telefone = log.destinatario;
-      }
-
-      // Use most recent date for sorting
-      if (log.created_at > g.created_at) g.created_at = log.created_at;
-    });
-
-    return Object.values(groups).sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }, [logs, pedidoMap]);
-
-  // Count failed-by-balance based on CURRENT state, not historical rows.
-  // A group is pending only if its latest email or sms status is "failed".
-  const failedSaldoCount = useMemo(() => {
-    return grouped.filter(
-      (g) => g.email_status === "failed" || g.sms_status === "failed",
-    ).length;
-  }, [grouped]);
-
-  const filtered = useMemo(() => {
-    let result = grouped;
-    if (statusFilter === "pendentes") {
-      result = result.filter((g) => g.email_status === "failed" || g.sms_status === "failed");
-    } else if (statusFilter === "enviados") {
-      result = result.filter(
-        (g) =>
-          g.email_status !== "failed" &&
-          g.sms_status !== "failed" &&
-          (g.email_status === "sent" || g.sms_status === "sent"),
-      );
-    }
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter((g) =>
-        g.nome.toLowerCase().includes(q) ||
-        g.email.toLowerCase().includes(q) ||
-        g.telefone.includes(q)
-      );
-    }
-    if (dateFilter) {
-      result = result.filter((g) => g.created_at.startsWith(dateFilter));
-    }
-    return result;
-  }, [grouped, search, dateFilter, statusFilter]);
-
-  const placar = useMemo(() => {
-    let enviados = 0;
-    let pendentes = 0;
-    grouped.forEach((g) => {
-      const hasFailed = g.email_status === "failed" || g.sms_status === "failed";
-      const hasSent = g.email_status === "sent" || g.sms_status === "sent";
-      if (hasFailed) pendentes++;
-      else if (hasSent) enviados++;
-    });
-    return { enviados, pendentes, total: grouped.length };
-  }, [grouped]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const paginated = groupedData?.rows || [];
+  const totalRows = groupedData?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PER_PAGE));
   const currentPage = Math.min(page, totalPages);
-  const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+  const placar = placarData || { enviados: 0, pendentes: 0, total: 0 };
+  const failedSaldoCount = placar.pendentes;
 
-  useEffect(() => { setPage(1); }, [search, dateFilter, statusFilter]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, dateFilter, statusFilter]);
 
   const StatusBadge = ({ status, type }: { status: string; type: "email" | "sms" }) => {
     const icon = type === "email" ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />;
