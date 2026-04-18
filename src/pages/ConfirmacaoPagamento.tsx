@@ -599,59 +599,7 @@ export default function ConfirmacaoPagamento() {
     },
   });
 
-  // Log query — only fetch columns actually used by the UI to reduce payload
-  const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ["confirmacao-log", loja?.id],
-    queryFn: async () => {
-      const all: any[] = [];
-      const pageSize = 1000;
-      let cursor: string | null = null;
-      while (true) {
-        let q = supabase
-          .from("confirmacao_pagamento_log")
-          .select("id, created_at, tipo, status, destinatario, pedido_id, error_reason, custo")
-          .eq("loja_id", loja!.id)
-          .order("created_at", { ascending: false })
-          .order("id", { ascending: false })
-          .limit(pageSize);
-        if (cursor) q = q.lt("created_at", cursor);
-        const { data, error } = await q;
-        if (error) break;
-        if (!data || data.length === 0) break;
-        all.push(...data);
-        if (data.length < pageSize) break;
-        cursor = data[data.length - 1].created_at;
-      }
-      return all;
-    },
-    enabled: !!loja,
-    refetchInterval: 5000,
-    staleTime: 4000,
-    placeholderData: (prev) => prev, // keep showing previous data while refetching
-  });
-
-  // Realtime: invalida log automaticamente quando há mudanças na tabela
-  useEffect(() => {
-    if (!loja?.id) return;
-    const channel = supabase
-      .channel(`confirmacao-log-${loja.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "confirmacao_pagamento_log",
-          filter: `loja_id=eq.${loja.id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["confirmacao-log", loja.id] });
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [loja?.id, queryClient]);
+  // Histórico agora carrega via RPC dentro do HistoricoTab — sem fetch de 10k linhas aqui
 
   // Local state
   const [ativo, setAtivo] = useState(false);
