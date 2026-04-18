@@ -413,7 +413,7 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
                 ? `Processando ${activeRetry?.processados ?? 0}/${activeRetry?.total_pendentes ?? 0}…`
                 : retrying
                   ? "Iniciando reenvio…"
-                  : `Reenviar ${failedSaldoCount} ${failedSaldoCount === 1 ? "falha" : "falhas"} de saldo`}
+                  : `Reenviar ${failedSaldoCount} ${failedSaldoCount === 1 ? "falha pendente" : "falhas pendentes"}`}
             </Button>
           )}
         </div>
