@@ -45,7 +45,7 @@ export function WhatsAppVerificationPopup() {
 
       return !(profile?.whatsapp_verified === true);
     },
-    enabled: !!authUser && !verificationCompleted,
+    enabled: !!authUser && !verificationCompleted && !isImpersonating,
   });
 
   const sendCodeMutation = useMutation({
