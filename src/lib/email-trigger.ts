@@ -104,6 +104,17 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             return null;
         }
 
+        // ── REGRA: Evento "Entregue" (último) é SEMPRE manual ──
+        // Bloqueia avanço automático para "Entregue" — só prossegue com forceAdvance=true
+        const isFinalDelivered =
+            nextEvent.status_label === "Entregue" ||
+            filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
+
+        if (isFinalDelivered && !forceAdvance) {
+            console.log("Trigger skip: 'Entregue' requires manual confirmation", envioId);
+            return null;
+        }
+
         // ── Fetch user_id and costs (needed for initial debit AND per-SMS debit) ──
         const { data: lojaData, error: lojaErr } = await supabase
             .from("lojas")
@@ -235,6 +246,12 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             isAtivo = (config as any).ativar_falha_entrega;
         } else {
             isAtivo = config.enviar_emails;
+        }
+
+        // Evento "Entregue": NUNCA enviar e-mail nem SMS, só atualizar status
+        if (isFinalDelivered) {
+            console.log("Trigger: 'Entregue' marcado manualmente — sem e-mail/SMS", envioId);
+            return { status: newStatus, ultimoOrdem: nextEvent.ordem };
         }
 
         if ((!isAtivo && !forceSendEmail) || !nextEvent.enviar_email) {

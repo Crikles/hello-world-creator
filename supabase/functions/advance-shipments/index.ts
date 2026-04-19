@@ -765,6 +765,15 @@ async function advanceShipment(
     const nextEvent = filteredEvents.find((e: any) => e.ordem > currentOrdem);
     if (!nextEvent) return false;
 
+    // ── REGRA: cron NUNCA avança para "Entregue" — confirmação manual obrigatória ──
+    const isFinalDelivered =
+      nextEvent.status_label === "Entregue" ||
+      filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
+    if (isFinalDelivered) {
+      console.log(`Cron skip: 'Entregue' requires manual confirmation for envio ${envioId}`);
+      return false;
+    }
+
     // Debit credits on first event
     if (currentOrdem === 0) {
       let total = 0;
