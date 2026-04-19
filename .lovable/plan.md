@@ -1,31 +1,38 @@
 
-The scoreboard shows 4899 enviados / 0 pendentes / 4899 total, but the table says "Nenhuma confirmação enviada ainda". So the RPC `get_confirmacao_placar` works but `get_confirmacao_grouped` returns empty (or errors silently).
+O usuário quer mudar o comportamento do último evento ("Entregue") nos envios:
 
-Likely cause: with 4899+ groups, the RPC scans `confirmacao_pagamento_log` 3 times (latest CTE with DISTINCT ON, totals CTE, and joins) and may be timing out or returning empty due to a subtle filter issue. Also `pedidos.id::text = g.pid_text` join without index on cast may be slow.
+1. **Não enviar mais automaticamente** — o cron/automação não deve avançar para "Entregue" sozinho.
+2. **Confirmação manual** — o lojista clica num botão para marcar como entregue.
+3. **Desabilitar e-mail e SMS** desse evento específico.
 
-Let me check the data and current frontend before planning.
+Preciso entender:
+- Onde a automação avança o status (cron `advance-shipments` e `triggerNextEmail`).
+- Como o evento "Entregue" é identificado (último `ordem` do template ou `is_final = true`).
+- Onde mostrar o botão manual (provavelmente em `src/pages/Envios.tsx`).
 
-Plan:
+Vou checar rapidamente.
 
-## Problema
-- Placar mostra 4899 enviados mas tabela vazia → RPC `get_confirmacao_grouped` está falhando silenciosamente ou retornando vazio.
-- A página é lenta porque a RPC reescaneia toda a tabela 3x (CTEs `latest`, `totals`, `grouped`) e faz JOIN com `pedidos` por cast `id::text`, que não usa índice.
+## Plano
 
-## Solução
+### 1. Bloquear avanço automático para "Entregue"
+- **`src/lib/email-trigger.ts`**: dentro de `triggerNextEmail`, ao identificar o `nextEvent`, se ele for o último da lista (status final "Entregue") e `forceAdvance` for `false`, **interromper** sem avançar nem enviar e-mail/SMS.
+- **`supabase/functions/advance-shipments/index.ts`**: aplicar a mesma regra no cron — pular envios cujo próximo evento é o último ("Entregue"). Assim a automação 24/7 nunca marca como entregue.
 
-### 1. Reescrever a RPC `get_confirmacao_grouped` (migration)
-- Unificar em uma única passagem: agregar `latest` + `totals` em uma só CTE usando window functions (`row_number() OVER (PARTITION BY gkey, tipo ORDER BY created_at DESC)`).
-- JOIN com `pedidos` somente quando `pid_text` é UUID válido, e usar `p.id = g.pid_text::uuid` (sem cast no lado do `pedidos`, permitindo uso de PK).
-- Calcular `total_count` apenas uma vez via window `count(*) OVER ()`.
-- Retornar resultado mesmo quando o JOIN com `pedidos` falha (manter destinatário do log como fallback).
+### 2. Botão manual "Marcar como Entregue"
+- **`src/pages/Envios.tsx`**: adicionar ação por linha (botão/menu) "Marcar como Entregue" visível quando `status` está em `em_transito` ou `saiu_para_entrega`.
+- Ao clicar: chamar `triggerNextEmail(envioId, lojaId, false, true)` com `forceAdvance=true`. Como o e-mail/SMS do evento Entregue serão desabilitados (passo 3), só o status será atualizado.
+- Adicionar também ação em massa "Marcar selecionados como Entregue" (opcional, seguindo padrão das demais ações em massa).
 
-### 2. Garantir índice de performance
-- Confirmar índice em `confirmacao_pagamento_log(loja_id, created_at DESC)` e adicionar índice parcial em `(loja_id, pedido_id)` se necessário.
+### 3. Desabilitar e-mail e SMS no evento "Entregue"
+- **`src/lib/email-trigger.ts`**: ao processar o evento final (último `ordem`), pular o `send-email` e o `send-sms` mesmo quando acionado manualmente. O `update` do status continua acontecendo, mas nenhum disparo de notificação é feito.
+- **Banco** (migration): garantir consistência setando `enviar_email = false` em todos os `postagem_eventos` cujo `status_label = 'Entregue'` (ou que sejam o último `ordem` de cada template). Isso preserva o comportamento mesmo se o frontend mudar no futuro.
 
-### 3. Frontend (`src/pages/ConfirmacaoPagamento.tsx`)
-- Reduzir `PER_PAGE` para 50 (já está) e garantir que a query não trava em loading infinito quando o RPC retorna erro — mostrar mensagem de erro real.
-- Manter debounce de 300ms na busca.
+### 4. UX
+- Badge/ícone visual no botão "Marcar como Entregue" para deixar claro que é manual.
+- Toast de confirmação após marcar manualmente.
 
 ## Resultado esperado
-- Histórico carrega em <2s mesmo com 5000+ logs.
-- Lista exibe corretamente os ~4899 envios com Enviados/Pendentes/Total batendo com o placar.
+- Automação 24/7 **nunca** avança envios para "Entregue".
+- Lojista vê botão "Marcar como Entregue" em envios em trânsito / saiu para entrega.
+- Ao confirmar manualmente, status muda para "entregue" **sem** enviar e-mail nem SMS.
+- Cashback e demais regras pós-entrega continuam funcionando.
