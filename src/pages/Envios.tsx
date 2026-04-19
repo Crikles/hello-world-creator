@@ -949,6 +949,16 @@ export default function Envios() {
                     <Zap className="h-3.5 w-3.5 mr-1 text-yellow-500" />
                     {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs hover:bg-emerald-500/10 hover:text-emerald-600"
+                    onClick={handleMarcarEntregueTodosClick}
+                    title="Marca como Entregue em massa — sem e-mail/SMS"
+                  >
+                    <PackageCheck className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                    {`Marcar Entregue (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
+                  </Button>
                 </>
               )}
             </div>
