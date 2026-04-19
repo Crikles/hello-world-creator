@@ -590,6 +590,44 @@ export default function Envios() {
     setBatchConfirm({ type: "forcar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "da página" });
   };
 
+  const handleMarcarEntregueTodosClick = async () => {
+    if (!loja?.id) return;
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
+    // Elegíveis: em trânsito ou saiu para entrega (não pendente, não entregue)
+    const targets = base.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega");
+    if (targets.length === 0) return toast.info("Nenhum envio elegível para marcar como entregue.");
+
+    if (!confirm(`Marcar ${targets.length} envio(s) como Entregue? Nenhum e-mail ou SMS será enviado.`)) return;
+
+    const targetIds = targets.map((e) => e.id);
+    let ok = 0;
+    await startBatch(targetIds.length);
+    try {
+      for (let i = 0; i < targetIds.length; i++) {
+        const cancelled = await checkCancelled();
+        if (cancelled) {
+          toast.info(`Cancelado. ${ok}/${targetIds.length} marcados.`);
+          break;
+        }
+        try {
+          const result = await triggerNextEmail(targetIds[i], loja.id, false, true);
+          if (result) ok++;
+        } catch (err) {
+          console.error("Falha ao marcar entregue:", targetIds[i], err);
+        }
+        await updateProgress(i + 1);
+      }
+      if (ok > 0) {
+        queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+        queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
+        toast.success(`${ok} envio(s) marcado(s) como Entregue.`);
+      }
+    } finally {
+      await finishBatch();
+    }
+  };
+
   const handleBatchConfirmed = async () => {
     if (!batchConfirm || !loja?.id) return;
     const isForce = batchConfirm.type === "forcar";
@@ -910,6 +948,16 @@ export default function Envios() {
                   >
                     <Zap className="h-3.5 w-3.5 mr-1 text-yellow-500" />
                     {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs hover:bg-emerald-500/10 hover:text-emerald-600"
+                    onClick={handleMarcarEntregueTodosClick}
+                    title="Marca como Entregue em massa — sem e-mail/SMS"
+                  >
+                    <PackageCheck className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                    {`Marcar Entregue (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
                   </Button>
                 </>
               )}
