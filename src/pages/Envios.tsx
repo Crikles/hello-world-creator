@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX, ChevronLeft, ChevronRight, Download, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX, ChevronLeft, ChevronRight, Download, FileSpreadsheet, PackageCheck } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import * as XLSX from "xlsx";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
@@ -481,6 +481,25 @@ export default function Envios() {
       } else {
         toast.error(err.message || "Erro ao forçar avanço");
       }
+    },
+  });
+
+  const markDeliveredMutation = useMutation({
+    mutationFn: async (envioId: string) => {
+      if (!loja?.id) throw new Error("No loja");
+      // forceAdvance=true permite avançar para "Entregue" (último evento)
+      // E-mail e SMS são automaticamente pulados nesse evento (regra do triggerNextEmail)
+      const result = await triggerNextEmail(envioId, loja.id, false, true);
+      if (!result) throw new Error("Não foi possível marcar como entregue");
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
+      toast.success("Marcado como Entregue ✅");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao marcar como entregue");
     },
   });
 
@@ -1242,6 +1261,18 @@ export default function Envios() {
                             <Zap className="h-3 w-3" />
                           </Button>
                         )
+                      )}
+                      {envio.status !== "entregue" && (envio.ultimo_evento_ordem ?? 0) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 hover:bg-emerald-500/10 text-emerald-600 hover:text-emerald-700"
+                          title="Marcar como Entregue (manual — não envia e-mail/SMS)"
+                          disabled={markDeliveredMutation.isPending}
+                          onClick={() => markDeliveredMutation.mutate(envio.id)}
+                        >
+                          <PackageCheck className="h-3 w-3" />
+                        </Button>
                       )}
                       <Button
                         variant="ghost"
