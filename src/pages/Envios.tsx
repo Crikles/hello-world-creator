@@ -1262,6 +1262,18 @@ export default function Envios() {
                           </Button>
                         )
                       )}
+                      {envio.status !== "entregue" && (envio.ultimo_evento_ordem ?? 0) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 hover:bg-emerald-500/10 text-emerald-600 hover:text-emerald-700"
+                          title="Marcar como Entregue (manual — não envia e-mail/SMS)"
+                          disabled={markDeliveredMutation.isPending}
+                          onClick={() => markDeliveredMutation.mutate(envio.id)}
+                        >
+                          <PackageCheck className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
