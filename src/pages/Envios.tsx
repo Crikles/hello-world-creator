@@ -484,6 +484,25 @@ export default function Envios() {
     },
   });
 
+  const markDeliveredMutation = useMutation({
+    mutationFn: async (envioId: string) => {
+      if (!loja?.id) throw new Error("No loja");
+      // forceAdvance=true permite avançar para "Entregue" (último evento)
+      // E-mail e SMS são automaticamente pulados nesse evento (regra do triggerNextEmail)
+      const result = await triggerNextEmail(envioId, loja.id, false, true);
+      if (!result) throw new Error("Não foi possível marcar como entregue");
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
+      toast.success("Marcado como Entregue ✅");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao marcar como entregue");
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("envios").update({ deleted_at: new Date().toISOString() }).eq("id", id);
