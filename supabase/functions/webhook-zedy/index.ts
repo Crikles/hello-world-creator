@@ -303,6 +303,10 @@ Deno.serve(async (req) => {
             body: { envio_id: newEnvio.id, loja_id: lojaId }
           }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
 
+          // Fire-and-forget: trigger server-side advance immediately (skips if no balance / auto_envio off)
+          supabase.functions.invoke("advance-shipments", { body: {} })
+            .catch((err) => console.error("[advance-shipments] invoke error:", err));
+
           // Fire-and-forget payment confirmation email/SMS
           supabase.functions.invoke("send-payment-confirmation", {
             body: { pedido_id: pedidoId, loja_id: lojaId }

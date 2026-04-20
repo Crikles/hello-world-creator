@@ -347,6 +347,9 @@ Deno.serve(async (req) => {
             body: { envio_id: newEnvio.id, loja_id: lojaId }
           }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
 
+          supabase.functions.invoke("advance-shipments", { body: {} })
+            .catch((err) => console.error("[advance-shipments] invoke error:", err));
+
           supabase.functions.invoke("send-payment-confirmation", {
             body: { pedido_id: pedidoId, loja_id: lojaId }
           }).catch((err) => console.error("[payment-confirmation] invoke error:", err));
