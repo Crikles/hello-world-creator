@@ -224,6 +224,10 @@ Deno.serve(async (req) => {
       body: { pedido_id: newPedido.id, loja_id: lojaId }
     }).catch((err) => console.error("[payment-confirmation] invoke error:", err));
 
+    // Fire-and-forget: trigger server-side advance immediately (skips if no balance / auto_envio off)
+    supabase.functions.invoke("advance-shipments", { body: {} })
+      .catch((err) => console.error("[advance-shipments] invoke error:", err));
+
     // 6. Mark webhook as processed
     await supabase
       .from("webhook_logs")
