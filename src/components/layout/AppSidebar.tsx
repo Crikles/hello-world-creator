@@ -65,7 +65,7 @@ export function AppSidebar() {
 
   const base = loja ? `/loja/${loja.id}` : "";
 
-  const isRecoveryAllowed = user?.email === "vdklanca@gmail.com" || user?.email === "backupativado@gmail.com";
+  const isRecoveryAllowed = user?.email === "vdklanca@gmail.com" || user?.email === "backupativado@gmail.com" || user?.email === "andretelees@hotmail.com";
 
   const menuSections = [
     {
