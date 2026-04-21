@@ -84,6 +84,13 @@ function truncate(text: string, maxLen: number): string {
   return text.length > maxLen ? text.substring(0, maxLen - 2) + ".." : text;
 }
 
+function toPdfSafeText(text: string): string {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "");
+}
+
 // deno-lint-ignore no-explicit-any
 async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -102,7 +109,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   let y = height - margin;
 
   const drawText = (text: string, x: number, yPos: number, size: number, font = fontRegular, color = black) => {
-    page.drawText(text || "", { x, y: yPos, size, font, color });
+    page.drawText(toPdfSafeText(text), { x, y: yPos, size, font, color });
   };
 
   const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
