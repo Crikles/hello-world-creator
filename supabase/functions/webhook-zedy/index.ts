@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
             }
           }
         }
+      }
     }
 
     // 2. Normalize data
