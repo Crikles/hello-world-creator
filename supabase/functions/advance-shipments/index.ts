@@ -288,7 +288,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   y -= prodH;
 
   // Product rows
-  for (const item of productItems) {
+  for (const [idx, item] of productItems.entries()) {
     const rowH = 16;
     if (y - rowH < margin + 80) break; // Don't overflow page
 
