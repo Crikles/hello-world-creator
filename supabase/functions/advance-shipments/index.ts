@@ -457,6 +457,7 @@ Deno.serve(async (req) => {
       }
 
       // --- 2. ADVANCE: shipments where delay has expired ---
+      if (targetEnvioId) continue;
       if (totalProcessed >= MAX_PER_RUN) break;
 
       const lojaLimit = Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed);
