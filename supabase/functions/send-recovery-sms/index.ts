@@ -28,11 +28,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { lead_id, loja_id, tipo } = await req.json();
+    const { lead_id, loja_id, tipo, customer_email } = await req.json();
 
-    if (!lead_id || !loja_id) {
+    if (!loja_id || (!lead_id && !customer_email)) {
       return new Response(
-        JSON.stringify({ error: "lead_id and loja_id are required" }),
+        JSON.stringify({ error: "loja_id and (lead_id or customer_email) are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -42,12 +42,23 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get lead data
-    const { data: lead, error: leadErr } = await supabase
+    // Get lead data: either by id, or by latest matching email/loja/tipo
+    let leadQuery = supabase
       .from("recovery_leads")
       .select("*")
-      .eq("id", lead_id)
-      .single();
+      .eq("loja_id", loja_id);
+
+    if (lead_id) {
+      leadQuery = leadQuery.eq("id", lead_id);
+    } else {
+      leadQuery = leadQuery
+        .eq("customer_email", customer_email)
+        .eq("tipo", tipo || "carrinho")
+        .order("created_at", { ascending: false })
+        .limit(1);
+    }
+
+    const { data: lead, error: leadErr } = await leadQuery.maybeSingle();
 
     if (leadErr || !lead) {
       return new Response(
