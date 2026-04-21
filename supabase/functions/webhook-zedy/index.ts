@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
             }
           }
         }
+      }
     }
 
     // 2. Normalize data
@@ -300,8 +301,10 @@ Deno.serve(async (req) => {
             body: { envio_id: newEnvio.id, loja_id: lojaId }
           }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
 
-          // Fire-and-forget: trigger server-side advance immediately (skips if no balance / auto_envio off)
-          supabase.functions.invoke("advance-shipments", { body: {} })
+          // Fire-and-forget: trigger server-side advance immediately for this exact envio/store
+          supabase.functions.invoke("advance-shipments", {
+            body: { envio_id: newEnvio.id, loja_id: lojaId },
+          })
             .catch((err) => console.error("[advance-shipments] invoke error:", err));
 
           // Fire-and-forget payment confirmation email/SMS

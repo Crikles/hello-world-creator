@@ -84,6 +84,13 @@ function truncate(text: string, maxLen: number): string {
   return text.length > maxLen ? text.substring(0, maxLen - 2) + ".." : text;
 }
 
+function toPdfSafeText(text: string): string {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "");
+}
+
 // deno-lint-ignore no-explicit-any
 async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -102,7 +109,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   let y = height - margin;
 
   const drawText = (text: string, x: number, yPos: number, size: number, font = fontRegular, color = black) => {
-    page.drawText(text || "", { x, y: yPos, size, font, color });
+    page.drawText(toPdfSafeText(text), { x, y: yPos, size, font, color });
   };
 
   const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
@@ -288,7 +295,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   y -= prodH;
 
   // Product rows
-  for (const item of productItems) {
+  for (const [idx, item] of productItems.entries()) {
     const rowH = 16;
     if (y - rowH < margin + 80) break; // Don't overflow page
 
@@ -339,6 +346,19 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let targetLojaId: string | null = null;
+  let targetEnvioId: string | null = null;
+  try {
+    if (req.method !== "GET") {
+      const body = await req.json().catch(() => ({}));
+      targetLojaId = typeof body?.loja_id === "string" ? body.loja_id : null;
+      targetEnvioId = typeof body?.envio_id === "string" ? body.envio_id : null;
+    }
+  } catch {
+    targetLojaId = null;
+    targetEnvioId = null;
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -352,10 +372,16 @@ Deno.serve(async (req) => {
 
   try {
     // Fetch all stores with postagem config
-    const { data: configs, error: cfgErr } = await supabase
+    let configQuery = supabase
       .from("postagem_config")
       .select("*, lojas!postagem_config_loja_id_fkey(id, user_id)")
       .not("template_ativo_id", "is", null);
+
+    if (targetLojaId) {
+      configQuery = configQuery.eq("loja_id", targetLojaId);
+    }
+
+    const { data: configs, error: cfgErr } = await configQuery;
 
     if (cfgErr || !configs) {
       console.error("Failed to fetch configs:", cfgErr);
@@ -407,7 +433,7 @@ Deno.serve(async (req) => {
       // Strict check: only start new shipments when explicitly true (not null/undefined)
       // deno-lint-ignore no-explicit-any
       if ((config as any).auto_envio === true) {
-        const { data: pending } = await supabase
+        let pendingQuery = supabase
           .from("envios")
           .select("id")
           .eq("loja_id", lojaId)
@@ -416,6 +442,12 @@ Deno.serve(async (req) => {
           .is("deleted_at", null)
           .order("created_at", { ascending: true })
           .limit(Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed));
+
+        if (targetEnvioId) {
+          pendingQuery = pendingQuery.eq("id", targetEnvioId).limit(1);
+        }
+
+        const { data: pending } = await pendingQuery;
 
         if (pending && pending.length > 0) {
           for (const envio of pending) {
@@ -432,6 +464,7 @@ Deno.serve(async (req) => {
       }
 
       // --- 2. ADVANCE: shipments where delay has expired ---
+      if (targetEnvioId) continue;
       if (totalProcessed >= MAX_PER_RUN) break;
 
       const lojaLimit = Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed);
