@@ -102,36 +102,25 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recoveryConfig?.ativo) {
-          // Deduplicate by orderId
           const orderId = payload.orderId || "";
           if (orderId) {
-            const { data: existingLead } = await supabase
+            const rawProducts = payload.products || [];
+            const recoveryProducts = rawProducts.map((p: any) => ({
+              name: p.name || "Produto",
+              value: (p.priceInCents || 0) / 100,
+              qty: p.quantity || 1,
+            }));
+            const totalValue = (payload.commission?.totalPriceInCents || 0) / 100;
+
+            const pixCode = payload.pixQrCode || "";
+            const pixQrcodeUrl = pixCode
+              ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`
+              : "";
+
+            // Insert with race-safe dedupe via unique index on (loja_id, raw_payload->>'orderId')
+            const { data: insertedLead, error: insertErr } = await supabase
               .from("recovery_leads")
-              .select("id")
-              .eq("loja_id", lojaId)
-              .filter("raw_payload->>orderId", "eq", orderId)
-              .maybeSingle();
-
-            if (existingLead) {
-              console.log("[webhook-zedy] Duplicate orderId, skipping recovery:", orderId);
-              // Continue to pedido processing below, just skip recovery
-            } else {
-              const rawProducts = payload.products || [];
-              const recoveryProducts = rawProducts.map((p: any) => ({
-                name: p.name || "Produto",
-                value: (p.priceInCents || 0) / 100,
-                qty: p.quantity || 1,
-              }));
-              const totalValue = (payload.commission?.totalPriceInCents || 0) / 100;
-
-              const pixCode = payload.pixQrCode || "";
-              const pixQrcodeUrl = pixCode
-                ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`
-                : "";
-
-              console.log("[webhook-zedy] Recovery data:", { email, tipo: recoveryTipo, totalValue, orderId, productsCount: recoveryProducts.length, hasPixCode: !!pixCode });
-
-              await supabase.from("recovery_leads").insert({
+              .insert({
                 loja_id: lojaId,
                 customer_name: customer.name || "",
                 customer_email: email,
@@ -144,9 +133,18 @@ Deno.serve(async (req) => {
                 raw_payload: payload,
                 status: "pendente",
                 tipo: recoveryTipo,
-              });
+              })
+              .select("id")
+              .maybeSingle();
 
-              // Fire-and-forget: email + sms
+            if (insertErr) {
+              if ((insertErr as any).code === "23505") {
+                console.log("[webhook-zedy] Duplicate orderId blocked by unique index:", orderId);
+              } else {
+                console.error("[webhook-zedy] insert recovery_leads error:", insertErr);
+              }
+            } else if (insertedLead) {
+              // Fire-and-forget: email + sms (only on first insert)
               supabase.functions.invoke("send-recovery-email", {
                 body: { loja_id: lojaId, customer_email: email, tipo: recoveryTipo },
               }).catch((e) => console.error("[recovery-email]", e));
@@ -157,7 +155,6 @@ Deno.serve(async (req) => {
             }
           }
         }
-      }
     }
 
     // 2. Normalize data
