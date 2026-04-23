@@ -25,13 +25,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Throttle: only one alert per user per 24h
+    // Throttle: only one alert per user per 24h (marker stored in creditos_transacoes)
     const since = new Date(Date.now() - 24 * 3600_000).toISOString();
     const { data: recent } = await supabase
       .from("creditos_transacoes")
       .select("id")
       .eq("user_id", user_id)
-      .eq("tipo", "alerta_saldo_baixo")
+      .like("descricao", "[ALERTA_SALDO_BAIXO]%")
       .gte("created_at", since)
       .limit(1);
 
@@ -119,12 +119,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Mark sent (using creditos_transacoes with quantity 0 as throttle marker)
+    // Mark sent (use 'adicao' with quantity 0 + tagged descricao as throttle marker)
     await supabase.from("creditos_transacoes").insert({
       user_id,
-      tipo: "alerta_saldo_baixo",
+      tipo: "adicao",
       quantidade: 0,
-      descricao: `Aviso automático de saldo baixo (saldo: ${saldo})`,
+      descricao: `[ALERTA_SALDO_BAIXO] Aviso automático de saldo baixo (saldo: ${saldo})`,
     });
 
     return new Response(JSON.stringify({ success: true }), {
