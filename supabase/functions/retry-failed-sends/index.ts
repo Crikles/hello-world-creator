@@ -235,14 +235,8 @@ async function processInBackground(opts: {
         })
         .eq("id", execucaoId);
 
-      // Trigger advance-shipments once at the end
+      // Trigger advance-shipments once at the end (apenas dispara o cron — NÃO força avanço de envios saudáveis)
       try {
-        await supabase
-          .from("envios")
-          .update({ proximo_avanco_em: new Date().toISOString() })
-          .in("loja_id", lojaIds)
-          .lte("proximo_avanco_em", new Date().toISOString())
-          .is("deleted_at", null);
         await fetch(`${supabaseUrl}/functions/v1/advance-shipments`, {
           method: "POST",
           headers: {
