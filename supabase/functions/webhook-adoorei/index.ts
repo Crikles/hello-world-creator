@@ -333,32 +333,31 @@ Deno.serve(async (req) => {
                 empresa_id: empresaData?.id || null,
             };
 
-            // GLOBAL DEDUPE: bloqueia envio duplicado (mesmo email + valor + loja) na última 1h
-            const _oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-            const { data: _recentDup } = await supabase
-                .from("envios")
-                .select("id")
-                .eq("loja_id", lojaId)
-                .eq("cliente_email", envioData.cliente_email)
-                .eq("valor", envioData.valor)
-                .is("deleted_at", null)
-                .gte("created_at", _oneHourAgo)
-                .limit(1)
+            // ATOMIC DEDUPE via RPC: serializa por (loja+email+valor) usando advisory lock
+            const { data: dedupeResult, error: dedupeError } = await supabase
+                .rpc("try_create_envio_dedupe", {
+                    _loja_id: lojaId,
+                    _cliente_email: envioData.cliente_email,
+                    _valor: envioData.valor,
+                    _envio_data: envioData,
+                })
                 .maybeSingle();
-            if (_recentDup) {
-                console.log("[webhook-adoorei] Duplicate envio blocked:", _recentDup.id);
-                await supabase.from("pedidos").update({ envio_id: _recentDup.id }).eq("id", pedidoId).is("envio_id", null);
-                return new Response(JSON.stringify({ success: true, dedupe: true, envio_id: _recentDup.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+            if (dedupeError || !dedupeResult) {
+                console.error("[webhook-adoorei] dedupe RPC error:", dedupeError);
+                return new Response(JSON.stringify({ error: "Failed to create envio" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
 
-            const { data: newEnvio } = await supabase
-                .from("envios")
-                .insert(envioData)
-                .select("id")
-                .single();
+            const newEnvio = { id: (dedupeResult as any).envio_id };
+            const wasDuplicate = (dedupeResult as any).was_duplicate === true;
 
-            if (newEnvio) {
-                // Race condition protection: only link envio if pedido still has no envio_id
+            if (wasDuplicate) {
+                console.log("[webhook-adoorei] Duplicate envio blocked atomically:", newEnvio.id);
+                await supabase.from("pedidos").update({ envio_id: newEnvio.id }).eq("id", pedidoId).is("envio_id", null);
+                return new Response(JSON.stringify({ success: true, dedupe: true, envio_id: newEnvio.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+
+            {
                 const { data: updateResult } = await supabase
                     .from("pedidos")
                     .update({ envio_id: newEnvio.id })
@@ -368,8 +367,7 @@ Deno.serve(async (req) => {
                     .maybeSingle();
 
                 if (!updateResult) {
-                    console.log("[webhook-adoorei] Race condition detected, deleting duplicate envio:", newEnvio.id);
-                    await supabase.from("envios").delete().eq("id", newEnvio.id);
+                    console.log("[webhook-adoorei] Pedido already linked, skipping invokes:", newEnvio.id);
                 } else {
                     supabase.functions.invoke("auto-whatsapp-new-order", {
                         body: { envio_id: newEnvio.id, loja_id: lojaId }

@@ -275,35 +275,35 @@ Deno.serve(async (req) => {
         empresa_id: empresaData?.id || null,
       };
 
-      // GLOBAL DEDUPE: bloqueia envio duplicado (mesmo email + valor + loja) na última 1h
-      // Protege contra múltiplos orderIds gerados pelo mesmo cliente (retry de pagamento)
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { data: recentDuplicate } = await supabase
-        .from("envios")
-        .select("id")
-        .eq("loja_id", lojaId)
-        .eq("cliente_email", envioData.cliente_email)
-        .eq("valor", envioData.valor)
-        .is("deleted_at", null)
-        .gte("created_at", oneHourAgo)
-        .limit(1)
+      // ATOMIC DEDUPE via RPC: serializa por (loja+email+valor) usando advisory lock,
+      // impedindo que múltiplos webhooks paralelos do mesmo pedido criem envios duplicados.
+      const { data: dedupeResult, error: dedupeError } = await supabase
+        .rpc("try_create_envio_dedupe", {
+          _loja_id: lojaId,
+          _cliente_email: envioData.cliente_email,
+          _valor: envioData.valor,
+          _envio_data: envioData,
+        })
         .maybeSingle();
 
-      if (recentDuplicate) {
-        console.log("[webhook-zedy] Duplicate envio blocked (same email+valor+loja within 1h):", recentDuplicate.id);
-        await supabase.from("pedidos").update({ envio_id: recentDuplicate.id }).eq("id", pedidoId).is("envio_id", null);
+      if (dedupeError || !dedupeResult) {
+        console.error("[webhook-zedy] dedupe RPC error:", dedupeError);
         await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "zedy").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
-        return new Response(JSON.stringify({ success: true, dedupe: true, envio_id: recentDuplicate.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Failed to create envio" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const { data: newEnvio } = await supabase
-        .from("envios")
-        .insert(envioData)
-        .select("id")
-        .single();
+      const newEnvio = { id: (dedupeResult as any).envio_id };
+      const wasDuplicate = (dedupeResult as any).was_duplicate === true;
 
-      if (newEnvio) {
-        // Race condition protection: only link envio if pedido still has no envio_id
+      if (wasDuplicate) {
+        console.log("[webhook-zedy] Duplicate envio blocked atomically:", newEnvio.id);
+        await supabase.from("pedidos").update({ envio_id: newEnvio.id }).eq("id", pedidoId).is("envio_id", null);
+        await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "zedy").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
+        return new Response(JSON.stringify({ success: true, dedupe: true, envio_id: newEnvio.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      {
+        // Link envio to pedido (only if pedido still has no envio_id)
         const { data: updateResult } = await supabase
           .from("pedidos")
           .update({ envio_id: newEnvio.id })
@@ -313,9 +313,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!updateResult) {
-          // Another concurrent request already linked an envio, delete the duplicate
-          console.log("[webhook-zedy] Race condition detected, deleting duplicate envio:", newEnvio.id);
-          await supabase.from("envios").delete().eq("id", newEnvio.id);
+          console.log("[webhook-zedy] Pedido already linked to another envio, skipping invokes:", newEnvio.id);
         } else {
           // Fire-and-forget WhatsApp for new order
           supabase.functions.invoke("auto-whatsapp-new-order", {
