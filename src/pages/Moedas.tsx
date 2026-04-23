@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Coins, QrCode, Copy, Check, Loader2, Sparkles, Clock, CheckCircle2, XCircle, ArrowRight, PencilLine } from "lucide-react";
+import { Coins, QrCode, Copy, Check, Loader2, Sparkles, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,10 +21,12 @@ interface CoinPackage {
 }
 
 const COIN_PACKAGES: CoinPackage[] = [
-    { moedas: 50, price_cents: 5000 },
-    { moedas: 100, price_cents: 10000, popular: true },
-    { moedas: 200, price_cents: 20000 },
+    { moedas: 100, price_cents: 10000 },
+    { moedas: 200, price_cents: 20000, popular: true },
     { moedas: 300, price_cents: 30000 },
+    { moedas: 400, price_cents: 40000 },
+    { moedas: 500, price_cents: 50000 },
+    { moedas: 1000, price_cents: 100000 },
 ];
 
 const calcBonus = (moedas: number) => Math.floor(moedas / 100) * 10;
@@ -47,7 +49,7 @@ export default function Moedas() {
     const [pixData, setPixData] = useState<PixPaymentData | null>(null);
     const [copied, setCopied] = useState(false);
     const [paymentStatus, setPaymentStatus] = useState<"idle" | "pending" | "paid" | "error">("idle");
-    const [customAmount, setCustomAmount] = useState<string>("");
+    
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -135,16 +137,6 @@ export default function Moedas() {
             });
         }
     }, [pixData, paymentStatus]);
-
-    const handleCustomPurchase = () => {
-        const amount = parseInt(customAmount, 10);
-        if (isNaN(amount) || amount < 1) {
-            toast.error("Insira um valor válido (mínimo 1 moeda).");
-            return;
-        }
-        const pkg: CoinPackage = { moedas: amount, price_cents: amount * 100 };
-        handlePurchase(pkg);
-    };
 
     const handlePurchase = async (pkg: CoinPackage) => {
         if (!user || !session) {
@@ -403,7 +395,7 @@ export default function Moedas() {
                     <h2 className="text-base font-semibold text-foreground mb-3 animate-stagger-in" style={{ animationDelay: "160ms" }}>
                         Pacotes de Moedas
                     </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {COIN_PACKAGES.map((pkg, i) => (
                             <div
                                 key={pkg.moedas}
@@ -453,57 +445,6 @@ export default function Moedas() {
                                 </div>
                             </div>
                         ))}
-                    </div>
-
-                    {/* Custom Amount */}
-                    <div
-                        className="mt-6 animate-stagger-in"
-                        style={{ animationDelay: "500ms" }}
-                    >
-                        <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-                            <PencilLine className="h-4 w-4 text-primary" />
-                            Valor Personalizado
-                        </h2>
-                        <div className="rounded-2xl glass glow-border p-5">
-                            <p className="text-sm text-muted-foreground mb-3">
-                                Insira a quantidade de moedas que deseja comprar (1 moeda = R$ 1,00)
-                            </p>
-                            <div className="flex items-center gap-3">
-                                <div className="relative flex-1 max-w-xs">
-                                    <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        placeholder="Ex: 25"
-                                        value={customAmount}
-                                        onChange={(e) => setCustomAmount(e.target.value)}
-                                        className="pl-9"
-                                    />
-                                </div>
-                                {customAmount && parseInt(customAmount) >= 1 && (
-                                    <span className="text-sm font-semibold text-primary whitespace-nowrap">
-                                        R$ {(parseInt(customAmount) * 1).toFixed(2)}
-                                    </span>
-                                )}
-                                {customAmount && parseInt(customAmount) >= 100 && calcBonus(parseInt(customAmount)) > 0 && (
-                                    <span className="text-xs font-medium text-green-500 whitespace-nowrap">
-                                        🎁 +{calcBonus(parseInt(customAmount))} moedas grátis!
-                                    </span>
-                                )}
-                                <Button
-                                    onClick={handleCustomPurchase}
-                                    disabled={loading || !customAmount || parseInt(customAmount) < 1}
-                                    className="shrink-0 gap-1.5"
-                                >
-                                    {loading ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <ArrowRight className="h-4 w-4" />
-                                    )}
-                                    Comprar
-                                </Button>
-                            </div>
-                        </div>
                     </div>
 
                     {loading && (
