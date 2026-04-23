@@ -319,11 +319,30 @@ Deno.serve(async (req) => {
         .eq("loja_id", lojaId)
         .maybeSingle();
 
+      const _cli_email = customer.email || "sem-email@corvex.com";
+      // GLOBAL DEDUPE: bloqueia envio duplicado (mesmo email + valor + loja) na última 1h
+      const _oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data: _recentDup } = await supabase
+        .from("envios")
+        .select("id")
+        .eq("loja_id", lojaId)
+        .eq("cliente_email", _cli_email)
+        .eq("valor", totalDecimal)
+        .is("deleted_at", null)
+        .gte("created_at", _oneHourAgo)
+        .limit(1)
+        .maybeSingle();
+      if (_recentDup) {
+        console.log("[webhook-corvex] Duplicate envio blocked:", _recentDup.id);
+        await supabase.from("pedidos").update({ envio_id: _recentDup.id }).eq("id", pedidoId).is("envio_id", null);
+        return new Response(JSON.stringify({ success: true, dedupe: true, envio_id: _recentDup.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       const { data: newEnvio } = await supabase
         .from("envios")
         .insert({
           cliente_nome: customer.name,
-          cliente_email: customer.email || "sem-email@corvex.com",
+          cliente_email: _cli_email,
           cliente_cpf: customer.doc,
           cliente_telefone: customer.phone || null,
           cliente_endereco: address.street,
