@@ -2080,6 +2080,19 @@ export type Database = {
         Args: { _admin_id: string; _cashback_id: string }
         Returns: boolean
       }
+      try_create_envio_dedupe: {
+        Args: {
+          _cliente_email: string
+          _envio_data: Json
+          _loja_id: string
+          _valor: number
+        }
+        Returns: {
+          codigo_rastreio: string
+          envio_id: string
+          was_duplicate: boolean
+        }[]
+      }
       user_owns_loja: {
         Args: { _loja_id: string; _user_id: string }
         Returns: boolean

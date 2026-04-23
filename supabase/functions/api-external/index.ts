@@ -194,36 +194,34 @@ Deno.serve(async (req) => {
       empresa_id: empresaData?.id || null,
     };
 
-    // GLOBAL DEDUPE: bloqueia envio duplicado (mesmo email + valor + loja) na última 1h
-    const _oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: _recentDup } = await supabase
-      .from("envios")
-      .select("id, codigo_rastreio")
-      .eq("loja_id", lojaId)
-      .eq("cliente_email", envioData.cliente_email)
-      .eq("valor", envioData.valor)
-      .is("deleted_at", null)
-      .gte("created_at", _oneHourAgo)
-      .limit(1)
+    // ATOMIC DEDUPE via RPC: serializa por (loja+email+valor) usando advisory lock
+    const { data: dedupeResult, error: dedupeError } = await supabase
+      .rpc("try_create_envio_dedupe", {
+        _loja_id: lojaId,
+        _cliente_email: envioData.cliente_email,
+        _valor: envioData.valor,
+        _envio_data: envioData,
+      })
       .maybeSingle();
-    if (_recentDup) {
-      console.log("[api-external] Duplicate envio blocked:", _recentDup.id);
-      await supabase.from("pedidos").update({ envio_id: _recentDup.id }).eq("id", newPedido.id);
-      return new Response(JSON.stringify({ success: true, dedupe: true, pedido_id: newPedido.id, envio_id: _recentDup.id, codigo_rastreio: _recentDup.codigo_rastreio }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
 
-    const { data: newEnvio, error: envioError } = await supabase
-      .from("envios")
-      .insert(envioData)
-      .select("id, codigo_rastreio")
-      .single();
-
-    if (envioError || !newEnvio) {
-      console.error("Error creating envio:", envioError);
+    if (dedupeError || !dedupeResult) {
+      console.error("[api-external] dedupe RPC error:", dedupeError);
       return new Response(
         JSON.stringify({ error: "Failed to create shipment" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    const newEnvio = {
+      id: (dedupeResult as any).envio_id,
+      codigo_rastreio: (dedupeResult as any).codigo_rastreio,
+    };
+    const wasDuplicate = (dedupeResult as any).was_duplicate === true;
+
+    if (wasDuplicate) {
+      console.log("[api-external] Duplicate envio blocked atomically:", newEnvio.id);
+      await supabase.from("pedidos").update({ envio_id: newEnvio.id }).eq("id", newPedido.id);
+      return new Response(JSON.stringify({ success: true, dedupe: true, pedido_id: newPedido.id, envio_id: newEnvio.id, codigo_rastreio: newEnvio.codigo_rastreio }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // 5. Link pedido to envio
