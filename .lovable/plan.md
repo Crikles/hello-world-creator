@@ -1,39 +1,34 @@
 
 
-## Trocar logo da JL para a nova logo Jet Line Transportes
+## Diagnóstico: pedidos da loja Prime (negociosmilionarios1901@gmail.com)
 
-### Escopo
-Substituir apenas o **arquivo da logo** usada no domínio de logística JL (`rastreio.jltransportelogistica.com`) e em qualquer referência ao branding "Logística JL Transportes" dentro do app. Os textos permanecem como "JL Transportes" / "Logística JL Transportes" (já que JL agora significa Jet Line). Razão social fiscal **não muda**.
+### Resultado da investigação
 
-### O que será feito
+Verifiquei a loja **Prime** (`8e2c6a4c-a7b5-491c-aa56-82377ea1d593`) do usuário `negociosmilionarios1901@gmail.com`:
 
-1. **Subir a nova logo Jet Line** enviada pelo usuário para `public/logojltransportes.png` (sobrescreve o arquivo atual). Como todas as referências no código já apontam para esse caminho, o swap propaga automaticamente para:
-   - Login / Signup / ResetPassword (`/logojltransportes.png`)
-   - Sidebar do app (`AppSidebar.tsx`)
-   - Página pública de Rastreio (`/rastreio/...`)
-   - Página pública de Pagamento/Taxação (`/p/...`)
-   - Página pública de Falha de Entrega (`/falha/...`)
-   - Preview de configuração de Falha (`FailedDeliveryConfig.tsx`)
-   - Qualquer template de e-mail que referencie a logo via URL pública
+| Métrica | Valor |
+|---|---|
+| Total de pedidos | 404 |
+| Pedidos pagos | 404 |
+| **Pedidos pagos órfãos (sem envio)** | **0** |
+| Total de envios | 415 |
 
-2. **Atualizar o favicon** do domínio de logística:
-   - Substituir `public/favicon.png` (e remover `public/favicon.ico` para evitar fallback) por uma versão quadrada da nova logo Jet Line.
+Cruzei também os 14 clientes visíveis na captura de tela (Simone Neres, Osmar Belmonte, Renata Flores, Fábio Bezerra, Diego Washington, Marcelo Vicente, Gabriel Souza, Calebe Silva Reis, Alan Silva, Ricardo Silva, Rosilene, Marta Alves, Eliane gomes, Wellington Araújo) — **todos os 14 já estão com `envio_id` preenchido** e aparecem no painel de Envios.
 
-3. **PWA / manifest** (`public/manifest.json`): atualizar o ícone se ele apontar para a logo antiga, garantindo que o app instalado mostre a nova marca.
+### Conclusão
 
-### O que NÃO muda
-- Textos: "JL Transportes", "Logística JL Transportes", "JL Transportadora e Logística LTDA" permanecem
-- Razão social fiscal na DANFE (HOLDING Transportes de Cargas LTDA)
-- Cores e tema dark/indigo da página de rastreio JL
-- Logos da Vetor, Jadlog e Magnus (intactas)
-- Domínio `rastreio.jltransportelogistica.com` e e-mails de envio
+**Nenhuma ação adicional é necessária.** O usuário já foi atendido pelas correções anteriores:
 
-### Arquivos afetados
-- `public/logojltransportes.png` (substituir)
-- `public/favicon.png` (substituir pela nova marca)
-- `public/favicon.ico` (remover)
-- `public/manifest.json` (verificar/atualizar referência de ícone)
+1. **Patch da função `try_create_envio_dedupe`** (qualificação de colunas) — impede que novos pedidos sofram o bug de ambiguidade `42702`.
+2. **Recovery em massa de 68 pedidos órfãos** — varreu TODAS as lojas, incluindo a Prime, e sincronizou os pedidos pagos sem envio.
 
-### Observação
-A nova logo é horizontal (proporção ~3:2). Em locais onde ela é renderizada como ícone quadrado pequeno (sidebar `h-12 w-12`, preview de e-mail `h-9 w-9 rounded-full`), a imagem horizontal pode ficar comprimida ou cortada. Posso entregar **duas versões** no upload: a horizontal completa para Login/Rastreio/Pagamento, e uma versão quadrada/icônica (só o emblema circular do JL com caminhão) para sidebar e favicon — me avise se quer que eu faça essa separação ou se posso usar a mesma imagem em todos os lugares com `object-contain`.
+Os pedidos **Pendentes** que aparecem na imagem (Daniel Malaquias, Persio Izaltino, Wendell Fernandes, Heitor Montanha, Calebe duplicado às 13:26) são corretos — pedidos com PIX ainda não pago não geram envio até a confirmação, é o comportamento esperado.
+
+### O que peço para confirmar com o usuário
+
+Se ele insistir que algum pedido específico ainda está faltando no painel:
+- Pedir o **nome do cliente** ou **e-mail** do pedido que ele acredita estar ausente
+- Vou cruzar individualmente nas tabelas `pedidos` × `envios` × `webhook_logs` para identificar se foi um caso fora do padrão (ex.: webhook nunca chegou da plataforma de checkout)
+
+Sem mudanças em código ou banco para esta solicitação.
 
