@@ -21,10 +21,12 @@ interface CoinPackage {
 }
 
 const COIN_PACKAGES: CoinPackage[] = [
-    { moedas: 50, price_cents: 5000 },
-    { moedas: 100, price_cents: 10000, popular: true },
-    { moedas: 200, price_cents: 20000 },
+    { moedas: 100, price_cents: 10000 },
+    { moedas: 200, price_cents: 20000, popular: true },
     { moedas: 300, price_cents: 30000 },
+    { moedas: 400, price_cents: 40000 },
+    { moedas: 500, price_cents: 50000 },
+    { moedas: 1000, price_cents: 100000 },
 ];
 
 const calcBonus = (moedas: number) => Math.floor(moedas / 100) * 10;
