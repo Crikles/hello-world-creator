@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { SystemHealth } from "@/components/admin/SystemHealth";
+import { AnomalyMonitor } from "@/components/admin/AnomalyMonitor";
 
 export default function AdminDashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -211,6 +212,8 @@ export default function AdminDashboard() {
                 </Card>
               ))}
             </div>
+          {/* Anomaly Monitor — guards against regressions of the mass-advance bug */}
+          <AnomalyMonitor />
           {/* System Health */}
           <SystemHealth />
         </div>

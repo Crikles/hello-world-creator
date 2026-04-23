@@ -1377,16 +1377,30 @@ Deno.serve(async (req) => {
 
     console.log("Sending email from:", resendBody.from, "to:", recipientEmail);
 
-    const resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(resendBody),
-    });
+    // Resend free tier rate limit: 5 req/s. Retry on 429 with exponential backoff (max 4 tries).
+    let resendResponse: Response;
+    let resendData: any;
+    let attempt = 0;
+    const MAX_RETRIES = 4;
+    while (true) {
+      resendResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(resendBody),
+      });
+      resendData = await resendResponse.json().catch(() => ({}));
 
-    const resendData = await resendResponse.json();
+      if (resendResponse.status !== 429 || attempt >= MAX_RETRIES) break;
+
+      // Exponential backoff: 400ms, 800ms, 1600ms, 3200ms
+      const delayMs = 400 * Math.pow(2, attempt);
+      console.warn(`Resend 429 rate limit, retry ${attempt + 1}/${MAX_RETRIES} after ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      attempt++;
+    }
 
     if (!resendResponse.ok) {
       await supabase.from("postagem_email_log").insert({

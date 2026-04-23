@@ -276,12 +276,8 @@ Deno.serve(async (req) => {
         });
 
         if (!debited) {
-          console.error("[payment-confirmation] Insufficient credits for email");
-          await supabase.from("confirmacao_pagamento_log").insert({
-            loja_id, pedido_id, tipo: "email", status: "failed",
-            custo: 0, destinatario: pedido.customer_email,
-            error_reason: "Saldo insuficiente",
-          });
+          console.warn("[payment-confirmation] Insufficient credits for email — skipping log entry");
+          // Skip creating noisy "failed" log: it's an expected condition, not a bug
         } else {
           const subject = replaceTemplateVars(config.assunto_email, templateVars);
 
@@ -351,12 +347,8 @@ Deno.serve(async (req) => {
         });
 
         if (!debited) {
-          console.error("[payment-confirmation] Insufficient credits for SMS");
-          await supabase.from("confirmacao_pagamento_log").insert({
-            loja_id, pedido_id, tipo: "sms", status: "failed",
-            custo: 0, destinatario: pedido.customer_phone,
-            error_reason: "Saldo insuficiente",
-          });
+          console.warn("[payment-confirmation] Insufficient credits for SMS — skipping log entry");
+          // Skip creating noisy "failed" log: it's an expected condition, not a bug
         } else {
           const smsMessage = removeAccents(replaceTemplateVars(config.sms_template, templateVars));
           const phone = formatPhone(pedido.customer_phone);
