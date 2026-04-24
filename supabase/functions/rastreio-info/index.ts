@@ -97,6 +97,9 @@ Deno.serve(async (req) => {
                     // Filter out Taxação and Pago events unless taxação is active
                     // Filter out Falha Entrega events unless falha_entrega is active
                     eventos = allEvents.filter((e) => {
+                        if (e.nome === "Nota Fiscal Emitida") {
+                            return false;
+                        }
                         if (e.status_label === "Taxação" || e.status_label === "Pago") {
                             return config.ativar_taxacao;
                         }
