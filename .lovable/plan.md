@@ -1,34 +1,28 @@
+## Ocultar "Nota Fiscal Emitida" nos sites de rastreio público
 
+### Contexto
 
-## Diagnóstico: pedidos da loja Prime (negociosmilionarios1901@gmail.com)
+A Edge Function `rastreio-info` (usada pelas páginas públicas de rastreio JL e VETOR) retorna todos os eventos do template até a `ultimo_evento_ordem` do envio. O primeiro evento de todos os templates é **"Nota Fiscal Emitida"** (`ordem = 1`, `status_label = "Postado"`), e o usuário quer escondê-lo da timeline pública — mantendo apenas as etapas seguintes (Coletado, Encaminhado, Recebido, Em trânsito, etc.).
 
-### Resultado da investigação
+### Mudança
 
-Verifiquei a loja **Prime** (`8e2c6a4c-a7b5-491c-aa56-82377ea1d593`) do usuário `negociosmilionarios1901@gmail.com`:
+Adicionar um filtro na Edge Function `supabase/functions/rastreio-info/index.ts` que remove qualquer evento cujo `nome = 'Nota Fiscal Emitida'` da lista `eventos` retornada ao frontend, junto aos filtros já existentes (Taxação, Pago, Falha Entrega).
 
-| Métrica | Valor |
-|---|---|
-| Total de pedidos | 404 |
-| Pedidos pagos | 404 |
-| **Pedidos pagos órfãos (sem envio)** | **0** |
-| Total de envios | 415 |
+```ts
+eventos = allEvents.filter((e) => {
+  if (e.nome === "Nota Fiscal Emitida") return false; // novo
+  if (e.status_label === "Taxação" || e.status_label === "Pago") return config.ativar_taxacao;
+  if (e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") return config.ativar_falha_entrega;
+  return true;
+});
+```
 
-Cruzei também os 14 clientes visíveis na captura de tela (Simone Neres, Osmar Belmonte, Renata Flores, Fábio Bezerra, Diego Washington, Marcelo Vicente, Gabriel Souza, Calebe Silva Reis, Alan Silva, Ricardo Silva, Rosilene, Marta Alves, Eliane gomes, Wellington Araújo) — **todos os 14 já estão com `envio_id` preenchido** e aparecem no painel de Envios.
+### Escopo / impacto
 
-### Conclusão
+- **Afeta apenas** a exibição pública (rastreio.jltransportelogistica.com e vetortransportesltda.com) — o painel interno (Envios) e a lógica de avanço de etapas continuam considerando o evento normalmente.
+- **Não altera** o banco de dados nem os templates: o evento continua existindo, apenas não é exibido na timeline pública.
+- **Não interfere** em e-mails de NF-e nem na geração de DANFE.
 
-**Nenhuma ação adicional é necessária.** O usuário já foi atendido pelas correções anteriores:
+### Arquivo alterado
 
-1. **Patch da função `try_create_envio_dedupe`** (qualificação de colunas) — impede que novos pedidos sofram o bug de ambiguidade `42702`.
-2. **Recovery em massa de 68 pedidos órfãos** — varreu TODAS as lojas, incluindo a Prime, e sincronizou os pedidos pagos sem envio.
-
-Os pedidos **Pendentes** que aparecem na imagem (Daniel Malaquias, Persio Izaltino, Wendell Fernandes, Heitor Montanha, Calebe duplicado às 13:26) são corretos — pedidos com PIX ainda não pago não geram envio até a confirmação, é o comportamento esperado.
-
-### O que peço para confirmar com o usuário
-
-Se ele insistir que algum pedido específico ainda está faltando no painel:
-- Pedir o **nome do cliente** ou **e-mail** do pedido que ele acredita estar ausente
-- Vou cruzar individualmente nas tabelas `pedidos` × `envios` × `webhook_logs` para identificar se foi um caso fora do padrão (ex.: webhook nunca chegou da plataforma de checkout)
-
-Sem mudanças em código ou banco para esta solicitação.
-
+- `supabase/functions/rastreio-info/index.ts` — adicionar 1 linha no filtro.
