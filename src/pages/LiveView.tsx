@@ -197,7 +197,7 @@ export default function LiveView() {
             />
             <div className="relative">
               <Suspense fallback={<GlobeSkeleton />}>
-                <LogisticsGlobe markers={globeMarkers} />
+                <LogisticsGlobe markers={globeMarkers} arcs={globeArcs} />
               </Suspense>
             </div>
             <div className="absolute bottom-4 left-4 text-xs space-y-1.5 bg-zinc-950/70 backdrop-blur-sm border border-zinc-800 rounded-lg px-3 py-2">
