@@ -1,56 +1,40 @@
-## Plano — Globo CDN-Style adaptado ao nicho de logística
+## Plano — Corrigir Live View para registrar visitantes em tempo real
 
-Substituir o globo atual (`logistics-globe.tsx`) por uma nova versão baseada no `cobe-globe-cdn`, **adaptada à identidade do projeto** (preto/dourado, dark theme já usado no Live View) e com **terminologia do nicho de rastreio logístico** em vez de "req/s" e "iad1/sfo1".
+### Diagnóstico
 
-### Adaptações de conteúdo (vocabulário do nicho)
+Confirmei via banco e logs:
 
-Substituições para o que é mostrado nos labels do globo:
+1. A tabela `live_view_pings` existe, está com RLS correto (service_role escreve, dono da loja lê) e está no `supabase_realtime`.
+2. A edge function `rastreio-info` está sendo chamada normalmente (vários `booted` nos últimos minutos), porém **a tabela está vazia (0 linhas)**.
+3. O frontend (`Rastreio.tsx`) está enviando o `session_id` corretamente e fazendo heartbeat de 30s.
+4. O domínio `rastreio.jltransportelogistica.com` serve a SPA e abre `/r/:codigo` → componente correto. Sem proxy/redirect intermediário no caminho do cliente final.
 
-| Original (CDN) | Substituído por (Logística) |
-|---|---|
-| `iad1`, `sfo1`, `cdg1`, `hnd1`… (códigos de PoP) | Nome curto da cidade real do visitante (ex.: `São Paulo`, `Rio`, `Lisboa`, `Miami`) |
-| `420k req/s` (tráfego) | `N rastreios` ou `N visitantes` — número real de sessões ativas naquela cidade vindas do hook |
-| Markers fixos hardcoded | **Markers dinâmicos** vindos de `useLiveVisitorsRealtime` (já agregados por cidade) |
-| Arcs hardcoded entre PoPs | Arcs dinâmicos: origem da loja (cidade configurada em `postagem_config.cidade_origem`) → cada cidade visitante (top N) |
+**Causa raiz**: a função `recordLivePing` é chamada **sem `await`** (fire-and-forget com `.catch`). Em Deno/Edge Runtime, assim que a `Response` é retornada, o ambiente da request pode ser encerrado antes do `INSERT`/`UPDATE` chegar ao banco. Por isso nenhum ping persiste, mesmo a função sendo invocada.
 
-### Adaptação visual
+### Correção
 
-- **Tema escuro** (o template original é claro — vamos inverter): `dark: 1`, `baseColor: [0.1, 0.2, 0.4]`, `glowColor` azulado, `markerColor` esmeralda — mantendo a paleta atual do Live View.
-- **Cor dos arcs e markers**: dourado/esmeralda para combinar com o resto do app, em vez do preto puro do template.
-- Remover a animação de pirâmide rotativa (estética CDN/Vercel) e usar um **dot pulsante** simples, mais coerente com "visitante ativo".
-- Background transparente para se integrar com o card escuro já existente em `LiveView.tsx`.
+**`supabase/functions/rastreio-info/index.ts`**
 
-### Mudanças técnicas
+1. **Aguardar o ping antes de responder** (`await recordLivePing(...)`) — adiciona ~50–200 ms à página de rastreio, custo aceitável e garante gravação. Envolver em `try/catch` interno para nunca quebrar a resposta.
+2. **Aceitar o `session_id` também via header** (`x-lv-session`) como redundância (algumas redes podem podar query strings).
+3. **Logar `console.log` no início e no fim do `recordLivePing`** com `loja_id`, `session_id` e resultado (insert/update) para facilitar debug futuro.
+4. **Aumentar a robustez do upsert**: usar `upsert` com `onConflict: "session_id, codigo_rastreio"` (já existe um índice único `(session_id, COALESCE(codigo_rastreio, ''))`) em vez de SELECT-then-UPDATE/INSERT, eliminando race conditions e acelerando.
 
-1. **`src/components/ui/logistics-globe.tsx`** — reescrita:
-   - Migrar para a estrutura do `GlobeCdn` (drag/pause, anchor positioning para labels HTML sobre o canvas, `markers` + `arcs` props).
-   - Aceitar nova interface:
-     ```ts
-     interface LogisticsGlobeProps {
-       markers: { id: string; location: [number, number]; city: string; count: number }[];
-       arcs?:   { id: string; from: [number, number]; to: [number, number] }[];
-       className?: string;
-     }
-     ```
-   - Renderizar **labels HTML por cima do canvas** com:
-     - Nome da cidade (`São Paulo`)
-     - Contador (`3 rastreios` se >1, `1 visitante` se =1)
-   - Animação suave de fade/blur quando o marker rotaciona para fora da face visível (mesma técnica de CSS Anchor do template).
-   - Manter pause em `visibilitychange` (já existente).
+**`src/pages/Rastreio.tsx`**
 
-2. **`src/pages/LiveView.tsx`**:
-   - Adaptar o mapeamento `globeMarkers` para o novo formato (incluir `city` e `count`).
-   - Construir `arcs` opcionalmente: origem fixa (centro do Brasil ou cidade da loja, se disponível) → top 10 cidades de `markers`.
-   - Manter o card/layout atual sem mudanças.
+5. **Reduzir intervalo de heartbeat de 30s → 15s** para sensação mais "ao vivo" e mais resiliente a fechamentos rápidos. (Janela de "online" no hook continua 90s.)
+6. **Disparar um heartbeat extra ao voltar `visibilitychange` para visible**, para que minimizar/restaurar a aba reapareça imediatamente no Live View do lojista.
 
-3. **Dependência `cobe`** — já está instalada (usada hoje), nenhuma instalação nova.
-
-### Itens fora do escopo (não tocar)
-
-- Lógica de coleta de pings (`rastreio-info`, `live_view_pings`, RLS) — intacta.
-- Hook `useLiveVisitorsRealtime` — intacto, apenas o consumo dos `markers` muda.
-- Tabela de atividade, métricas e isolamento por loja — intactos.
+**`src/hooks/useLiveVisitorsRealtime.ts`** — sem mudanças. Já filtra por `loja_id` corretamente e tem Realtime + polling 5 s.
 
 ### Resultado esperado
 
-Globo escuro estilo Cobe/Vercel no card do Live View, girando suavemente, com **labels reais** flutuando sobre as cidades dos visitantes (ex.: "São Paulo · 4 rastreios"), arcs sutis ligando a origem da loja às cidades de destino, tudo alimentado em tempo real e isolado por loja.
+- Ao abrir `https://rastreio.jltransportelogistica.com/r/BR6ADAE3584DJL`, na primeira request o ping é gravado (await garantido) com `loja_id` derivado do `envios.codigo_rastreio = BR6ADAE3584DJL`.
+- O Live View da Loja Prime (dona desse envio) recebe o INSERT via Supabase Realtime em < 1 s e mostra o visitante na cidade detectada.
+- Mesma lógica funciona para `vetortransportesltda.com`, pois ambos os domínios apontam para a mesma SPA, que chama a mesma `rastreio-info` — a edge function descobre a loja pelo código de rastreio, não pelo domínio.
+
+### Itens fora do escopo
+
+- Lógica de RLS/multi-tenant (já correta).
+- Globo, métricas, tabela de atividade (já consomem o hook).
+- Identificação por slug "tracking_slug" — não aplicável, já usamos `codigo_rastreio` que cumpre exatamente esse papel e está vinculado ao `loja_id`.
