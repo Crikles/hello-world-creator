@@ -110,6 +110,27 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
 
       if (newOnes.length > 0) {
         onNewVisitorRef.current?.();
+
+        // Lookup customer names by tracking codes
+        const codes = Array.from(
+          new Set(newOnes.map((r) => r.codigo_rastreio).filter(Boolean) as string[]),
+        );
+        const nameMap = new Map<string, string>();
+        if (codes.length > 0) {
+          const { data: envios } = await supabase
+            .from("envios")
+            .select("codigo_rastreio, cliente_nome")
+            .eq("loja_id", lojaId)
+            .in("codigo_rastreio", codes);
+          if (envios) {
+            for (const e of envios as Array<{ codigo_rastreio: string; cliente_nome: string | null }>) {
+              if (e.codigo_rastreio && e.cliente_nome) {
+                nameMap.set(e.codigo_rastreio, e.cliente_nome);
+              }
+            }
+          }
+        }
+
         setRecentActivity((prev) => {
           const adds: RecentActivity[] = newOnes.map((r) => ({
             id: r.id,
@@ -117,6 +138,8 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
             country: r.pais || "—",
             countryCode: r.pais_codigo || "",
             trackingCode: r.codigo_rastreio || "—",
+            customerName:
+              (r.codigo_rastreio && nameMap.get(r.codigo_rastreio)) || "Cliente anônimo",
             status: "Visualizando rastreio",
             at: new Date(r.last_seen_at).getTime(),
           }));
