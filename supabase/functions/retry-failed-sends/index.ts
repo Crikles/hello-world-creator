@@ -309,23 +309,21 @@ async function processInBackground(opts: {
 
     const hasMore = entries.length > chunk.length || bailed;
     if (hasMore) {
-      // Self-rechain: invoke another instance to continue
+      // Self-rechain: invoke another instance to continue, but don't block this chunk waiting for the full chain.
       console.log(`[retry-failed-sends] rechaining execId=${execucaoId} done=${processados}/${totalReal}`);
-      try {
-        await fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceRoleKey}`,
-            "x-rechain": "1",
-          },
-          body: JSON.stringify({
-            __rechain: true,
-            execucao_id: execucaoId,
-            loja_ids: lojaIds,
-          }),
-        });
-      } catch (e) {
+      fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceRoleKey}`,
+          "x-rechain": "1",
+        },
+        body: JSON.stringify({
+          __rechain: true,
+          execucao_id: execucaoId,
+          loja_ids: lojaIds,
+        }),
+      }).catch(async (e) => {
         console.error("[retry-failed-sends] rechain dispatch failed:", e);
         await supabase
           .from("retry_execucoes")
@@ -335,7 +333,7 @@ async function processInBackground(opts: {
             updated_at: new Date().toISOString(),
           })
           .eq("id", execucaoId);
-      }
+      });
       return;
     }
 
