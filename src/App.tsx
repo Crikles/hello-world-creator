@@ -125,6 +125,14 @@ function PanelRoutes() {
           <Route path="whatsapp" element={<WhatsApp />} />
           <Route path="recuperacao" element={<RecuperacaoVendas />} />
           <Route path="confirmacao-pagamento" element={<ConfirmacaoPagamento />} />
+          <Route
+            path="live-view"
+            element={
+              <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Carregando Live View…</div>}>
+                <LiveView />
+              </Suspense>
+            }
+          />
         </Route>
         <Route
           path="/admin"
