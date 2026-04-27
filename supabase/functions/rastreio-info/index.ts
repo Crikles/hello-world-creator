@@ -26,19 +26,24 @@ async function recordLivePing(
     req: Request,
     args: LivePingArgs,
 ): Promise<void> {
+    console.log(`[live-ping] start loja=${args.lojaId} session=${args.sessionId.slice(0,8)} codigo=${args.codigoRastreio}`);
     // Try existing row first (UPSERT-like behavior keyed on session+codigo)
-    const { data: existing } = await supabase
+    const { data: existing, error: selErr } = await supabase
         .from("live_view_pings")
         .select("id")
         .eq("session_id", args.sessionId)
         .eq("codigo_rastreio", args.codigoRastreio)
         .maybeSingle();
 
+    if (selErr) console.error("[live-ping] select error:", selErr);
+
     if (existing?.id) {
-        await supabase
+        const { error: updErr } = await supabase
             .from("live_view_pings")
             .update({ last_seen_at: new Date().toISOString() })
             .eq("id", existing.id);
+        if (updErr) console.error("[live-ping] update error:", updErr);
+        else console.log(`[live-ping] heartbeat ok id=${existing.id}`);
         return;
     }
 
@@ -82,7 +87,7 @@ async function recordLivePing(
 
     const ua = (headers.get("user-agent") || "").slice(0, 200);
 
-    await supabase.from("live_view_pings").insert({
+    const { error: insErr } = await supabase.from("live_view_pings").insert({
         loja_id: args.lojaId,
         session_id: args.sessionId,
         codigo_rastreio: args.codigoRastreio,
@@ -94,6 +99,8 @@ async function recordLivePing(
         lng,
         user_agent: ua,
     });
+    if (insErr) console.error("[live-ping] insert error:", insErr);
+    else console.log(`[live-ping] insert ok cidade=${cidade} estado=${estado}`);
 }
 
 /**
@@ -112,7 +119,7 @@ Deno.serve(async (req) => {
     try {
         const url = new URL(req.url);
         const codigo = url.searchParams.get("codigo");
-        const sessionId = url.searchParams.get("session_id");
+        const sessionId = url.searchParams.get("session_id") || req.headers.get("x-lv-session");
 
         if (!codigo || codigo.trim().length < 3) {
             return new Response(
@@ -139,13 +146,18 @@ Deno.serve(async (req) => {
             );
         }
 
-        // Live View ping (best-effort, never breaks tracking response)
+        // Live View ping — awaited so the row is guaranteed to be persisted
+        // before the edge function shuts down. Wrapped to never break the response.
         if (sessionId && envio.loja_id) {
-            recordLivePing(supabase, req, {
-                lojaId: envio.loja_id,
-                sessionId: sessionId.slice(0, 64),
-                codigoRastreio: envio.codigo_rastreio || codigo.trim().toUpperCase(),
-            }).catch((e) => console.error("live ping failed:", e));
+            try {
+                await recordLivePing(supabase, req, {
+                    lojaId: envio.loja_id,
+                    sessionId: sessionId.slice(0, 64),
+                    codigoRastreio: envio.codigo_rastreio || codigo.trim().toUpperCase(),
+                });
+            } catch (e) {
+                console.error("[live-ping] failed:", e);
+            }
         }
 
         // 2. Fetch empresa
