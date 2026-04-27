@@ -31,6 +31,7 @@ Deno.serve(async (req) => {
     try {
         const url = new URL(req.url);
         const codigo = url.searchParams.get("codigo");
+        const sessionId = url.searchParams.get("session_id");
 
         if (!codigo || codigo.trim().length < 3) {
             return new Response(
