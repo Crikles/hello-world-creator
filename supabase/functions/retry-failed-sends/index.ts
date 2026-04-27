@@ -21,7 +21,7 @@ const SALDO_KEYWORDS = [
   "ratelimit",
   "429",
 ];
-const WINDOW_HOURS = 72;
+const WINDOW_HOURS = 24 * 30; // 30 dias — alinha com o que o painel mostra como "Pendentes"
 const MAX_RETRIES = 3;
 // Concorrência baixa para respeitar o limite de 5 req/s do provedor
 const CONCURRENCY = 3; // parallel dispatches per chunk
