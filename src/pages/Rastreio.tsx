@@ -164,26 +164,35 @@ export default function Rastreio() {
     const [customPrimaryColor, setCustomPrimaryColor] = useState<string | null>(null);
     const [ativarVizinho, setAtivarVizinho] = useState(true);
 
-    const fetchData = useCallback(async (trackingCode: string) => {
+    const fetchData = useCallback(async (trackingCode: string, isHeartbeat = false) => {
         if (!trackingCode || trackingCode.trim().length < 3) return;
-        setLoading(true);
-        setError(null);
+        if (!isHeartbeat) {
+            setLoading(true);
+            setError(null);
+        }
         try {
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            // Per-tab session id for Live View ping aggregation
+            let sessionId = sessionStorage.getItem("lv_session_id");
+            if (!sessionId) {
+                sessionId = crypto.randomUUID();
+                sessionStorage.setItem("lv_session_id", sessionId);
+            }
             const response = await fetch(
-                `${supabaseUrl}/functions/v1/rastreio-info?codigo=${encodeURIComponent(trackingCode.trim())}`,
+                `${supabaseUrl}/functions/v1/rastreio-info?codigo=${encodeURIComponent(trackingCode.trim())}&session_id=${sessionId}`,
                 {
                     method: "GET",
                     headers: { "Authorization": `Bearer ${anonKey}`, "apikey": anonKey },
                 }
             );
             if (!response.ok) {
+                if (isHeartbeat) return;
                 const errBody = await response.json().catch(() => ({}));
                 setError(errBody.error || "Código não identificado no sistema");
                 setEnvio(null);
                 setEventos([]);
-            } else {
+            } else if (!isHeartbeat) {
                 const result = await response.json();
                 setEnvio(result.envio || null);
                 setEmpresa(result.empresa || null);
@@ -195,10 +204,12 @@ export default function Rastreio() {
                 if (!result.envio) setError("Certifique-se de que o código está correto");
             }
         } catch {
-            setError("Ocorreu uma falha na conexão com os servidores");
+            if (!isHeartbeat) setError("Ocorreu uma falha na conexão com os servidores");
         } finally {
-            setLoading(false);
-            setSearched(true);
+            if (!isHeartbeat) {
+                setLoading(false);
+                setSearched(true);
+            }
         }
     }, []);
 
@@ -208,6 +219,18 @@ export default function Rastreio() {
             fetchData(codigoFromUrl);
         }
     }, [codigoFromUrl, fetchData]);
+
+    // Live View heartbeat — keeps the visitor "alive" while the tab is open
+    useEffect(() => {
+        const code = envio?.codigo_rastreio;
+        if (!code) return;
+        const id = setInterval(() => {
+            if (document.visibilityState === "visible") {
+                fetchData(code, true);
+            }
+        }, 30000);
+        return () => clearInterval(id);
+    }, [envio?.codigo_rastreio, fetchData]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
