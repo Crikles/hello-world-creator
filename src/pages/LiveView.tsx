@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
 import { Users, Package, Globe2, TrendingUp, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLoja } from "@/contexts/LojaContext";
 import { useLiveVisitorsRealtime } from "@/hooks/useLiveVisitorsRealtime";
 import { MetricCard } from "@/components/live-view/MetricCard";
 import { LiveActivityTable } from "@/components/live-view/LiveActivityTable";
