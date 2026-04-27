@@ -61,7 +61,7 @@ export function LiveActivityTable({ rows }: Props) {
                   >
                     <TableCell className="font-mono text-xs text-zinc-400">{timeAgo(r.at, now)}</TableCell>
                     <TableCell className="text-zinc-200 text-sm">
-                      {r.city}, <span className="text-zinc-500">{r.countryCode}</span>
+                      {r.customerName}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-blue-400">{r.trackingCode}</TableCell>
                     <TableCell>
