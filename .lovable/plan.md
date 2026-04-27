@@ -1,107 +1,56 @@
-# Live View — Isolamento por Loja
+## Plano — Globo CDN-Style adaptado ao nicho de logística
 
-Hoje a página exibe dados simulados que são iguais para todos. Vamos torná-la **real** e **multi-tenant**: cada lojista verá apenas os visitantes que estão consultando os links de rastreio das **suas próprias lojas**.
+Substituir o globo atual (`logistics-globe.tsx`) por uma nova versão baseada no `cobe-globe-cdn`, **adaptada à identidade do projeto** (preto/dourado, dark theme já usado no Live View) e com **terminologia do nicho de rastreio logístico** em vez de "req/s" e "iad1/sfo1".
 
-## Como funciona o rastreamento
+### Adaptações de conteúdo (vocabulário do nicho)
 
-Toda vez que alguém abre a página pública de rastreio (`/r/:codigo`), o frontend já chama a edge function `rastreio-info` para buscar os dados do envio. Vamos aproveitar essa chamada — que **já sabe** qual é a `loja_id` do código rastreado — para registrar um **"ping" de presença** numa nova tabela.
+Substituições para o que é mostrado nos labels do globo:
 
-```text
-Cliente final abre /r/BR123…JL
-          │
-          ▼
-   rastreio-info (edge function)
-          │
-          ├─► retorna dados (como hoje)
-          └─► INSERT em live_view_pings (loja_id, codigo, geo, session_id)
-```
+| Original (CDN) | Substituído por (Logística) |
+|---|---|
+| `iad1`, `sfo1`, `cdg1`, `hnd1`… (códigos de PoP) | Nome curto da cidade real do visitante (ex.: `São Paulo`, `Rio`, `Lisboa`, `Miami`) |
+| `420k req/s` (tráfego) | `N rastreios` ou `N visitantes` — número real de sessões ativas naquela cidade vindas do hook |
+| Markers fixos hardcoded | **Markers dinâmicos** vindos de `useLiveVisitorsRealtime` (já agregados por cidade) |
+| Arcs hardcoded entre PoPs | Arcs dinâmicos: origem da loja (cidade configurada em `postagem_config.cidade_origem`) → cada cidade visitante (top N) |
 
-A página Live View do lojista lê apenas pings da sua loja (RLS), agrupando por `session_id` e considerando "ativo" quem fez ping nos últimos 60 segundos.
+### Adaptação visual
 
-O frontend público envia um **heartbeat** a cada 30 s enquanto a aba fica aberta, para manter o visitante "vivo".
+- **Tema escuro** (o template original é claro — vamos inverter): `dark: 1`, `baseColor: [0.1, 0.2, 0.4]`, `glowColor` azulado, `markerColor` esmeralda — mantendo a paleta atual do Live View.
+- **Cor dos arcs e markers**: dourado/esmeralda para combinar com o resto do app, em vez do preto puro do template.
+- Remover a animação de pirâmide rotativa (estética CDN/Vercel) e usar um **dot pulsante** simples, mais coerente com "visitante ativo".
+- Background transparente para se integrar com o card escuro já existente em `LiveView.tsx`.
 
-## Banco de dados
+### Mudanças técnicas
 
-Nova tabela `live_view_pings`:
+1. **`src/components/ui/logistics-globe.tsx`** — reescrita:
+   - Migrar para a estrutura do `GlobeCdn` (drag/pause, anchor positioning para labels HTML sobre o canvas, `markers` + `arcs` props).
+   - Aceitar nova interface:
+     ```ts
+     interface LogisticsGlobeProps {
+       markers: { id: string; location: [number, number]; city: string; count: number }[];
+       arcs?:   { id: string; from: [number, number]; to: [number, number] }[];
+       className?: string;
+     }
+     ```
+   - Renderizar **labels HTML por cima do canvas** com:
+     - Nome da cidade (`São Paulo`)
+     - Contador (`3 rastreios` se >1, `1 visitante` se =1)
+   - Animação suave de fade/blur quando o marker rotaciona para fora da face visível (mesma técnica de CSS Anchor do template).
+   - Manter pause em `visibilitychange` (já existente).
 
-| coluna | tipo | nota |
-|---|---|---|
-| `id` | uuid PK | |
-| `loja_id` | uuid NOT NULL | filtro principal |
-| `session_id` | text NOT NULL | gerado no browser, dura a sessão da aba |
-| `codigo_rastreio` | text | código consultado |
-| `cidade` | text | via geo-IP (Cloudflare/Deno headers) |
-| `estado` | text | |
-| `pais` | text | |
-| `pais_codigo` | text(2) | "BR", "US"… |
-| `lat` | numeric | |
-| `lng` | numeric | |
-| `user_agent` | text | curto |
-| `last_seen_at` | timestamptz | atualizado a cada heartbeat |
-| `created_at` | timestamptz | primeira visita |
+2. **`src/pages/LiveView.tsx`**:
+   - Adaptar o mapeamento `globeMarkers` para o novo formato (incluir `city` e `count`).
+   - Construir `arcs` opcionalmente: origem fixa (centro do Brasil ou cidade da loja, se disponível) → top 10 cidades de `markers`.
+   - Manter o card/layout atual sem mudanças.
 
-**RLS:**
-- `service_role` → tudo (a edge function escreve)
-- Dono da loja (`user_owns_loja`) → SELECT
-- Sem INSERT/UPDATE direto do frontend autenticado
+3. **Dependência `cobe`** — já está instalada (usada hoje), nenhuma instalação nova.
 
-**Índices:** `(loja_id, last_seen_at DESC)`, `(session_id, codigo_rastreio)`.
+### Itens fora do escopo (não tocar)
 
-**Limpeza:** registros com `last_seen_at` > 24h podem ser apagados por uma rotina simples na edge function (best-effort, não cron) — mantém a tabela enxuta sem trabalho extra.
+- Lógica de coleta de pings (`rastreio-info`, `live_view_pings`, RLS) — intacta.
+- Hook `useLiveVisitorsRealtime` — intacto, apenas o consumo dos `markers` muda.
+- Tabela de atividade, métricas e isolamento por loja — intactos.
 
-## Geolocalização
+### Resultado esperado
 
-Sem dependências pagas. Usamos o que já vem nos headers da requisição:
-1. `cf-ipcountry`, `x-vercel-ip-country`, `x-vercel-ip-city`, `x-vercel-ip-latitude`, `x-vercel-ip-longitude` quando disponíveis.
-2. Fallback: `ipapi.co/{ip}/json/` (gratuito, ~1k req/dia — suficiente, e só rodamos no **primeiro ping** da sessão; heartbeats reusam o registro).
-3. Se nada funcionar: marcamos como "Desconhecido" sem coordenadas (visitante entra na contagem mas não no globo).
-
-## Edge function
-
-**Modificar `rastreio-info`** para também registrar o ping:
-- Recebe novo query param `session_id` (uuid gerado no client).
-- `UPSERT` por `(session_id, codigo_rastreio)`:
-  - se existe → atualiza `last_seen_at = now()`
-  - se não existe → resolve geo + insere
-- Falhas no ping **não** quebram a resposta de tracking (try/catch silencioso).
-
-## Frontend
-
-### Página pública de rastreio (`src/pages/Rastreio.tsx`)
-- Gera `session_id` no `sessionStorage` (uma vez por aba).
-- Envia `?codigo=…&session_id=…` na chamada inicial.
-- Inicia `setInterval` de **30 s** chamando `rastreio-info` (heartbeat) enquanto a aba está visível e o usuário está na página de rastreio.
-- Pausa quando `document.visibilityState !== 'visible'`.
-
-### Página Live View (`src/pages/LiveView.tsx`)
-- Substitui o hook `useLiveVisitors` (mock) por `useLiveVisitorsRealtime(lojaId)`:
-  - Busca pings da loja ativa onde `last_seen_at > now() - 60s`.
-  - Refetch a cada 5 s + assina canal Realtime de `live_view_pings` filtrando por `loja_id`.
-  - Agrega por cidade para os marcadores (mantém limite de 50).
-  - Mantém "Pico em 24h" via query separada (max simultâneo no dia).
-- Histórico (sparklines): usamos uma janela em memória dos últimos 30 snapshots (mesmo padrão atual).
-- Estado vazio bonito quando a loja ainda não tem visitas (em vez de mock).
-
-## Arquivos
-
-**Migração:**
-- Criar tabela `live_view_pings` + RLS + índices.
-- Habilitar `REPLICA IDENTITY FULL` e adicionar à `supabase_realtime`.
-
-**Editados:**
-- `supabase/functions/rastreio-info/index.ts` — registrar ping + geo.
-- `src/pages/Rastreio.tsx` — heartbeat + session_id.
-- `src/pages/LiveView.tsx` — usar hook real, passar `loja.id`.
-
-**Novos:**
-- `src/hooks/useLiveVisitorsRealtime.ts` — hook que lê do Supabase + Realtime.
-
-**Removível depois (mantido por ora como fallback se não houver dados):**
-- `src/hooks/useLiveVisitors.ts` — pode ser deletado quando confirmarmos que está tudo funcionando.
-
-## Privacidade & segurança
-
-- Não armazenamos IP cru, só cidade/país/coordenadas aproximadas.
-- `session_id` é aleatório, sem PII.
-- RLS garante que loja A nunca vê pings da loja B, nem mesmo via API.
-- Rate-limit natural: heartbeat de 30 s + UPSERT idempotente.
+Globo escuro estilo Cobe/Vercel no card do Live View, girando suavemente, com **labels reais** flutuando sobre as cidades dos visitantes (ex.: "São Paulo · 4 rastreios"), arcs sutis ligando a origem da loja às cidades de destino, tudo alimentado em tempo real e isolado por loja.
