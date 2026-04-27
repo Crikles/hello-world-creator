@@ -32,6 +32,7 @@ function playBeep() {
 }
 
 export default function LiveView() {
+  const { lojaId } = useParams<{ lojaId: string }>();
   const [paused, setPaused] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
   const soundRef = useRef(soundOn);
@@ -49,7 +50,8 @@ export default function LiveView() {
     countriesHistory,
     peakHistory,
     lastUpdateAt,
-  } = useLiveVisitors({
+  } = useLiveVisitorsRealtime({
+    lojaId,
     paused,
     onNewVisitor: () => {
       if (soundRef.current) playBeep();
