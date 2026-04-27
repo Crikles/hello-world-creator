@@ -309,23 +309,21 @@ async function processInBackground(opts: {
 
     const hasMore = entries.length > chunk.length || bailed;
     if (hasMore) {
-      // Self-rechain: invoke another instance to continue
+      // Self-rechain: invoke another instance to continue, but don't block this chunk waiting for the full chain.
       console.log(`[retry-failed-sends] rechaining execId=${execucaoId} done=${processados}/${totalReal}`);
-      try {
-        await fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceRoleKey}`,
-            "x-rechain": "1",
-          },
-          body: JSON.stringify({
-            __rechain: true,
-            execucao_id: execucaoId,
-            loja_ids: lojaIds,
-          }),
-        });
-      } catch (e) {
+      fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceRoleKey}`,
+          "x-rechain": "1",
+        },
+        body: JSON.stringify({
+          __rechain: true,
+          execucao_id: execucaoId,
+          loja_ids: lojaIds,
+        }),
+      }).catch(async (e) => {
         console.error("[retry-failed-sends] rechain dispatch failed:", e);
         await supabase
           .from("retry_execucoes")
@@ -335,7 +333,7 @@ async function processInBackground(opts: {
             updated_at: new Date().toISOString(),
           })
           .eq("id", execucaoId);
-      }
+      });
       return;
     }
 
@@ -400,12 +398,10 @@ Deno.serve(async (req) => {
     if ((body as any).__rechain && (body as any).execucao_id && Array.isArray((body as any).loja_ids)) {
       const execucaoId = (body as any).execucao_id as string;
       const lojaIdsR = (body as any).loja_ids as string[];
-      EdgeRuntime.waitUntil(
-        processInBackground({ supabaseUrl, serviceRoleKey, lojaIds: lojaIdsR, execucaoId }),
-      );
+      await processInBackground({ supabaseUrl, serviceRoleKey, lojaIds: lojaIdsR, execucaoId });
       return new Response(
         JSON.stringify({ success: true, rechained: true, execucao_id: execucaoId }),
-        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -550,14 +546,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    EdgeRuntime.waitUntil(
-      processInBackground({
-        supabaseUrl,
-        serviceRoleKey,
-        lojaIds,
-        execucaoId: execucao.id,
-      }),
-    );
+    await processInBackground({
+      supabaseUrl,
+      serviceRoleKey,
+      lojaIds,
+      execucaoId: execucao.id,
+    });
 
     console.log(
       `[retry-failed-sends] Aceito execId=${execucao.id} lojas=${lojaIds.length} pendentes=${queuedCount}`,
