@@ -58,6 +58,15 @@ Deno.serve(async (req) => {
             );
         }
 
+        // Live View ping (best-effort, never breaks tracking response)
+        if (sessionId && envio.loja_id) {
+            recordLivePing(supabase, req, {
+                lojaId: envio.loja_id,
+                sessionId: sessionId.slice(0, 64),
+                codigoRastreio: envio.codigo_rastreio || codigo.trim().toUpperCase(),
+            }).catch((e) => console.error("live ping failed:", e));
+        }
+
         // 2. Fetch empresa
         let empresa = null;
         if (envio.empresa_id) {
