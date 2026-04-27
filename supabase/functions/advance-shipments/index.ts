@@ -842,7 +842,7 @@ async function advanceShipment(
           // Fire-and-forget low-balance alert (throttled to 1x/24h inside the function)
           supabase.functions.invoke("low-balance-alert", {
             body: { user_id: lojaUserId },
-          }).catch((e) => console.error("low-balance-alert invoke failed:", e));
+          }).catch((e: unknown) => console.error("low-balance-alert invoke failed:", e));
           return false;
         }
         console.log(`Debited ${total} credits for envio ${envioId}`);
