@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { Users, Package, Globe2, TrendingUp, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Users, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLoja } from "@/contexts/LojaContext";
 import { useLiveVisitorsRealtime } from "@/hooks/useLiveVisitorsRealtime";
