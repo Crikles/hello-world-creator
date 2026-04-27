@@ -32,7 +32,11 @@ function playBeep() {
 }
 
 export default function LiveView() {
-  const { lojaId } = useParams<{ lojaId: string }>();
+  // Use loja from context (already validated by LojaProvider against the user's
+  // own stores via RLS). This guards against URL tampering: if the user
+  // changes :lojaId to another user's store, LojaProvider redirects to /lojas
+  // before we ever subscribe, and `loja` stays null in the meantime.
+  const { loja, loading: lojaLoading } = useLoja();
   const [paused, setPaused] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
   const soundRef = useRef(soundOn);
@@ -51,7 +55,7 @@ export default function LiveView() {
     peakHistory,
     lastUpdateAt,
   } = useLiveVisitorsRealtime({
-    lojaId,
+    lojaId: loja?.id ?? null,
     paused,
     onNewVisitor: () => {
       if (soundRef.current) playBeep();
