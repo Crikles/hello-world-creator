@@ -228,8 +228,17 @@ export default function Rastreio() {
             if (document.visibilityState === "visible") {
                 fetchData(code, true);
             }
-        }, 30000);
-        return () => clearInterval(id);
+        }, 15000);
+        const onVisible = () => {
+            if (document.visibilityState === "visible") {
+                fetchData(code, true);
+            }
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        return () => {
+            clearInterval(id);
+            document.removeEventListener("visibilitychange", onVisible);
+        };
     }, [envio?.codigo_rastreio, fetchData]);
 
     const handleSearch = (e: React.FormEvent) => {
