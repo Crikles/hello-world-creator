@@ -13,6 +13,7 @@ function maskName(name: string): string {
         if (p.length <= 2) return p[0] + "*";
         return p[0] + "*".repeat(p.length - 1);
     }).join(" ");
+}
 
 type LivePingArgs = {
     lojaId: string;
