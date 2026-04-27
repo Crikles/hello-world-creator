@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { RecentActivity } from "@/hooks/useLiveVisitors";
+import type { RecentActivity } from "@/hooks/useLiveVisitorsRealtime";
 
 interface Props {
   rows: RecentActivity[];
