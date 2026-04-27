@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -54,7 +55,10 @@ import Upsell from "./pages/Upsell";
 import RecuperacaoVendas from "./pages/RecuperacaoVendas";
 import ConfirmacaoPagamento from "./pages/ConfirmacaoPagamento";
 
+const LiveView = lazy(() => import("./pages/LiveView"));
+
 const queryClient = new QueryClient();
+
 
 function LojaLayoutWrapper() {
   return (
@@ -121,6 +125,14 @@ function PanelRoutes() {
           <Route path="whatsapp" element={<WhatsApp />} />
           <Route path="recuperacao" element={<RecuperacaoVendas />} />
           <Route path="confirmacao-pagamento" element={<ConfirmacaoPagamento />} />
+          <Route
+            path="live-view"
+            element={
+              <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Carregando Live View…</div>}>
+                <LiveView />
+              </Suspense>
+            }
+          />
         </Route>
         <Route
           path="/admin"
