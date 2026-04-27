@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
 import { Users, Package, Globe2, TrendingUp, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLoja } from "@/contexts/LojaContext";
 import { useLiveVisitorsRealtime } from "@/hooks/useLiveVisitorsRealtime";
 import { MetricCard } from "@/components/live-view/MetricCard";
 import { LiveActivityTable } from "@/components/live-view/LiveActivityTable";
@@ -32,7 +32,11 @@ function playBeep() {
 }
 
 export default function LiveView() {
-  const { lojaId } = useParams<{ lojaId: string }>();
+  // Use loja from context (already validated by LojaProvider against the user's
+  // own stores via RLS). This guards against URL tampering: if the user
+  // changes :lojaId to another user's store, LojaProvider redirects to /lojas
+  // before we ever subscribe, and `loja` stays null in the meantime.
+  const { loja, loading: lojaLoading } = useLoja();
   const [paused, setPaused] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
   const soundRef = useRef(soundOn);
@@ -51,7 +55,7 @@ export default function LiveView() {
     peakHistory,
     lastUpdateAt,
   } = useLiveVisitorsRealtime({
-    lojaId,
+    lojaId: loja?.id ?? null,
     paused,
     onNewVisitor: () => {
       if (soundRef.current) playBeep();
@@ -70,6 +74,16 @@ export default function LiveView() {
     location: m.location,
     size: Math.min(0.12, 0.04 + m.count * 0.012),
   }));
+
+  // Loja still being validated against the user's account — render nothing
+  // sensitive until LojaProvider confirms ownership (or redirects away).
+  if (lojaLoading || !loja) {
+    return (
+      <div className="min-h-full flex items-center justify-center text-sm text-muted-foreground">
+        Carregando Live View…
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-zinc-950 text-zinc-100 -m-6 p-6 md:-m-8 md:p-8">
