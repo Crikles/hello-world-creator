@@ -1,101 +1,107 @@
-# Live View — Painel de Visitantes em Tempo Real
+# Live View — Isolamento por Loja
 
-Página que mostra, em tempo real, quantos clientes finais estão consultando os links de rastreio do lojista, com globo 3D interativo e métricas vivas. Por enquanto usa **dados simulados** (mock), com interface pronta para trocar por WebSocket/Realtime no futuro.
+Hoje a página exibe dados simulados que são iguais para todos. Vamos torná-la **real** e **multi-tenant**: cada lojista verá apenas os visitantes que estão consultando os links de rastreio das **suas próprias lojas**.
 
-## Onde a página vive
+## Como funciona o rastreamento
 
-Para seguir o padrão multi-loja existente (todas as páginas operacionais ficam sob `/loja/:lojaId/...`), a rota será:
+Toda vez que alguém abre a página pública de rastreio (`/r/:codigo`), o frontend já chama a edge function `rastreio-info` para buscar os dados do envio. Vamos aproveitar essa chamada — que **já sabe** qual é a `loja_id` do código rastreado — para registrar um **"ping" de presença** numa nova tabela.
 
-- `/loja/:lojaId/live-view`
+```text
+Cliente final abre /r/BR123…JL
+          │
+          ▼
+   rastreio-info (edge function)
+          │
+          ├─► retorna dados (como hoje)
+          └─► INSERT em live_view_pings (loja_id, codigo, geo, session_id)
+```
 
-E aparecerá no menu lateral, dentro da seção **"Operações"**, com ícone `Activity` e label **"Live View"** — entre "Envios" e "Postagens".
+A página Live View do lojista lê apenas pings da sua loja (RLS), agrupando por `session_id` e considerando "ativo" quem fez ping nos últimos 60 segundos.
 
-> Observação: nada será adicionado fora do escopo da loja. Se quiser uma versão global futura, podemos discutir depois.
+O frontend público envia um **heartbeat** a cada 30 s enquanto a aba fica aberta, para manter o visitante "vivo".
 
-## Estrutura visual
+## Banco de dados
 
-### Header
-- Título "Live View" + ponto verde pulsante "AO VIVO"
-- Subtítulo: "Visitantes rastreando suas encomendas em tempo real"
-- Badge à direita: "Atualizado há Xs"
-- Botão "Pausar atualizações" (toggle)
-- Toggle de som (padrão DESLIGADO)
+Nova tabela `live_view_pings`:
 
-### Grid principal (responsivo)
-- **Desktop (≥1024px):** 40% métricas | 60% globo
-- **Tablet (768–1024px):** globo no topo, cards 2x2 abaixo
-- **Mobile (<768px):** tudo empilhado, globo `aspect-square`
+| coluna | tipo | nota |
+|---|---|---|
+| `id` | uuid PK | |
+| `loja_id` | uuid NOT NULL | filtro principal |
+| `session_id` | text NOT NULL | gerado no browser, dura a sessão da aba |
+| `codigo_rastreio` | text | código consultado |
+| `cidade` | text | via geo-IP (Cloudflare/Deno headers) |
+| `estado` | text | |
+| `pais` | text | |
+| `pais_codigo` | text(2) | "BR", "US"… |
+| `lat` | numeric | |
+| `lng` | numeric | |
+| `user_agent` | text | curto |
+| `last_seen_at` | timestamptz | atualizado a cada heartbeat |
+| `created_at` | timestamptz | primeira visita |
 
-### Coluna de métricas (4 cards)
-Cada card: fundo escuro com `backdrop-blur`, borda sutil, hover azul, número grande em `font-mono`, sparkline minimalista embaixo (recharts).
+**RLS:**
+- `service_role` → tudo (a edge function escreve)
+- Dono da loja (`user_owns_loja`) → SELECT
+- Sem INSERT/UPDATE direto do frontend autenticado
 
-1. **Visitantes Online Agora** — `Users`
-2. **Códigos Sendo Rastreados** — `Package`
-3. **Países Ativos** — `Globe2`
-4. **Pico nas Últimas 24h** — `TrendingUp`
+**Índices:** `(loja_id, last_seen_at DESC)`, `(session_id, codigo_rastreio)`.
 
-Números animam suavemente quando mudam (interpolação manual com `useEffect`/`requestAnimationFrame`, sem dependência nova).
+**Limpeza:** registros com `last_seen_at` > 24h podem ser apagados por uma rotina simples na edge function (best-effort, não cron) — mantém a tabela enxuta sem trabalho extra.
 
-### Globo 3D (centro)
-Componente `LogisticsGlobe` em `src/components/ui/logistics-globe.tsx`, usando a lib **`cobe`**:
-- Tema escuro, base azul-marinho, marcadores verde-neon, arcos azul claro
-- Drag para girar, auto-rotação 0.004, pausa ao interagir
-- Auto-resize via `ResizeObserver`, `devicePixelRatio` capado em 2
-- Recebe `markers` via props (lista de visitantes)
-- Lazy-loaded com `React.lazy` + `Suspense` (skeleton)
+## Geolocalização
 
-Legenda flutuante no canto inferior:
-- 🟢 Visitante ativo
-- 🔵 Rota de tráfego
+Sem dependências pagas. Usamos o que já vem nos headers da requisição:
+1. `cf-ipcountry`, `x-vercel-ip-country`, `x-vercel-ip-city`, `x-vercel-ip-latitude`, `x-vercel-ip-longitude` quando disponíveis.
+2. Fallback: `ipapi.co/{ip}/json/` (gratuito, ~1k req/dia — suficiente, e só rodamos no **primeiro ping** da sessão; heartbeats reusam o registro).
+3. Se nada funcionar: marcamos como "Desconhecido" sem coordenadas (visitante entra na contagem mas não no globo).
 
-### Tabela "Atividade ao Vivo" (abaixo do globo)
-- Últimas 20 entradas: Tempo | Localização | Código | Status | Ação
-- Linhas novas entram com fade-in/slide-down (Tailwind `animate-in`)
-- Linha mais recente com highlight verde que desbota em ~3s
-- Em mobile, vira cards empilhados
+## Edge function
 
-## Hook de dados (mock)
+**Modificar `rastreio-info`** para também registrar o ping:
+- Recebe novo query param `session_id` (uuid gerado no client).
+- `UPSERT` por `(session_id, codigo_rastreio)`:
+  - se existe → atualiza `last_seen_at = now()`
+  - se não existe → resolve geo + insere
+- Falhas no ping **não** quebram a resposta de tracking (try/catch silencioso).
 
-`src/hooks/useLiveVisitors.ts`:
-- Mantém entre 15–80 visitantes simultâneos
-- Adiciona/remove a cada 2–4s usando `setInterval`
-- Cidades sorteadas de uma lista fixa de hubs (10 BR + Miami + Lisboa)
-- Códigos fake `BR` + 9 dígitos
-- Throttle: no máximo um update a cada 2s
-- **Pausa quando `document.visibilityState !== 'visible'`** (listener no hook)
-- Suporta flag externa `paused` (botão "Pausar atualizações")
-- Retorna: `{ visitors, totalOnline, activeCountries, recentActivity, peak24h, lastUpdateAt }`
-- Limita a 50 marcadores no globo (agrega por cidade quando excede)
+## Frontend
 
-Interface estável para trocar por Supabase Realtime ou WebSocket depois sem mexer na UI.
+### Página pública de rastreio (`src/pages/Rastreio.tsx`)
+- Gera `session_id` no `sessionStorage` (uma vez por aba).
+- Envia `?codigo=…&session_id=…` na chamada inicial.
+- Inicia `setInterval` de **30 s** chamando `rastreio-info` (heartbeat) enquanto a aba está visível e o usuário está na página de rastreio.
+- Pausa quando `document.visibilityState !== 'visible'`.
 
-## Performance
-
-- Rota `/live-view` carregada via `React.lazy` (chunk separada) no `App.tsx`
-- Globo lazy + Suspense com skeleton
-- Sem Three.js / Mapbox / Leaflet — só `cobe` (~10kb)
-- Pausa total (animação + intervals) com aba oculta
-- Atualizações no máx. a cada 2s
+### Página Live View (`src/pages/LiveView.tsx`)
+- Substitui o hook `useLiveVisitors` (mock) por `useLiveVisitorsRealtime(lojaId)`:
+  - Busca pings da loja ativa onde `last_seen_at > now() - 60s`.
+  - Refetch a cada 5 s + assina canal Realtime de `live_view_pings` filtrando por `loja_id`.
+  - Agrega por cidade para os marcadores (mantém limite de 50).
+  - Mantém "Pico em 24h" via query separada (max simultâneo no dia).
+- Histórico (sparklines): usamos uma janela em memória dos últimos 30 snapshots (mesmo padrão atual).
+- Estado vazio bonito quando a loja ainda não tem visitas (em vez de mock).
 
 ## Arquivos
 
-**Novos:**
-- `src/pages/LiveView.tsx`
-- `src/components/ui/logistics-globe.tsx`
-- `src/components/live-view/MetricCard.tsx` (card + sparkline + counter animado)
-- `src/components/live-view/LiveActivityTable.tsx`
-- `src/hooks/useLiveVisitors.ts`
+**Migração:**
+- Criar tabela `live_view_pings` + RLS + índices.
+- Habilitar `REPLICA IDENTITY FULL` e adicionar à `supabase_realtime`.
 
 **Editados:**
-- `src/App.tsx` — adicionar `<Route path="live-view" element={<LiveView />} />` dentro de `/loja/:lojaId`, com `lazy()`
-- `src/components/layout/AppSidebar.tsx` — adicionar item "Live View" (`Activity`) na seção Operações
+- `supabase/functions/rastreio-info/index.ts` — registrar ping + geo.
+- `src/pages/Rastreio.tsx` — heartbeat + session_id.
+- `src/pages/LiveView.tsx` — usar hook real, passar `loja.id`.
 
-**Dependência nova:** `cobe`
+**Novos:**
+- `src/hooks/useLiveVisitorsRealtime.ts` — hook que lê do Supabase + Realtime.
 
-## Detalhes & restrições
+**Removível depois (mantido por ora como fallback se não houver dados):**
+- `src/hooks/useLiveVisitors.ts` — pode ser deletado quando confirmarmos que está tudo funcionando.
 
-- TypeScript estrito, componentes pequenos
-- Tema escuro (slate-950/zinc-900) com acentos azul (#3B82F6) e verde-neon (#10B981) **apenas dentro desta página** — não toca no tema global preto/dourado do sistema
-- Tooltips nos marcadores (cidade + contagem) via overlay HTML posicionado sobre o canvas (cálculo simples lat/lng → projeção 2D do `cobe`)
-- Sem backend / sem migrations — tudo client-side com mock
-- Sem som por padrão; quando ligado, usa um beep curto via `AudioContext` (sem arquivo externo)
+## Privacidade & segurança
+
+- Não armazenamos IP cru, só cidade/país/coordenadas aproximadas.
+- `session_id` é aleatório, sem PII.
+- RLS garante que loja A nunca vê pings da loja B, nem mesmo via API.
+- Rate-limit natural: heartbeat de 30 s + UPSERT idempotente.

@@ -15,6 +15,87 @@ function maskName(name: string): string {
     }).join(" ");
 }
 
+type LivePingArgs = {
+    lojaId: string;
+    sessionId: string;
+    codigoRastreio: string;
+};
+
+async function recordLivePing(
+    supabase: ReturnType<typeof createClient>,
+    req: Request,
+    args: LivePingArgs,
+): Promise<void> {
+    // Try existing row first (UPSERT-like behavior keyed on session+codigo)
+    const { data: existing } = await supabase
+        .from("live_view_pings")
+        .select("id")
+        .eq("session_id", args.sessionId)
+        .eq("codigo_rastreio", args.codigoRastreio)
+        .maybeSingle();
+
+    if (existing?.id) {
+        await supabase
+            .from("live_view_pings")
+            .update({ last_seen_at: new Date().toISOString() })
+            .eq("id", existing.id);
+        return;
+    }
+
+    // First ping for this session+codigo: resolve geolocation
+    const headers = req.headers;
+    const cfCountry = headers.get("cf-ipcountry") || headers.get("x-vercel-ip-country");
+    const cfCity = headers.get("x-vercel-ip-city") || headers.get("cf-ipcity");
+    const cfRegion = headers.get("x-vercel-ip-country-region") || headers.get("cf-region");
+    const cfLat = headers.get("x-vercel-ip-latitude") || headers.get("cf-iplatitude");
+    const cfLng = headers.get("x-vercel-ip-longitude") || headers.get("cf-iplongitude");
+
+    let cidade: string | null = cfCity ? decodeURIComponent(cfCity) : null;
+    let estado: string | null = cfRegion ? decodeURIComponent(cfRegion) : null;
+    let pais: string | null = null;
+    let paisCodigo: string | null = cfCountry || null;
+    let lat: number | null = cfLat ? parseFloat(cfLat) : null;
+    let lng: number | null = cfLng ? parseFloat(cfLng) : null;
+
+    // Fallback to ipapi.co (only on first ping)
+    if (!cidade || lat === null || lng === null) {
+        try {
+            const ip = (headers.get("x-forwarded-for") || "").split(",")[0].trim();
+            if (ip) {
+                const res = await fetch(`https://ipapi.co/${ip}/json/`, {
+                    signal: AbortSignal.timeout(2500),
+                });
+                if (res.ok) {
+                    const geo = await res.json();
+                    cidade = cidade || geo.city || null;
+                    estado = estado || geo.region || null;
+                    pais = geo.country_name || null;
+                    paisCodigo = paisCodigo || geo.country_code || null;
+                    lat = lat ?? (typeof geo.latitude === "number" ? geo.latitude : null);
+                    lng = lng ?? (typeof geo.longitude === "number" ? geo.longitude : null);
+                }
+            }
+        } catch {
+            /* swallow geo errors */
+        }
+    }
+
+    const ua = (headers.get("user-agent") || "").slice(0, 200);
+
+    await supabase.from("live_view_pings").insert({
+        loja_id: args.lojaId,
+        session_id: args.sessionId,
+        codigo_rastreio: args.codigoRastreio,
+        cidade,
+        estado,
+        pais,
+        pais_codigo: paisCodigo,
+        lat,
+        lng,
+        user_agent: ua,
+    });
+}
+
 /**
  * Public endpoint to fetch tracking data for a given codigo_rastreio.
  * No authentication required — accessed from the public tracking page.
@@ -31,6 +112,7 @@ Deno.serve(async (req) => {
     try {
         const url = new URL(req.url);
         const codigo = url.searchParams.get("codigo");
+        const sessionId = url.searchParams.get("session_id");
 
         if (!codigo || codigo.trim().length < 3) {
             return new Response(
@@ -55,6 +137,15 @@ Deno.serve(async (req) => {
                 JSON.stringify({ error: "Código de rastreio não encontrado" }),
                 { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
+        }
+
+        // Live View ping (best-effort, never breaks tracking response)
+        if (sessionId && envio.loja_id) {
+            recordLivePing(supabase, req, {
+                lojaId: envio.loja_id,
+                sessionId: sessionId.slice(0, 64),
+                codigoRastreio: envio.codigo_rastreio || codigo.trim().toUpperCase(),
+            }).catch((e) => console.error("live ping failed:", e));
         }
 
         // 2. Fetch empresa

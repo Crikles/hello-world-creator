@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import { Users, Package, Globe2, TrendingUp, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLiveVisitors } from "@/hooks/useLiveVisitors";
+import { useLiveVisitorsRealtime } from "@/hooks/useLiveVisitorsRealtime";
 import { MetricCard } from "@/components/live-view/MetricCard";
 import { LiveActivityTable } from "@/components/live-view/LiveActivityTable";
 
@@ -31,6 +32,7 @@ function playBeep() {
 }
 
 export default function LiveView() {
+  const { lojaId } = useParams<{ lojaId: string }>();
   const [paused, setPaused] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
   const soundRef = useRef(soundOn);
@@ -48,7 +50,8 @@ export default function LiveView() {
     countriesHistory,
     peakHistory,
     lastUpdateAt,
-  } = useLiveVisitors({
+  } = useLiveVisitorsRealtime({
+    lojaId,
     paused,
     onNewVisitor: () => {
       if (soundRef.current) playBeep();
@@ -192,7 +195,7 @@ export default function LiveView() {
         </div>
 
         <div className="mt-6 text-center text-[11px] text-zinc-600">
-          Dados de demonstração — em breve conectado ao tráfego real das suas páginas de rastreio.
+          Tráfego ao vivo das suas páginas públicas de rastreio · isolado por loja
         </div>
       </div>
     </div>

@@ -605,6 +605,54 @@ export type Database = {
           },
         ]
       }
+      live_view_pings: {
+        Row: {
+          cidade: string | null
+          codigo_rastreio: string | null
+          created_at: string
+          estado: string | null
+          id: string
+          last_seen_at: string
+          lat: number | null
+          lng: number | null
+          loja_id: string
+          pais: string | null
+          pais_codigo: string | null
+          session_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          codigo_rastreio?: string | null
+          created_at?: string
+          estado?: string | null
+          id?: string
+          last_seen_at?: string
+          lat?: number | null
+          lng?: number | null
+          loja_id: string
+          pais?: string | null
+          pais_codigo?: string | null
+          session_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          codigo_rastreio?: string | null
+          created_at?: string
+          estado?: string | null
+          id?: string
+          last_seen_at?: string
+          lat?: number | null
+          lng?: number | null
+          loja_id?: string
+          pais?: string | null
+          pais_codigo?: string | null
+          session_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       lojas: {
         Row: {
           created_at: string
