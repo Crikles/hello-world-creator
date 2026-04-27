@@ -70,10 +70,23 @@ export default function LiveView() {
     return () => clearInterval(id);
   }, [lastUpdateAt]);
 
-  const globeMarkers = markers.map((m) => ({
+  const globeMarkers = markers.map((m, i) => ({
+    id: `${m.city}-${i}`,
     location: m.location,
-    size: Math.min(0.12, 0.04 + m.count * 0.012),
+    city: m.city,
+    count: m.count,
   }));
+
+  // Build arcs from the busiest city to the next top cities, giving the globe
+  // a sense of "live traffic flow" between visitor hotspots.
+  const globeArcs =
+    globeMarkers.length > 1
+      ? globeMarkers.slice(1, 8).map((m, i) => ({
+          id: `arc-${i}`,
+          from: globeMarkers[0].location,
+          to: m.location,
+        }))
+      : [];
 
   // Loja still being validated against the user's account — render nothing
   // sensitive until LojaProvider confirms ownership (or redirects away).
@@ -184,7 +197,7 @@ export default function LiveView() {
             />
             <div className="relative">
               <Suspense fallback={<GlobeSkeleton />}>
-                <LogisticsGlobe markers={globeMarkers} />
+                <LogisticsGlobe markers={globeMarkers} arcs={globeArcs} />
               </Suspense>
             </div>
             <div className="absolute bottom-4 left-4 text-xs space-y-1.5 bg-zinc-950/70 backdrop-blur-sm border border-zinc-800 rounded-lg px-3 py-2">
