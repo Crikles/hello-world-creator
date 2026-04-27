@@ -13,6 +13,7 @@ export interface RecentActivity {
   country: string;
   countryCode: string;
   trackingCode: string;
+  customerName: string;
   status: string;
   at: number;
 }
