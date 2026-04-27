@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
         // 3. Log transaction
         await supabase.from("creditos_transacoes").insert({
           user_id: payment.user_id,
-          tipo: "recarga_pix",
+          tipo: "adicao",
           quantidade: payment.moedas,
           descricao: `Recarga via PIX - R$ ${(payment.amount_cents / 100).toFixed(2)} - ${payment.moedas} moedas`,
         });
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
 
             await supabase.from("creditos_transacoes").insert({
               user_id: buyerProfile.referred_by,
-              tipo: "comissao_indicacao",
+              tipo: "adicao",
               quantidade: commission,
               descricao: `Comissão de indicação - ${commission} moedas (10%)`,
             });

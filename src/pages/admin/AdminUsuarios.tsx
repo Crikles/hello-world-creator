@@ -345,7 +345,7 @@ export default function AdminUsuarios() {
       const defaultDesc = action === "adicionar" ? "Adicionado pelo admin" : "Removido pelo admin";
       const { error: insertErr } = await supabase.from("creditos_transacoes").insert({
         user_id: userId,
-        tipo: action === "adicionar" ? "adicao" : "remocao",
+        tipo: action === "adicionar" ? "adicao" : "consumo",
         quantidade: qty,
         descricao: desc || defaultDesc,
         admin_id: user!.id,
