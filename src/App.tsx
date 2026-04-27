@@ -55,7 +55,8 @@ import Upsell from "./pages/Upsell";
 import RecuperacaoVendas from "./pages/RecuperacaoVendas";
 import ConfirmacaoPagamento from "./pages/ConfirmacaoPagamento";
 
-const queryClient = new QueryClient();
+const LiveView = lazy(() => import("./pages/LiveView"));
+
 
 function LojaLayoutWrapper() {
   return (
