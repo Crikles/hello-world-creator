@@ -155,33 +155,12 @@ export default function LiveView() {
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Metrics column */}
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="lg:col-span-2 grid grid-cols-1 gap-4">
             <MetricCard
               label="Visitantes Online"
               value={totalOnline}
               icon={Users}
               history={visitorsHistory}
-              accent="green"
-            />
-            <MetricCard
-              label="Códigos Rastreados"
-              value={trackingCodesCount}
-              icon={Package}
-              history={trackingHistory}
-              accent="blue"
-            />
-            <MetricCard
-              label="Países Ativos"
-              value={activeCountries}
-              icon={Globe2}
-              history={countriesHistory}
-              accent="blue"
-            />
-            <MetricCard
-              label="Pico em 24h"
-              value={peak24h}
-              icon={TrendingUp}
-              history={peakHistory}
               accent="green"
             />
           </div>
