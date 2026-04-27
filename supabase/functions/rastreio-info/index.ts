@@ -119,7 +119,26 @@ Deno.serve(async (req) => {
     try {
         const url = new URL(req.url);
         const codigo = url.searchParams.get("codigo");
-        const sessionId = url.searchParams.get("session_id") || req.headers.get("x-lv-session");
+        let sessionId = url.searchParams.get("session_id") || req.headers.get("x-lv-session");
+
+        // Fallback: if the (possibly old) public build does not send a session_id,
+        // derive a stable one from IP + User-Agent + day so the visitor still
+        // appears in the Live View. Live build still has priority with its own UUID.
+        if (!sessionId) {
+            try {
+                const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "0.0.0.0";
+                const ua = req.headers.get("user-agent") || "unknown";
+                const day = new Date().toISOString().slice(0, 10);
+                const buf = new TextEncoder().encode(`${ip}|${ua}|${day}`);
+                const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+                const hex = Array.from(new Uint8Array(hashBuf))
+                    .map((b) => b.toString(16).padStart(2, "0"))
+                    .join("");
+                sessionId = "auto:" + hex.slice(0, 32);
+            } catch (e) {
+                console.error("[live-ping] fallback sessionId failed:", e);
+            }
+        }
 
         if (!codigo || codigo.trim().length < 3) {
             return new Response(

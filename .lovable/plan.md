@@ -1,40 +1,41 @@
-## Plano — Corrigir Live View para registrar visitantes em tempo real
+## Diagnóstico
 
-### Diagnóstico
+Confirmei que o backend e o Live View estão funcionando corretamente — o problema é que **o site publicado em `rastreio.jltransportelogistica.com` ainda está servindo uma versão antiga do `Rastreio.tsx` que não envia o `session_id` ao chamar `rastreio-info`**.
 
-Confirmei via banco e logs:
+Evidência:
+- Requisição real do site: `GET .../rastreio-info?codigo=BR6ADAE3584DJL` (sem `session_id`).
+- Código atual no repo já envia `&session_id=...`, mas a publicação não foi refeita.
+- Testei a Edge Function diretamente passando `session_id` → ela inseriu o ping em `live_view_pings` e o Live View passaria a exibi-lo.
 
-1. A tabela `live_view_pings` existe, está com RLS correto (service_role escreve, dono da loja lê) e está no `supabase_realtime`.
-2. A edge function `rastreio-info` está sendo chamada normalmente (vários `booted` nos últimos minutos), porém **a tabela está vazia (0 linhas)**.
-3. O frontend (`Rastreio.tsx`) está enviando o `session_id` corretamente e fazendo heartbeat de 30s.
-4. O domínio `rastreio.jltransportelogistica.com` serve a SPA e abre `/r/:codigo` → componente correto. Sem proxy/redirect intermediário no caminho do cliente final.
+A Edge Function exige `session_id` para registrar visitante, então enquanto o site público não for republicado, nada aparece no painel.
 
-**Causa raiz**: a função `recordLivePing` é chamada **sem `await`** (fire-and-forget com `.catch`). Em Deno/Edge Runtime, assim que a `Response` é retornada, o ambiente da request pode ser encerrado antes do `INSERT`/`UPDATE` chegar ao banco. Por isso nenhum ping persiste, mesmo a função sendo invocada.
+## Plano
 
-### Correção
+Tornar o sistema robusto para nunca mais depender da republicação do frontend:
 
-**`supabase/functions/rastreio-info/index.ts`**
+1. **`supabase/functions/rastreio-info/index.ts`** — gerar um `session_id` automático no servidor quando o cliente não enviar (fallback baseado em IP + User-Agent + dia, com hash). Assim, mesmo o build antigo registra o visitante. Quando o cliente moderno enviar `session_id`, ele continua tendo prioridade (sessões mais precisas por aba). Manter o `await` já existente.
 
-1. **Aguardar o ping antes de responder** (`await recordLivePing(...)`) — adiciona ~50–200 ms à página de rastreio, custo aceitável e garante gravação. Envolver em `try/catch` interno para nunca quebrar a resposta.
-2. **Aceitar o `session_id` também via header** (`x-lv-session`) como redundância (algumas redes podem podar query strings).
-3. **Logar `console.log` no início e no fim do `recordLivePing`** com `loja_id`, `session_id` e resultado (insert/update) para facilitar debug futuro.
-4. **Aumentar a robustez do upsert**: usar `upsert` com `onConflict: "session_id, codigo_rastreio"` (já existe um índice único `(session_id, COALESCE(codigo_rastreio, ''))`) em vez de SELECT-then-UPDATE/INSERT, eliminando race conditions e acelerando.
+2. **`src/pages/Rastreio.tsx`** — sem mudanças funcionais, só garantir que o `session_id` continue sendo enviado (já está). Adicionar fallback de envio também via header `x-lv-session` (já suportado no backend) para casos em que algum proxy strip a query string.
 
-**`src/pages/Rastreio.tsx`**
+3. **Republicar** o app após as mudanças para que o `rastreio.jltransportelogistica.com` passe a usar o `Rastreio.tsx` atualizado (com heartbeat de 15s + session_id). Isso é feito clicando em "Publish" no topo direito do editor.
 
-5. **Reduzir intervalo de heartbeat de 30s → 15s** para sensação mais "ao vivo" e mais resiliente a fechamentos rápidos. (Janela de "online" no hook continua 90s.)
-6. **Disparar um heartbeat extra ao voltar `visibilitychange` para visible**, para que minimizar/restaurar a aba reapareça imediatamente no Live View do lojista.
+## Resultado esperado
 
-**`src/hooks/useLiveVisitorsRealtime.ts`** — sem mudanças. Já filtra por `loja_id` corretamente e tem Realtime + polling 5 s.
+- Mesmo um cliente acessando o site **publicado antigo**, o ping é registrado no servidor (sessão deduzida por IP+UA).
+- Após a republicação, cada aba do cliente passa a ter um `session_id` próprio + heartbeat de 15s, mostrando o visitante imediatamente no Live View da loja correta.
+- Funciona tanto para `rastreio.jltransportelogistica.com` quanto para `vetortransportesltda.com` — a identificação da loja vem do `codigo_rastreio`, não do domínio.
 
-### Resultado esperado
+## Detalhes técnicos
 
-- Ao abrir `https://rastreio.jltransportelogistica.com/r/BR6ADAE3584DJL`, na primeira request o ping é gravado (await garantido) com `loja_id` derivado do `envios.codigo_rastreio = BR6ADAE3584DJL`.
-- O Live View da Loja Prime (dona desse envio) recebe o INSERT via Supabase Realtime em < 1 s e mostra o visitante na cidade detectada.
-- Mesma lógica funciona para `vetortransportesltda.com`, pois ambos os domínios apontam para a mesma SPA, que chama a mesma `rastreio-info` — a edge function descobre a loja pelo código de rastreio, não pelo domínio.
+```ts
+// rastreio-info: fallback de session_id
+const fallbackSession = sessionId || (
+  "auto:" + await sha256(
+    (req.headers.get("x-forwarded-for") || "") +
+    (req.headers.get("user-agent") || "") +
+    new Date().toISOString().slice(0, 10) // bucket diário
+  ).then(h => h.slice(0, 32))
+);
+```
 
-### Itens fora do escopo
-
-- Lógica de RLS/multi-tenant (já correta).
-- Globo, métricas, tabela de atividade (já consomem o hook).
-- Identificação por slug "tracking_slug" — não aplicável, já usamos `codigo_rastreio` que cumpre exatamente esse papel e está vinculado ao `loja_id`.
+Sem mudanças de schema, RLS ou realtime — tudo isso já está correto.
