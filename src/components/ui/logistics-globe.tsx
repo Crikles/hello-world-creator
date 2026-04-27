@@ -52,7 +52,8 @@ export default function LogisticsGlobe({ markers = [], className }: LogisticsGlo
       markerColor: [0.06, 0.72, 0.51],
       glowColor: [0.3, 0.4, 0.6],
       markers: markers.length > 0 ? markers : [{ location: [0, 0], size: 0 }],
-      onRender: (state) => {
+      // onRender is a runtime callback supported by cobe but missing from its v2 types
+      onRender: (state: Record<string, number>) => {
         if (!visible) return;
         if (pointerInteracting.current === null) {
           phi += 0.004;
@@ -62,7 +63,7 @@ export default function LogisticsGlobe({ markers = [], className }: LogisticsGlo
         state.width = widthRef.current * 2;
         state.height = widthRef.current * 2;
       },
-    });
+    } as Parameters<typeof createGlobe>[1]);
 
     // Fade in
     requestAnimationFrame(() => {
