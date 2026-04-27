@@ -57,6 +57,8 @@ import ConfirmacaoPagamento from "./pages/ConfirmacaoPagamento";
 
 const LiveView = lazy(() => import("./pages/LiveView"));
 
+const queryClient = new QueryClient();
+
 
 function LojaLayoutWrapper() {
   return (
