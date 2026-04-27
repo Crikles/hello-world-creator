@@ -546,38 +546,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const kickoffResponse = await fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceRoleKey}`,
-        "x-rechain": "1",
-      },
-      body: JSON.stringify({
-        __rechain: true,
-        execucao_id: execucao.id,
-        loja_ids: lojaIds,
-      }),
+    await processInBackground({
+      supabaseUrl,
+      serviceRoleKey,
+      lojaIds,
+      execucaoId: execucao.id,
     });
-
-    if (!kickoffResponse.ok) {
-      const kickoffText = await kickoffResponse.text().catch(() => "");
-      console.error("[retry-failed-sends] kickoff failed:", kickoffResponse.status, kickoffText);
-      await supabase
-        .from("retry_execucoes")
-        .update({
-          status: "error",
-          finished_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          mensagem: `Falha ao iniciar reenvio (${kickoffResponse.status}). Tente novamente.`,
-        })
-        .eq("id", execucao.id);
-
-      return new Response(
-        JSON.stringify({ error: "Não foi possível iniciar o processamento do reenvio" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
 
     console.log(
       `[retry-failed-sends] Aceito execId=${execucao.id} lojas=${lojaIds.length} pendentes=${queuedCount}`,
