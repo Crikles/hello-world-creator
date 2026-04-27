@@ -36,7 +36,7 @@ export function LiveActivityTable({ rows }: Props) {
           <TableHeader>
             <TableRow className="border-zinc-800 hover:bg-transparent">
               <TableHead className="text-zinc-500 text-xs uppercase">Tempo</TableHead>
-              <TableHead className="text-zinc-500 text-xs uppercase">Localização</TableHead>
+              <TableHead className="text-zinc-500 text-xs uppercase">Cliente</TableHead>
               <TableHead className="text-zinc-500 text-xs uppercase">Código</TableHead>
               <TableHead className="text-zinc-500 text-xs uppercase">Status</TableHead>
               <TableHead className="text-zinc-500 text-xs uppercase">Ação</TableHead>
