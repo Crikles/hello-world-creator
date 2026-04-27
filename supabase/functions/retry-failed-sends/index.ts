@@ -400,12 +400,10 @@ Deno.serve(async (req) => {
     if ((body as any).__rechain && (body as any).execucao_id && Array.isArray((body as any).loja_ids)) {
       const execucaoId = (body as any).execucao_id as string;
       const lojaIdsR = (body as any).loja_ids as string[];
-      EdgeRuntime.waitUntil(
-        processInBackground({ supabaseUrl, serviceRoleKey, lojaIds: lojaIdsR, execucaoId }),
-      );
+      await processInBackground({ supabaseUrl, serviceRoleKey, lojaIds: lojaIdsR, execucaoId });
       return new Response(
         JSON.stringify({ success: true, rechained: true, execucao_id: execucaoId }),
-        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -550,14 +548,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    EdgeRuntime.waitUntil(
-      processInBackground({
-        supabaseUrl,
-        serviceRoleKey,
-        lojaIds,
-        execucaoId: execucao.id,
+    const kickoffResponse = await fetch(`${supabaseUrl}/functions/v1/retry-failed-sends`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "x-rechain": "1",
+      },
+      body: JSON.stringify({
+        __rechain: true,
+        execucao_id: execucao.id,
+        loja_ids: lojaIds,
       }),
-    );
+    });
+
+    if (!kickoffResponse.ok) {
+      const kickoffText = await kickoffResponse.text().catch(() => "");
+      console.error("[retry-failed-sends] kickoff failed:", kickoffResponse.status, kickoffText);
+      await supabase
+        .from("retry_execucoes")
+        .update({
+          status: "error",
+          finished_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          mensagem: `Falha ao iniciar reenvio (${kickoffResponse.status}). Tente novamente.`,
+        })
+        .eq("id", execucao.id);
+
+      return new Response(
+        JSON.stringify({ error: "Não foi possível iniciar o processamento do reenvio" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     console.log(
       `[retry-failed-sends] Aceito execId=${execucao.id} lojas=${lojaIds.length} pendentes=${queuedCount}`,
