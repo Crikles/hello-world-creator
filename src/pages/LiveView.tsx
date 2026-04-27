@@ -75,6 +75,16 @@ export default function LiveView() {
     size: Math.min(0.12, 0.04 + m.count * 0.012),
   }));
 
+  // Loja still being validated against the user's account — render nothing
+  // sensitive until LojaProvider confirms ownership (or redirects away).
+  if (lojaLoading || !loja) {
+    return (
+      <div className="min-h-full flex items-center justify-center text-sm text-muted-foreground">
+        Carregando Live View…
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full bg-zinc-950 text-zinc-100 -m-6 p-6 md:-m-8 md:p-8">
       <div
