@@ -195,7 +195,7 @@ export default function LiveView() {
         </div>
 
         <div className="mt-6 text-center text-[11px] text-zinc-600">
-          Dados de demonstração — em breve conectado ao tráfego real das suas páginas de rastreio.
+          Tráfego ao vivo das suas páginas públicas de rastreio · isolado por loja
         </div>
       </div>
     </div>
