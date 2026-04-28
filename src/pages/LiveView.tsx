@@ -175,7 +175,7 @@ export default function LiveView() {
           >
             <div className="relative">
               <Suspense fallback={<GlobeSkeleton />}>
-                <LogisticsGlobe markers={globeMarkers} arcs={globeArcs} />
+                <LogisticsGlobe markers={globeMarkers} arcs={globeArcs} speed={0.0008} />
               </Suspense>
             </div>
             <div className="absolute bottom-4 left-4 text-xs space-y-1.5 bg-zinc-900/70 backdrop-blur-sm border border-zinc-700/60 rounded-lg px-3 py-2 text-zinc-300">
