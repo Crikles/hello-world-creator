@@ -14,9 +14,27 @@ function GlobeSkeleton() {
   );
 }
 
+// AudioContext precisa ser criado/retomado dentro de um gesto do usuário,
+// então mantemos uma instância única ativada no primeiro clique de "Som".
+let sharedAudioCtx: AudioContext | null = null;
+function ensureAudioCtx() {
+  if (!sharedAudioCtx) {
+    try {
+      sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch {
+      return null;
+    }
+  }
+  if (sharedAudioCtx.state === "suspended") {
+    sharedAudioCtx.resume().catch(() => {});
+  }
+  return sharedAudioCtx;
+}
+
 function playBeep() {
+  const ctx = sharedAudioCtx;
+  if (!ctx || ctx.state !== "running") return;
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.type = "sine";
@@ -25,7 +43,6 @@ function playBeep() {
     o.connect(g).connect(ctx.destination);
     o.start();
     o.stop(ctx.currentTime + 0.08);
-    setTimeout(() => ctx.close(), 200);
   } catch {
     /* noop */
   }
