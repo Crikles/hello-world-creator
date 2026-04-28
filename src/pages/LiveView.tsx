@@ -99,7 +99,7 @@ export default function LiveView() {
   }
 
   return (
-    <div className="min-h-full bg-zinc-950 text-zinc-100 -m-6 p-6 md:-m-8 md:p-8">
+    <div className="min-h-full bg-zinc-950 text-zinc-100">
       <div
         className="absolute inset-0 pointer-events-none opacity-40"
         style={{
