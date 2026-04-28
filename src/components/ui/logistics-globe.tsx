@@ -127,9 +127,9 @@ export default function LogisticsGlobe({
 
     let globe: ReturnType<typeof createGlobe> | null = null;
     let animationId = 0;
-    // Center Brazil (~-50° longitude) on the visible face of the globe.
-    // Projection uses sin(lng + phi) where center = 0, so phi = -lng = +0.87 rad (~50°).
-    let phi = 0.87;
+    // Começa centrado no Atlântico para mostrar América + Europa/África,
+    // mas a rotação contínua revela todos os continentes.
+    let phi = 0;
 
     // We render the marker bubble in HTML on top of the globe so it stays
     // visually attached to the badge. We still pass a tiny invisible marker
