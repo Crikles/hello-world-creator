@@ -265,7 +265,6 @@ export default function LogisticsGlobe({
           width: "100%",
           height: "100%",
           cursor: "grab",
-          contain: "layout paint size",
           opacity: 0,
           transition: "opacity 0.6s ease",
         }}
