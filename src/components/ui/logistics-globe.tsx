@@ -80,7 +80,7 @@ export default function LogisticsGlobe({
 
     const safeMarkers =
       markers.length > 0
-        ? markers.map((m) => ({ location: m.location, size: 0.04 }))
+        ? markers.map((m) => ({ location: m.location, size: 0.08 }))
         : [{ location: [0, 0] as [number, number], size: 0 }];
 
     function init() {
@@ -94,12 +94,12 @@ export default function LogisticsGlobe({
         phi: 0,
         theta: 0.2,
         dark: 0,
-        diffuse: 1.5,
+        diffuse: 1.2,
         mapSamples: 16000,
-        mapBrightness: 10,
-        baseColor: [0.95, 0.95, 0.95],
-        markerColor: [0.9, 0.2, 0.2],
-        glowColor: [0.94, 0.93, 0.91],
+        mapBrightness: 6,
+        baseColor: [0.92, 0.92, 0.94],
+        markerColor: [1, 0.23, 0.19],
+        glowColor: [0.6, 0.65, 0.75],
         markers: safeMarkers,
       } as Parameters<typeof createGlobe>[1]);
 
