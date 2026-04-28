@@ -166,23 +166,29 @@ export default function LiveView() {
           </div>
 
           {/* Globe column */}
-          <div className="lg:col-span-3 relative rounded-2xl border border-zinc-800 bg-zinc-50 p-4 md:p-6 overflow-hidden">
+          <div
+            className="lg:col-span-3 relative rounded-2xl border border-zinc-800 p-4 md:p-6 overflow-hidden"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, #1a2332 0%, #0b1220 70%, #060a14 100%)",
+            }}
+          >
             <div className="relative">
               <Suspense fallback={<GlobeSkeleton />}>
                 <LogisticsGlobe markers={globeMarkers} arcs={globeArcs} />
               </Suspense>
             </div>
-            <div className="absolute bottom-4 left-4 text-xs space-y-1.5 bg-white/80 backdrop-blur-sm border border-zinc-200 rounded-lg px-3 py-2 text-zinc-700">
+            <div className="absolute bottom-4 left-4 text-xs space-y-1.5 bg-zinc-900/70 backdrop-blur-sm border border-zinc-700/60 rounded-lg px-3 py-2 text-zinc-300">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-zinc-900" />
+                <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]" />
                 Visitante ativo
               </div>
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-zinc-500" />
+                <span className="h-2 w-2 rounded-full bg-zinc-400" />
                 Rota de tráfego
               </div>
             </div>
-            <div className="absolute top-4 right-4 text-[10px] uppercase tracking-wider text-zinc-500 font-mono">
+            <div className="absolute top-4 right-4 text-[10px] uppercase tracking-wider text-zinc-400 font-mono">
               {markers.length} cidades · {totalOnline} sessões
             </div>
           </div>
