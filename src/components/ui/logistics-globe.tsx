@@ -23,7 +23,6 @@ interface LogisticsGlobeProps {
 
 export default function LogisticsGlobe({
   markers = [],
-  arcs = [],
   className,
   speed = 0.003,
 }: LogisticsGlobeProps) {
@@ -76,27 +75,22 @@ export default function LogisticsGlobe({
     if (!canvas) return;
 
     let globe: ReturnType<typeof createGlobe> | null = null;
-    let visible = true;
+    let animationId = 0;
+    let phi = 0;
 
-    const onVis = () => {
-      visible = document.visibilityState === "visible";
-    };
-    document.addEventListener("visibilitychange", onVis);
+    const safeMarkers =
+      markers.length > 0
+        ? markers.map((m) => ({ location: m.location, size: 0.04 }))
+        : [{ location: [0, 0] as [number, number], size: 0 }];
 
     function init() {
       const width = canvas!.offsetWidth;
       if (width === 0 || globe) return;
 
-      // Always pass at least one marker so cobe initializes correctly.
-      const safeMarkers =
-        markers.length > 0
-          ? markers.map((m) => ({ location: m.location, size: 0.04 }))
-          : [{ location: [0, 0] as [number, number], size: 0 }];
-
       globe = createGlobe(canvas!, {
         devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-        width,
-        height: width,
+        width: width * 2,
+        height: width * 2,
         phi: 0,
         theta: 0.2,
         dark: 0,
@@ -107,25 +101,23 @@ export default function LogisticsGlobe({
         markerColor: [0.9, 0.2, 0.2],
         glowColor: [0.94, 0.93, 0.91],
         markers: safeMarkers,
-        ...(arcs.length
-          ? ({
-              arcs: arcs.map((a) => ({ from: a.from, to: a.to })),
-              arcColor: [0.9, 0.3, 0.3],
-              arcWidth: 0.5,
-              arcHeight: 0.25,
-              opacity: 0.7,
-            } as Record<string, unknown>)
-          : {}),
-        onRender: (state: Record<string, number>) => {
-          if (!visible) return;
-          if (!isPausedRef.current) phiRef.current += speed;
-          state.phi = phiRef.current + phiOffsetRef.current + dragOffset.current.phi;
-          state.theta = 0.2 + thetaOffsetRef.current + dragOffset.current.theta;
-        },
       } as Parameters<typeof createGlobe>[1]);
 
+      function animate() {
+        if (!isPausedRef.current && document.visibilityState === "visible") {
+          phi += speed;
+        }
+        phiRef.current = phi + phiOffsetRef.current + dragOffset.current.phi;
+        globe!.update?.({
+          phi: phiRef.current,
+          theta: 0.2 + thetaOffsetRef.current + dragOffset.current.theta,
+        } as never);
+        animationId = requestAnimationFrame(animate);
+      }
+      animate();
+
       requestAnimationFrame(() => {
-        canvas!.style.opacity = "1";
+        if (canvas) canvas.style.opacity = "1";
       });
     }
 
@@ -142,13 +134,12 @@ export default function LogisticsGlobe({
     }
 
     return () => {
+      if (animationId) cancelAnimationFrame(animationId);
       if (globe) globe.destroy();
-      document.removeEventListener("visibilitychange", onVis);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     JSON.stringify(markers.map((m) => [m.id, ...m.location])),
-    JSON.stringify(arcs.map((a) => [a.id, ...a.from, ...a.to])),
     speed,
   ]);
 
@@ -163,7 +154,7 @@ export default function LogisticsGlobe({
         const cx = size / 2;
         const cy = size / 2;
         const r = size / 2;
-        const currentPhi = phiRef.current + phiOffsetRef.current + dragOffset.current.phi;
+        const currentPhi = phiRef.current;
         const currentTheta = 0.2 + thetaOffsetRef.current + dragOffset.current.theta;
 
         const markerEls = layer.querySelectorAll<HTMLElement>("[data-marker-id]");
@@ -241,7 +232,6 @@ export default function LogisticsGlobe({
           cursor: "grab",
           opacity: 0,
           transition: "opacity 0.6s ease",
-          contain: "layout paint",
         }}
       />
       <div
