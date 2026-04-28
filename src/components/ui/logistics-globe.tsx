@@ -83,7 +83,7 @@ export default function LogisticsGlobe({
   const isPausedRef = useRef(false);
   const phiRef = useRef(0);
   const displayMarkers = useMemo(
-    () => markers.map((marker) => ({ ...marker, location: getRandomBrazilLocation(marker.id) })),
+    () => markers.map((marker) => ({ ...marker, location: getScatteredLocation(marker.id) })),
     [markers],
   );
 
