@@ -352,15 +352,25 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
   for (const p of pings) {
     const location = resolveMarkerLocation(p);
     const hasPreciseGeo = p.lat != null && p.lng != null;
+    // Prefer the customer's city stored on the envio over the IP-derived ping city.
+    const envioInfo = p.codigo_rastreio ? envioCityMap[p.codigo_rastreio] : undefined;
+    const customerCity = envioInfo?.city?.trim() || null;
+    const customerState = envioInfo?.state?.trim() || null;
+    const cityLabel =
+      (customerCity
+        ? customerState
+          ? `${customerCity} - ${customerState}`
+          : customerCity
+        : null) || resolveMarkerLabel(p);
     const key = hasPreciseGeo
-      ? p.cidade || `${location[0].toFixed(2)},${location[1].toFixed(2)}`
+      ? customerCity || p.cidade || `${location[0].toFixed(2)},${location[1].toFixed(2)}`
       : `session:${p.session_id}:${p.codigo_rastreio || "sem-codigo"}`;
     const existing = markersMap.get(key);
     if (existing) {
       existing.count += 1;
     } else {
       markersMap.set(key, {
-        city: resolveMarkerLabel(p),
+        city: cityLabel,
         location,
         count: 1,
       });
