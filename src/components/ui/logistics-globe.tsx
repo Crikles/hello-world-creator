@@ -234,14 +234,13 @@ export default function LogisticsGlobe({
     transition: "opacity 0.25s ease, filter 0.25s ease",
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
     fontSize: "0.65rem",
-    color: "hsl(var(--foreground))",
-    background: "hsl(var(--background) / 0.85)",
-    border: "1px solid hsl(var(--border))",
+    color: "#fff",
+    background: "#000",
+    border: "none",
     padding: "3px 8px",
-    borderRadius: 6,
+    borderRadius: 4,
     whiteSpace: "nowrap",
-    boxShadow: "0 4px 14px hsl(var(--background) / 0.6)",
-    backdropFilter: "blur(6px)",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
   };
 
   return (
