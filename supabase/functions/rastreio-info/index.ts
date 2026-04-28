@@ -21,6 +21,81 @@ type LivePingArgs = {
     codigoRastreio: string;
 };
 
+const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
+    BR: [-14.235, -51.9253],
+    US: [39.8283, -98.5795],
+    CA: [56.1304, -106.3468],
+    MX: [23.6345, -102.5528],
+    AR: [-38.4161, -63.6167],
+    CL: [-35.6751, -71.543],
+    CO: [4.5709, -74.2973],
+    PE: [-9.19, -75.0152],
+    PT: [39.3999, -8.2245],
+    ES: [40.4637, -3.7492],
+    FR: [46.2276, 2.2137],
+    DE: [51.1657, 10.4515],
+    IT: [41.8719, 12.5674],
+    GB: [55.3781, -3.436],
+    AU: [-25.2744, 133.7751],
+    JP: [36.2048, 138.2529],
+};
+
+const BRAZIL_FALLBACK_POINTS: [number, number][] = [
+    [-23.5505, -46.6333],
+    [-22.9068, -43.1729],
+    [-19.9167, -43.9345],
+    [-15.7801, -47.9292],
+    [-12.9777, -38.5016],
+    [-8.0476, -34.877],
+    [-3.7319, -38.5267],
+    [-25.4296, -49.2719],
+    [-30.0346, -51.2177],
+    [-3.119, -60.0217],
+];
+
+function hashString(value: string): number {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i += 1) {
+        hash ^= value.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+}
+
+function fallbackCoordinates(sessionId: string, codigoRastreio: string, paisCodigo: string | null): [number, number] {
+    const code = (paisCodigo || "").toUpperCase();
+    const seed = hashString(`${sessionId}|${codigoRastreio}|${code}`);
+
+    if (code === "BR") {
+        const base = BRAZIL_FALLBACK_POINTS[seed % BRAZIL_FALLBACK_POINTS.length];
+        const latJitter = (((seed >> 8) % 1000) / 1000 - 0.5) * 1.8;
+        const lngJitter = (((seed >> 18) % 1000) / 1000 - 0.5) * 2.4;
+        return [
+            clamp(base[0] + latJitter, -33.75, 5.3),
+            clamp(base[1] + lngJitter, -73.99, -34.79),
+        ];
+    }
+
+    const centroid = COUNTRY_CENTROIDS[code];
+    if (centroid) {
+        const latJitter = (((seed >> 8) % 1000) / 1000 - 0.5) * 6;
+        const lngJitter = (((seed >> 18) % 1000) / 1000 - 0.5) * 8;
+        return [
+            clamp(centroid[0] + latJitter, -60, 75),
+            clamp(centroid[1] + lngJitter, -180, 180),
+        ];
+    }
+
+    return [
+        clamp((((seed >> 6) % 1300) / 10) - 55, -55, 75),
+        clamp((((seed >> 17) % 3600) / 10) - 180, -180, 180),
+    ];
+}
+
 async function recordLivePing(
     supabase: ReturnType<typeof createClient>,
     req: Request,
@@ -83,6 +158,10 @@ async function recordLivePing(
         } catch {
             /* swallow geo errors */
         }
+    }
+
+    if (lat === null || lng === null) {
+        [lat, lng] = fallbackCoordinates(args.sessionId, args.codigoRastreio, paisCodigo);
     }
 
     const ua = (headers.get("user-agent") || "").slice(0, 200);
