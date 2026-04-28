@@ -510,9 +510,7 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
                     <TableHead>Cliente</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Telefone</TableHead>
-                    <TableHead className="text-center">Email</TableHead>
-                    <TableHead className="text-center">SMS</TableHead>
-                    <TableHead>Custo</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                     <TableHead>Data</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -527,9 +525,9 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{g.email || "—"}</TableCell>
                       <TableCell className="text-xs font-mono text-muted-foreground">{g.telefone || "—"}</TableCell>
-                      <TableCell className="text-center"><StatusBadge status={g.email_status} type="email" /></TableCell>
-                      <TableCell className="text-center"><StatusBadge status={g.sms_status} type="sms" /></TableCell>
-                      <TableCell>{Number(g.custo_total || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-center">
+                        <UnifiedStatusBadge status={getUnifiedStatus(g.email_status, g.sms_status)} />
+                      </TableCell>
                       <TableCell className="text-xs">{format(new Date(g.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
                     </TableRow>
                   ))}
