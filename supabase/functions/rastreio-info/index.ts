@@ -87,7 +87,7 @@ async function recordLivePing(
 
     const ua = (headers.get("user-agent") || "").slice(0, 200);
 
-    const { error: insErr } = await supabase.from("live_view_pings").insert({
+    const { error: insErr } = await supabase.from("live_view_pings").upsert({
         loja_id: args.lojaId,
         session_id: args.sessionId,
         codigo_rastreio: args.codigoRastreio,
@@ -98,9 +98,10 @@ async function recordLivePing(
         lat,
         lng,
         user_agent: ua,
-    });
-    if (insErr) console.error("[live-ping] insert error:", insErr);
-    else console.log(`[live-ping] insert ok cidade=${cidade} estado=${estado}`);
+        last_seen_at: new Date().toISOString(),
+    }, { onConflict: "loja_id,session_id,codigo_rastreio" });
+    if (insErr) console.error("[live-ping] upsert error:", insErr);
+    else console.log(`[live-ping] upsert ok cidade=${cidade} estado=${estado}`);
 }
 
 /**
