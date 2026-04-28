@@ -377,15 +377,23 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
 
   useEffect(() => { setPage(1); }, [debouncedSearch, dateFilter, statusFilter]);
 
-  const StatusBadge = ({ status, type }: { status: string; type: "email" | "sms" }) => {
-    const icon = type === "email" ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />;
+  // Unified status: prioritize email; fall back to SMS only when email wasn't attempted
+  const getUnifiedStatus = (emailStatus: string, smsStatus: string): "sent" | "failed" | "none" => {
+    if (emailStatus === "sent") return "sent";
+    if (emailStatus === "failed") return "failed";
+    if (smsStatus === "sent") return "sent";
+    if (smsStatus === "failed") return "failed";
+    return "none";
+  };
+
+  const UnifiedStatusBadge = ({ status }: { status: "sent" | "failed" | "none" }) => {
     if (status === "sent") return (
-      <Badge className="bg-green-500/10 text-green-600 gap-1">{icon} <CheckCircle2 className="h-3 w-3" /></Badge>
+      <Badge className="bg-green-500/10 text-green-600 gap-1"><CheckCircle2 className="h-3 w-3" /> Enviado</Badge>
     );
     if (status === "failed") return (
-      <Badge variant="destructive" className="gap-1">{icon} <XCircle className="h-3 w-3" /></Badge>
+      <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Falha</Badge>
     );
-    return <Badge variant="outline" className="gap-1 opacity-40">{icon} —</Badge>;
+    return <Badge variant="outline" className="gap-1 opacity-40">—</Badge>;
   };
 
   return (
