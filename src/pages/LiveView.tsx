@@ -148,24 +148,6 @@ export default function LiveView() {
             <span className="text-xs text-zinc-500 font-mono px-3 py-1.5 rounded-full border border-zinc-800 bg-zinc-900/50">
               Atualizado há {secsAgo}s
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSoundOn((s) => !s)}
-              className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-zinc-100 text-zinc-300"
-            >
-              {soundOn ? <Volume2 className="h-4 w-4 mr-1.5" /> : <VolumeX className="h-4 w-4 mr-1.5" />}
-              Som {soundOn ? "Ligado" : "Desligado"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPaused((p) => !p)}
-              className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-zinc-100 text-zinc-300"
-            >
-              {paused ? <Play className="h-4 w-4 mr-1.5" /> : <Pause className="h-4 w-4 mr-1.5" />}
-              {paused ? "Retomar" : "Pausar"}
-            </Button>
           </div>
         </div>
 
@@ -180,6 +162,50 @@ export default function LiveView() {
               history={visitorsHistory}
               accent="green"
             />
+
+            {/* Controls card — preenche o espaço vazio abaixo do contador */}
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 backdrop-blur-md p-5">
+              <div className="text-zinc-400 text-xs uppercase tracking-wider font-medium mb-3">
+                Controles
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSoundOn((s) => {
+                      const next = !s;
+                      if (next) {
+                        // ativa o AudioContext no gesto do usuário e dá um beep de confirmação
+                        ensureAudioCtx();
+                        setTimeout(playBeep, 50);
+                      }
+                      return next;
+                    });
+                  }}
+                  className="justify-start border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-zinc-100 text-zinc-300"
+                >
+                  {soundOn ? <Volume2 className="h-4 w-4 mr-2" /> : <VolumeX className="h-4 w-4 mr-2" />}
+                  Som {soundOn ? "Ligado" : "Desligado"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPaused((p) => !p)}
+                  className="justify-start border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-zinc-100 text-zinc-300"
+                >
+                  {paused ? <Play className="h-4 w-4 mr-2" /> : <Pause className="h-4 w-4 mr-2" />}
+                  {paused ? "Retomar atualizações" : "Pausar atualizações"}
+                </Button>
+              </div>
+              <p className="mt-3 text-[11px] text-zinc-500 leading-relaxed">
+                {paused
+                  ? "Atualizações em tempo real pausadas."
+                  : soundOn
+                  ? "Você ouvirá um beep a cada novo visitante."
+                  : "Ative o som para receber alertas sonoros."}
+              </p>
+            </div>
           </div>
 
           {/* Globe column */}
