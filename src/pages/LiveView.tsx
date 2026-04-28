@@ -70,8 +70,8 @@ export default function LiveView() {
     return () => clearInterval(id);
   }, [lastUpdateAt]);
 
-  const globeMarkers = markers.map((m, i) => ({
-    id: `${m.city}-${i}`,
+  const globeMarkers = markers.map((m) => ({
+    id: m.city, // estável por cidade — mesma cidade = mesma posição entre updates
     location: m.location,
     city: m.city,
     count: m.count,
