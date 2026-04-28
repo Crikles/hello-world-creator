@@ -76,13 +76,9 @@ export default function LogisticsGlobe({
 
     let globe: ReturnType<typeof createGlobe> | null = null;
     let animationId = 0;
-    // Start rotated so Brazil (~-50° longitude) is centered on the visible face.
-    // In cobe, the visible meridian is at longitude = -phi (radians).
-    // To center longitude -50°, set phi = +50° ≈ 0.87 — but cobe's phi adds to lng,
-    // so to bring lng=-50 to center (lng+phi=0) we need phi = +0.87.
-    // Empirically the previous attempt put Brazil on the LEFT edge, meaning the
-    // globe needs MORE rotation to bring Brazil to center: phi ≈ -0.87.
-    let phi = -0.87;
+    // Center Brazil (~-50° longitude) on the visible face of the globe.
+    // Projection uses sin(lng + phi) where center = 0, so phi = -lng = +0.87 rad (~50°).
+    let phi = 0.87;
 
     // We render the marker bubble in HTML on top of the globe so it stays
     // visually attached to the badge. We still pass a tiny invisible marker
