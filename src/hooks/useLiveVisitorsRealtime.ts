@@ -166,6 +166,9 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [peak24h, setPeak24h] = useState(0);
   const [lastUpdateAt, setLastUpdateAt] = useState(Date.now());
+  // Cache codigo_rastreio -> cidade do cliente (do envio) para enriquecer
+  // o badge do globo quando o ping não vem com cidade resolvida.
+  const [envioCityMap, setEnvioCityMap] = useState<Record<string, { city: string | null; state: string | null; name: string | null }>>({});
 
   const [visitorsHistory, setVisitorsHistory] = useState<number[]>(
     () => Array(HISTORY_LENGTH).fill(0),
@@ -226,38 +229,61 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
       if (newOnes.length > 0) {
         onNewVisitorRef.current?.();
 
-        // Lookup customer names by tracking codes
+        // Lookup customer name + cidade by tracking codes
         const codes = Array.from(
           new Set(newOnes.map((r) => r.codigo_rastreio).filter(Boolean) as string[]),
         );
         const nameMap = new Map<string, string>();
+        const cityMap = new Map<string, { city: string | null; state: string | null; name: string | null }>();
         if (codes.length > 0) {
           const { data: envios } = await supabase
             .from("envios")
-            .select("codigo_rastreio, cliente_nome")
+            .select("codigo_rastreio, cliente_nome, cliente_cidade, cliente_estado")
             .eq("loja_id", lojaId)
             .in("codigo_rastreio", codes);
           if (envios) {
-            for (const e of envios as Array<{ codigo_rastreio: string; cliente_nome: string | null }>) {
-              if (e.codigo_rastreio && e.cliente_nome) {
-                nameMap.set(e.codigo_rastreio, e.cliente_nome);
-              }
+            for (const e of envios as Array<{
+              codigo_rastreio: string;
+              cliente_nome: string | null;
+              cliente_cidade: string | null;
+              cliente_estado: string | null;
+            }>) {
+              if (!e.codigo_rastreio) continue;
+              if (e.cliente_nome) nameMap.set(e.codigo_rastreio, e.cliente_nome);
+              cityMap.set(e.codigo_rastreio, {
+                city: e.cliente_cidade,
+                state: e.cliente_estado,
+                name: e.cliente_nome,
+              });
+            }
+            if (cityMap.size > 0) {
+              setEnvioCityMap((prev) => {
+                const next = { ...prev };
+                cityMap.forEach((value, code) => {
+                  next[code] = value;
+                });
+                return next;
+              });
             }
           }
         }
 
         setRecentActivity((prev) => {
-          const adds: RecentActivity[] = newOnes.map((r) => ({
-            id: r.id,
-            city: r.cidade || "Localização desconhecida",
-            country: r.pais || "—",
-            countryCode: r.pais_codigo || "",
-            trackingCode: r.codigo_rastreio || "—",
-            customerName:
-              (r.codigo_rastreio && nameMap.get(r.codigo_rastreio)) || "Cliente anônimo",
-            status: "Visualizando rastreio",
-            at: new Date(r.last_seen_at).getTime(),
-          }));
+          const adds: RecentActivity[] = newOnes.map((r) => {
+            const envioInfo = r.codigo_rastreio ? cityMap.get(r.codigo_rastreio) : undefined;
+            const displayCity = envioInfo?.city || r.cidade || "Localização desconhecida";
+            return {
+              id: r.id,
+              city: displayCity,
+              country: r.pais || "—",
+              countryCode: r.pais_codigo || "",
+              trackingCode: r.codigo_rastreio || "—",
+              customerName:
+                (r.codigo_rastreio && nameMap.get(r.codigo_rastreio)) || "Cliente anônimo",
+              status: "Visualizando rastreio",
+              at: new Date(r.last_seen_at).getTime(),
+            };
+          });
           return [...adds, ...prev].slice(0, 30);
         });
       }
@@ -326,15 +352,25 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
   for (const p of pings) {
     const location = resolveMarkerLocation(p);
     const hasPreciseGeo = p.lat != null && p.lng != null;
+    // Prefer the customer's city stored on the envio over the IP-derived ping city.
+    const envioInfo = p.codigo_rastreio ? envioCityMap[p.codigo_rastreio] : undefined;
+    const customerCity = envioInfo?.city?.trim() || null;
+    const customerState = envioInfo?.state?.trim() || null;
+    const cityLabel =
+      (customerCity
+        ? customerState
+          ? `${customerCity} - ${customerState}`
+          : customerCity
+        : null) || resolveMarkerLabel(p);
     const key = hasPreciseGeo
-      ? p.cidade || `${location[0].toFixed(2)},${location[1].toFixed(2)}`
+      ? customerCity || p.cidade || `${location[0].toFixed(2)},${location[1].toFixed(2)}`
       : `session:${p.session_id}:${p.codigo_rastreio || "sem-codigo"}`;
     const existing = markersMap.get(key);
     if (existing) {
       existing.count += 1;
     } else {
       markersMap.set(key, {
-        city: resolveMarkerLabel(p),
+        city: cityLabel,
         location,
         count: 1,
       });

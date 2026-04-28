@@ -1,41 +1,26 @@
-## Diagnóstico
-
-Confirmei que o backend e o Live View estão funcionando corretamente — o problema é que **o site publicado em `rastreio.jltransportelogistica.com` ainda está servindo uma versão antiga do `Rastreio.tsx` que não envia o `session_id` ao chamar `rastreio-info`**.
-
-Evidência:
-- Requisição real do site: `GET .../rastreio-info?codigo=BR6ADAE3584DJL` (sem `session_id`).
-- Código atual no repo já envia `&session_id=...`, mas a publicação não foi refeita.
-- Testei a Edge Function diretamente passando `session_id` → ela inseriu o ping em `live_view_pings` e o Live View passaria a exibi-lo.
-
-A Edge Function exige `session_id` para registrar visitante, então enquanto o site público não for republicado, nada aparece no painel.
-
 ## Plano
 
-Tornar o sistema robusto para nunca mais depender da republicação do frontend:
-
-1. **`supabase/functions/rastreio-info/index.ts`** — gerar um `session_id` automático no servidor quando o cliente não enviar (fallback baseado em IP + User-Agent + dia, com hash). Assim, mesmo o build antigo registra o visitante. Quando o cliente moderno enviar `session_id`, ele continua tendo prioridade (sessões mais precisas por aba). Manter o `await` já existente.
-
-2. **`src/pages/Rastreio.tsx`** — sem mudanças funcionais, só garantir que o `session_id` continue sendo enviado (já está). Adicionar fallback de envio também via header `x-lv-session` (já suportado no backend) para casos em que algum proxy strip a query string.
-
-3. **Republicar** o app após as mudanças para que o `rastreio.jltransportelogistica.com` passe a usar o `Rastreio.tsx` atualizado (com heartbeat de 15s + session_id). Isso é feito clicando em "Publish" no topo direito do editor.
+1. Ajustar a composição visual de cada marcador no globo para que a bolinha vermelha e o badge façam parte do mesmo elemento ancorado ao mesmo ponto projetado, eliminando o efeito de bolinha em um lugar e texto em outro.
+2. Trocar o posicionamento do badge para um layout organizado no estilo da referência: ponto vermelho no local exato do visitante e card curto deslocado lateralmente a partir desse mesmo ponto, com linha visual consistente e sem desalinhamento ao rotacionar o globo.
+3. Enriquecer os dados do visitante ao vivo para exibir a cidade do cliente quando ela existir no envio associado ao código de rastreio; se não existir, usar a melhor origem disponível nesta ordem: cidade do ping, cidade do envio, país legível.
+4. Manter atualização em tempo real: cada novo visitante online entra imediatamente no globo com seu ponto e seu badge, sem esperar nova montagem do componente.
+5. Preservar o visual atual do globo branco com fundo escuro, mas migrar os estilos do marcador para tokens semânticos do design system onde for aplicável.
 
 ## Resultado esperado
 
-- Mesmo um cliente acessando o site **publicado antigo**, o ping é registrado no servidor (sessão deduzida por IP+UA).
-- Após a republicação, cada aba do cliente passa a ter um `session_id` próprio + heartbeat de 15s, mostrando o visitante imediatamente no Live View da loja correta.
-- Funciona tanto para `rastreio.jltransportelogistica.com` quanto para `vetortransportesltda.com` — a identificação da loja vem do `codigo_rastreio`, não do domínio.
+- Cada visitante online aparece com um único marcador visual coerente.
+- A bolinha vermelha fica colada ao ponto do globo.
+- O badge aparece organizado ao lado dela.
+- O texto mostra a cidade do cliente quando disponível.
+- Novos visitantes entram em tempo real sem sumir ou quebrar o alinhamento.
 
 ## Detalhes técnicos
 
-```ts
-// rastreio-info: fallback de session_id
-const fallbackSession = sessionId || (
-  "auto:" + await sha256(
-    (req.headers.get("x-forwarded-for") || "") +
-    (req.headers.get("user-agent") || "") +
-    new Date().toISOString().slice(0, 10) // bucket diário
-  ).then(h => h.slice(0, 32))
-);
-```
-
-Sem mudanças de schema, RLS ou realtime — tudo isso já está correto.
+- Atualizar `src/components/ui/logistics-globe.tsx` para renderizar um wrapper por marcador contendo:
+  - ponto vermelho
+  - haste/offset visual opcional
+  - badge com `LIVE`, cidade e contagem
+- Recalcular a projeção 2D aplicando transform no wrapper único do marcador, em vez de mover apenas o texto.
+- Atualizar `src/hooks/useLiveVisitorsRealtime.ts` para enriquecer os marcadores com label mais fiel ao cliente, buscando a cidade do envio associada ao `codigo_rastreio` durante o refresh dos pings.
+- Manter fallback determinístico quando não houver coordenadas precisas, mas sem perder o nome exibido.
+- Validar que o componente continue compilando e que o fluxo em tempo real permaneça responsivo.

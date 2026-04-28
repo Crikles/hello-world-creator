@@ -78,10 +78,10 @@ export default function LogisticsGlobe({
     let animationId = 0;
     let phi = 0;
 
-    const safeMarkers =
-      markers.length > 0
-        ? markers.map((m) => ({ location: m.location, size: 0.08 }))
-        : [{ location: [0, 0] as [number, number], size: 0 }];
+    // We render the marker bubble in HTML on top of the globe so it stays
+    // visually attached to the badge. We still pass a tiny invisible marker
+    // to cobe so the lib initializes properly.
+    const safeMarkers = [{ location: [0, 0] as [number, number], size: 0 }];
 
     function init() {
       const width = canvas!.offsetWidth;
@@ -137,13 +137,11 @@ export default function LogisticsGlobe({
       if (animationId) cancelAnimationFrame(animationId);
       if (globe) globe.destroy();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    JSON.stringify(markers.map((m) => [m.id, ...m.location])),
-    speed,
-  ]);
+  }, [speed]);
 
   // Project markers from lat/lng to screen coords using current rotation.
+  // Each marker is a single wrapper containing the dot + badge so they always
+  // move together.
   useEffect(() => {
     let raf = 0;
     const update = () => {
@@ -176,9 +174,9 @@ export default function LogisticsGlobe({
           const screenX = cx + x * r * 0.92;
           const screenY = cy - y * r * 0.92;
           const vis = z > 0.05;
-          el.style.transform = `translate(${screenX}px, ${screenY}px) translate(-50%, -130%)`;
+          el.style.transform = `translate(${screenX}px, ${screenY}px)`;
           el.style.opacity = vis ? "1" : "0";
-          el.style.filter = vis ? "blur(0)" : "blur(8px)";
+          el.style.filter = vis ? "blur(0)" : "blur(6px)";
         });
       }
       raf = requestAnimationFrame(update);
@@ -187,20 +185,60 @@ export default function LogisticsGlobe({
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const labelStyle: CSSProperties = {
+  // Each marker wrapper is anchored at the projected (lat, lng).
+  // Inside it we draw:
+  //   - a centered red dot (translated -50%/-50% over the anchor)
+  //   - a badge offset to the right of the dot, with a connector line
+  // This guarantees dot and badge always share the same anchor.
+  const markerWrapperStyle: CSSProperties = {
     position: "absolute",
     top: 0,
     left: 0,
+    width: 0,
+    height: 0,
     pointerEvents: "none",
     transition: "opacity 0.4s, filter 0.4s",
-    display: "flex",
+  };
+
+  const dotStyle: CSSProperties = {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 10,
+    height: 10,
+    marginLeft: -5,
+    marginTop: -5,
+    borderRadius: "50%",
+    background: "#ff3b30",
+    boxShadow: "0 0 0 2px rgba(255,255,255,0.85), 0 0 12px rgba(255,59,48,0.9)",
+    animation: "lv-live-pulse 1.5s ease-in-out infinite",
+  };
+
+  const connectorStyle: CSSProperties = {
+    position: "absolute",
+    top: 0,
+    left: 5,
+    width: 14,
+    height: 1,
+    background: "linear-gradient(to right, rgba(255,255,255,0.6), rgba(255,255,255,0))",
+    transform: "translateY(-0.5px)",
+  };
+
+  const badgeStyle: CSSProperties = {
+    position: "absolute",
+    top: 0,
+    left: 18,
+    transform: "translateY(-50%)",
+    display: "inline-flex",
     alignItems: "center",
     gap: "0.4rem",
-    padding: "0.35rem 0.6rem",
+    padding: "0.3rem 0.55rem",
     background: "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)",
-    borderRadius: 4,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 6,
+    boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
     whiteSpace: "nowrap",
+    pointerEvents: "none",
   };
 
   return (
@@ -217,8 +255,8 @@ export default function LogisticsGlobe({
     >
       <style>{`
         @keyframes lv-live-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.65; transform: scale(0.85); }
         }
       `}</style>
       <canvas
@@ -239,58 +277,66 @@ export default function LogisticsGlobe({
         style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       >
         {markers.map((m) => {
-          const label = m.count > 1 ? `${m.count} watching` : "1 watching";
+          const watching =
+            m.count > 1 ? `${m.count} assistindo` : "1 assistindo";
           return (
             <div
               key={m.id}
               data-marker-id={m.id}
               data-lat={m.location[0]}
               data-lng={m.location[1]}
-              style={labelStyle}
+              style={markerWrapperStyle}
             >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  background: "#ff3b30",
-                  borderRadius: "50%",
-                  boxShadow: "0 0 8px #ff3b30",
-                  animation: "lv-live-pulse 1.5s ease-in-out infinite",
-                }}
-              />
-              <span
-                style={{
-                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  fontSize: "0.6rem",
-                  fontWeight: 600,
-                  letterSpacing: "0.1em",
-                  color: "#ff3b30",
-                  textTransform: "uppercase",
-                }}
-              >
-                LIVE
-              </span>
-              <span
-                style={{
-                  fontFamily: "system-ui, sans-serif",
-                  fontSize: "0.6rem",
-                  color: "rgba(255,255,255,0.85)",
-                  paddingLeft: "0.4rem",
-                  borderLeft: "1px solid rgba(255,255,255,0.2)",
-                  fontWeight: 500,
-                }}
-              >
-                {m.city}
-              </span>
-              <span
-                style={{
-                  fontFamily: "system-ui, sans-serif",
-                  fontSize: "0.55rem",
-                  color: "rgba(255,255,255,0.55)",
-                }}
-              >
-                · {label}
-              </span>
+              <span style={dotStyle} />
+              <span style={connectorStyle} />
+              <div style={badgeStyle}>
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    background: "#ff3b30",
+                    borderRadius: "50%",
+                    boxShadow: "0 0 6px #ff3b30",
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily:
+                      "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    fontSize: "0.55rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    color: "#ff3b30",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  LIVE
+                </span>
+                <span
+                  style={{
+                    fontFamily: "system-ui, sans-serif",
+                    fontSize: "0.65rem",
+                    fontWeight: 600,
+                    color: "rgba(255,255,255,0.95)",
+                    paddingLeft: "0.4rem",
+                    borderLeft: "1px solid rgba(255,255,255,0.18)",
+                    maxWidth: 160,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {m.city}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "system-ui, sans-serif",
+                    fontSize: "0.55rem",
+                    color: "rgba(255,255,255,0.55)",
+                  }}
+                >
+                  · {watching}
+                </span>
+              </div>
             </div>
           );
         })}
