@@ -166,6 +166,9 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [peak24h, setPeak24h] = useState(0);
   const [lastUpdateAt, setLastUpdateAt] = useState(Date.now());
+  // Cache codigo_rastreio -> cidade do cliente (do envio) para enriquecer
+  // o badge do globo quando o ping não vem com cidade resolvida.
+  const [envioCityMap, setEnvioCityMap] = useState<Record<string, { city: string | null; state: string | null; name: string | null }>>({});
 
   const [visitorsHistory, setVisitorsHistory] = useState<number[]>(
     () => Array(HISTORY_LENGTH).fill(0),
