@@ -54,6 +54,7 @@ import DocumentacaoPublica from "./pages/DocumentacaoPublica";
 import Upsell from "./pages/Upsell";
 import RecuperacaoVendas from "./pages/RecuperacaoVendas";
 import ConfirmacaoPagamento from "./pages/ConfirmacaoPagamento";
+import Tutorial from "./pages/Tutorial";
 
 const LiveView = lazy(() => import("./pages/LiveView"));
 
@@ -125,6 +126,7 @@ function PanelRoutes() {
           <Route path="whatsapp" element={<WhatsApp />} />
           <Route path="recuperacao" element={<RecuperacaoVendas />} />
           <Route path="confirmacao-pagamento" element={<ConfirmacaoPagamento />} />
+          <Route path="tutorial" element={<Tutorial />} />
           <Route
             path="live-view"
             element={
