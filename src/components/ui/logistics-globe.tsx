@@ -80,7 +80,7 @@ export default function LogisticsGlobe({
 
     const safeMarkers =
       markers.length > 0
-        ? markers.map((m) => ({ location: m.location, size: 0.04 }))
+        ? markers.map((m) => ({ location: m.location, size: 0.08 }))
         : [{ location: [0, 0] as [number, number], size: 0 }];
 
     function init() {
