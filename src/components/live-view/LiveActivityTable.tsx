@@ -95,7 +95,7 @@ export function LiveActivityTable({ rows }: Props) {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-zinc-200 text-sm font-medium">
-                    {r.city}, {r.countryCode}
+                    {r.customerName}
                   </span>
                   <span className="font-mono text-xs text-zinc-500">{timeAgo(r.at, now)}</span>
                 </div>
