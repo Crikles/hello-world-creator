@@ -208,8 +208,11 @@ export default function LogisticsGlobe({
         const currentPhi = phiRef.current;
         const currentTheta = 0.2 + thetaOffsetRef.current + dragOffset.current.theta;
 
-        const markerEls = layer.querySelectorAll<HTMLElement>("[data-marker-id]");
-        markerEls.forEach((el) => {
+        const markerEls = Array.from(layer.querySelectorAll<HTMLElement>("[data-marker-id]"));
+        const placed: Array<{ x: number; y: number; el: HTMLElement }> = [];
+        // Ordena por longitude para que badges próximos sejam empilhados verticalmente
+        // de forma estável (evita "tremor" entre frames).
+        const projected = markerEls.map((el) => {
           const lat = parseFloat(el.dataset.lat || "0");
           const lng = parseFloat(el.dataset.lng || "0");
           const latRad = (lat * Math.PI) / 180;
@@ -226,8 +229,24 @@ export default function LogisticsGlobe({
           z = z2;
           const screenX = cx + x * r * 0.92;
           const screenY = cy - y * r * 0.92;
+          return { el, screenX, screenY, z, lat, lng };
+        });
+
+        // Anti-sobreposição: se dois badges ficarem muito próximos verticalmente,
+        // empurra o segundo para baixo. Usa ordem estável (id) para evitar flicker.
+        projected.sort((a, b) => (a.el.dataset.markerId || "").localeCompare(b.el.dataset.markerId || ""));
+
+        projected.forEach(({ el, screenX, screenY, z }) => {
+          let finalY = screenY;
+          const MIN_GAP = 22;
+          for (const p of placed) {
+            if (Math.abs(p.x - screenX) < 180 && Math.abs(p.y - finalY) < MIN_GAP) {
+              finalY = p.y + MIN_GAP;
+            }
+          }
+          placed.push({ x: screenX, y: finalY, el });
           const vis = z > 0.05;
-          el.style.transform = `translate(${screenX}px, ${screenY}px)`;
+          el.style.transform = `translate(${screenX}px, ${finalY}px)`;
           el.style.opacity = vis ? "1" : "0";
           el.style.filter = vis ? "blur(0)" : "blur(6px)";
         });
