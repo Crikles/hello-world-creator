@@ -107,10 +107,10 @@ export default function LogisticsGlobe({
         ...(arcs.length
           ? {
               arcs: arcs.map((a) => ({ from: a.from, to: a.to })),
-              arcColor: [0.06, 0.72, 0.51],
-              arcWidth: 0.6,
+              arcColor: [0.1, 0.1, 0.1],
+              arcWidth: 0.5,
               arcHeight: 0.3,
-              opacity: 0.85,
+              opacity: 0.9,
             }
           : {}),
         onRender: (state: Record<string, number>) => {
