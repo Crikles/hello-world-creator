@@ -36,7 +36,7 @@ export function LiveActivityTable({ rows }: Props) {
           <TableHeader>
             <TableRow className="border-zinc-800 hover:bg-transparent">
               <TableHead className="text-zinc-500 text-xs uppercase">Tempo</TableHead>
-              <TableHead className="text-zinc-500 text-xs uppercase">Localização</TableHead>
+              <TableHead className="text-zinc-500 text-xs uppercase">Cliente</TableHead>
               <TableHead className="text-zinc-500 text-xs uppercase">Código</TableHead>
               <TableHead className="text-zinc-500 text-xs uppercase">Status</TableHead>
               <TableHead className="text-zinc-500 text-xs uppercase">Ação</TableHead>
@@ -61,7 +61,7 @@ export function LiveActivityTable({ rows }: Props) {
                   >
                     <TableCell className="font-mono text-xs text-zinc-400">{timeAgo(r.at, now)}</TableCell>
                     <TableCell className="text-zinc-200 text-sm">
-                      {r.city}, <span className="text-zinc-500">{r.countryCode}</span>
+                      {r.customerName}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-blue-400">{r.trackingCode}</TableCell>
                     <TableCell>
@@ -95,7 +95,7 @@ export function LiveActivityTable({ rows }: Props) {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-zinc-200 text-sm font-medium">
-                    {r.city}, {r.countryCode}
+                    {r.customerName}
                   </span>
                   <span className="font-mono text-xs text-zinc-500">{timeAgo(r.at, now)}</span>
                 </div>
