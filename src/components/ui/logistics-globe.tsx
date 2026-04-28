@@ -76,7 +76,10 @@ export default function LogisticsGlobe({
 
     let globe: ReturnType<typeof createGlobe> | null = null;
     let animationId = 0;
-    let phi = 0;
+    // Start rotated so Brazil (~-50° longitude) is centered on the visible face.
+    // In cobe, increasing phi rotates the globe eastward; to bring longitude L
+    // to the center we need phi = -L * π/180. For L = -50°, phi ≈ 0.87.
+    let phi = 0.87;
 
     // We render the marker bubble in HTML on top of the globe so it stays
     // visually attached to the badge. We still pass a tiny invisible marker
