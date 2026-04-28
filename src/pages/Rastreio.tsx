@@ -164,7 +164,7 @@ export default function Rastreio() {
     const [customPrimaryColor, setCustomPrimaryColor] = useState<string | null>(null);
     const [ativarVizinho, setAtivarVizinho] = useState(true);
 
-    const fetchData = useCallback(async (trackingCode: string, isHeartbeat = false) => {
+    const fetchData = useCallback(async (trackingCode: string, isHeartbeat = false, action: "heartbeat" | "disconnect" = "heartbeat", keepalive = false) => {
         if (!trackingCode || trackingCode.trim().length < 3) return;
         if (!isHeartbeat) {
             setLoading(true);
@@ -180,9 +180,11 @@ export default function Rastreio() {
                 sessionStorage.setItem("lv_session_id", sessionId);
             }
             const response = await fetch(
-                `${supabaseUrl}/functions/v1/rastreio-info?codigo=${encodeURIComponent(trackingCode.trim())}&session_id=${sessionId}`,
+                `${supabaseUrl}/functions/v1/rastreio-info?codigo=${encodeURIComponent(trackingCode.trim())}&session_id=${sessionId}&action=${action}`,
                 {
                     method: "GET",
+                    keepalive,
+                    cache: "no-store",
                     headers: { "Authorization": `Bearer ${anonKey}`, "apikey": anonKey },
                 }
             );
@@ -220,24 +222,38 @@ export default function Rastreio() {
         }
     }, [codigoFromUrl, fetchData]);
 
-    // Live View heartbeat — keeps the visitor "alive" while the tab is open
+    // Live View heartbeat — keeps the visitor visible while the tab remains open,
+    // even if this tracking page is left in the background.
     useEffect(() => {
         const code = envio?.codigo_rastreio;
         if (!code) return;
-        const id = setInterval(() => {
-            if (document.visibilityState === "visible") {
-                fetchData(code, true);
-            }
-        }, 15000);
-        const onVisible = () => {
-            if (document.visibilityState === "visible") {
-                fetchData(code, true);
-            }
+
+        const sendHeartbeat = () => {
+            void fetchData(code, true);
         };
-        document.addEventListener("visibilitychange", onVisible);
+
+        const sendDisconnect = () => {
+            void fetchData(code, true, "disconnect", true);
+        };
+
+        sendHeartbeat();
+
+        const id = window.setInterval(sendHeartbeat, 20000);
+        const onFocus = () => sendHeartbeat();
+        const onOnline = () => sendHeartbeat();
+
+        window.addEventListener("focus", onFocus);
+        window.addEventListener("online", onOnline);
+        window.addEventListener("pagehide", sendDisconnect);
+        window.addEventListener("beforeunload", sendDisconnect);
+
         return () => {
-            clearInterval(id);
-            document.removeEventListener("visibilitychange", onVisible);
+            window.clearInterval(id);
+            window.removeEventListener("focus", onFocus);
+            window.removeEventListener("online", onOnline);
+            window.removeEventListener("pagehide", sendDisconnect);
+            window.removeEventListener("beforeunload", sendDisconnect);
+            sendDisconnect();
         };
     }, [envio?.codigo_rastreio, fetchData]);
 
