@@ -155,7 +155,7 @@ export default function LiveView() {
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Metrics column */}
-          <div className="lg:col-span-2 grid grid-cols-1 gap-4">
+          <div className="lg:col-span-2 flex flex-col gap-4 self-start">
             <MetricCard
               label="Visitantes Online"
               value={totalOnline}
