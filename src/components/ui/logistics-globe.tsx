@@ -93,13 +93,13 @@ export default function LogisticsGlobe({
         height: width,
         phi: 0,
         theta: 0.25,
-        dark: 1,
-        diffuse: 1.2,
+        dark: 0,
+        diffuse: 0,
         mapSamples: 16000,
-        mapBrightness: 6,
-        baseColor: [0.1, 0.2, 0.4],
-        markerColor: [0.06, 0.72, 0.51], // emerald
-        glowColor: [0.3, 0.4, 0.6],
+        mapBrightness: 1.2,
+        baseColor: [1, 1, 1],
+        markerColor: [0.1, 0.1, 0.1],
+        glowColor: [1, 1, 1],
         markers: markers.length
           ? markers.map((m) => ({ location: m.location, size: Math.min(0.12, 0.04 + m.count * 0.012) }))
           : [{ location: [0, 0], size: 0 }],
@@ -107,10 +107,10 @@ export default function LogisticsGlobe({
         ...(arcs.length
           ? {
               arcs: arcs.map((a) => ({ from: a.from, to: a.to })),
-              arcColor: [0.06, 0.72, 0.51],
-              arcWidth: 0.6,
+              arcColor: [0.1, 0.1, 0.1],
+              arcWidth: 0.5,
               arcHeight: 0.3,
-              opacity: 0.85,
+              opacity: 0.9,
             }
           : {}),
         onRender: (state: Record<string, number>) => {
@@ -234,14 +234,13 @@ export default function LogisticsGlobe({
     transition: "opacity 0.25s ease, filter 0.25s ease",
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
     fontSize: "0.65rem",
-    color: "hsl(var(--foreground))",
-    background: "hsl(var(--background) / 0.85)",
-    border: "1px solid hsl(var(--border))",
+    color: "#fff",
+    background: "#000",
+    border: "none",
     padding: "3px 8px",
-    borderRadius: 6,
+    borderRadius: 4,
     whiteSpace: "nowrap",
-    boxShadow: "0 4px 14px hsl(var(--background) / 0.6)",
-    backdropFilter: "blur(6px)",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
   };
 
   return (
