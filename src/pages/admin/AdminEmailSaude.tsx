@@ -447,25 +447,19 @@ export default function AdminEmailSaude() {
     setResendResults(null);
     try {
       const { data: session } = await supabase.auth.getSession();
-      const token = session?.session?.access_token;
-      if (!token) { toast.error("Sessão expirada"); return; }
-
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const baseUrl = `https://${projectId}.supabase.co/functions/v1`;
+      if (!session?.session?.access_token) { toast.error("Sessão expirada"); return; }
 
       // Dry run first to get real count
-      const dryRes = await fetch(`${baseUrl}/resend-daily-emails`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ dry_run: true, mode: "failed" }),
+      const { data: dryData, error: dryErr } = await supabase.functions.invoke("resend-daily-emails", {
+        body: { dry_run: true, mode: "failed" },
       });
 
-      if (!dryRes.ok) {
+      if (dryErr) {
         toast.error("Erro ao verificar emails falhados");
         return;
       }
 
-      const { total } = await dryRes.json();
+      const total = dryData?.total ?? 0;
       setDryRunCount(total);
 
       if (total === 0) {
@@ -481,17 +475,14 @@ export default function AdminEmailSaude() {
 
       toast.loading("Reenviando emails...", { id: "resend" });
 
-      const res = await fetch(`${baseUrl}/resend-daily-emails`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ dry_run: false, mode: "failed" }),
+      const { data: result, error: resErr } = await supabase.functions.invoke("resend-daily-emails", {
+        body: { dry_run: false, mode: "failed" },
       });
 
-      if (!res.ok) throw new Error("Falha no reenvio");
+      if (resErr) throw new Error(resErr.message || "Falha no reenvio");
 
-      const result = await res.json();
-      setResendResults(result.results || []);
-      toast.success(`Reenvio concluído: ${result.success} ✅, ${result.failed} ❌`, { id: "resend" });
+      setResendResults(result?.results || []);
+      toast.success(`Reenvio concluído: ${result?.success ?? 0} ✅, ${result?.failed ?? 0} ❌`, { id: "resend" });
       refetchToday();
     } catch (e) {
       toast.error("Erro ao reenviar: " + (e as Error).message, { id: "resend" });
