@@ -19,6 +19,7 @@ type LivePingArgs = {
     lojaId: string;
     sessionId: string;
     codigoRastreio: string;
+    action?: "heartbeat" | "disconnect";
 };
 
 const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
@@ -101,7 +102,8 @@ async function recordLivePing(
     req: Request,
     args: LivePingArgs,
 ): Promise<void> {
-    console.log(`[live-ping] start loja=${args.lojaId} session=${args.sessionId.slice(0,8)} codigo=${args.codigoRastreio}`);
+    const action = args.action ?? "heartbeat";
+    console.log(`[live-ping] start loja=${args.lojaId} session=${args.sessionId.slice(0,8)} codigo=${args.codigoRastreio} action=${action}`);
     // Try existing row first (UPSERT-like behavior keyed on session+codigo)
     const { data: existing, error: selErr } = await supabase
         .from("live_view_pings")
@@ -111,6 +113,17 @@ async function recordLivePing(
         .maybeSingle();
 
     if (selErr) console.error("[live-ping] select error:", selErr);
+
+    if (action === "disconnect") {
+        if (!existing?.id) return;
+        const { error: delErr } = await supabase
+            .from("live_view_pings")
+            .delete()
+            .eq("id", existing.id);
+        if (delErr) console.error("[live-ping] disconnect delete error:", delErr);
+        else console.log(`[live-ping] disconnected id=${existing.id}`);
+        return;
+    }
 
     if (existing?.id) {
         const { error: updErr } = await supabase
@@ -200,6 +213,7 @@ Deno.serve(async (req) => {
         const url = new URL(req.url);
         const codigo = url.searchParams.get("codigo");
         let sessionId = url.searchParams.get("session_id") || req.headers.get("x-lv-session");
+        const action = url.searchParams.get("action") === "disconnect" ? "disconnect" : "heartbeat";
 
         // Fallback: if the (possibly old) public build does not send a session_id,
         // derive a stable one from IP + User-Agent + day so the visitor still
@@ -253,6 +267,7 @@ Deno.serve(async (req) => {
                     lojaId: envio.loja_id,
                     sessionId: sessionId.slice(0, 64),
                     codigoRastreio: envio.codigo_rastreio || codigo.trim().toUpperCase(),
+                    action,
                 });
             } catch (e) {
                 console.error("[live-ping] failed:", e);
