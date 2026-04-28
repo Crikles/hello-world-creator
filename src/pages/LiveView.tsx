@@ -166,26 +166,19 @@ export default function LiveView() {
           </div>
 
           {/* Globe column */}
-          <div className="lg:col-span-3 relative rounded-2xl border border-zinc-800 bg-zinc-900/30 backdrop-blur-md p-4 md:p-6 overflow-hidden">
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(circle at center, rgba(59,130,246,0.12), transparent 70%)",
-              }}
-            />
+          <div className="lg:col-span-3 relative rounded-2xl border border-zinc-800 bg-zinc-50 p-4 md:p-6 overflow-hidden">
             <div className="relative">
               <Suspense fallback={<GlobeSkeleton />}>
                 <LogisticsGlobe markers={globeMarkers} arcs={globeArcs} />
               </Suspense>
             </div>
-            <div className="absolute bottom-4 left-4 text-xs space-y-1.5 bg-zinc-950/70 backdrop-blur-sm border border-zinc-800 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <div className="absolute bottom-4 left-4 text-xs space-y-1.5 bg-white/80 backdrop-blur-sm border border-zinc-200 rounded-lg px-3 py-2 text-zinc-700">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-zinc-900" />
                 Visitante ativo
               </div>
-              <div className="flex items-center gap-2 text-zinc-300">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-zinc-500" />
                 Rota de tráfego
               </div>
             </div>
