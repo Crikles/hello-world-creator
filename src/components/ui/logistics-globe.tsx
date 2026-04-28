@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, CSSProperties } from "react";
+import { useEffect, useRef, useCallback, useMemo, CSSProperties } from "react";
 import createGlobe from "cobe";
 
 export interface GlobeMarker {
@@ -21,6 +21,56 @@ interface LogisticsGlobeProps {
   speed?: number;
 }
 
+const BRAZIL_ANCHORS: Array<[number, number]> = [
+  [-30.03, -51.23],
+  [-25.43, -49.27],
+  [-23.55, -46.63],
+  [-22.91, -43.17],
+  [-19.92, -43.94],
+  [-15.79, -47.88],
+  [-16.68, -49.25],
+  [-12.97, -38.5],
+  [-8.05, -34.88],
+  [-3.73, -38.52],
+  [-1.45, -48.49],
+  [-3.1, -60.02],
+  [-15.6, -56.1],
+  [-20.32, -40.34],
+  [-27.59, -48.55],
+];
+
+function hashString(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededRandom(seed: number) {
+  let t = seed + 0x6d2b79f5;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getRandomBrazilLocation(id: string): [number, number] {
+  const hash = hashString(id);
+  const anchor = BRAZIL_ANCHORS[hash % BRAZIL_ANCHORS.length];
+  const latJitter = (seededRandom(hash) - 0.5) * 3.6;
+  const lngJitter = (seededRandom(hash ^ 0x9e3779b9) - 0.5) * 4.8;
+
+  return [
+    clamp(anchor[0] + latJitter, -33.5, 4.8),
+    clamp(anchor[1] + lngJitter, -72.5, -34.5),
+  ];
+}
+
 export default function LogisticsGlobe({
   markers = [],
   className,
@@ -35,6 +85,10 @@ export default function LogisticsGlobe({
   const thetaOffsetRef = useRef(0);
   const isPausedRef = useRef(false);
   const phiRef = useRef(0);
+  const displayMarkers = useMemo(
+    () => markers.map((marker) => ({ ...marker, location: getRandomBrazilLocation(marker.id) })),
+    [markers],
+  );
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     pointerInteracting.current = { x: e.clientX, y: e.clientY };
@@ -278,7 +332,7 @@ export default function LogisticsGlobe({
         ref={labelsLayerRef}
         style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       >
-        {markers.map((m) => {
+        {displayMarkers.map((m) => {
           const watching =
             m.count > 1 ? `${m.count} assistindo` : "1 assistindo";
           return (
