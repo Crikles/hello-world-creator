@@ -101,8 +101,7 @@ export default function LogisticsGlobe({
         markerColor: [0.9, 0.2, 0.2],
         glowColor: [0.94, 0.93, 0.91],
         markers: safeMarkers,
-        onRender: () => {},
-      });
+      } as Parameters<typeof createGlobe>[1]);
 
       function animate() {
         if (!isPausedRef.current && document.visibilityState === "visible") {
