@@ -381,8 +381,7 @@ function HistoricoTab({ logsLoading: _ignored }: { logs?: any[]; logsLoading?: b
   const getUnifiedStatus = (emailStatus: string, smsStatus: string): "sent" | "failed" | "none" => {
     if (emailStatus === "sent") return "sent";
     if (emailStatus === "failed") return "failed";
-    if (smsStatus === "sent") return "sent";
-    if (smsStatus === "failed") return "failed";
+    if (!emailStatus && smsStatus === "sent") return "sent";
     return "none";
   };
 
