@@ -39,7 +39,7 @@ interface PingRow {
   created_at: string;
 }
 
-const ACTIVE_WINDOW_MS = 90_000; // visitor is "online" if seen in last 90s
+const ACTIVE_WINDOW_MS = 10 * 60_000; // background tabs throttle timers, so keep visitors online for up to 10 min unless they disconnect explicitly
 const REFRESH_INTERVAL_MS = 5_000;
 const HISTORY_LENGTH = 30;
 const MAX_MARKERS = 50;
