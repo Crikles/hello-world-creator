@@ -229,38 +229,61 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
       if (newOnes.length > 0) {
         onNewVisitorRef.current?.();
 
-        // Lookup customer names by tracking codes
+        // Lookup customer name + cidade by tracking codes
         const codes = Array.from(
           new Set(newOnes.map((r) => r.codigo_rastreio).filter(Boolean) as string[]),
         );
         const nameMap = new Map<string, string>();
+        const cityMap = new Map<string, { city: string | null; state: string | null; name: string | null }>();
         if (codes.length > 0) {
           const { data: envios } = await supabase
             .from("envios")
-            .select("codigo_rastreio, cliente_nome")
+            .select("codigo_rastreio, cliente_nome, cliente_cidade, cliente_estado")
             .eq("loja_id", lojaId)
             .in("codigo_rastreio", codes);
           if (envios) {
-            for (const e of envios as Array<{ codigo_rastreio: string; cliente_nome: string | null }>) {
-              if (e.codigo_rastreio && e.cliente_nome) {
-                nameMap.set(e.codigo_rastreio, e.cliente_nome);
-              }
+            for (const e of envios as Array<{
+              codigo_rastreio: string;
+              cliente_nome: string | null;
+              cliente_cidade: string | null;
+              cliente_estado: string | null;
+            }>) {
+              if (!e.codigo_rastreio) continue;
+              if (e.cliente_nome) nameMap.set(e.codigo_rastreio, e.cliente_nome);
+              cityMap.set(e.codigo_rastreio, {
+                city: e.cliente_cidade,
+                state: e.cliente_estado,
+                name: e.cliente_nome,
+              });
+            }
+            if (cityMap.size > 0) {
+              setEnvioCityMap((prev) => {
+                const next = { ...prev };
+                cityMap.forEach((value, code) => {
+                  next[code] = value;
+                });
+                return next;
+              });
             }
           }
         }
 
         setRecentActivity((prev) => {
-          const adds: RecentActivity[] = newOnes.map((r) => ({
-            id: r.id,
-            city: r.cidade || "Localização desconhecida",
-            country: r.pais || "—",
-            countryCode: r.pais_codigo || "",
-            trackingCode: r.codigo_rastreio || "—",
-            customerName:
-              (r.codigo_rastreio && nameMap.get(r.codigo_rastreio)) || "Cliente anônimo",
-            status: "Visualizando rastreio",
-            at: new Date(r.last_seen_at).getTime(),
-          }));
+          const adds: RecentActivity[] = newOnes.map((r) => {
+            const envioInfo = r.codigo_rastreio ? cityMap.get(r.codigo_rastreio) : undefined;
+            const displayCity = envioInfo?.city || r.cidade || "Localização desconhecida";
+            return {
+              id: r.id,
+              city: displayCity,
+              country: r.pais || "—",
+              countryCode: r.pais_codigo || "",
+              trackingCode: r.codigo_rastreio || "—",
+              customerName:
+                (r.codigo_rastreio && nameMap.get(r.codigo_rastreio)) || "Cliente anônimo",
+              status: "Visualizando rastreio",
+              at: new Date(r.last_seen_at).getTime(),
+            };
+          });
           return [...adds, ...prev].slice(0, 30);
         });
       }
