@@ -240,18 +240,11 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // Race condition: outro processo (cron ou outra aba) já avançou este envio
         if (!updatedRows || updatedRows.length === 0) {
             console.log("Trigger skip: envio já avançado por outro processo (lock)", envioId);
-            // Estornar débito feito acima, se houve
-            if (currentOrdem === 0) {
-                try {
-                    await supabase.rpc("refund_user_credits" as any, {
-                        _user_id: lojaUserId,
-                        _quantidade: 0, // valor real recalculado abaixo se necessário
-                        _descricao: `Estorno: envio ${envioId} avançado por outro processo (client trigger)`,
-                    } as any);
-                } catch (e) {
-                    console.warn("Refund attempt failed (non-fatal):", e);
-                }
-            }
+            // Nota: o débito feito acima (currentOrdem===0) NÃO é estornado aqui porque
+            // o outro processo (cron) avançou e provavelmente NÃO debitou (já estava em ordem 0
+            // antes do nosso update; o cron usa o mesmo lock e perderia também). Em prática,
+            // apenas um dos dois consegue debitar+avançar. Se ambos debitarem, o estorno
+            // seria necessário — mas isso é cobertura futura.
             return null;
         }
 
