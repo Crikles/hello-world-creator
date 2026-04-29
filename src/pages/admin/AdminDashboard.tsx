@@ -162,6 +162,15 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Visão geral do sistema</p>
         </div>
+        <Button
+          variant="outline"
+          className="gap-2 border-primary/30 hover:bg-primary/10"
+          disabled={cleanupMutation.isPending}
+          onClick={() => cleanupMutation.mutate()}
+        >
+          <Database className={`h-4 w-4 ${cleanupMutation.isPending ? "animate-pulse" : ""}`} />
+          {cleanupMutation.isPending ? "Limpando..." : "Limpar Banco"}
+        </Button>
       </div>
 
       {isLoading ? (
