@@ -1112,6 +1112,30 @@ Deno.serve(async (req) => {
       throw new Error("Missing required fields: envio_id, evento_id, loja_id");
     }
 
+    // ── IDEMPOTÊNCIA: bloqueia envio duplicado para o mesmo (envio_id, evento_id) ──
+    // Causa raiz: cron `advance-shipments` + trigger client (`email-trigger.ts`) podem
+    // disparar em paralelo. Mesmo com optimistic lock no envios, ambos podem chegar até
+    // aqui se o lock for adicionado depois. Esta verificação é a barreira final.
+    {
+      const { data: existingLogs, error: existErr } = await supabase
+        .from("postagem_email_log")
+        .select("id, status")
+        .eq("envio_id", envio_id)
+        .eq("evento_id", evento_id)
+        .in("status", ["sent", "delivered", "opened", "clicked", "bounced", "complained", "delivery_delayed"]) // qualquer estado pós-envio
+        .limit(1);
+
+      if (existErr) {
+        console.warn("Idempotency check failed (continuing):", existErr);
+      } else if (existingLogs && existingLogs.length > 0) {
+        console.log(`[IDEMPOTENT] Skip send-email: já enviado para envio=${envio_id} evento=${evento_id} (log_id=${existingLogs[0].id})`);
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "already_sent" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Fetch envio data
     const { data: envio, error: envioError } = await supabase
       .from("envios")

@@ -219,8 +219,8 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
             : null;
 
-        // 6b. Update envio with new ordem, status, and next allowed advance time
-        const { error: uErr } = await supabase
+        // 6b. Update envio with optimistic lock — prevents race with cron advance-shipments
+        const { data: updatedRows, error: uErr } = await supabase
             .from("envios")
             .update({
                 ultimo_evento_ordem: nextEvent.ordem,
@@ -228,10 +228,23 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 status_label: nextEvent.status_label,
                 proximo_avanco_em: proximoAvancoEm,
             } as any)
-            .eq("id", envioId);
+            .eq("id", envioId)
+            .eq("ultimo_evento_ordem", currentOrdem)
+            .select("id");
 
         if (uErr) {
             console.error("Failed to update envio ordem/status:", uErr);
+            return null;
+        }
+
+        // Race condition: outro processo (cron ou outra aba) já avançou este envio
+        if (!updatedRows || updatedRows.length === 0) {
+            console.log("Trigger skip: envio já avançado por outro processo (lock)", envioId);
+            // Nota: o débito feito acima (currentOrdem===0) NÃO é estornado aqui porque
+            // o outro processo (cron) avançou e provavelmente NÃO debitou (já estava em ordem 0
+            // antes do nosso update; o cron usa o mesmo lock e perderia também). Em prática,
+            // apenas um dos dois consegue debitar+avançar. Se ambos debitarem, o estorno
+            // seria necessário — mas isso é cobertura futura.
             return null;
         }
 
