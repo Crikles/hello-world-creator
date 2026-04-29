@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
         // 1. Find the envio by tracking code
         const { data: envio, error: envioError } = await supabase
             .from("envios")
-            .select("id, produto, codigo_rastreio, cliente_nome, transportadora, status, ultimo_evento_ordem, created_at, updated_at, empresa_id, loja_id, valor, cliente_cidade, cliente_estado")
+            .select("id, produto, codigo_rastreio, cliente_nome, transportadora, status, ultimo_evento_ordem, created_at, updated_at, empresa_id, loja_id, valor, cliente_cidade, cliente_estado, postagem_template_id")
             .eq("codigo_rastreio", codigo.trim().toUpperCase())
             .maybeSingle();
 
@@ -301,12 +301,15 @@ Deno.serve(async (req) => {
                 .eq("loja_id", envio.loja_id)
                 .maybeSingle();
 
-            if (config?.template_ativo_id) {
+            // Prefer the template frozen on the shipment; fall back to the active store template
+            const templateIdToUse = (envio as any).postagem_template_id || config?.template_ativo_id;
+
+            if (templateIdToUse) {
                 // Get ALL events up to the current ordem
                 const { data: allEvents } = await supabase
                     .from("postagem_eventos")
                     .select("nome, descricao, status_label, ordem, delay_horas")
-                    .eq("template_id", config.template_ativo_id)
+                    .eq("template_id", templateIdToUse)
                     .lte("ordem", envio.ultimo_evento_ordem)
                     .order("ordem", { ascending: true });
 
@@ -331,7 +334,7 @@ Deno.serve(async (req) => {
                 const { count: totalCount } = await supabase
                     .from("postagem_eventos")
                     .select("*", { count: "exact", head: true })
-                    .eq("template_id", config.template_ativo_id);
+                    .eq("template_id", templateIdToUse);
 
                 return new Response(
                     JSON.stringify({
