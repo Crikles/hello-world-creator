@@ -181,6 +181,33 @@ export type Database = {
         }
         Relationships: []
       }
+      cleanup_history: {
+        Row: {
+          action: string
+          details: Json | null
+          executed_at: string
+          executed_by: string | null
+          id: string
+          rows_affected: number
+        }
+        Insert: {
+          action: string
+          details?: Json | null
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          rows_affected?: number
+        }
+        Update: {
+          action?: string
+          details?: Json | null
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          rows_affected?: number
+        }
+        Relationships: []
+      }
       confirmacao_pagamento_config: {
         Row: {
           assunto_email: string
@@ -2009,11 +2036,16 @@ export type Database = {
         Args: { _admin_id: string; _cashback_id: string }
         Returns: boolean
       }
+      cleanup_internal_logs: { Args: never; Returns: Json }
       cleanup_old_data: { Args: never; Returns: Json }
+      cleanup_pedidos_payloads: { Args: never; Returns: Json }
+      cleanup_webhook_logs: { Args: never; Returns: Json }
+      cleanup_whatsapp_queue: { Args: never; Returns: Json }
       debit_user_credits: {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
       }
+      get_cloud_usage_stats: { Args: never; Returns: Json }
       get_confirmacao_grouped: {
         Args: {
           p_date?: string

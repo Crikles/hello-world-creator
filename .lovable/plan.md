@@ -1,49 +1,90 @@
+# Painel de Uso da Cloud no Admin Dashboard
 
-## Limpeza segura do banco — sem afetar nenhuma operação
+Hoje o admin só tem o botão "Limpar Banco". Vamos criar uma seção completa **"Uso da Cloud"** que mostra de forma clara e didática quanto o projeto está consumindo, onde está o gargalo, e o que pode ser limpo — tudo dentro de `/admin`.
 
-Vou rodar **somente** operações que removem dados redundantes ou logs antigos já consumidos. Nada toca pedidos, envios, créditos, configurações, e-mails enviados, rastreios, integrações ou qualquer coisa que esteja em uso ativo.
+## O que será exibido
 
-### O que será limpo (com volume confirmado)
+### 1. Cards de resumo (topo)
+- **Tamanho total do banco** (ex: `592 MB`) com barra visual e indicador de tendência
+- **Total de registros** (soma das principais tabelas)
+- **Última limpeza executada** (data + quanto liberou)
+- **Status da instância** (verde/amarelo/vermelho baseado em uso)
 
-| Operação | Volume | Espaço estimado |
-|---|---|---|
-| Zerar `raw_payload` em `pedidos` com mais de 30 dias | 12.612 linhas | ~35 MB diretos + ~200 MB em TOAST |
-| Zerar `payload` em `webhook_logs` já processados com mais de 30 dias | 6.933 linhas | ~13 MB diretos + ~50 MB em TOAST |
-| Apagar `whatsapp_send_queue` com status terminal (`cancelled`/`failed`/`sent`) com mais de 15 dias | 27.758 linhas | ~25 MB |
-| Apagar `cron.job_run_details` com mais de 7 dias | logs internos do agendador | ~40 MB |
-| Apagar `net._http_response` com mais de 3 dias | respostas HTTP internas do `pg_net` | ~15 MB |
-| `VACUUM` em `pedidos` e `webhook_logs` para devolver espaço ao SO | — | recupera o espaço dos UPDATEs |
+### 2. Top tabelas (gráfico de barras)
+Lista as 15 maiores tabelas com:
+- Nome amigável (ex: "Pedidos" em vez de `pedidos`)
+- Tamanho em MB e % do total
+- Quantidade de registros
+- Idade do registro mais antigo
+- Indicador "🟢 Saudável / 🟡 Atenção / 🔴 Limpar"
 
-**Estimativa de redução:** ~280-330 MB (de 588 MB para ~280 MB).
-
-### Por que NÃO afeta a operação
-
-- **`pedidos.raw_payload`**: é o JSON bruto recebido do checkout, guardado para auditoria. Todos os dados úteis (cliente, endereço, produtos, status, valor) já estão extraídos em colunas próprias e continuam intactos. Pedido com mais de 30 dias já foi processado, faturado, enviado.
-- **`webhook_logs.payload`**: cópia bruta do webhook que já foi processado (`processed = true`). O log da chamada continua existindo (pode ver que aconteceu, quando, status), só o JSON pesado vira NULL.
-- **`whatsapp_send_queue`** (terminais): mensagens já enviadas, canceladas ou falhadas há mais de 15 dias. Pendentes, agendadas e em processamento ficam intactas.
-- **`cron.job_run_details`** e **`net._http_response`**: tabelas internas do Postgres (extensões `pg_cron` e `pg_net`). São apenas logs de execução — apagar não afeta nem os jobs nem as requisições futuras.
-
-### O que NÃO será tocado
-
-- Tudo com menos de 30 dias.
-- `envios`, `creditos`, `creditos_transacoes`, `lojas`, `empresas`, `profiles`, `user_roles`.
-- `postagem_email_log`, `confirmacao_pagamento_log`, `cashback_log`, `recovery_leads`, `leads`.
-- Qualquer configuração, template, integração, instância de WhatsApp, NF-e.
-
-### Como será executado
-
-Uma única migration com:
-```sql
-UPDATE pedidos SET raw_payload = NULL WHERE created_at < now() - interval '30 days' AND raw_payload IS NOT NULL;
-UPDATE webhook_logs SET payload = '{}'::jsonb WHERE created_at < now() - interval '30 days' AND processed = true;
-DELETE FROM whatsapp_send_queue WHERE status IN ('cancelled','failed','sent') AND created_at < now() - interval '15 days';
-DELETE FROM cron.job_run_details WHERE end_time < now() - interval '7 days';
-DELETE FROM net._http_response WHERE created < now() - interval '3 days';
-VACUUM (ANALYZE) public.pedidos;
-VACUUM (ANALYZE) public.webhook_logs;
-VACUUM (ANALYZE) public.whatsapp_send_queue;
+Exemplo do que apareceria hoje:
+```
+Pedidos              309 MB  (52%)  [🔴 Limpar payloads antigos]
+Webhook Logs          81 MB  (14%)  [🟡 Pode reduzir]
+Fila WhatsApp         36 MB  ( 6%)  [🟢 OK]
+Logs de E-mail        34 MB  ( 6%)  [🟢 OK]
+Envios                17 MB  ( 3%)  [🟢 OK]
 ```
 
-Tempo total esperado: 10-30 segundos. Sem downtime. Sem trigger sendo disparado (a migration não toca colunas com trigger). Operação totalmente reversível em conceito (os dados deletados são logs internos descartáveis), mas na prática não há motivo para reverter.
+### 3. Edge Functions (últimas 24h)
+- Total de invocações
+- Taxa de erro (%) — com alerta se > 5%
+- Top 5 funções mais chamadas
+- Top 5 funções mais lentas (tempo médio)
 
-Aprove e eu executo agora.
+### 4. Ações de limpeza (com explicação)
+Em vez de um botão único e cego, **3 botões separados** com texto claro:
+
+- **"Limpar payloads antigos de pedidos"** — Remove o JSON bruto de pedidos com mais de 30 dias. *Não afeta dados do cliente, apenas o registro original do checkout.* (~150 MB)
+- **"Limpar logs de webhooks processados"** — Esvazia payload de webhooks já processados há mais de 30 dias. (~40 MB)
+- **"Limpar fila WhatsApp finalizada"** — Apaga mensagens já enviadas/falhas/canceladas há mais de 15 dias. (~20 MB)
+- **"Limpeza completa"** — Executa as 3 acima + logs internos de cron/http.
+
+Cada botão mostra um **modal de confirmação** explicando exatamente o que será apagado, e ao final um toast com "X MB liberados".
+
+### 5. Histórico de limpezas
+Tabela simples com últimas 10 execuções: data, quem rodou, registros afetados, espaço liberado.
+
+### 6. Recomendações inteligentes
+Bloco com dicas dinâmicas baseadas nos números, ex:
+- ⚠️ "Tabela `pedidos` está com 309 MB — recomendamos limpar payloads antigos"
+- ⚠️ "Banco passou de 80% da capacidade recomendada — considere upgrade da instância"
+- ✅ "Última limpeza foi há 2 dias — tudo em dia"
+
+---
+
+## Detalhes técnicos
+
+**Nova RPC `get_cloud_usage_stats()`** (SECURITY DEFINER, restrita a admin):
+Retorna em um único JSON:
+- `db_size_bytes` via `pg_database_size(current_database())`
+- `tables[]` via `pg_stat_user_tables` + `pg_total_relation_size` (top 15)
+- `row_counts` para tabelas principais
+- `oldest_record` por tabela (created_at min)
+
+**Nova RPC `cleanup_pedidos_payloads()`, `cleanup_webhook_logs()`, `cleanup_whatsapp_queue()`** — versões separadas e granulares da `cleanup_old_data` atual, cada uma retornando `{ rows_affected, bytes_freed_estimate }`.
+
+**Nova tabela `cleanup_history`**:
+```
+id, executed_by, action, rows_affected, bytes_freed, executed_at
+```
+Populada automaticamente pelas RPCs.
+
+**Edge function logs**: consulta a função `analytics_query` interna do Supabase via service role para puxar contagens de `function_edge_logs` das últimas 24h. Como isso requer chamada autenticada, criar edge function `admin-cloud-stats` que retorna esses números.
+
+**Frontend (`src/pages/admin/AdminDashboard.tsx`)**:
+- Nova seção `<CloudUsagePanel />` em componente separado `src/components/admin/CloudUsagePanel.tsx`
+- Usa `react-query` com refetch a cada 60s
+- Gráfico de barras com Recharts (já no projeto)
+- Modais de confirmação com `AlertDialog` do shadcn
+- Botão "Limpar Banco" atual é removido (substituído pelas ações granulares)
+
+**Segurança**: todas as RPCs e edge functions checam `has_role(auth.uid(), 'admin')` no início. Mobile bloqueado conforme regra existente do admin.
+
+---
+
+## Limitações honestas
+- Tamanho exato do **storage de arquivos** (buckets `logos`, `nfe-pdfs`, `pix-qrcodes`) não é exposto via SQL — vamos mostrar apenas contagem de objetos por bucket, com link "Ver detalhes na Cloud" para o painel oficial.
+- Métricas de **CPU/RAM da instância** não são acessíveis via API pública do Supabase — vamos exibir um aviso "Para CPU/RAM, ver painel da Lovable Cloud" com link.
+- Custos em R$/USD não são calculáveis (depende do plano) — mostramos só consumo bruto.
