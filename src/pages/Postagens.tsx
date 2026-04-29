@@ -329,7 +329,9 @@ export default function Postagens() {
       if (!systemTemplate) return;
       const evts = systemEventos?.filter((e) => e.template_id === templateId) || [];
 
-      // Freeze: if there's already an active template, stamp it on in-progress shipments
+      // Freeze: stamp the OLD template only on shipments already in progress (ordem >= 2),
+      // so newly-arrived pending orders pick up the NEW template instead of being locked
+      // into the previous one.
       const oldTemplateId = config?.template_ativo_id;
       if (oldTemplateId) {
         await supabase
@@ -338,26 +340,47 @@ export default function Postagens() {
           .eq("loja_id", loja.id)
           .is("postagem_template_id", null)
           .neq("status", "entregue")
+          .gte("ultimo_evento_ordem", 2)
           .is("deleted_at", null);
       }
 
-      const { data: newTemplate, error: tErr } = await supabase
+      // Reuse an existing non-system copy of this tipo for this loja if one already exists,
+      // otherwise create a fresh copy. Avoids accumulating duplicate template rows.
+      const { data: existingCopies } = await supabase
         .from("postagem_templates")
-        .insert({
-          loja_id: loja.id,
-          nome: systemTemplate.nome,
-          descricao: systemTemplate.descricao,
-          tipo: systemTemplate.tipo,
-          is_system: false,
-        })
-        .select()
-        .single();
-      if (tErr) throw tErr;
+        .select("id")
+        .eq("loja_id", loja.id)
+        .eq("tipo", systemTemplate.tipo)
+        .eq("is_system", false)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      let activeTemplateId: string;
+
+      if (existingCopies && existingCopies.length > 0) {
+        // Reuse: wipe its events and re-seed from the system template
+        activeTemplateId = existingCopies[0].id;
+        await supabase.from("postagem_eventos").delete().eq("template_id", activeTemplateId);
+      } else {
+        const { data: newTemplate, error: tErr } = await supabase
+          .from("postagem_templates")
+          .insert({
+            loja_id: loja.id,
+            nome: systemTemplate.nome,
+            descricao: systemTemplate.descricao,
+            tipo: systemTemplate.tipo,
+            is_system: false,
+          })
+          .select()
+          .single();
+        if (tErr) throw tErr;
+        activeTemplateId = newTemplate.id;
+      }
 
       if (evts.length > 0) {
         const { error: eErr } = await supabase.from("postagem_eventos").insert(
           evts.map((e) => ({
-            template_id: newTemplate.id,
+            template_id: activeTemplateId,
             nome: e.nome,
             descricao: e.descricao,
             status_label: e.status_label,
@@ -376,7 +399,7 @@ export default function Postagens() {
       const { error: cErr } = await supabase.from("postagem_config").upsert(
         {
           loja_id: loja.id,
-          template_ativo_id: newTemplate.id,
+          template_ativo_id: activeTemplateId,
           enviar_emails: config?.enviar_emails ?? true,
           enviar_nfe_email: config?.enviar_nfe_email ?? true,
         },
