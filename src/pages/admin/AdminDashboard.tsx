@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { SystemHealth } from "@/components/admin/SystemHealth";
 import { AnomalyMonitor } from "@/components/admin/AnomalyMonitor";
+import { CloudUsagePanel } from "@/components/admin/CloudUsagePanel";
 
 export default function AdminDashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
