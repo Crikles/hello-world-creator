@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
                 const { count: totalCount } = await supabase
                     .from("postagem_eventos")
                     .select("*", { count: "exact", head: true })
-                    .eq("template_id", config.template_ativo_id);
+                    .eq("template_id", templateIdToUse);
 
                 return new Response(
                     JSON.stringify({
