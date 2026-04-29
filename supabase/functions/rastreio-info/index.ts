@@ -301,12 +301,15 @@ Deno.serve(async (req) => {
                 .eq("loja_id", envio.loja_id)
                 .maybeSingle();
 
-            if (config?.template_ativo_id) {
+            // Prefer the template frozen on the shipment; fall back to the active store template
+            const templateIdToUse = (envio as any).postagem_template_id || config?.template_ativo_id;
+
+            if (templateIdToUse) {
                 // Get ALL events up to the current ordem
                 const { data: allEvents } = await supabase
                     .from("postagem_eventos")
                     .select("nome, descricao, status_label, ordem, delay_horas")
-                    .eq("template_id", config.template_ativo_id)
+                    .eq("template_id", templateIdToUse)
                     .lte("ordem", envio.ultimo_evento_ordem)
                     .order("ordem", { ascending: true });
 

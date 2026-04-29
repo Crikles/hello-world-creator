@@ -1,92 +1,60 @@
-## Problema confirmado
+## Diagnóstico
 
-Investiguei a conta `rodrigosantosderesendejunior@gmail.com` (loja `yaveh`). Vários pedidos criados hoje entre 12:34 e 14:48 BRT pularam até **ordem 6 = "Falha Entrega"** em ~60 segundos (entre 14:52:21 e 14:53:14), com cobranças e e-mails sequenciais a milisegundos de distância.
+A conta `rodrigosantosderesendejunior@gmail.com` (loja **yaveh**) tem o template ativo correto: **"Nacional Falha na Entrega"** (`0cd4b6ef…`). Mas existem três problemas reais:
 
-**Causa raiz: condição de corrida no `advance-shipments`.**
+### 1. 2.463 envios "congelados" com Template Prolongado
+Quando ele aplicou "Falha na Entrega" em 25/04, a função `applyTemplate` carimbou TODOS os envios em andamento com o ID do template anterior ("Prolongado"). Resultado: pedidos antigos seguem na timeline de 16 etapas do "Prolongado" mesmo o ativo sendo outro.
 
-Cada webhook de venda (Shopify, Vega, Luna, Adoorei, Corvex, Nuvorafy, api-external) dispara `advance-shipments` em paralelo. Os logs mostram dezenas de execuções concorrentes, várias com timeout 504 (150s). Quando há múltiplas execuções concorrentes:
+**Os pedidos novos de hoje estão corretos** (`postagem_template_id = NULL` → cron usa o ativo "Falha na Entrega"). Mas a UI/timeline pública está mostrando dados confusos por causa do bug #3 abaixo.
 
-1. Run A faz query da seção 2 (`proximo_avanco_em <= now`) e começa a avançar envio X.
-2. Run B (disparado por outro webhook ~1s depois) faz a mesma query antes de A confirmar a atualização → também pega envio X.
-3. Cada Run chama `advanceShipment(envioId)`, que faz `SELECT * FROM envios WHERE id = X` (sempre lê valor atual) e avança +1 ordem.
-4. **Mas `advanceShipment` NÃO re-valida `proximo_avanco_em` após o fresh fetch.** Confia que a query do caller já filtrou.
+### 2. Templates duplicados na conta dele
+- 8 cópias do "Template Prolongado"
+- 3 cópias de "Nacional Falha na Entrega"
+- 2 cópias de "Nacional Taxação"
 
-Resultado: 5–6 runs paralelos avançam o MESMO envio em sequência (cada um lê ordem atualizada pelo anterior, mas nenhum bloqueia pelo `proximo_avanco_em` que já foi definido para 24h no futuro).
+Cada vez que ele clica "Aplicar Template" na tela de Postagens, a função clona o template do system em vez de reutilizar uma cópia existente. Só uma cópia de cada está realmente em uso.
 
-A função client-side `triggerNextEmail` (`src/lib/email-trigger.ts` linhas 38–42) já tem essa proteção. O cron no servidor não tem.
+### 3. Bug em `rastreio-info` (afeta TODAS as lojas)
+A edge function `rastreio-info` usa **sempre** `config.template_ativo_id` ao montar a timeline pública, **ignorando o `envio.postagem_template_id` congelado** no envio. Isso significa que pedidos congelados com um template antigo aparecem na página pública de rastreio com a timeline do template ATUAL — desalinhando ordem/nomes/etapas.
 
-## Correção
+### 4. Bug no "freeze" do applyTemplate
+A lógica atual carimba envios com `status != 'entregue'` no template antigo. Isso é bom em tese, mas dispara também em pedidos recém-criados (status = pendente, ordem = 0 ou 1) que estariam melhor seguindo o template novo. Resultado: troca de template "para frente" não funciona como o usuário espera.
 
-### 1. Adicionar guarda de `proximo_avanco_em` dentro de `advanceShipment`
+---
 
-Em `supabase/functions/advance-shipments/index.ts`, logo após o fetch do shipment (após a linha 756), adicionar:
+## Plano de correção
 
-```ts
-// Race-condition guard: skip if delay window hasn't elapsed
-const proximoAvanco = shipment.proximo_avanco_em;
-if (proximoAvanco && new Date(proximoAvanco) > new Date()) {
-  console.log(`Skip envio ${envioId}: delay not elapsed (${proximoAvanco})`);
-  return false;
-}
-```
+### Etapa A — Limpeza de dados da loja yaveh
+1. **Descongelar os 2.463 envios** com template "Prolongado": setar `postagem_template_id = NULL` para todos os envios da loja `428f4bb4…` que não estão entregues e cujo template congelado é diferente do ativo. Eles passarão a usar o template ativo ("Falha na Entrega") automaticamente.
+2. **Apagar templates duplicados**: manter apenas a cópia em uso de cada tipo (a mais recente / a referenciada por `postagem_config.template_ativo_id`) e apagar as outras 10 cópias órfãs (incluindo seus eventos).
 
-Isto garante que mesmo se a query da seção 2 estiver desatualizada, o avanço é bloqueado pelo estado mais recente.
+### Etapa B — Corrigir bug do `rastreio-info`
+Alterar a função para priorizar `envio.postagem_template_id` quando existir, caindo para `config.template_ativo_id` apenas como fallback. Mesma lógica já existe corretamente em `advance-shipments` e `email-trigger`.
 
-### 2. Lock atômico via UPDATE condicional
+### Etapa C — Corrigir bug do `applyTemplate`
+Trocar o comportamento de freeze:
+- **Manter freeze** apenas para envios que já avançaram além da etapa inicial (`ultimo_evento_ordem >= 2`), ou seja, que realmente estão em andamento
+- **Não congelar** envios pendentes recém-criados — eles seguirão o novo template
+- **Reutilizar** cópia existente do template do mesmo `tipo` quando disponível, em vez de sempre clonar uma nova (evita duplicatas no futuro)
 
-Para eliminar definitivamente a race, trocar o `UPDATE` da linha 873–881 por um update condicional que só atualiza se `ultimo_evento_ordem` ainda for o esperado:
+### Etapa D — Migração de limpeza global de duplicatas
+Aplicar a mesma deduplicação para todas as lojas: para cada `(loja_id, tipo)` com mais de uma cópia não-system, manter apenas a referenciada por `postagem_config.template_ativo_id` (ou a mais recente) e apagar as outras com seus eventos. Isso libera espaço e evita confusão futura em outras contas.
 
-```ts
-const { data: updated, error: uErr } = await supabase
-  .from("envios")
-  .update({ ultimo_evento_ordem: nextEvent.ordem, status: newStatus, status_label: nextEvent.status_label, proximo_avanco_em: proximoAvancoEm })
-  .eq("id", envioId)
-  .eq("ultimo_evento_ordem", currentOrdem)  // optimistic lock
-  .select("id");
+---
 
-if (uErr || !updated || updated.length === 0) {
-  console.log(`Skip envio ${envioId}: já avançado por outro processo`);
-  return false;
-}
-```
+## Detalhes técnicos
 
-Se outro processo já avançou, o update afeta 0 linhas e abortamos sem cobrar nem mandar e-mail.
+**Arquivos a editar:**
+- `supabase/functions/rastreio-info/index.ts` — usar `envio.postagem_template_id || config.template_ativo_id`
+- `src/pages/Postagens.tsx` (`applyTemplate`) — freeze condicional + reuso de template existente
 
-### 3. Mover o débito para DEPOIS do update bem-sucedido
+**Migrations a criar:**
+1. `UPDATE envios SET postagem_template_id = NULL WHERE loja_id = 'yaveh' AND postagem_template_id <> config.template_ativo_id AND status <> 'entregue' AND deleted_at IS NULL`
+2. `DELETE FROM postagem_eventos WHERE template_id IN (...templates_orfaos...)` + `DELETE FROM postagem_templates WHERE id IN (...)` aplicado a todas as lojas
 
-Hoje o débito (linha 832–849) acontece ANTES do update. Em corrida, isso causa débitos duplicados. Reordenar para: validar saldo → tentar update condicional → se sucesso, debitar. Alternativa mais simples: manter ordem mas usar uma chave única (ex.: `creditos_transacoes` com índice único em `(user_id, descricao + envio_id + ordem)`) — mas o lock condicional já resolve a maior parte.
+**Sem mudanças em:**
+- `advance-shipments` (já usa fallback correto)
+- `email-trigger` (já usa fallback correto)
+- Webhooks de checkout (já corrigidos no fix anterior)
 
-### 4. Remover dispatches redundantes de webhooks
-
-Cada webhook de venda dispara `supabase.functions.invoke("advance-shipments", { body: {} })` SEM `loja_id`, ou seja, processa TODAS as lojas a cada venda recebida. Em horário de pico, isso multiplica a carga e amplifica a corrida.
-
-Alterar todos os webhooks (`shopify-webhook`, `webhook-vega`, `webhook-luna`, `webhook-adoorei`, `webhook-corvex`, `webhook-nuvorafy`, `api-external`) para passar `body: { loja_id: lojaId }` ao invocar `advance-shipments`. Assim cada webhook só processa a sua loja, reduzindo concorrência geral.
-
-### 5. Ferramenta de reversão para a loja afetada
-
-Adicionar um endpoint admin (ou execução SQL única) para reverter os envios da loja `yaveh` que avançaram hoje incorretamente:
-
-- Identificar envios da loja `428f4bb4-5b53-4d34-a9a1-a139e7cceaaf` criados hoje (>= 2026-04-29 00:00 BRT) com `updated_at - created_at < 2 horas` e `ultimo_evento_ordem >= 2`.
-- Resetar para `ultimo_evento_ordem = 1`, `status_label = 'Postado'`, `status = 'em_transito'`, `proximo_avanco_em = created_at + 24h`.
-- Registrar a quantidade revertida e estornar os créditos extras cobrados acima do esperado para a primeira etapa.
-
-Apresentar lista exata para confirmação antes de aplicar (não fazer mudança automática sem revisão).
-
-## Arquivos a alterar
-
-- `supabase/functions/advance-shipments/index.ts` — guards 1, 2, 3.
-- `supabase/functions/shopify-webhook/index.ts`
-- `supabase/functions/webhook-vega/index.ts`
-- `supabase/functions/webhook-luna/index.ts`
-- `supabase/functions/webhook-adoorei/index.ts`
-- `supabase/functions/webhook-corvex/index.ts`
-- `supabase/functions/webhook-nuvorafy/index.ts`
-- `supabase/functions/api-external/index.ts`
-- Migração SQL de reversão dos envios afetados (após confirmação).
-
-## O que NÃO vai mudar
-
-- Templates da loja (estão corretos com delays de 24h).
-- Configuração `auto_envio` da loja (continua funcionando como esperado).
-- Lógica de `triggerNextEmail` no client (já tem o guard).
-- Função de cleanup do Cloud (recente, intacta).
+**Risco:** baixo. Os envios "descongelados" continuarão na ordem em que estavam — só passarão a usar a timeline de 9 etapas do "Falha na Entrega" em vez das 16 do "Prolongado". Como já estavam tratados como Falha pelo cron (que usa o ativo), isso só corrige a UI de rastreio público.
