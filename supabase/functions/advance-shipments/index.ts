@@ -814,7 +814,52 @@ async function advanceShipment(
       return false;
     }
 
-    // Debit credits on first event
+    // Determine new status
+    const totalEvents = filteredEvents.length;
+    const eventIndex = filteredEvents.indexOf(nextEvent);
+    let newStatus: string;
+
+    if (eventIndex === totalEvents - 1) {
+      newStatus = "entregue";
+    } else if (eventIndex === totalEvents - 2) {
+      newStatus = "saiu_para_entrega";
+    } else {
+      newStatus = "em_transito";
+    }
+
+    // Calculate next advance time
+    // deno-lint-ignore no-explicit-any
+    const followingEvent = filteredEvents.find((e: any) => e.ordem > nextEvent.ordem);
+    const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
+      ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
+      : null;
+
+    // ── OPTIMISTIC LOCK: só atualiza se ninguém mais avançou nesse meio tempo ──
+    // Isso elimina a race entre múltiplas execuções paralelas (ex.: webhooks simultâneos
+    // disparando advance-shipments). Se outro processo já avançou, abortamos sem cobrar.
+    const { data: updatedRows, error: uErr } = await supabase
+      .from("envios")
+      .update({
+        ultimo_evento_ordem: nextEvent.ordem,
+        status: newStatus,
+        status_label: nextEvent.status_label,
+        proximo_avanco_em: proximoAvancoEm,
+      })
+      .eq("id", envioId)
+      .eq("ultimo_evento_ordem", currentOrdem)
+      .select("id");
+
+    if (uErr) {
+      console.error(`Failed to update envio ${envioId}:`, uErr);
+      return false;
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      console.log(`Skip envio ${envioId}: já avançado por outro processo (lock)`);
+      return false;
+    }
+
+    // ── Débito SOMENTE após lock confirmado (evita débito duplo em race) ──
     if (currentOrdem === 0) {
       let total = 0;
       const activeServices: string[] = [];
@@ -845,51 +890,16 @@ async function advanceShipment(
         });
 
         if (debitErr || !debitOk) {
-          console.warn(`Insufficient balance for user ${lojaUserId}, skipping envio ${envioId}`);
+          console.warn(`Insufficient balance for user ${lojaUserId} after lock; envio ${envioId} avançou sem débito (saldo zerou em corrida).`);
           // Fire-and-forget low-balance alert (throttled to 1x/24h inside the function)
           supabase.functions.invoke("low-balance-alert", {
             body: { user_id: lojaUserId },
           }).catch((e: unknown) => console.error("low-balance-alert invoke failed:", e));
+          // Não revertemos o avanço — mas paramos o envio aqui para não enviar e-mail sem cobrar.
           return false;
         }
         console.log(`Debited ${total} credits for envio ${envioId}`);
       }
-    }
-
-    // Determine new status
-    const totalEvents = filteredEvents.length;
-    const eventIndex = filteredEvents.indexOf(nextEvent);
-    let newStatus: string;
-
-    if (eventIndex === totalEvents - 1) {
-      newStatus = "entregue";
-    } else if (eventIndex === totalEvents - 2) {
-      newStatus = "saiu_para_entrega";
-    } else {
-      newStatus = "em_transito";
-    }
-
-    // Calculate next advance time
-    // deno-lint-ignore no-explicit-any
-    const followingEvent = filteredEvents.find((e: any) => e.ordem > nextEvent.ordem);
-    const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
-      ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
-      : null;
-
-    // Update envio
-    const { error: uErr } = await supabase
-      .from("envios")
-      .update({
-        ultimo_evento_ordem: nextEvent.ordem,
-        status: newStatus,
-        status_label: nextEvent.status_label,
-        proximo_avanco_em: proximoAvancoEm,
-      })
-      .eq("id", envioId);
-
-    if (uErr) {
-      console.error(`Failed to update envio ${envioId}:`, uErr);
-      return false;
     }
 
     // Check if this event should send email
