@@ -89,7 +89,7 @@ export function CloudUsagePanel() {
         .order("executed_at", { ascending: false })
         .limit(10);
       if (error) throw error;
-      return data as Array<{ id: string; action: string; rows_affected: number; executed_at: string }>;
+      return (data as unknown) as Array<{ id: string; action: string; rows_affected: number; executed_at: string }>;
     },
   });
 
