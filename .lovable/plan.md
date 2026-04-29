@@ -1,60 +1,74 @@
-## Diagnóstico
+## Problema confirmado (conta backupativado@gmail.com)
 
-A conta `rodrigosantosderesendejunior@gmail.com` (loja **yaveh**) tem o template ativo correto: **"Nacional Falha na Entrega"** (`0cd4b6ef…`). Mas existem três problemas reais:
+Após o saldo zerar (15:25:30), **9 pedidos da loja "Variedades" foram processados e marcados como "em_transito" SEM nenhum débito de moedas registrado**. Saldo atual = 0.08, e zero transações de consumo registradas após o saldo bater fundo.
 
-### 1. 2.463 envios "congelados" com Template Prolongado
-Quando ele aplicou "Falha na Entrega" em 25/04, a função `applyTemplate` carimbou TODOS os envios em andamento com o ID do template anterior ("Prolongado"). Resultado: pedidos antigos seguem na timeline de 16 etapas do "Prolongado" mesmo o ativo sendo outro.
+## Causa raiz (BUG no servidor)
 
-**Os pedidos novos de hoje estão corretos** (`postagem_template_id = NULL` → cron usa o ativo "Falha na Entrega"). Mas a UI/timeline pública está mostrando dados confusos por causa do bug #3 abaixo.
+Arquivo: `supabase/functions/advance-shipments/index.ts` (linhas 840–903)
 
-### 2. Templates duplicados na conta dele
-- 8 cópias do "Template Prolongado"
-- 3 cópias de "Nacional Falha na Entrega"
-- 2 cópias de "Nacional Taxação"
+A função do cron faz o avanço do envio com **Optimistic Lock primeiro**, e só depois tenta debitar. Quando o débito falha por saldo insuficiente:
 
-Cada vez que ele clica "Aplicar Template" na tela de Postagens, a função clona o template do system em vez de reutilizar uma cópia existente. Só uma cópia de cada está realmente em uso.
+```ts
+// Linha 893-899
+console.warn(`Insufficient balance ... envio ${envioId} avançou sem débito (saldo zerou em corrida).`);
+supabase.functions.invoke("low-balance-alert", ...);
+// Não revertemos o avanço — mas paramos o envio aqui para não enviar e-mail sem cobrar.
+return false;
+```
 
-### 3. Bug em `rastreio-info` (afeta TODAS as lojas)
-A edge function `rastreio-info` usa **sempre** `config.template_ativo_id` ao montar a timeline pública, **ignorando o `envio.postagem_template_id` congelado** no envio. Isso significa que pedidos congelados com um template antigo aparecem na página pública de rastreio com a timeline do template ATUAL — desalinhando ordem/nomes/etapas.
+O comentário "não enviamos e-mail" está correto, MAS o envio fica permanentemente em `ultimo_evento_ordem=1` (em_transito). Como o `auto_envio` está ativo, novos pedidos chegando entram nesse mesmo fluxo: cron pega → faz UPDATE → tenta debitar → falha → mantém avançado de graça.
 
-### 4. Bug no "freeze" do applyTemplate
-A lógica atual carimba envios com `status != 'entregue'` no template antigo. Isso é bom em tese, mas dispara também em pedidos recém-criados (status = pendente, ordem = 0 ou 1) que estariam melhor seguindo o template novo. Resultado: troca de template "para frente" não funciona como o usuário espera.
+Observação: o caminho client-side (`src/lib/email-trigger.ts`) está correto — debita ANTES de avançar e lança `InsufficientBalanceError` se faltar saldo. O bug é exclusivo do cron.
 
----
+## Estratégia de correção
 
-## Plano de correção
+### 1. Corrigir o cron `advance-shipments` (débito ANTES do avanço)
 
-### Etapa A — Limpeza de dados da loja yaveh
-1. **Descongelar os 2.463 envios** com template "Prolongado": setar `postagem_template_id = NULL` para todos os envios da loja `428f4bb4…` que não estão entregues e cujo template congelado é diferente do ativo. Eles passarão a usar o template ativo ("Falha na Entrega") automaticamente.
-2. **Apagar templates duplicados**: manter apenas a cópia em uso de cada tipo (a mais recente / a referenciada por `postagem_config.template_ativo_id`) e apagar as outras 10 cópias órfãs (incluindo seus eventos).
+Inverter a ordem: primeiro tentar debitar, só se OK fazer o UPDATE com optimistic lock. Assim:
+- Se saldo insuficiente → envio fica pendente (`ultimo_evento_ordem=0`), próxima execução do cron tenta de novo (e o cron já pula stores sem saldo via low-balance-alert throttle).
+- Se outro processo já avançou (lock falha) → reverter o débito (creditar de volta) para evitar dupla cobrança.
 
-### Etapa B — Corrigir bug do `rastreio-info`
-Alterar a função para priorizar `envio.postagem_template_id` quando existir, caindo para `config.template_ativo_id` apenas como fallback. Mesma lógica já existe corretamente em `advance-shipments` e `email-trigger`.
+Pseudo-código:
+```ts
+if (currentOrdem === 0 && total > 0) {
+  const { data: debitOk } = await supabase.rpc("debit_user_credits", {...});
+  if (!debitOk) {
+    // dispara alerta, mantém envio pendente, não avança
+    return false;
+  }
+}
 
-### Etapa C — Corrigir bug do `applyTemplate`
-Trocar o comportamento de freeze:
-- **Manter freeze** apenas para envios que já avançaram além da etapa inicial (`ultimo_evento_ordem >= 2`), ou seja, que realmente estão em andamento
-- **Não congelar** envios pendentes recém-criados — eles seguirão o novo template
-- **Reutilizar** cópia existente do template do mesmo `tipo` quando disponível, em vez de sempre clonar uma nova (evita duplicatas no futuro)
+const { data: updatedRows } = await supabase.from("envios").update({...})
+  .eq("id", envioId).eq("ultimo_evento_ordem", currentOrdem).select("id");
 
-### Etapa D — Migração de limpeza global de duplicatas
-Aplicar a mesma deduplicação para todas as lojas: para cada `(loja_id, tipo)` com mais de uma cópia não-system, manter apenas a referenciada por `postagem_config.template_ativo_id` (ou a mais recente) e apagar as outras com seus eventos. Isso libera espaço e evita confusão futura em outras contas.
+if (!updatedRows?.length) {
+  // Outro processo avançou: estornar débito
+  if (debitado) await supabase.from("creditos").update({ saldo: saldo + total })...
+  return false;
+}
+```
 
----
+Para tornar o estorno seguro e atômico, criar RPC `refund_user_credits(_user_id, _quantidade, _descricao)` que faz o inverso de `debit_user_credits` (FOR UPDATE + UPDATE + INSERT em creditos_transacoes com tipo='estorno').
 
-## Detalhes técnicos
+### 2. Compensar a conta backupativado@gmail.com
 
-**Arquivos a editar:**
-- `supabase/functions/rastreio-info/index.ts` — usar `envio.postagem_template_id || config.template_ativo_id`
-- `src/pages/Postagens.tsx` (`applyTemplate`) — freeze condicional + reuso de template existente
+Os 9 envios já foram processados (em_transito) sem cobrança. Como saldo já zerou, marcar isso como dívida não faz sentido. Duas opções para o ressarcimento ao sistema:
+- **(a) Não cobrar** — assumir o prejuízo (9 moedas) e seguir.
+- **(b) Reverter os 9 envios para "pendente"** (ultimo_evento_ordem=0) — assim quando o usuário recarregar, o cron processa normalmente cobrando. Nenhum email foi enviado para esses 9 (o `return false` parou antes do envio), então é seguro reverter.
 
-**Migrations a criar:**
-1. `UPDATE envios SET postagem_template_id = NULL WHERE loja_id = 'yaveh' AND postagem_template_id <> config.template_ativo_id AND status <> 'entregue' AND deleted_at IS NULL`
-2. `DELETE FROM postagem_eventos WHERE template_id IN (...templates_orfaos...)` + `DELETE FROM postagem_templates WHERE id IN (...)` aplicado a todas as lojas
+Recomendo **(b)** — é o estado correto: pedidos chegaram, mas como não havia saldo, devem ficar pendentes aguardando recarga.
 
-**Sem mudanças em:**
-- `advance-shipments` (já usa fallback correto)
-- `email-trigger` (já usa fallback correto)
-- Webhooks de checkout (já corrigidos no fix anterior)
+### 3. Auditoria global
 
-**Risco:** baixo. Os envios "descongelados" continuarão na ordem em que estavam — só passarão a usar a timeline de 9 etapas do "Falha na Entrega" em vez das 16 do "Prolongado". Como já estavam tratados como Falha pelo cron (que usa o ativo), isso só corrige a UI de rastreio público.
+Rodar uma query buscando outros casos do mesmo bug (envios em_transito após data X com proprietário sem transação de débito correspondente) e aplicar mesmo tratamento de reversão para "pendente".
+
+## Arquivos alterados
+
+- **`supabase/functions/advance-shipments/index.ts`** — inverter ordem débito↔avanço, adicionar estorno em caso de race no lock.
+- **Nova migração** — criar RPC `refund_user_credits`.
+- **Operação de dados (insert tool)** — reverter os 9 envios do backupativado para `ultimo_evento_ordem=0, status='pendente', proximo_avanco_em=NULL`. Auditar e reverter casos análogos em outras lojas.
+
+## Riscos
+
+- O cron rodará a cada 5 min e tentará novamente os pendentes — se a loja tem `auto_envio=true` e saldo zero, vai disparar o alerta repetidamente. O `low-balance-alert` já tem throttle de 24h, então só o primeiro envio dispara notificação. Os demais apenas falham silenciosamente, comportamento desejado.
+- Estorno via RPC é seguro porque usa `FOR UPDATE` no saldo.
