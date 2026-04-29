@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Users, Store, Package, Coins, Contact, RefreshCw,
-  Mail, CheckCircle2, XCircle, TrendingUp, ArrowUpRight,
+  Mail, CheckCircle2, XCircle, TrendingUp, ArrowUpRight, Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SystemHealth } from "@/components/admin/SystemHealth";
@@ -117,6 +117,28 @@ export default function AdminDashboard() {
     },
   });
 
+  const cleanupMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("cleanup_old_data" as any);
+      if (error) throw error;
+      return data as Record<string, number | string>;
+    },
+    onSuccess: (data) => {
+      const p = (data?.pedidos_payload_limpos as number) ?? 0;
+      const w = (data?.webhooks_payload_limpos as number) ?? 0;
+      const q = (data?.whatsapp_queue_apagados as number) ?? 0;
+      const c = (data?.cron_logs_apagados as number) ?? 0;
+      const n = (data?.pg_net_logs_apagados as number) ?? 0;
+      toast.success(
+        `Limpeza concluída — pedidos: ${p}, webhooks: ${w}, fila WA: ${q}, cron: ${c}, pg_net: ${n}`,
+        { duration: 8000 }
+      );
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro na limpeza: ${err.message}`);
+    },
+  });
+
   const mainCards = [
     { title: "Usuários", value: stats?.usuarios ?? 0, icon: Users, color: "from-blue-500/20 to-blue-600/5" },
     { title: "Lojas", value: stats?.lojas ?? 0, icon: Store, color: "from-purple-500/20 to-purple-600/5" },
@@ -140,6 +162,15 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Visão geral do sistema</p>
         </div>
+        <Button
+          variant="outline"
+          className="gap-2 border-primary/30 hover:bg-primary/10"
+          disabled={cleanupMutation.isPending}
+          onClick={() => cleanupMutation.mutate()}
+        >
+          <Database className={`h-4 w-4 ${cleanupMutation.isPending ? "animate-pulse" : ""}`} />
+          {cleanupMutation.isPending ? "Limpando..." : "Limpar Banco"}
+        </Button>
       </div>
 
       {isLoading ? (

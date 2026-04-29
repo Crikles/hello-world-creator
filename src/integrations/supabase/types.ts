@@ -2009,6 +2009,7 @@ export type Database = {
         Args: { _admin_id: string; _cashback_id: string }
         Returns: boolean
       }
+      cleanup_old_data: { Args: never; Returns: Json }
       debit_user_credits: {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
