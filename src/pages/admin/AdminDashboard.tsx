@@ -235,6 +235,8 @@ export default function AdminDashboard() {
                 </Card>
               ))}
             </div>
+          {/* Cloud Usage */}
+          <CloudUsagePanel />
           {/* Anomaly Monitor — guards against regressions of the mass-advance bug */}
           <AnomalyMonitor />
           {/* System Health */}
