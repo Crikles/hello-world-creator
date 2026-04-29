@@ -834,32 +834,11 @@ async function advanceShipment(
       ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
       : null;
 
-    // ── OPTIMISTIC LOCK: só atualiza se ninguém mais avançou nesse meio tempo ──
-    // Isso elimina a race entre múltiplas execuções paralelas (ex.: webhooks simultâneos
-    // disparando advance-shipments). Se outro processo já avançou, abortamos sem cobrar.
-    const { data: updatedRows, error: uErr } = await supabase
-      .from("envios")
-      .update({
-        ultimo_evento_ordem: nextEvent.ordem,
-        status: newStatus,
-        status_label: nextEvent.status_label,
-        proximo_avanco_em: proximoAvancoEm,
-      })
-      .eq("id", envioId)
-      .eq("ultimo_evento_ordem", currentOrdem)
-      .select("id");
-
-    if (uErr) {
-      console.error(`Failed to update envio ${envioId}:`, uErr);
-      return false;
-    }
-
-    if (!updatedRows || updatedRows.length === 0) {
-      console.log(`Skip envio ${envioId}: já avançado por outro processo (lock)`);
-      return false;
-    }
-
-    // ── Débito SOMENTE após lock confirmado (evita débito duplo em race) ──
+    // ── DÉBITO PRIMEIRO (antes do avanço) ──
+    // Se saldo insuficiente, envio fica pendente e cron tentará novamente após recarga.
+    // Se outro processo avançar antes de nós (lock falha abaixo), estornamos o débito.
+    let debitedTotal = 0;
+    let debitedDescricao = "";
     if (currentOrdem === 0) {
       let total = 0;
       const activeServices: string[] = [];
@@ -890,16 +869,58 @@ async function advanceShipment(
         });
 
         if (debitErr || !debitOk) {
-          console.warn(`Insufficient balance for user ${lojaUserId} after lock; envio ${envioId} avançou sem débito (saldo zerou em corrida).`);
+          console.warn(`Insufficient balance for user ${lojaUserId}; envio ${envioId} permanece pendente até recarga.`);
           // Fire-and-forget low-balance alert (throttled to 1x/24h inside the function)
           supabase.functions.invoke("low-balance-alert", {
             body: { user_id: lojaUserId },
           }).catch((e: unknown) => console.error("low-balance-alert invoke failed:", e));
-          // Não revertemos o avanço — mas paramos o envio aqui para não enviar e-mail sem cobrar.
+          // Envio continua pendente (ultimo_evento_ordem permanece 0). Próxima execução do cron tentará novamente.
           return false;
         }
+        debitedTotal = total;
+        debitedDescricao = descricao;
         console.log(`Debited ${total} credits for envio ${envioId}`);
       }
+    }
+
+    // ── OPTIMISTIC LOCK: só atualiza se ninguém mais avançou nesse meio tempo ──
+    // Se outro processo já avançou, estornamos o débito (se houve) para evitar dupla cobrança.
+    const { data: updatedRows, error: uErr } = await supabase
+      .from("envios")
+      .update({
+        ultimo_evento_ordem: nextEvent.ordem,
+        status: newStatus,
+        status_label: nextEvent.status_label,
+        proximo_avanco_em: proximoAvancoEm,
+      })
+      .eq("id", envioId)
+      .eq("ultimo_evento_ordem", currentOrdem)
+      .select("id");
+
+    if (uErr) {
+      console.error(`Failed to update envio ${envioId}:`, uErr);
+      // Reverter débito se houve
+      if (debitedTotal > 0) {
+        await supabase.rpc("refund_user_credits", {
+          _user_id: lojaUserId,
+          _quantidade: debitedTotal,
+          _descricao: `Estorno: falha ao avançar envio ${envioId} (${debitedDescricao})`,
+        });
+      }
+      return false;
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      console.log(`Skip envio ${envioId}: já avançado por outro processo (lock)`);
+      // Reverter débito (race condition: outro processo já cobrou e avançou)
+      if (debitedTotal > 0) {
+        await supabase.rpc("refund_user_credits", {
+          _user_id: lojaUserId,
+          _quantidade: debitedTotal,
+          _descricao: `Estorno: envio ${envioId} avançado por outro processo (${debitedDescricao})`,
+        });
+      }
+      return false;
     }
 
     // Check if this event should send email

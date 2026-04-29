@@ -2157,6 +2157,10 @@ export type Database = {
         Args: { _envio_id: string; _user_id: string }
         Returns: number
       }
+      refund_user_credits: {
+        Args: { _descricao: string; _quantidade: number; _user_id: string }
+        Returns: boolean
+      }
       reject_cashback: {
         Args: { _admin_id: string; _cashback_id: string }
         Returns: boolean
