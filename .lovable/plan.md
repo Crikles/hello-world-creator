@@ -1,90 +1,92 @@
-# Painel de Uso da Cloud no Admin Dashboard
+## Problema confirmado
 
-Hoje o admin só tem o botão "Limpar Banco". Vamos criar uma seção completa **"Uso da Cloud"** que mostra de forma clara e didática quanto o projeto está consumindo, onde está o gargalo, e o que pode ser limpo — tudo dentro de `/admin`.
+Investiguei a conta `rodrigosantosderesendejunior@gmail.com` (loja `yaveh`). Vários pedidos criados hoje entre 12:34 e 14:48 BRT pularam até **ordem 6 = "Falha Entrega"** em ~60 segundos (entre 14:52:21 e 14:53:14), com cobranças e e-mails sequenciais a milisegundos de distância.
 
-## O que será exibido
+**Causa raiz: condição de corrida no `advance-shipments`.**
 
-### 1. Cards de resumo (topo)
-- **Tamanho total do banco** (ex: `592 MB`) com barra visual e indicador de tendência
-- **Total de registros** (soma das principais tabelas)
-- **Última limpeza executada** (data + quanto liberou)
-- **Status da instância** (verde/amarelo/vermelho baseado em uso)
+Cada webhook de venda (Shopify, Vega, Luna, Adoorei, Corvex, Nuvorafy, api-external) dispara `advance-shipments` em paralelo. Os logs mostram dezenas de execuções concorrentes, várias com timeout 504 (150s). Quando há múltiplas execuções concorrentes:
 
-### 2. Top tabelas (gráfico de barras)
-Lista as 15 maiores tabelas com:
-- Nome amigável (ex: "Pedidos" em vez de `pedidos`)
-- Tamanho em MB e % do total
-- Quantidade de registros
-- Idade do registro mais antigo
-- Indicador "🟢 Saudável / 🟡 Atenção / 🔴 Limpar"
+1. Run A faz query da seção 2 (`proximo_avanco_em <= now`) e começa a avançar envio X.
+2. Run B (disparado por outro webhook ~1s depois) faz a mesma query antes de A confirmar a atualização → também pega envio X.
+3. Cada Run chama `advanceShipment(envioId)`, que faz `SELECT * FROM envios WHERE id = X` (sempre lê valor atual) e avança +1 ordem.
+4. **Mas `advanceShipment` NÃO re-valida `proximo_avanco_em` após o fresh fetch.** Confia que a query do caller já filtrou.
 
-Exemplo do que apareceria hoje:
+Resultado: 5–6 runs paralelos avançam o MESMO envio em sequência (cada um lê ordem atualizada pelo anterior, mas nenhum bloqueia pelo `proximo_avanco_em` que já foi definido para 24h no futuro).
+
+A função client-side `triggerNextEmail` (`src/lib/email-trigger.ts` linhas 38–42) já tem essa proteção. O cron no servidor não tem.
+
+## Correção
+
+### 1. Adicionar guarda de `proximo_avanco_em` dentro de `advanceShipment`
+
+Em `supabase/functions/advance-shipments/index.ts`, logo após o fetch do shipment (após a linha 756), adicionar:
+
+```ts
+// Race-condition guard: skip if delay window hasn't elapsed
+const proximoAvanco = shipment.proximo_avanco_em;
+if (proximoAvanco && new Date(proximoAvanco) > new Date()) {
+  console.log(`Skip envio ${envioId}: delay not elapsed (${proximoAvanco})`);
+  return false;
+}
 ```
-Pedidos              309 MB  (52%)  [🔴 Limpar payloads antigos]
-Webhook Logs          81 MB  (14%)  [🟡 Pode reduzir]
-Fila WhatsApp         36 MB  ( 6%)  [🟢 OK]
-Logs de E-mail        34 MB  ( 6%)  [🟢 OK]
-Envios                17 MB  ( 3%)  [🟢 OK]
+
+Isto garante que mesmo se a query da seção 2 estiver desatualizada, o avanço é bloqueado pelo estado mais recente.
+
+### 2. Lock atômico via UPDATE condicional
+
+Para eliminar definitivamente a race, trocar o `UPDATE` da linha 873–881 por um update condicional que só atualiza se `ultimo_evento_ordem` ainda for o esperado:
+
+```ts
+const { data: updated, error: uErr } = await supabase
+  .from("envios")
+  .update({ ultimo_evento_ordem: nextEvent.ordem, status: newStatus, status_label: nextEvent.status_label, proximo_avanco_em: proximoAvancoEm })
+  .eq("id", envioId)
+  .eq("ultimo_evento_ordem", currentOrdem)  // optimistic lock
+  .select("id");
+
+if (uErr || !updated || updated.length === 0) {
+  console.log(`Skip envio ${envioId}: já avançado por outro processo`);
+  return false;
+}
 ```
 
-### 3. Edge Functions (últimas 24h)
-- Total de invocações
-- Taxa de erro (%) — com alerta se > 5%
-- Top 5 funções mais chamadas
-- Top 5 funções mais lentas (tempo médio)
+Se outro processo já avançou, o update afeta 0 linhas e abortamos sem cobrar nem mandar e-mail.
 
-### 4. Ações de limpeza (com explicação)
-Em vez de um botão único e cego, **3 botões separados** com texto claro:
+### 3. Mover o débito para DEPOIS do update bem-sucedido
 
-- **"Limpar payloads antigos de pedidos"** — Remove o JSON bruto de pedidos com mais de 30 dias. *Não afeta dados do cliente, apenas o registro original do checkout.* (~150 MB)
-- **"Limpar logs de webhooks processados"** — Esvazia payload de webhooks já processados há mais de 30 dias. (~40 MB)
-- **"Limpar fila WhatsApp finalizada"** — Apaga mensagens já enviadas/falhas/canceladas há mais de 15 dias. (~20 MB)
-- **"Limpeza completa"** — Executa as 3 acima + logs internos de cron/http.
+Hoje o débito (linha 832–849) acontece ANTES do update. Em corrida, isso causa débitos duplicados. Reordenar para: validar saldo → tentar update condicional → se sucesso, debitar. Alternativa mais simples: manter ordem mas usar uma chave única (ex.: `creditos_transacoes` com índice único em `(user_id, descricao + envio_id + ordem)`) — mas o lock condicional já resolve a maior parte.
 
-Cada botão mostra um **modal de confirmação** explicando exatamente o que será apagado, e ao final um toast com "X MB liberados".
+### 4. Remover dispatches redundantes de webhooks
 
-### 5. Histórico de limpezas
-Tabela simples com últimas 10 execuções: data, quem rodou, registros afetados, espaço liberado.
+Cada webhook de venda dispara `supabase.functions.invoke("advance-shipments", { body: {} })` SEM `loja_id`, ou seja, processa TODAS as lojas a cada venda recebida. Em horário de pico, isso multiplica a carga e amplifica a corrida.
 
-### 6. Recomendações inteligentes
-Bloco com dicas dinâmicas baseadas nos números, ex:
-- ⚠️ "Tabela `pedidos` está com 309 MB — recomendamos limpar payloads antigos"
-- ⚠️ "Banco passou de 80% da capacidade recomendada — considere upgrade da instância"
-- ✅ "Última limpeza foi há 2 dias — tudo em dia"
+Alterar todos os webhooks (`shopify-webhook`, `webhook-vega`, `webhook-luna`, `webhook-adoorei`, `webhook-corvex`, `webhook-nuvorafy`, `api-external`) para passar `body: { loja_id: lojaId }` ao invocar `advance-shipments`. Assim cada webhook só processa a sua loja, reduzindo concorrência geral.
 
----
+### 5. Ferramenta de reversão para a loja afetada
 
-## Detalhes técnicos
+Adicionar um endpoint admin (ou execução SQL única) para reverter os envios da loja `yaveh` que avançaram hoje incorretamente:
 
-**Nova RPC `get_cloud_usage_stats()`** (SECURITY DEFINER, restrita a admin):
-Retorna em um único JSON:
-- `db_size_bytes` via `pg_database_size(current_database())`
-- `tables[]` via `pg_stat_user_tables` + `pg_total_relation_size` (top 15)
-- `row_counts` para tabelas principais
-- `oldest_record` por tabela (created_at min)
+- Identificar envios da loja `428f4bb4-5b53-4d34-a9a1-a139e7cceaaf` criados hoje (>= 2026-04-29 00:00 BRT) com `updated_at - created_at < 2 horas` e `ultimo_evento_ordem >= 2`.
+- Resetar para `ultimo_evento_ordem = 1`, `status_label = 'Postado'`, `status = 'em_transito'`, `proximo_avanco_em = created_at + 24h`.
+- Registrar a quantidade revertida e estornar os créditos extras cobrados acima do esperado para a primeira etapa.
 
-**Nova RPC `cleanup_pedidos_payloads()`, `cleanup_webhook_logs()`, `cleanup_whatsapp_queue()`** — versões separadas e granulares da `cleanup_old_data` atual, cada uma retornando `{ rows_affected, bytes_freed_estimate }`.
+Apresentar lista exata para confirmação antes de aplicar (não fazer mudança automática sem revisão).
 
-**Nova tabela `cleanup_history`**:
-```
-id, executed_by, action, rows_affected, bytes_freed, executed_at
-```
-Populada automaticamente pelas RPCs.
+## Arquivos a alterar
 
-**Edge function logs**: consulta a função `analytics_query` interna do Supabase via service role para puxar contagens de `function_edge_logs` das últimas 24h. Como isso requer chamada autenticada, criar edge function `admin-cloud-stats` que retorna esses números.
+- `supabase/functions/advance-shipments/index.ts` — guards 1, 2, 3.
+- `supabase/functions/shopify-webhook/index.ts`
+- `supabase/functions/webhook-vega/index.ts`
+- `supabase/functions/webhook-luna/index.ts`
+- `supabase/functions/webhook-adoorei/index.ts`
+- `supabase/functions/webhook-corvex/index.ts`
+- `supabase/functions/webhook-nuvorafy/index.ts`
+- `supabase/functions/api-external/index.ts`
+- Migração SQL de reversão dos envios afetados (após confirmação).
 
-**Frontend (`src/pages/admin/AdminDashboard.tsx`)**:
-- Nova seção `<CloudUsagePanel />` em componente separado `src/components/admin/CloudUsagePanel.tsx`
-- Usa `react-query` com refetch a cada 60s
-- Gráfico de barras com Recharts (já no projeto)
-- Modais de confirmação com `AlertDialog` do shadcn
-- Botão "Limpar Banco" atual é removido (substituído pelas ações granulares)
+## O que NÃO vai mudar
 
-**Segurança**: todas as RPCs e edge functions checam `has_role(auth.uid(), 'admin')` no início. Mobile bloqueado conforme regra existente do admin.
-
----
-
-## Limitações honestas
-- Tamanho exato do **storage de arquivos** (buckets `logos`, `nfe-pdfs`, `pix-qrcodes`) não é exposto via SQL — vamos mostrar apenas contagem de objetos por bucket, com link "Ver detalhes na Cloud" para o painel oficial.
-- Métricas de **CPU/RAM da instância** não são acessíveis via API pública do Supabase — vamos exibir um aviso "Para CPU/RAM, ver painel da Lovable Cloud" com link.
-- Custos em R$/USD não são calculáveis (depende do plano) — mostramos só consumo bruto.
+- Templates da loja (estão corretos com delays de 24h).
+- Configuração `auto_envio` da loja (continua funcionando como esperado).
+- Lógica de `triggerNextEmail` no client (já tem o guard).
+- Função de cleanup do Cloud (recente, intacta).
