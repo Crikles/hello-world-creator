@@ -755,6 +755,13 @@ async function advanceShipment(
 
     if (sErr || !shipment) return false;
 
+    // ── RACE GUARD: respeita o delay mesmo se a query do caller estiver desatualizada ──
+    const proximoAvancoCheck = (shipment as any).proximo_avanco_em;
+    if (proximoAvancoCheck && new Date(proximoAvancoCheck) > new Date()) {
+      console.log(`Skip envio ${envioId}: delay ainda não venceu (${proximoAvancoCheck})`);
+      return false;
+    }
+
     // Determine which template this shipment should use
     const templateIdToUse = shipment.postagem_template_id || config.template_ativo_id;
     if (!templateIdToUse) return false;
