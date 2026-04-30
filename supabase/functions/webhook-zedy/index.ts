@@ -298,6 +298,10 @@ Deno.serve(async (req) => {
       if (wasDuplicate) {
         console.log("[webhook-zedy] Duplicate envio blocked atomically:", newEnvio.id);
         await supabase.from("pedidos").update({ envio_id: newEnvio.id }).eq("id", pedidoId).is("envio_id", null);
+        // Garante envio da confirmação de pagamento mesmo no caminho duplicado (idempotente)
+        supabase.functions.invoke("send-payment-confirmation", {
+          body: { pedido_id: pedidoId, loja_id: lojaId }
+        }).catch((err) => console.error("[payment-confirmation] invoke error (dedupe path):", err));
         await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "zedy").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
         return new Response(JSON.stringify({ success: true, dedupe: true, envio_id: newEnvio.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
