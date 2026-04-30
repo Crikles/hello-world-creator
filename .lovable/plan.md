@@ -1,74 +1,76 @@
-## Problema confirmado (conta backupativado@gmail.com)
+## Diagnóstico (loja RIFA — feernandosousa)
 
-Após o saldo zerar (15:25:30), **9 pedidos da loja "Variedades" foram processados e marcados como "em_transito" SEM nenhum débito de moedas registrado**. Saldo atual = 0.08, e zero transações de consumo registradas após o saldo bater fundo.
+Verifiquei os dados no banco e identifiquei **3 bugs distintos** no módulo de Confirmação de Pagamento:
 
-## Causa raiz (BUG no servidor)
+### Bug 1 — "Pendentes" mostra 1.194 grupos (≈120 páginas) que na verdade estão OK
 
-Arquivo: `supabase/functions/advance-shipments/index.ts` (linhas 840–903)
+A RPC `get_confirmacao_grouped` (filtro `pendentes`) inclui qualquer grupo onde `email_status = 'failed'` **OU** `sms_status = 'failed'`. Mas na UI o status unificado prioriza o e-mail: se o e-mail foi enviado com sucesso, o grupo aparece com badge verde "Enviado".
 
-A função do cron faz o avanço do envio com **Optimistic Lock primeiro**, e só depois tenta debitar. Quando o débito falha por saldo insuficiente:
+Confirmado nos dados da loja:
+- 1.191 grupos têm **e-mail enviado com sucesso** + SMS falhou (provavelmente sem saldo só pra SMS).
+- Esses 1.191 grupos não deveriam ser contados como Pendentes nem aparecer na lista filtrada por Pendentes.
+- Por isso o usuário vê páginas e mais páginas com badge "Enviado" dentro do filtro Pendentes.
 
-```ts
-// Linha 893-899
-console.warn(`Insufficient balance ... envio ${envioId} avançou sem débito (saldo zerou em corrida).`);
-supabase.functions.invoke("low-balance-alert", ...);
-// Não revertemos o avanço — mas paramos o envio aqui para não enviar e-mail sem cobrar.
-return false;
+A RPC `get_confirmacao_placar` já usa a lógica correta (status unificado). A divergência entre as duas RPCs é o que causa o número certo no card mas a paginação errada na lista.
+
+### Bug 2 — Pedidos de hoje sumindo do histórico
+
+18 pedidos `approved` da Vega criados hoje (30/04) **não geraram nenhum log** em `confirmacao_pagamento_log`. Último log da loja é 29/04 22:53.
+
+Causa: em `webhook-vega/index.ts` (linhas 414–417), quando o RPC `try_create_envio_dedupe` retorna `was_duplicate=true`, a função faz **early return** sem invocar `send-payment-confirmation`. Isso acontece quando o webhook da Vega manda primeiro um evento que cria o envio (ex.: pending) e depois o `approved` cai no caminho duplicado. Como nenhum log é criado, o pedido nunca aparece no histórico.
+
+### Bug 3 — Webhooks de outros providers podem ter o mesmo padrão
+
+Vou auditar `webhook-zedy`, `webhook-luna`, `webhook-adoorei`, `webhook-corvex`, `webhook-nuvorafy` e `shopify-webhook` para garantir que todos disparem `send-payment-confirmation` mesmo no caso de envio duplicado (desde que o pedido esteja `approved`).
+
+---
+
+## Plano de correção
+
+### 1. Corrigir filtro "Pendentes" e "Enviados" na RPC `get_confirmacao_grouped`
+
+Migration alterando a CTE `filtered` para usar a mesma lógica unificada do placar:
+
+```text
+status_unificado =
+  'sent'   se email_st='sent' OU (email_st IS NULL E sms_st='sent')
+  'failed' se email_st='failed' OU (email_st IS NULL E sms_st='failed')
+  'none'   caso contrário
+
+p_status='pendentes' → status_unificado = 'failed'
+p_status='enviados'  → status_unificado = 'sent'
 ```
 
-O comentário "não enviamos e-mail" está correto, MAS o envio fica permanentemente em `ultimo_evento_ordem=1` (em_transito). Como o `auto_envio` está ativo, novos pedidos chegando entram nesse mesmo fluxo: cron pega → faz UPDATE → tenta debitar → falha → mantém avançado de graça.
+Isso fará com que:
+- Card "Pendentes" e a lista filtrada por Pendentes mostrem o **mesmo número**.
+- Casos em que e-mail foi enviado e SMS falhou apareçam como Enviados (não Pendentes).
+- `total_count` (paginação) reflita o número real.
 
-Observação: o caminho client-side (`src/lib/email-trigger.ts`) está correto — debita ANTES de avançar e lança `InsufficientBalanceError` se faltar saldo. O bug é exclusivo do cron.
+### 2. Garantir disparo de `send-payment-confirmation` em pedidos duplicados (Vega)
 
-## Estratégia de correção
+Em `supabase/functions/webhook-vega/index.ts` no bloco `wasDuplicate`:
+- Antes do early return, invocar `send-payment-confirmation` com `pedido_id`/`loja_id` se o pedido estiver `approved` e ainda não tiver log de confirmação.
+- A própria função `send-payment-confirmation` já tem proteção idempotente (não envia duplicado para o mesmo pedido), então é seguro.
 
-### 1. Corrigir o cron `advance-shipments` (débito ANTES do avanço)
+### 3. Auditar e padronizar os outros webhooks de checkout
 
-Inverter a ordem: primeiro tentar debitar, só se OK fazer o UPDATE com optimistic lock. Assim:
-- Se saldo insuficiente → envio fica pendente (`ultimo_evento_ordem=0`), próxima execução do cron tenta de novo (e o cron já pula stores sem saldo via low-balance-alert throttle).
-- Se outro processo já avançou (lock falha) → reverter o débito (creditar de volta) para evitar dupla cobrança.
+Para cada um (`zedy`, `luna`, `adoorei`, `corvex`, `nuvorafy`, `shopify`), garantir que o disparo de `send-payment-confirmation` aconteça sempre que o status for `approved`, **independente** do envio ter sido criado agora ou já existir. O critério deve ser "pedido aprovado", não "envio criado pela primeira vez".
 
-Pseudo-código:
-```ts
-if (currentOrdem === 0 && total > 0) {
-  const { data: debitOk } = await supabase.rpc("debit_user_credits", {...});
-  if (!debitOk) {
-    // dispara alerta, mantém envio pendente, não avança
-    return false;
-  }
-}
+### 4. Backfill dos pedidos que ficaram sem confirmação
 
-const { data: updatedRows } = await supabase.from("envios").update({...})
-  .eq("id", envioId).eq("ultimo_evento_ordem", currentOrdem).select("id");
+Migration (ou invocação pontual) que percorre os pedidos `approved` da loja `d8257e10-6a55-498e-aba8-e87ee6651985` (e outras que possam ter o mesmo problema) sem registro em `confirmacao_pagamento_log` nas últimas 48h e dispara `send-payment-confirmation` para cada um. A função em si já é idempotente.
 
-if (!updatedRows?.length) {
-  // Outro processo avançou: estornar débito
-  if (debitado) await supabase.from("creditos").update({ saldo: saldo + total })...
-  return false;
-}
-```
+### Arquivos afetados
+- `supabase/migrations/<nova>_fix_confirmacao_grouped_unified_status.sql`
+- `supabase/functions/webhook-vega/index.ts`
+- `supabase/functions/webhook-zedy/index.ts`
+- `supabase/functions/webhook-luna/index.ts`
+- `supabase/functions/webhook-adoorei/index.ts`
+- `supabase/functions/webhook-corvex/index.ts`
+- `supabase/functions/webhook-nuvorafy/index.ts`
+- `supabase/functions/shopify-webhook/index.ts`
+- `supabase/migrations/<nova>_backfill_confirmacao_pagamento.sql` (ou execução pontual)
 
-Para tornar o estorno seguro e atômico, criar RPC `refund_user_credits(_user_id, _quantidade, _descricao)` que faz o inverso de `debit_user_credits` (FOR UPDATE + UPDATE + INSERT em creditos_transacoes com tipo='estorno').
-
-### 2. Compensar a conta backupativado@gmail.com
-
-Os 9 envios já foram processados (em_transito) sem cobrança. Como saldo já zerou, marcar isso como dívida não faz sentido. Duas opções para o ressarcimento ao sistema:
-- **(a) Não cobrar** — assumir o prejuízo (9 moedas) e seguir.
-- **(b) Reverter os 9 envios para "pendente"** (ultimo_evento_ordem=0) — assim quando o usuário recarregar, o cron processa normalmente cobrando. Nenhum email foi enviado para esses 9 (o `return false` parou antes do envio), então é seguro reverter.
-
-Recomendo **(b)** — é o estado correto: pedidos chegaram, mas como não havia saldo, devem ficar pendentes aguardando recarga.
-
-### 3. Auditoria global
-
-Rodar uma query buscando outros casos do mesmo bug (envios em_transito após data X com proprietário sem transação de débito correspondente) e aplicar mesmo tratamento de reversão para "pendente".
-
-## Arquivos alterados
-
-- **`supabase/functions/advance-shipments/index.ts`** — inverter ordem débito↔avanço, adicionar estorno em caso de race no lock.
-- **Nova migração** — criar RPC `refund_user_credits`.
-- **Operação de dados (insert tool)** — reverter os 9 envios do backupativado para `ultimo_evento_ordem=0, status='pendente', proximo_avanco_em=NULL`. Auditar e reverter casos análogos em outras lojas.
-
-## Riscos
-
-- O cron rodará a cada 5 min e tentará novamente os pendentes — se a loja tem `auto_envio=true` e saldo zero, vai disparar o alerta repetidamente. O `low-balance-alert` já tem throttle de 24h, então só o primeiro envio dispara notificação. Os demais apenas falham silenciosamente, comportamento desejado.
-- Estorno via RPC é seguro porque usa `FOR UPDATE` no saldo.
+### Riscos / observações
+- A loja RIFA tem 1.191 casos antigos onde só o SMS falhou — após a correção da RPC, eles deixam de aparecer como Pendentes. Se o usuário quiser **reenviar só o SMS desses casos**, podemos manter um botão dedicado, mas isso seria uma feature separada.
+- Após o deploy do webhook-vega corrigido, novos pedidos passarão a gerar confirmação corretamente; o backfill resolve o que já entrou hoje sem confirmação.
