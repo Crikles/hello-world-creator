@@ -474,6 +474,7 @@ Deno.serve(async (req) => {
         .select("id, ultimo_evento_ordem, proximo_avanco_em, status_label")
         .eq("loja_id", lojaId)
         .neq("status", "entregue")
+        .neq("status", "saiu_para_entrega") // evento "Entregue" requer confirmação manual
         .gt("ultimo_evento_ordem", 0)
         .is("deleted_at", null)
         .not("status_label", "in", '("Falha Entrega","Taxação","Taxacao")')
