@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.retry-failed-sends]
 verify_jwt = false
+
+[functions.webhook-alphazz]
+verify_jwt = false
