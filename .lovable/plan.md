@@ -1,76 +1,84 @@
-## Diagnóstico (loja RIFA — feernandosousa)
+## Diagnóstico
 
-Verifiquei os dados no banco e identifiquei **3 bugs distintos** no módulo de Confirmação de Pagamento:
+O usuário "negociosmilionarios1901@gmail.com" (loja **Prime**) tem **1.724 envios travados** sem avançar — incluindo o pedido do Elvis (parado desde 24/04 em "Coletado", deveria ter avançado em 25/04). Globalmente, há **~14 mil envios travados** em várias lojas (Variedades: 9.845, Prime: 1.656, Shopee: 1.109, etc.).
 
-### Bug 1 — "Pendentes" mostra 1.194 grupos (≈120 páginas) que na verdade estão OK
+### Causa raiz (bug crítico no cron `advance-shipments`)
 
-A RPC `get_confirmacao_grouped` (filtro `pendentes`) inclui qualquer grupo onde `email_status = 'failed'` **OU** `sms_status = 'failed'`. Mas na UI o status unificado prioriza o e-mail: se o e-mail foi enviado com sucesso, o grupo aparece com badge verde "Enviado".
+O cron roda a cada 2 minutos e processa no máximo 500 envios por run, com `MAX_PER_LOJA = 300`. A query SQL na linha 472 seleciona envios elegíveis com `proximo_avanco_em < now()`, mas **NÃO exclui envios cujo próximo evento é "Entregue"**.
 
-Confirmado nos dados da loja:
-- 1.191 grupos têm **e-mail enviado com sucesso** + SMS falhou (provavelmente sem saldo só pra SMS).
-- Esses 1.191 grupos não deveriam ser contados como Pendentes nem aparecer na lista filtrada por Pendentes.
-- Por isso o usuário vê páginas e mais páginas com badge "Enviado" dentro do filtro Pendentes.
+Quando o cron pega um envio onde `nextEvent.status_label = "Entregue"` (linha 808–815 de `advance-shipments/index.ts`):
 
-A RPC `get_confirmacao_placar` já usa a lógica correta (status unificado). A divergência entre as duas RPCs é o que causa o número certo no card mas a paginação errada na lista.
+```ts
+if (isFinalDelivered) {
+  console.log(`Cron skip: 'Entregue' requires manual confirmation...`);
+  return false;
+}
+```
 
-### Bug 2 — Pedidos de hoje sumindo do histórico
+Faz `return false` **sem atualizar `proximo_avanco_em`**. Resultado: na próxima execução do cron (2 min depois), os MESMOS envios entram na fila novamente — loop infinito.
 
-18 pedidos `approved` da Vega criados hoje (30/04) **não geraram nenhum log** em `confirmacao_pagamento_log`. Último log da loja é 29/04 22:53.
+Os logs do cron confirmam: 100% dos logs visíveis são "Cron skip: 'Entregue' requires manual confirmation". A função fica saturada processando ~6.408 envios "Saiu para Entrega" que nunca podem avançar (porque o próximo é "Entregue", manual). Isso consome os 300 slots por loja e os 500 globais, bloqueando envios legítimos como o do Elvis.
 
-Causa: em `webhook-vega/index.ts` (linhas 414–417), quando o RPC `try_create_envio_dedupe` retorna `was_duplicate=true`, a função faz **early return** sem invocar `send-payment-confirmation`. Isso acontece quando o webhook da Vega manda primeiro um evento que cria o envio (ex.: pending) e depois o `approved` cai no caminho duplicado. Como nenhum log é criado, o pedido nunca aparece no histórico.
-
-### Bug 3 — Webhooks de outros providers podem ter o mesmo padrão
-
-Vou auditar `webhook-zedy`, `webhook-luna`, `webhook-adoorei`, `webhook-corvex`, `webhook-nuvorafy` e `shopify-webhook` para garantir que todos disparem `send-payment-confirmation` mesmo no caso de envio duplicado (desde que o pedido esteja `approved`).
-
----
+Distribuição dos vencidos:
+- 5.299 em "Saiu para Entrega" (ordem 5)
+- 1.109 em "Saiu para Entrega" (ordem 7)
+- 3.434 em "Postado" (ordem 1)
+- 3.254 em "Em Trânsito" (ordem 3)
+- 542 em "Centro Local" (ordem 4)
+- 345 em "Coletado" (ordem 2) ← inclui o pedido do Elvis
 
 ## Plano de correção
 
-### 1. Corrigir filtro "Pendentes" e "Enviados" na RPC `get_confirmacao_grouped`
+### 1. Cron: marcar envios "prontos para entregar" como aguardando confirmação manual
 
-Migration alterando a CTE `filtered` para usar a mesma lógica unificada do placar:
+Em `supabase/functions/advance-shipments/index.ts`, no bloco `isFinalDelivered` (linhas 808–815), antes do `return false`:
 
-```text
-status_unificado =
-  'sent'   se email_st='sent' OU (email_st IS NULL E sms_st='sent')
-  'failed' se email_st='failed' OU (email_st IS NULL E sms_st='failed')
-  'none'   caso contrário
+- Atualizar o envio: `proximo_avanco_em = NULL` e `status = 'saiu_para_entrega'`. Isso o tira da fila do cron permanentemente até a confirmação manual.
+- Remover o `console.log` ruidoso (ou trocar por log único após batch).
 
-p_status='pendentes' → status_unificado = 'failed'
-p_status='enviados'  → status_unificado = 'sent'
+### 2. Filtro SQL extra: nunca puxar envios "saiu_para_entrega"
+
+Adicionar filtro `.neq("status", "saiu_para_entrega")` na query de elegíveis (linha 472–482). O status `saiu_para_entrega` por definição já indica "próximo é entregue", então não deve mais entrar no cron automático.
+
+### 3. Backfill: limpar `proximo_avanco_em` dos ~6.408 envios "Saiu para Entrega" travados
+
+Migration que atualiza:
+```sql
+UPDATE envios
+SET proximo_avanco_em = NULL
+WHERE deleted_at IS NULL
+  AND status = 'saiu_para_entrega'
+  AND proximo_avanco_em IS NOT NULL;
 ```
 
-Isso fará com que:
-- Card "Pendentes" e a lista filtrada por Pendentes mostrem o **mesmo número**.
-- Casos em que e-mail foi enviado e SMS falhou apareçam como Enviados (não Pendentes).
-- `total_count` (paginação) reflita o número real.
+Isso libera imediatamente o cron para processar os envios reais.
 
-### 2. Garantir disparo de `send-payment-confirmation` em pedidos duplicados (Vega)
+### 4. Avanço imediato dos envios travados legítimos
 
-Em `supabase/functions/webhook-vega/index.ts` no bloco `wasDuplicate`:
-- Antes do early return, invocar `send-payment-confirmation` com `pedido_id`/`loja_id` se o pedido estiver `approved` e ainda não tiver log de confirmação.
-- A própria função `send-payment-confirmation` já tem proteção idempotente (não envia duplicado para o mesmo pedido), então é seguro.
+Após o backfill, invocar manualmente o cron várias vezes para drenar a fila acumulada (1.724 da Prime + ~6.000 das outras lojas em estados Postado/Coletado/Em Trânsito/Centro Local). Como cada execução processa até 500, serão necessárias ~15 execuções consecutivas (~30 min de trabalho), ou alternativamente uma migration que atualiza diretamente `proximo_avanco_em` para `now()` e deixa o cron recuperar nas próximas horas.
 
-### 3. Auditar e padronizar os outros webhooks de checkout
+Recomendo executar o cron em loop algumas vezes via fetch direto da edge function — mais seguro do que pular eventos via SQL (preserva débito/email/SMS).
 
-Para cada um (`zedy`, `luna`, `adoorei`, `corvex`, `nuvorafy`, `shopify`), garantir que o disparo de `send-payment-confirmation` aconteça sempre que o status for `approved`, **independente** do envio ter sido criado agora ou já existir. O critério deve ser "pedido aprovado", não "envio criado pela primeira vez".
+### 5. (Opcional) Aumentar throughput do cron
 
-### 4. Backfill dos pedidos que ficaram sem confirmação
-
-Migration (ou invocação pontual) que percorre os pedidos `approved` da loja `d8257e10-6a55-498e-aba8-e87ee6651985` (e outras que possam ter o mesmo problema) sem registro em `confirmacao_pagamento_log` nas últimas 48h e dispara `send-payment-confirmation` para cada um. A função em si já é idempotente.
+Considerações para evitar o problema escalar de novo:
+- Reduzir `BATCH_DELAY_MS` de 200 para 50 (processa 4x mais por run).
+- Aumentar `MAX_PER_RUN` de 500 para 1000.
+- Adicionar `ORDER BY` na query de configs (`configs.sort` por loja com mais vencidos? ou randomizar) para que uma loja gigante não monopolize.
 
 ### Arquivos afetados
-- `supabase/migrations/<nova>_fix_confirmacao_grouped_unified_status.sql`
-- `supabase/functions/webhook-vega/index.ts`
-- `supabase/functions/webhook-zedy/index.ts`
-- `supabase/functions/webhook-luna/index.ts`
-- `supabase/functions/webhook-adoorei/index.ts`
-- `supabase/functions/webhook-corvex/index.ts`
-- `supabase/functions/webhook-nuvorafy/index.ts`
-- `supabase/functions/shopify-webhook/index.ts`
-- `supabase/migrations/<nova>_backfill_confirmacao_pagamento.sql` (ou execução pontual)
 
-### Riscos / observações
-- A loja RIFA tem 1.191 casos antigos onde só o SMS falhou — após a correção da RPC, eles deixam de aparecer como Pendentes. Se o usuário quiser **reenviar só o SMS desses casos**, podemos manter um botão dedicado, mas isso seria uma feature separada.
-- Após o deploy do webhook-vega corrigido, novos pedidos passarão a gerar confirmação corretamente; o backfill resolve o que já entrou hoje sem confirmação.
+- `supabase/functions/advance-shipments/index.ts` — fix do skip "Entregue" + filtro SQL + (opcional) ajustes de throughput
+- Nova migration: `clear_proximo_avanco_for_saiu_entrega` (backfill)
+- Execução pontual do cron várias vezes para drenar fila
+
+### Validação pós-deploy
+
+- Rodar query do Elvis: deve avançar para ordem 3 ("Em Trânsito") em até 2 min.
+- Total de envios vencidos deve cair drasticamente nas primeiras horas.
+- Logs do cron devem mostrar "Cron complete: processed N shipments" ao invés de só "Cron skip: Entregue".
+
+### Riscos
+
+- O filtro `status = 'saiu_para_entrega'` significa que envios com configurações de template onde "Saiu para Entrega" NÃO é o penúltimo evento ainda funcionarão (porque `status` só é setado para `saiu_para_entrega` quando `eventIndex === totalEvents - 2`).
+- Backfill é seguro: setar `proximo_avanco_em = NULL` apenas remove da fila do cron, não altera estado nem cobrança.

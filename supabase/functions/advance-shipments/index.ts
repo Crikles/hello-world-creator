@@ -474,6 +474,7 @@ Deno.serve(async (req) => {
         .select("id, ultimo_evento_ordem, proximo_avanco_em, status_label")
         .eq("loja_id", lojaId)
         .neq("status", "entregue")
+        .neq("status", "saiu_para_entrega") // evento "Entregue" requer confirmação manual
         .gt("ultimo_evento_ordem", 0)
         .is("deleted_at", null)
         .not("status_label", "in", '("Falha Entrega","Taxação","Taxacao")')
@@ -810,7 +811,12 @@ async function advanceShipment(
       nextEvent.status_label === "Entregue" ||
       filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
     if (isFinalDelivered) {
-      console.log(`Cron skip: 'Entregue' requires manual confirmation for envio ${envioId}`);
+      // Marca como aguardando confirmação manual e remove da fila do cron
+      // (caso contrário entraria em loop infinito a cada execução, saturando o batch)
+      await supabase
+        .from("envios")
+        .update({ status: "saiu_para_entrega", proximo_avanco_em: null })
+        .eq("id", envioId);
       return false;
     }
 
