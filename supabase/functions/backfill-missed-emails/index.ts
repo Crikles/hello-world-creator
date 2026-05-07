@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { hours = 8, dry_run = false } = await req.json().catch(() => ({}));
+    const { hours = 8, dry_run = false, limit = 150, concurrency = 10 } = await req.json().catch(() => ({}));
     const sinceISO = new Date(Date.now() - hours * 3600 * 1000).toISOString();
     const untilISO = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // ignore last 5 min
 
