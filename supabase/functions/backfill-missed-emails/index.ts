@@ -86,7 +86,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    const pending = candidates.filter((c) => !haveLog.has(c.id));
+    const allPending = candidates.filter((c) => !haveLog.has(c.id));
+    const pending = allPending.slice(0, limit);
 
     // Cache postagem_config + eventos per loja+template
     const configCache: Record<string, any> = {};
@@ -101,13 +102,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         dry_run: true,
         total_candidates: candidates.length,
-        pending: pending.length,
+        pending: allPending.length,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    for (const env of pending) {
+    async function processOne(env: any) {
       try {
-        // get config
         let config = configCache[env.loja_id];
         if (!config) {
           const { data: cfg } = await supabase
@@ -115,10 +115,10 @@ Deno.serve(async (req) => {
           configCache[env.loja_id] = cfg;
           config = cfg;
         }
-        if (!config?.enviar_emails) { skipped++; continue; }
+        if (!config?.enviar_emails) { skipped++; return; }
 
         const tplId = env.postagem_template_id || config.template_ativo_id;
-        if (!tplId) { skipped++; continue; }
+        if (!tplId) { skipped++; return; }
 
         let events = eventsCache[tplId];
         if (!events) {
@@ -129,15 +129,10 @@ Deno.serve(async (req) => {
         }
 
         const evt = events.find((e) => e.ordem === env.ultimo_evento_ordem);
-        if (!evt || !evt.enviar_email) { skipped++; continue; }
+        if (!evt || !evt.enviar_email) { skipped++; return; }
 
         const { error: invErr } = await supabase.functions.invoke("send-email", {
-          body: {
-            envio_id: env.id,
-            evento_id: evt.id,
-            loja_id: env.loja_id,
-            skip_debit: true,
-          },
+          body: { envio_id: env.id, evento_id: evt.id, loja_id: env.loja_id, skip_debit: true },
         });
         if (invErr) {
           failed++;
@@ -145,17 +140,21 @@ Deno.serve(async (req) => {
         } else {
           dispatched++;
         }
-        // throttle
-        await new Promise((r) => setTimeout(r, 50));
       } catch (e: any) {
         failed++;
         errors.push({ envio_id: env.id, error: e.message });
       }
     }
 
+    // Process in chunks of `concurrency`
+    for (let i = 0; i < pending.length; i += concurrency) {
+      await Promise.all(pending.slice(i, i + concurrency).map(processOne));
+    }
+
     return new Response(JSON.stringify({
       total_candidates: candidates.length,
-      pending: pending.length,
+      pending: allPending.length,
+      processed: pending.length,
       dispatched, skipped, failed,
       errors: errors.slice(0, 20),
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
