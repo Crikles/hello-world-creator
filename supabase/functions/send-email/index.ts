@@ -1082,8 +1082,22 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Check if called with service role key (server-to-server, e.g. cron)
+    // Decode JWT payload to detect role=service_role (works across key rotations / new key formats)
     const token = authHeader.replace("Bearer ", "");
-    const isServiceRole = token === SUPABASE_SERVICE_ROLE_KEY;
+    let isServiceRole = token === SUPABASE_SERVICE_ROLE_KEY;
+    if (!isServiceRole) {
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payloadB64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+          const padded = payloadB64 + "=".repeat((4 - (payloadB64.length % 4)) % 4);
+          const payload = JSON.parse(atob(padded));
+          if (payload?.role === "service_role") isServiceRole = true;
+        }
+      } catch (_e) {
+        // ignore decode errors, fall through to user auth
+      }
+    }
 
     if (!isServiceRole) {
       // Verify user via token
