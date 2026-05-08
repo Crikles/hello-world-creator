@@ -422,6 +422,8 @@ export default function AdminUsuarios() {
     <AdminLayout>
       <h1 className="text-2xl font-bold text-foreground mb-6">Gestão de Usuários</h1>
 
+      <DiagnosticoDebitos />
+
       {/* Pending SMS Verifications */}
       {pendingVerifications.length > 0 && (
         <Card className="mb-6">
