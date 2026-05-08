@@ -2045,6 +2045,16 @@ export type Database = {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
       }
+      get_admin_user_activity: {
+        Args: never
+        Returns: {
+          envios_30d: number
+          total_envios: number
+          ultimo_deposito: string
+          ultimo_envio: string
+          user_id: string
+        }[]
+      }
       get_cloud_usage_stats: { Args: never; Returns: Json }
       get_confirmacao_grouped: {
         Args: {
