@@ -198,6 +198,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <BloqueioCobrancaBanner />
       {/* Header */}
       <div className="animate-stagger-in flex items-start justify-between">
         <div>
