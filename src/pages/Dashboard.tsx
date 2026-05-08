@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { useLoja } from "@/contexts/LojaContext";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
+import { BloqueioCobrancaBanner } from "@/components/BloqueioCobrancaBanner";
 import {
   AlertDialog,
   AlertDialogAction,
