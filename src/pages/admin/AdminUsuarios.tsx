@@ -612,7 +612,7 @@ export default function AdminUsuarios() {
                         const lastShip = act?.ultimo_envio || null;
                         const total = Number(act?.total_envios || 0);
                         const d30 = Number(act?.envios_30d || 0);
-                        const inact = formatInactivity(lastShip);
+                        const inact = formatInactivity(lastShip, u.created_at);
                         return (
                           <>
                             <TableCell className="text-xs whitespace-nowrap">
