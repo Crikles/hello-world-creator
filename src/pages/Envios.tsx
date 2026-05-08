@@ -858,6 +858,7 @@ export default function Envios() {
   return (
     <>
       <div className="space-y-6">
+        <BloqueioCobrancaBanner />
         {/* Hero + Metrics */}
         <div className="space-y-5">
           <div>
