@@ -284,7 +284,17 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
               at: new Date(r.last_seen_at).getTime(),
             };
           });
-          return [...adds, ...prev].slice(0, 30);
+          // Dedupe by tracking code (fallback to id) keeping the most recent entry
+          const merged = [...adds, ...prev];
+          const seen = new Set<string>();
+          const deduped: RecentActivity[] = [];
+          for (const item of merged) {
+            const key = item.trackingCode && item.trackingCode !== "—" ? item.trackingCode : item.id;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            deduped.push(item);
+          }
+          return deduped.slice(0, 30);
         });
       }
 
