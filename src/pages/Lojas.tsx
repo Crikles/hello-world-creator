@@ -112,42 +112,19 @@ export default function Lojas() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const tables = [
-        "postagem_email_log",
-        "postagem_config",
-        "envios",
-        "pedidos",
-        "empresas",
-        "webhook_logs",
-        "checkout_integrations",
-        "shopify_integrations",
-        "leads",
-        "whatsapp_message_log",
-        "whatsapp_subscriptions",
-        "whatsapp_send_queue",
-        "whatsapp_instances",
-        "batch_progress",
-        "upsell_config",
-        "recovery_leads",
-        "recovery_config",
-        "confirmacao_pagamento_log",
-        "confirmacao_pagamento_config",
-      ] as const;
-      for (const t of tables) {
-        const { error } = await supabase.from(t).delete().eq("loja_id", id);
-        if (error) throw new Error(`Falha ao limpar ${t}: ${error.message}`);
+      const { data, error } = await supabase.functions.invoke("delete-store", {
+        body: { loja_id: id },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Erro ao excluir loja.");
       }
-      const { data: templates, error: tplSelErr } = await supabase.from("postagem_templates").select("id").eq("loja_id", id);
-      if (tplSelErr) throw tplSelErr;
-      if (templates?.length) {
-        const ids = templates.map(t => t.id);
-        const { error: evErr } = await supabase.from("postagem_eventos").delete().in("template_id", ids);
-        if (evErr) throw evErr;
-        const { error: tplErr } = await supabase.from("postagem_templates").delete().eq("loja_id", id);
-        if (tplErr) throw tplErr;
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
-      const { error } = await supabase.from("lojas").delete().eq("id", id);
-      if (error) throw error;
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lojas"] });
