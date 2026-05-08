@@ -602,6 +602,33 @@ export default function AdminUsuarios() {
                           {(recargasMap[u.id] || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </TableCell>
+                      {(() => {
+                        const act = activityMap[u.id];
+                        const lastDep = act?.ultimo_deposito || null;
+                        const lastShip = act?.ultimo_envio || null;
+                        const total = Number(act?.total_envios || 0);
+                        const d30 = Number(act?.envios_30d || 0);
+                        const inact = formatInactivity(lastShip);
+                        return (
+                          <>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {lastDep ? format(new Date(lastDep), "dd/MM/yy") : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {lastShip ? format(new Date(lastShip), "dd/MM/yy") : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              <span className={d30 === 0 ? "text-muted-foreground" : "text-foreground font-medium"}>{d30}</span>
+                              <span className="text-muted-foreground"> / {total}</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${inact.critical ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                                {inact.label}
+                              </span>
+                            </TableCell>
+                          </>
+                        );
+                      })()}
                       <TableCell>{u.lojas_count}</TableCell>
                       <TableCell>
                         <div className="space-y-1 min-w-[180px]">
