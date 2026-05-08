@@ -364,11 +364,35 @@ function parseFileToRows(file: File): Promise<string[][]> {
     } else {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const text = ev.target?.result as string;
-        resolve(parseCSV(text));
+        try {
+          const buf = ev.target?.result as ArrayBuffer;
+          const bytes = new Uint8Array(buf);
+          let text: string;
+          // Detect BOM
+          if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+            text = new TextDecoder("utf-16le").decode(bytes);
+          } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+            text = new TextDecoder("utf-16be").decode(bytes);
+          } else {
+            // Try strict UTF-8 first; fall back to Windows-1252 (covers ISO-8859-1/ANSI BR)
+            try {
+              text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+            } catch {
+              text = new TextDecoder("windows-1252").decode(bytes);
+            }
+            // Fallback heuristic: even if UTF-8 didn't throw, presence of replacement
+            // chars indicates wrong decoding
+            if (text.includes("\uFFFD")) {
+              text = new TextDecoder("windows-1252").decode(bytes);
+            }
+          }
+          resolve(parseCSV(text));
+        } catch (e) {
+          reject(e);
+        }
       };
       reader.onerror = reject;
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     }
   });
 }
