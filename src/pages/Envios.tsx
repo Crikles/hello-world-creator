@@ -24,6 +24,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
+import { BloqueioCobrancaBanner } from "@/components/BloqueioCobrancaBanner";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
