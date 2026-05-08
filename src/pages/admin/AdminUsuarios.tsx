@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn, Trophy, MessageSquare, MailCheck, CheckCircle, Copy, Users, Tag, Pencil, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { DiagnosticoDebitos } from "@/components/admin/DiagnosticoDebitos";
 
 interface UserRow {
   id: string;
