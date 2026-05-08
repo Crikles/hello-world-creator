@@ -13,7 +13,6 @@ const lojaTables = [
   "checkout_integrations",
   "confirmacao_pagamento_config",
   "confirmacao_pagamento_log",
-  "empresas",
   "live_view_pings",
   "postagem_config",
   "postagem_email_log",
@@ -30,6 +29,7 @@ const lojaTables = [
   "leads",
   "pedidos",
   "envios",
+  "empresas",
 ] as const;
 
 function jsonResponse(body: unknown, status = 200) {
