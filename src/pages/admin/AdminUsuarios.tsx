@@ -147,6 +147,33 @@ export default function AdminUsuarios() {
   const recargasMap: Record<string, number> = {};
   rankingData.forEach(r => { recargasMap[r.user_id] = r.total_recargas; });
 
+  // Activity data per user (last deposit / last shipment / counts)
+  const { data: activityData = [] } = useQuery({
+    queryKey: ["admin-user-activity"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_admin_user_activity");
+      if (error) throw error;
+      return (data || []) as Array<{
+        user_id: string;
+        ultimo_deposito: string | null;
+        total_envios: number;
+        envios_30d: number;
+        ultimo_envio: string | null;
+      }>;
+    },
+    refetchInterval: 60000,
+  });
+  const activityMap: Record<string, typeof activityData[number]> = {};
+  activityData.forEach((a) => { activityMap[a.user_id] = a; });
+
+  const formatInactivity = (lastDate: string | null) => {
+    if (!lastDate) return { label: "Nunca", critical: true };
+    const days = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
+    if (days === 0) return { label: "Hoje", critical: false };
+    if (days === 1) return { label: "1 dia", critical: false };
+    return { label: `${days} dias`, critical: days >= 30 };
+  };
+
   const { data: systemConfigs } = useQuery({
     queryKey: ["system-config-admin"],
     queryFn: async () => {
