@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { useLoja } from "@/contexts/LojaContext";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
+import { BloqueioCobrancaBanner } from "@/components/BloqueioCobrancaBanner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -197,6 +198,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <BloqueioCobrancaBanner />
       {/* Header */}
       <div className="animate-stagger-in flex items-start justify-between">
         <div>

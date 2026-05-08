@@ -2045,6 +2045,24 @@ export type Database = {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
       }
+      get_admin_debit_diagnostics: {
+        Args: never
+        Returns: {
+          auto_envio: boolean
+          custo_estimado: number
+          envios_travados: number
+          filtro_metodo: string
+          loja_id: string
+          loja_nome: string
+          motivo: string
+          pedidos_descartados: number
+          saldo: number
+          ultima_atividade: string
+          user_email: string
+          user_id: string
+          user_nome: string
+        }[]
+      }
       get_admin_user_activity: {
         Args: never
         Returns: {
@@ -2156,6 +2174,18 @@ export type Database = {
         }[]
       }
       get_loja_faturamento: { Args: { p_loja_id: string }; Returns: number }
+      get_my_debit_blocks: {
+        Args: { p_loja_id: string }
+        Returns: {
+          auto_envio: boolean
+          custo_estimado: number
+          envios_travados: number
+          filtro_metodo: string
+          motivo: string
+          pedidos_descartados: number
+          saldo: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
