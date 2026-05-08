@@ -1,49 +1,55 @@
-## Diagnóstico
 
-Os emails de atualização de pedidos pararam de ser enviados. Verifiquei os logs e a base de dados:
+## Contexto
 
-**Volume de emails (postagem_email_log) nas últimas 24h:**
-- `06/05 14h–23h`: ~100 emails/h entregues (operação normal)
-- `07/05 00h`: 166 entregues (pico)
-- `07/05 01h em diante`: caiu para ~10–40/h
-- `07/05 08h–09h`: apenas ~16 entregues por hora
-- **Últimas 4 horas (10h–13h)**: praticamente zero registros novos de envio
+A análise mostrou que **os créditos estão sendo debitados corretamente** sempre que o sistema processa um envio. Quando um lojista percebe "pedidos chegando e créditos sem cair", o motivo é sempre uma destas 3 condições que **impedem o envio de avançar** (e por isso, nada é cobrado):
 
-**Volume de envios avançados (tabela envios) últimas 4h**: continua alto (84–174 envios/h sendo movidos para `em_transito`). Ou seja, o cron `advance-shipments` está rodando normalmente — o problema é que o disparo de email está falhando.
+1. **`auto_envio = false`** na configuração da loja → pedidos viram envios mas ficam parados em "pendente" até o lojista clicar manualmente. Ex.: loja "Variedades" do `backupativado@gmail.com` acumula 455 envios parados há semanas.
+2. **`filtro_metodo = cartao`** na integração de checkout → todos os PIX pagos são descartados. Ex.: `andretelees@hotmail.com` perdeu 31 PIX pagos nas últimas 48h.
+3. **Saldo insuficiente** (< custo do envio) → o cron tenta debitar, falha, e o envio fica preso. Ex.: `rodrigosantos…` com R$ 0,60 e 270 envios travados.
 
-**Causa raiz nos logs da edge function `send-email`:**
+Hoje não existe nenhum lugar único onde admin/lojista veja esses bloqueios — eles só descobrem quando o cliente reclama.
+
+## O que será construído
+
+### 1. Aba "Diagnóstico de Débitos" no painel admin
+Nova aba em `/admin/usuarios` (ou nova rota `/admin/diagnostico`) listando, em tempo real, todas as lojas com envios travados nas últimas 72h, classificando o motivo em uma das 3 categorias:
+
+```text
+Loja           | Pedidos | Envios travados | Motivo                   | Ação
+---------------|---------|-----------------|--------------------------|--------
+Variedades     | 455     | 455             | auto_envio desligado     | [Ativar]
+Ferra          | 180     | 130             | filtro_metodo = cartão   | [Mudar p/ todos]
+yaveh          | 29      | 29              | Saldo R$ 0,60 < R$ 1,50  | [Notificar]
 ```
-2026-05-07T13:57:26Z ERROR Auth failed: invalid claim: missing sub claim
-```
-Esse erro está repetindo a cada chamada nas últimas horas. A função `send-email` valida o token assim:
-1. Compara `token === SUPABASE_SERVICE_ROLE_KEY` (string match exato)
-2. Se não bater, tenta `auth.getUser(token)` — que falha com "missing sub claim" porque o token de service role **não tem** claim `sub` (é um token de role, não de usuário).
 
-A função `advance-shipments` (cron de 5 min) cria o client com `SUPABASE_SERVICE_ROLE_KEY` e chama `supabase.functions.invoke("send-email", ...)`. O token enviado é o service role, mas a comparação `===` está falhando — provavelmente porque o secret `SUPABASE_SERVICE_ROLE_KEY` na função `send-email` está dessincronizado do que o `supabase-js` está enviando (rotação ou formato novo de chave publishable/secret).
+Cada linha permite ação direta do admin (ativar auto_envio, mudar filtro, ou disparar alerta WhatsApp/email).
 
-Resultado: todo email disparado pelo cron retorna **401 Unauthorized** silenciosamente. O `advance-shipments` apenas loga o erro e continua, então os envios avançam mas nenhum email sai.
+### 2. Reforço do `low-balance-alert`
+Hoje só dispara dentro de `advance-shipments`. Vamos:
+- Estender para também alertar quando saldo < custo médio do envio da loja (preventivo).
+- Aumentar canais: já manda email, adicionar WhatsApp via UAZAPI usando o número verificado.
+- Reduzir throttle de 24h → 12h para casos de saldo crítico (< 1 moeda).
 
-## Correção
+### 3. Banner de aviso no app do lojista
+No topo do `Dashboard` e da página `Envios`, mostrar um banner vermelho quando:
+- `postagem_config.auto_envio = false` E existem envios pendentes em ordem 0 há mais de 1h, OU
+- `creditos.saldo` < custo médio do último envio processado, OU
+- `checkout_integrations.filtro_metodo` ≠ "todos" E houve descartes nas últimas 24h.
 
-### 1. Validar service role pelo claim, não por string match
-Em `supabase/functions/send-email/index.ts` (linhas 1084–1106), substituir a comparação de string por uma decodificação do JWT:
-- Decodifica o payload do JWT (base64)
-- Se `payload.role === "service_role"` → trata como server-to-server (pula `getUser`)
-- Caso contrário, valida com `getUser` normalmente
+Texto do banner explica exatamente o que fazer (ex.: "Você tem 32 pedidos PIX que não geraram envios porque seu filtro está em 'cartão'. [Mudar para 'todos']").
 
-Isso elimina a dependência da string exata do secret e funciona mesmo após rotações ou troca para o novo formato de chaves do Supabase.
+### 4. Backfill opcional dos envios travados (não destrutivo)
+Botão admin em cada linha do diagnóstico: "Tentar processar agora" — chama `advance-shipments` com `targetEnvioId` para cada envio parado. Não altera dados antigos automaticamente; só atua sob comando.
 
-### 2. Aplicar a mesma correção nas demais funções que recebem invocação server-to-server
-Verificar e corrigir o mesmo padrão em:
-- `resend-nfe/index.ts`
-- `resend-daily-emails/index.ts`
-- `send-sms/index.ts` (também é chamada pelo `advance-shipments`)
-- `send-whatsapp/index.ts`
-- `send-payment-confirmation/index.ts`
+## Detalhes técnicos
 
-### 3. Reenviar emails perdidos das últimas 4 horas
-Após o deploy, identificar todos os `envios` que avançaram entre 10h e 14h UTC de hoje cujo evento atual tinha `enviar_email = true` e que **não** possuem registro em `postagem_email_log` para aquele evento, e disparar o email manualmente via `send-email` (com `skip_debit: true` para não cobrar duplicado).
+- **Nova RPC `get_admin_debit_diagnostics()`** (SECURITY DEFINER, restrita a admin): retorna por loja `{loja_id, user_id, email, motivo, envios_travados, ultima_atividade}` agregando `postagem_config`, `checkout_integrations`, `creditos.saldo`, `envios` (ordem 0, deleted_at null, > 1h).
+- **Frontend admin**: novo componente `DiagnosticoDebitos.tsx` montado como aba em `AdminUsuarios.tsx`, com `useQuery` + `refetchInterval: 30s`.
+- **Banner do lojista**: novo componente `BloqueioCobrancaBanner.tsx` em `src/components/`, consultando uma RPC mais leve `get_my_debit_blocks()` filtrada por `user_id = auth.uid()`.
+- **`low-balance-alert`**: adicionar parâmetro `severity: 'critical' | 'warning'` e branch para WhatsApp.
+- Nenhuma alteração na lógica de débito em si — `advance-shipments`, `send-payment-confirmation`, `send-recovery-email`, `send-whatsapp` continuam funcionando como hoje (validado via SQL: 100% dos envios processados nas últimas 48h tiveram débito correspondente).
 
-## Observação para o usuário
-
-O problema afeta **todas as contas/lojas** simultaneamente — não é específico de nenhum lojista. Após o deploy a operação volta ao normal automaticamente, e o reenvio cobre o backlog.
+## Fora de escopo
+- Não vamos forçar `auto_envio = true` em massa (lojistas escolheram manual deliberadamente em alguns casos).
+- Não vamos apagar/cancelar os envios travados (você pediu para deixá-los).
+- Não vamos refatorar `debit_user_credits` — está atômica e correta.
