@@ -546,6 +546,10 @@ export default function AdminUsuarios() {
                     <TableHead>Cadastro</TableHead>
                     <TableHead>Créditos</TableHead>
                     <TableHead>Recargas</TableHead>
+                    <TableHead>Última Recarga</TableHead>
+                    <TableHead>Último Envio</TableHead>
+                    <TableHead>Envios (30d / total)</TableHead>
+                    <TableHead>Inatividade</TableHead>
                     <TableHead>Lojas</TableHead>
                      <TableHead>Indicação</TableHead>
                      <TableHead>Tag</TableHead>
