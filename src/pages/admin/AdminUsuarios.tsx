@@ -166,8 +166,12 @@ export default function AdminUsuarios() {
   const activityMap: Record<string, typeof activityData[number]> = {};
   activityData.forEach((a) => { activityMap[a.user_id] = a; });
 
-  const formatInactivity = (lastDate: string | null) => {
-    if (!lastDate) return { label: "Nunca", critical: true };
+  const formatInactivity = (lastDate: string | null, createdAt?: string) => {
+    if (!lastDate) {
+      if (!createdAt) return { label: "Nunca", critical: true };
+      const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000);
+      return { label: `Nunca (${days}d)`, critical: days >= 30 };
+    }
     const days = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
     if (days === 0) return { label: "Hoje", critical: false };
     if (days === 1) return { label: "1 dia", critical: false };
@@ -608,7 +612,7 @@ export default function AdminUsuarios() {
                         const lastShip = act?.ultimo_envio || null;
                         const total = Number(act?.total_envios || 0);
                         const d30 = Number(act?.envios_30d || 0);
-                        const inact = formatInactivity(lastShip);
+                        const inact = formatInactivity(lastShip, u.created_at);
                         return (
                           <>
                             <TableCell className="text-xs whitespace-nowrap">
