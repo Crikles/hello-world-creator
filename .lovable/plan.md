@@ -1,55 +1,104 @@
+## Diagnóstico
 
-## Contexto
+Investiguei o `adm.depositovisual@gmail.com` e cruzei com **todas as contas**.
 
-A análise mostrou que **os créditos estão sendo debitados corretamente** sempre que o sistema processa um envio. Quando um lojista percebe "pedidos chegando e créditos sem cair", o motivo é sempre uma destas 3 condições que **impedem o envio de avançar** (e por isso, nada é cobrado):
+### Conta `adm.depositovisual@gmail.com`
+- Lojas **Hidraulica jupira** e **Deposito** estão com config OK (`enviar_nfe_email=true`, template Nacional Padrão).
+- Template tem o evento NF-e na ordem 1 corretamente configurado.
+- Mas há **6 envios "fantasmas"** (4 em Hidraulica jupira + 2 em Deposito): o sistema marcou `ultimo_evento_ordem = 1` ("Nota Fiscal Emitida"), mas **nenhum log de e-mail foi criado** — ou seja, a NF-e simplesmente **nunca saiu**.
 
-1. **`auto_envio = false`** na configuração da loja → pedidos viram envios mas ficam parados em "pendente" até o lojista clicar manualmente. Ex.: loja "Variedades" do `backupativado@gmail.com` acumula 455 envios parados há semanas.
-2. **`filtro_metodo = cartao`** na integração de checkout → todos os PIX pagos são descartados. Ex.: `andretelees@hotmail.com` perdeu 31 PIX pagos nas últimas 48h.
-3. **Saldo insuficiente** (< custo do envio) → o cron tenta debitar, falha, e o envio fica preso. Ex.: `rodrigosantos…` com R$ 0,60 e 270 envios travados.
-
-Hoje não existe nenhum lugar único onde admin/lojista veja esses bloqueios — eles só descobrem quando o cliente reclama.
-
-## O que será construído
-
-### 1. Aba "Diagnóstico de Débitos" no painel admin
-Nova aba em `/admin/usuarios` (ou nova rota `/admin/diagnostico`) listando, em tempo real, todas as lojas com envios travados nas últimas 72h, classificando o motivo em uma das 3 categorias:
-
-```text
-Loja           | Pedidos | Envios travados | Motivo                   | Ação
----------------|---------|-----------------|--------------------------|--------
-Variedades     | 455     | 455             | auto_envio desligado     | [Ativar]
-Ferra          | 180     | 130             | filtro_metodo = cartão   | [Mudar p/ todos]
-yaveh          | 29      | 29              | Saldo R$ 0,60 < R$ 1,50  | [Notificar]
+### Causa raiz (bug no cron `advance-shipments`)
+Nos logs vejo dezenas de erros assim:
+```
+ERROR Email failed for envio xxx: FunctionsFetchError
+  context: RateLimitError: Rate limit exceeded ... Retry after 40s
+INFO Advanced envio xxx -> Em Trânsito
 ```
 
-Cada linha permite ação direta do admin (ativar auto_envio, mudar filtro, ou disparar alerta WhatsApp/email).
+A ordem das operações no cron está errada:
+1. Debita os créditos do usuário ✅
+2. Atualiza `ultimo_evento_ordem` no envio ✅ (envio passa a constar como "Nota Fiscal Emitida")
+3. Invoca `send-email` ❌ — quando o **rate limit do Supabase Functions** bate, falha
+4. Apenas faz `console.error` — **não estorna, não retenta, não reverte o avanço**
 
-### 2. Reforço do `low-balance-alert`
-Hoje só dispara dentro de `advance-shipments`. Vamos:
-- Estender para também alertar quando saldo < custo médio do envio da loja (preventivo).
-- Aumentar canais: já manda email, adicionar WhatsApp via UAZAPI usando o número verificado.
-- Reduzir throttle de 24h → 12h para casos de saldo crítico (< 1 moeda).
+Resultado: cliente nunca recebe a NF-e, o lojista pagou pelo serviço, e o painel mostra a etapa como concluída.
 
-### 3. Banner de aviso no app do lojista
-No topo do `Dashboard` e da página `Envios`, mostrar um banner vermelho quando:
-- `postagem_config.auto_envio = false` E existem envios pendentes em ordem 0 há mais de 1h, OU
-- `creditos.saldo` < custo médio do último envio processado, OU
-- `checkout_integrations.filtro_metodo` ≠ "todos" E houve descartes nas últimas 24h.
+### Impacto em outras contas (envios fantasma últimos 30 dias)
+| Loja | Usuário | Envios sem e-mail |
+|---|---|---|
+| Prime | negociosmilionarios1901@gmail.com | 126 |
+| Variedades | backupativado@gmail.com | 44 |
+| Ferra | andretelees@hotmail.com | 35 |
+| 1 | ajufrfh98@outlook.com | 30 |
+| Vercaro | vercarosuporte@gmail.com | 20 |
+| yaveh | rodrigosantosderesendejunior@gmail.com | 11 |
+| Hidraulica jupira | adm.depositovisual@gmail.com | 4 |
+| Deposito | adm.depositovisual@gmail.com | 2 |
+| **Total** | | **272** |
 
-Texto do banner explica exatamente o que fazer (ex.: "Você tem 32 pedidos PIX que não geraram envios porque seu filtro está em 'cartão'. [Mudar para 'todos']").
+### Caso à parte (não é bug)
+- `andretelees@hotmail.com` (saldo R$ 0,00) e `48f079b8...` têm dezenas de envios travados por **saldo insuficiente** — o sistema já trata isso corretamente (não debita, não avança, gera WARN). Eles precisam recarregar.
 
-### 4. Backfill opcional dos envios travados (não destrutivo)
-Botão admin em cada linha do diagnóstico: "Tentar processar agora" — chama `advance-shipments` com `targetEnvioId` para cada envio parado. Não altera dados antigos automaticamente; só atua sob comando.
+---
+
+## Plano de correção
+
+### 1. Corrigir o bug no `advance-shipments` (raiz)
+Reordenar e tornar atômica a relação avanço × envio de e-mail:
+
+- Detectar `funcErr` no `send-email` invoke.
+- Se houver erro **e** o evento exigia e-mail/NF-e:
+  - **Reverter** `ultimo_evento_ordem` para o valor anterior (`currentOrdem`)
+  - **Estornar** o débito feito via `refund_user_credits`
+  - Limpar `proximo_avanco_em` para o próximo cron tentar de novo
+
+Assim, no próximo ciclo (5 min depois) o cron tentará novamente, e o lojista nunca paga por NF-e que não foi enviada.
+
+### 2. Backfill imediato dos 272 envios afetados
+Invocar a edge function `backfill-missed-emails` com janela de 30 dias para reenviar a NF-e/e-mail dos envios fantasma já detectados. Isso recupera os clientes finais que não receberam a NF-e.
+
+### 3. Verificação pós-correção
+- Rodar query que conta envios fantasma e confirmar que zerou (ou caiu drasticamente).
+- Monitorar logs do `advance-shipments` por 24h para garantir que os retries do rate-limit estão funcionando.
+
+---
 
 ## Detalhes técnicos
 
-- **Nova RPC `get_admin_debit_diagnostics()`** (SECURITY DEFINER, restrita a admin): retorna por loja `{loja_id, user_id, email, motivo, envios_travados, ultima_atividade}` agregando `postagem_config`, `checkout_integrations`, `creditos.saldo`, `envios` (ordem 0, deleted_at null, > 1h).
-- **Frontend admin**: novo componente `DiagnosticoDebitos.tsx` montado como aba em `AdminUsuarios.tsx`, com `useQuery` + `refetchInterval: 30s`.
-- **Banner do lojista**: novo componente `BloqueioCobrancaBanner.tsx` em `src/components/`, consultando uma RPC mais leve `get_my_debit_blocks()` filtrada por `user_id = auth.uid()`.
-- **`low-balance-alert`**: adicionar parâmetro `severity: 'critical' | 'warning'` e branch para WhatsApp.
-- Nenhuma alteração na lógica de débito em si — `advance-shipments`, `send-payment-confirmation`, `send-recovery-email`, `send-whatsapp` continuam funcionando como hoje (validado via SQL: 100% dos envios processados nas últimas 48h tiveram débito correspondente).
+**Arquivo a editar:** `supabase/functions/advance-shipments/index.ts` (linhas 970–985)
 
-## Fora de escopo
-- Não vamos forçar `auto_envio = true` em massa (lojistas escolheram manual deliberadamente em alguns casos).
-- Não vamos apagar/cancelar os envios travados (você pediu para deixá-los).
-- Não vamos refatorar `debit_user_credits` — está atômica e correta.
+**Mudança no fluxo de envio de e-mail:**
+```ts
+if (isAtivo && nextEvent.enviar_email) {
+  const { error: funcErr } = await supabase.functions.invoke("send-email", { ... });
+  if (funcErr) {
+    console.error(`Email failed (will revert) for envio ${envioId}:`, funcErr);
+    // Reverter avanço
+    await supabase.from("envios").update({
+      ultimo_evento_ordem: currentOrdem,
+      status: previousStatus,
+      status_label: previousStatusLabel,
+      proximo_avanco_em: null,
+    }).eq("id", envioId);
+    // Estornar débito
+    if (debitedTotal > 0) {
+      await supabase.rpc("refund_user_credits", {
+        _user_id: lojaUserId,
+        _quantidade: debitedTotal,
+        _descricao: `Estorno: falha ao enviar e-mail envio ${envioId}`,
+      });
+    }
+    return false;
+  }
+}
+```
+
+**Backfill via supabase.functions.invoke:**
+```ts
+supabase.functions.invoke("backfill-missed-emails", {
+  body: { hours: 720, dry_run: false, limit: 500, concurrency: 5 }
+});
+```
+(Janela de 30 dias = 720h. Concurrency baixa para não esbarrar de novo no rate limit.)
+
+**Sem mudanças de schema.** Apenas patch da edge function + invocação única de backfill.

@@ -980,7 +980,38 @@ async function advanceShipment(
         },
       });
       if (funcErr) {
-        console.error(`Email failed for envio ${envioId}:`, funcErr);
+        console.error(`Email failed for envio ${envioId} (will revert advance):`, funcErr);
+        // ── REVERTER O AVANÇO ──
+        // O cliente paga pelo serviço (NF-e/e-mail). Se o envio do e-mail falhou
+        // (ex: rate limit do Functions), revertemos a etapa e estornamos o débito,
+        // de modo que o próximo ciclo do cron tentará novamente.
+        const previousStatus =
+          currentOrdem === 0 ? "pendente" : (shipment.status ?? "pendente");
+        const previousStatusLabel =
+          currentOrdem === 0 ? null : ((shipment as any).status_label ?? null);
+
+        const { error: revertErr } = await supabase
+          .from("envios")
+          .update({
+            ultimo_evento_ordem: currentOrdem,
+            status: previousStatus,
+            status_label: previousStatusLabel,
+            proximo_avanco_em: null,
+          })
+          .eq("id", envioId)
+          .eq("ultimo_evento_ordem", nextEvent.ordem);
+        if (revertErr) {
+          console.error(`Failed to revert envio ${envioId}:`, revertErr);
+        }
+
+        if (debitedTotal > 0) {
+          await supabase.rpc("refund_user_credits", {
+            _user_id: lojaUserId,
+            _quantidade: debitedTotal,
+            _descricao: `Estorno: falha ao enviar e-mail/NF-e do envio ${envioId} (${debitedDescricao})`,
+          });
+        }
+        return false;
       }
     }
 
