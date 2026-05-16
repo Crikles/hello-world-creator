@@ -1,0 +1,1 @@
+SELECT cron.schedule('backfill-missed-emails-drain','* * * * *',$$SELECT net.http_post(url:='https://jnzamnnvzdecnnvvhzxn.supabase.co/functions/v1/backfill-missed-emails',headers:='{"Content-Type":"application/json","x-cron-key":"drain-phantom-emails-2026"}'::jsonb,body:='{"hours":2000,"limit":25,"concurrency":2,"phantom_only":true}'::jsonb);$$);
