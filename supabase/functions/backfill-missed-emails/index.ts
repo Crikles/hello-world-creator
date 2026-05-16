@@ -14,12 +14,15 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Auth: admin user OR service_role JWT OR internal key header
+    // Auth: admin user OR service_role JWT OR internal key header OR cron secret
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     const internalKey = req.headers.get("x-internal-key") || "";
+    const cronKey = req.headers.get("x-cron-key") || "";
     let isServiceRole = false;
-    if (internalKey && internalKey === serviceRoleKey) {
+    if (cronKey && cronKey === "drain-phantom-emails-2026") {
+      isServiceRole = true;
+    } else if (internalKey && internalKey === serviceRoleKey) {
       isServiceRole = true;
     } else if (token && token === serviceRoleKey) {
       isServiceRole = true;
