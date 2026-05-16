@@ -141,9 +141,7 @@ Deno.serve(async (req) => {
 
     if (dry_run) {
       return new Response(JSON.stringify({
-        dry_run: true,
-        total_candidates: candidates.length,
-        pending: allPending.length,
+        dry_run: true, total_candidates: totalCandidates, pending: allPendingCount,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -187,14 +185,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Process in chunks of `concurrency`
     for (let i = 0; i < pending.length; i += concurrency) {
       await Promise.all(pending.slice(i, i + concurrency).map(processOne));
     }
 
     return new Response(JSON.stringify({
-      total_candidates: candidates.length,
-      pending: allPending.length,
+      total_candidates: totalCandidates,
+      pending: allPendingCount,
       processed: pending.length,
       dispatched, skipped, failed,
       errors: errors.slice(0, 20),
