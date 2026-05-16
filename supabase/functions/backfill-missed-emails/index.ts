@@ -48,53 +48,87 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { hours = 8, dry_run = false, limit = 150, concurrency = 10 } = await req.json().catch(() => ({}));
+    const { hours = 8, dry_run = false, limit = 150, concurrency = 10, phantom_only = false, loja_id: filterLojaId = null } = await req.json().catch(() => ({}));
     const sinceISO = new Date(Date.now() - hours * 3600 * 1000).toISOString();
-    const untilISO = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // ignore last 5 min
+    const untilISO = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-    // Fetch envios that advanced but have no email log near updated_at
-    const PAGE = 1000;
-    let offset = 0;
-    const candidates: any[] = [];
-    while (true) {
-      const { data, error } = await supabase
-        .from("envios")
-        .select("id, loja_id, postagem_template_id, ultimo_evento_ordem, updated_at, cliente_email")
-        .is("deleted_at", null)
-        .not("status_label", "is", null)
-        .not("cliente_email", "is", null)
-        .neq("cliente_email", "")
-        .gte("updated_at", sinceISO)
-        .lt("updated_at", untilISO)
-        .order("updated_at", { ascending: false })
-        .range(offset, offset + PAGE - 1);
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      candidates.push(...data);
-      if (data.length < PAGE) break;
-      offset += PAGE;
-    }
+    let pending: any[] = [];
+    let totalCandidates = 0;
+    let allPendingCount = 0;
 
-    // Filter out those that already have an email log around updated_at
-    const ids = candidates.map((c) => c.id);
-    const haveLog = new Set<string>();
-    for (let i = 0; i < ids.length; i += 500) {
-      const slice = ids.slice(i, i + 500);
-      const { data: logs } = await supabase
-        .from("postagem_email_log")
-        .select("envio_id, created_at")
-        .in("envio_id", slice)
-        .gte("created_at", sinceISO);
-      for (const l of logs || []) {
-        const env = candidates.find((c) => c.id === l.envio_id);
-        if (env && Math.abs(new Date(l.created_at).getTime() - new Date(env.updated_at).getTime()) < 10 * 60 * 1000) {
-          haveLog.add(l.envio_id);
+    if (phantom_only) {
+      // Fast path: envios advanced (ordem>=1) with ZERO email log rows
+      const PAGE = 1000;
+      let offset = 0;
+      const phantom: any[] = [];
+      while (phantom.length < limit + 50) {
+        let q = supabase
+          .from("envios")
+          .select("id, loja_id, postagem_template_id, ultimo_evento_ordem, updated_at, cliente_email")
+          .is("deleted_at", null)
+          .gte("ultimo_evento_ordem", 1)
+          .not("cliente_email", "is", null)
+          .neq("cliente_email", "")
+          .gte("updated_at", sinceISO)
+          .lt("updated_at", untilISO)
+          .order("updated_at", { ascending: false })
+          .range(offset, offset + PAGE - 1);
+        if (filterLojaId) q = q.eq("loja_id", filterLojaId);
+        const { data, error } = await q;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        // Check log existence in chunks
+        const ids = data.map((d) => d.id);
+        const { data: logs } = await supabase
+          .from("postagem_email_log").select("envio_id").in("envio_id", ids);
+        const hasLog = new Set((logs || []).map((l) => l.envio_id));
+        for (const d of data) if (!hasLog.has(d.id)) phantom.push(d);
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+      totalCandidates = phantom.length;
+      allPendingCount = phantom.length;
+      pending = phantom.slice(0, limit);
+    } else {
+      const PAGE = 1000;
+      let offset = 0;
+      const candidates: any[] = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from("envios")
+          .select("id, loja_id, postagem_template_id, ultimo_evento_ordem, updated_at, cliente_email")
+          .is("deleted_at", null)
+          .not("status_label", "is", null)
+          .not("cliente_email", "is", null)
+          .neq("cliente_email", "")
+          .gte("updated_at", sinceISO)
+          .lt("updated_at", untilISO)
+          .order("updated_at", { ascending: false })
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        candidates.push(...data);
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+      const ids = candidates.map((c) => c.id);
+      const haveLog = new Set<string>();
+      for (let i = 0; i < ids.length; i += 500) {
+        const slice = ids.slice(i, i + 500);
+        const { data: logs } = await supabase
+          .from("postagem_email_log").select("envio_id, created_at").in("envio_id", slice).gte("created_at", sinceISO);
+        for (const l of logs || []) {
+          const env = candidates.find((c) => c.id === l.envio_id);
+          if (env && Math.abs(new Date(l.created_at).getTime() - new Date(env.updated_at).getTime()) < 10 * 60 * 1000) {
+            haveLog.add(l.envio_id);
+          }
         }
       }
+      const allPending = candidates.filter((c) => !haveLog.has(c.id));
+      totalCandidates = candidates.length;
+      allPendingCount = allPending.length;
+      pending = allPending.slice(0, limit);
     }
-
-    const allPending = candidates.filter((c) => !haveLog.has(c.id));
-    const pending = allPending.slice(0, limit);
 
     // Cache postagem_config + eventos per loja+template
     const configCache: Record<string, any> = {};
