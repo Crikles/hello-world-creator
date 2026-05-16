@@ -185,8 +185,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    const delayMs = 400;
     for (let i = 0; i < pending.length; i += concurrency) {
       await Promise.all(pending.slice(i, i + concurrency).map(processOne));
+      if (i + concurrency < pending.length) await new Promise((r) => setTimeout(r, delayMs));
     }
 
     return new Response(JSON.stringify({
