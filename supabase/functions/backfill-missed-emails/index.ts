@@ -14,17 +14,24 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Auth: admin user OR service_role JWT
+    // Auth: admin user OR service_role JWT OR internal key header
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
+    const internalKey = req.headers.get("x-internal-key") || "";
     let isServiceRole = false;
-    try {
-      const parts = token.split(".");
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]));
-        if (payload?.role === "service_role") isServiceRole = true;
-      }
-    } catch {}
+    if (internalKey && internalKey === serviceRoleKey) {
+      isServiceRole = true;
+    } else if (token && token === serviceRoleKey) {
+      isServiceRole = true;
+    } else {
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload?.role === "service_role") isServiceRole = true;
+        }
+      } catch {}
+    }
     if (!isServiceRole) {
       const { data: { user } } = await supabase.auth.getUser(token);
       if (!user) {
