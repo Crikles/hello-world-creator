@@ -197,6 +197,11 @@ export function CloudUsagePanel() {
             <p className="text-2xl font-bold tabular-nums">{stats?.db_size_pretty ?? "—"}</p>
             <Progress value={usagePct} className="h-1.5 mt-3" />
             <p className="text-xs text-muted-foreground mt-1">{usagePct.toFixed(0)}% da referência ({formatMB(SOFT_CAP_BYTES)})</p>
+            {stats?.bloat_estimate_pct !== undefined && stats.bloat_estimate_pct > 0 && (
+              <p className="text-[10px] text-amber-400/80 mt-1">
+                ~{stats.bloat_estimate_pct}% é espaço reaproveitável
+              </p>
+            )}
           </CardContent>
         </Card>
 
