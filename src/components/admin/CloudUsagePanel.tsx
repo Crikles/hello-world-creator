@@ -14,8 +14,24 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-type TableStat = { table_name: string; size_bytes: number; size_pretty: string; row_estimate: number };
-type Stats = { db_size_bytes: number; db_size_pretty: string; tables: TableStat[]; generated_at: string };
+type TableStat = {
+  table_name: string;
+  size_bytes: number;
+  size_pretty: string;
+  row_estimate: number;
+  dead_tuples?: number;
+  live_tuples?: number;
+  bloat_ratio?: number;
+};
+type Stats = {
+  db_size_bytes: number;
+  db_size_pretty: string;
+  tables: TableStat[];
+  total_dead_tuples?: number;
+  total_live_tuples?: number;
+  bloat_estimate_pct?: number;
+  generated_at: string;
+};
 
 const FRIENDLY_NAMES: Record<string, string> = {
   pedidos: "Pedidos (raw checkout)",
@@ -105,7 +121,13 @@ export function CloudUsagePanel() {
     },
     onSuccess: ({ action, data }) => {
       const rows = (data as any)?.rows_affected ?? ((data as any)?.cron_logs ?? 0) + ((data as any)?.pg_net_logs ?? 0);
-      toast.success(`${ACTION_META[action].label} — ${rows.toLocaleString("pt-BR")} registros tratados`);
+      toast.success(
+        `${ACTION_META[action].label}`,
+        {
+          description: `${rows.toLocaleString("pt-BR")} registros tratados. O espaço será reaproveitado nas próximas inserções (o tamanho exibido só diminui após manutenção da Lovable Cloud).`,
+          duration: 8000,
+        }
+      );
       qc.invalidateQueries({ queryKey: ["cloud-usage-stats"] });
       qc.invalidateQueries({ queryKey: ["cleanup-history"] });
     },
@@ -175,6 +197,11 @@ export function CloudUsagePanel() {
             <p className="text-2xl font-bold tabular-nums">{stats?.db_size_pretty ?? "—"}</p>
             <Progress value={usagePct} className="h-1.5 mt-3" />
             <p className="text-xs text-muted-foreground mt-1">{usagePct.toFixed(0)}% da referência ({formatMB(SOFT_CAP_BYTES)})</p>
+            {stats?.bloat_estimate_pct !== undefined && stats.bloat_estimate_pct > 0 && (
+              <p className="text-[10px] text-amber-400/80 mt-1">
+                ~{stats.bloat_estimate_pct}% é espaço reaproveitável
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -247,7 +274,12 @@ export function CloudUsagePanel() {
       {/* Top tabelas */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Top tabelas por consumo</CardTitle>
+          <CardTitle className="text-sm flex items-center justify-between">
+            <span>Top tabelas por consumo</span>
+            <span className="text-[10px] font-normal text-muted-foreground">
+              barra amarela = espaço reaproveitável
+            </span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -256,6 +288,7 @@ export function CloudUsagePanel() {
             <div className="space-y-2">
               {stats?.tables.slice(0, 12).map((t) => {
                 const pct = (t.size_bytes / dbBytes) * 100;
+                const bloat = t.bloat_ratio ?? 0;
                 const flag =
                   t.size_bytes > 200 * 1024 * 1024 ? { c: "bg-red-500/20 text-red-300", l: "Limpar" } :
                   t.size_bytes > 50 * 1024 * 1024 ? { c: "bg-amber-500/20 text-amber-300", l: "Atenção" } :
@@ -266,6 +299,9 @@ export function CloudUsagePanel() {
                       <span className="font-medium text-foreground truncate">
                         {FRIENDLY_NAMES[t.table_name] ?? t.table_name}
                         <span className="text-xs text-muted-foreground ml-2">({t.row_estimate.toLocaleString("pt-BR")} regs)</span>
+                        {bloat > 10 && (
+                          <span className="text-[10px] text-amber-400/80 ml-2">• {bloat}% reaproveitável</span>
+                        )}
                       </span>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="tabular-nums text-muted-foreground">{t.size_pretty}</span>
@@ -273,12 +309,45 @@ export function CloudUsagePanel() {
                         <Badge className={`${flag.c} border-0 text-xs`}>{flag.l}</Badge>
                       </div>
                     </div>
-                    <Progress value={pct} className="h-1" />
+                    <div className="relative h-1 bg-secondary/50 rounded-full overflow-hidden">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-primary rounded-full"
+                        style={{ width: `${pct}%` }}
+                      />
+                      {bloat > 0 && (
+                        <div
+                          className="absolute inset-y-0 bg-amber-500/60 rounded-r-full"
+                          style={{
+                            right: `${100 - pct}%`,
+                            width: `${pct * (bloat / 100)}%`,
+                          }}
+                        />
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Nota explicativa sobre espaço reaproveitável */}
+      <Card className="border-amber-500/20 bg-amber-500/5">
+        <CardContent className="pt-4 text-xs space-y-2">
+          <p className="flex items-start gap-2">
+            <Info className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+            <span className="text-amber-100/90">
+              <strong>Por que o tamanho não diminui logo após limpar?</strong> O PostgreSQL marca o espaço como
+              <strong> reaproveitável</strong> em vez de devolvê-lo ao disco. Novos registros usam esse espaço
+              primeiro, então o banco não cresce mesmo com inserções constantes.
+            </span>
+          </p>
+          <p className="text-muted-foreground pl-5">
+            Para encolher os arquivos fisicamente é preciso <code className="text-[10px] bg-background/40 px-1 rounded">VACUUM FULL</code>,
+            executado pela própria Lovable Cloud — geralmente após restart da instância ou via suporte. Como o
+            espaço já é reaproveitado, isso quase nunca é urgente.
+          </p>
         </CardContent>
       </Card>
 
