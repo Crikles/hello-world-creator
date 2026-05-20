@@ -14,8 +14,24 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-type TableStat = { table_name: string; size_bytes: number; size_pretty: string; row_estimate: number };
-type Stats = { db_size_bytes: number; db_size_pretty: string; tables: TableStat[]; generated_at: string };
+type TableStat = {
+  table_name: string;
+  size_bytes: number;
+  size_pretty: string;
+  row_estimate: number;
+  dead_tuples?: number;
+  live_tuples?: number;
+  bloat_ratio?: number;
+};
+type Stats = {
+  db_size_bytes: number;
+  db_size_pretty: string;
+  tables: TableStat[];
+  total_dead_tuples?: number;
+  total_live_tuples?: number;
+  bloat_estimate_pct?: number;
+  generated_at: string;
+};
 
 const FRIENDLY_NAMES: Record<string, string> = {
   pedidos: "Pedidos (raw checkout)",
