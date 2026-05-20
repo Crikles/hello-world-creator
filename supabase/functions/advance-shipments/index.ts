@@ -391,6 +391,35 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Pre-fetch active loja_ids to skip blocked/inactive accounts (otimização Cloud)
+    const allLojaIds = configs.map(c => c.loja_id).filter(Boolean);
+    const activeLojaIds = new Set<string>();
+    if (allLojaIds.length > 0 && !targetLojaId) {
+      const { data: recentEnvios } = await supabase
+        .from("envios")
+        .select("loja_id")
+        .in("loja_id", allLojaIds)
+        .is("deleted_at", null)
+        .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .limit(10000);
+      (recentEnvios || []).forEach((e: any) => e.loja_id && activeLojaIds.add(e.loja_id));
+
+      // Excluir contas bloqueadas
+      const userIds = Array.from(new Set(configs.map((c: any) => c.lojas?.user_id).filter(Boolean)));
+      if (userIds.length > 0) {
+        const { data: blockedProfiles } = await supabase
+          .from("profiles")
+          .select("id")
+          .in("id", userIds)
+          .eq("blocked", true);
+        const blockedUserIds = new Set((blockedProfiles || []).map((p: any) => p.id));
+        configs.forEach((c: any) => {
+          if (blockedUserIds.has(c.lojas?.user_id)) activeLojaIds.delete(c.loja_id);
+        });
+      }
+      console.log(`[advance-shipments] Filtragem: ${configs.length} lojas configuradas, ${activeLojaIds.size} ativas (últimos 30d, não bloqueadas)`);
+    }
+
     for (const config of configs) {
       if (totalProcessed >= MAX_PER_RUN) break;
 
@@ -398,6 +427,11 @@ Deno.serve(async (req) => {
       // deno-lint-ignore no-explicit-any
       const lojaUserId = (config as any).lojas?.user_id;
       if (!lojaUserId) continue;
+
+      // Pular lojas inativas/bloqueadas (otimização Cloud)
+      if (!targetLojaId && !activeLojaIds.has(lojaId)) {
+        continue;
+      }
 
       // Initialize a cache for template events for this cron run
       const templateEventsCache: Record<string, any[]> = {};
