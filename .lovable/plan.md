@@ -1,104 +1,108 @@
-## Diagnóstico
 
-Investiguei o `adm.depositovisual@gmail.com` e cruzei com **todas as contas**.
+# Plano de otimização: reduzir consumo da Lovable Cloud
 
-### Conta `adm.depositovisual@gmail.com`
-- Lojas **Hidraulica jupira** e **Deposito** estão com config OK (`enviar_nfe_email=true`, template Nacional Padrão).
-- Template tem o evento NF-e na ordem 1 corretamente configurado.
-- Mas há **6 envios "fantasmas"** (4 em Hidraulica jupira + 2 em Deposito): o sistema marcou `ultimo_evento_ordem = 1` ("Nota Fiscal Emitida"), mas **nenhum log de e-mail foi criado** — ou seja, a NF-e simplesmente **nunca saiu**.
-
-### Causa raiz (bug no cron `advance-shipments`)
-Nos logs vejo dezenas de erros assim:
-```
-ERROR Email failed for envio xxx: FunctionsFetchError
-  context: RateLimitError: Rate limit exceeded ... Retry after 40s
-INFO Advanced envio xxx -> Em Trânsito
-```
-
-A ordem das operações no cron está errada:
-1. Debita os créditos do usuário ✅
-2. Atualiza `ultimo_evento_ordem` no envio ✅ (envio passa a constar como "Nota Fiscal Emitida")
-3. Invoca `send-email` ❌ — quando o **rate limit do Supabase Functions** bate, falha
-4. Apenas faz `console.error` — **não estorna, não retenta, não reverte o avanço**
-
-Resultado: cliente nunca recebe a NF-e, o lojista pagou pelo serviço, e o painel mostra a etapa como concluída.
-
-### Impacto em outras contas (envios fantasma últimos 30 dias)
-| Loja | Usuário | Envios sem e-mail |
-|---|---|---|
-| Prime | negociosmilionarios1901@gmail.com | 126 |
-| Variedades | backupativado@gmail.com | 44 |
-| Ferra | andretelees@hotmail.com | 35 |
-| 1 | ajufrfh98@outlook.com | 30 |
-| Vercaro | vercarosuporte@gmail.com | 20 |
-| yaveh | rodrigosantosderesendejunior@gmail.com | 11 |
-| Hidraulica jupira | adm.depositovisual@gmail.com | 4 |
-| Deposito | adm.depositovisual@gmail.com | 2 |
-| **Total** | | **272** |
-
-### Caso à parte (não é bug)
-- `andretelees@hotmail.com` (saldo R$ 0,00) e `48f079b8...` têm dezenas de envios travados por **saldo insuficiente** — o sistema já trata isso corretamente (não debita, não avança, gera WARN). Eles precisam recarregar.
+Objetivo: reduzir 60–80% do consumo Cloud sem perder funcionalidade. Quatro frentes: reduzir crons, limpar dados antigos, desativar lojas inativas, e otimizar queries pesadas.
 
 ---
 
-## Plano de correção
+## 1. Reduzir frequência dos crons (maior ganho)
 
-### 1. Corrigir o bug no `advance-shipments` (raiz)
-Reordenar e tornar atômica a relação avanço × envio de e-mail:
+Hoje vários crons rodam a cada 1 minuto, gastando >40k execuções/dia.
 
-- Detectar `funcErr` no `send-email` invoke.
-- Se houver erro **e** o evento exigia e-mail/NF-e:
-  - **Reverter** `ultimo_evento_ordem` para o valor anterior (`currentOrdem`)
-  - **Estornar** o débito feito via `refund_user_credits`
-  - Limpar `proximo_avanco_em` para o próximo cron tentar de novo
+| Cron | Frequência atual | Nova frequência | Economia |
+|---|---|---|---|
+| `advance-shipments` | 1 min | **3 min** | 66% |
+| `backfill-missed-emails-drain` | 1 min | **remover** (fila já drenada) | 100% |
+| `cron-check-pending-pix` | a verificar | manter ou 5 min | — |
+| Outros crons internos | a auditar | conforme necessidade | — |
 
-Assim, no próximo ciclo (5 min depois) o cron tentará novamente, e o lojista nunca paga por NF-e que não foi enviada.
-
-### 2. Backfill imediato dos 272 envios afetados
-Invocar a edge function `backfill-missed-emails` com janela de 30 dias para reenviar a NF-e/e-mail dos envios fantasma já detectados. Isso recupera os clientes finais que não receberam a NF-e.
-
-### 3. Verificação pós-correção
-- Rodar query que conta envios fantasma e confirmar que zerou (ou caiu drasticamente).
-- Monitorar logs do `advance-shipments` por 24h para garantir que os retries do rate-limit estão funcionando.
+**Ação:** atualizar `cron.schedule` via migration. `advance-shipments` processando lotes maiores (100 envios em vez de 50) compensa o intervalo maior.
 
 ---
 
-## Detalhes técnicos
+## 2. Limpeza de dados antigos (reduz storage e queries)
 
-**Arquivo a editar:** `supabase/functions/advance-shipments/index.ts` (linhas 970–985)
+Já existe a função `cleanup_old_data()`. Vou:
 
-**Mudança no fluxo de envio de e-mail:**
-```ts
-if (isAtivo && nextEvent.enviar_email) {
-  const { error: funcErr } = await supabase.functions.invoke("send-email", { ... });
-  if (funcErr) {
-    console.error(`Email failed (will revert) for envio ${envioId}:`, funcErr);
-    // Reverter avanço
-    await supabase.from("envios").update({
-      ultimo_evento_ordem: currentOrdem,
-      status: previousStatus,
-      status_label: previousStatusLabel,
-      proximo_avanco_em: null,
-    }).eq("id", envioId);
-    // Estornar débito
-    if (debitedTotal > 0) {
-      await supabase.rpc("refund_user_credits", {
-        _user_id: lojaUserId,
-        _quantidade: debitedTotal,
-        _descricao: `Estorno: falha ao enviar e-mail envio ${envioId}`,
-      });
-    }
-    return false;
-  }
-}
+- **Executar agora** uma limpeza completa manual
+- **Agendar cron diário** às 03:00 BRT chamando `cleanup_old_data()` automaticamente
+- **Ampliar a função** para incluir mais limpezas:
+  - `email_logs`, `sms_logs`, `whatsapp_logs` > 60 dias (apenas registros `sent`/`delivered`)
+  - `postagem_email_log` > 90 dias
+  - `live_visitors` > 7 dias
+  - `confirmacao_pagamento_log` > 90 dias
+  - `signup_verifications` > 30 dias (status `verificado` ou `expirado`)
+  - PDFs DANFE em storage > 90 dias (script separado)
+
+---
+
+## 3. Desativar lojas/contas inativas dos crons
+
+Hoje `advance-shipments` varre **todas** as lojas. Muitas estão bloqueadas, sem saldo ou abandonadas — desperdício.
+
+**Ação:** modificar `advance-shipments` para pular lojas com:
+- Conta bloqueada (`profiles.bloqueado = true`)
+- Sem saldo há mais de 7 dias e `auto_envio = false`
+- Sem nenhum envio criado nos últimos 30 dias
+
+---
+
+## 4. Otimizar queries pesadas
+
+- Adicionar índices que faltam em colunas usadas por crons:
+  - `envios(loja_id, status, proximo_avanco_em)` parcial onde `deleted_at IS NULL`
+  - `envios(proximo_avanco_em)` onde `status != 'entregue'`
+  - `postagem_email_log(envio_id, status)`
+- Substituir loops de paginação por agregações server-side onde possível
+
+---
+
+## 5. Storage de DANFEs (PDFs)
+
+O bucket `nfe-pdfs` provavelmente é o maior consumidor de storage. Opções:
+
+- **Lifecycle policy**: deletar PDFs > 90 dias automaticamente (cliente final já recebeu por e-mail)
+- Manter só metadados (chave de acesso) — DANFE pode ser regenerada sob demanda
+
+---
+
+## Ordem de execução proposta
+
+```text
+1. Auditar crons existentes (listar todos via SQL)         [5 min]
+2. Reduzir frequência de advance-shipments para 3 min     [migration]
+3. Remover cron backfill-missed-emails-drain              [migration]
+4. Executar cleanup_old_data() agora                      [insert]
+5. Ampliar cleanup_old_data() com novas tabelas           [migration]
+6. Agendar cleanup diário às 03:00                         [migration]
+7. Adicionar índices faltantes                             [migration]
+8. Pular lojas inativas em advance-shipments               [edit edge fn]
+9. Limpeza de PDFs antigos no storage                      [script]
+10. Validar consumo após 24h                               [observação]
 ```
 
-**Backfill via supabase.functions.invoke:**
-```ts
-supabase.functions.invoke("backfill-missed-emails", {
-  body: { hours: 720, dry_run: false, limit: 500, concurrency: 5 }
-});
-```
-(Janela de 30 dias = 720h. Concurrency baixa para não esbarrar de novo no rate limit.)
+---
 
-**Sem mudanças de schema.** Apenas patch da edge function + invocação única de backfill.
+## Impacto esperado
+
+| Item | Redução estimada |
+|---|---|
+| Execuções de edge function | **-65%** (crons mais espaçados + skip de lojas inativas) |
+| Tamanho do banco | **-30 a -50%** (limpeza de payloads/logs antigos) |
+| Storage | **-40 a -70%** (DANFEs antigos) |
+| Queries por hora | **-50%** (índices + agregações + skip de lojas) |
+| **Custo Cloud total** | **-60 a -75%** |
+
+---
+
+## Riscos e mitigações
+
+- **Crons mais lentos**: `advance-shipments` rodando a cada 3 min ainda é tranquilo para SLA de rastreio (etapas demoram horas/dias). Lotes maiores compensam.
+- **Perda de logs antigos**: limpeza só apaga > 60–90 dias, fora da janela de auditoria normal. Antes do cleanup, faço um dump dos últimos 12 meses para `/mnt/documents` se quiser arquivar.
+- **DANFEs apagados**: cliente final já recebeu por e-mail; admin pode regerar via `resend-nfe`. Se preferir, manter por 180 dias em vez de 90.
+
+---
+
+## Aprovação
+
+Quando você aprovar, executo na ordem acima. Cada migration vai para sua aprovação individual antes de rodar. Posso fazer tudo de uma vez ou ir em etapas — recomendo etapas (1→3 primeiro, validar, depois 4→7, depois 8→9).
