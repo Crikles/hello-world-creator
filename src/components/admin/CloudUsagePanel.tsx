@@ -88,12 +88,6 @@ export function CloudUsagePanel() {
   const [pendingAction, setPendingAction] = useState<CleanupAction | null>(null);
   const [recentRuns, setRecentRuns] = useState<Partial<Record<CleanupAction, number>>>({});
 
-  useEffect(() => {
-    if (stats?.generated_at) {
-      setRecentRuns({});
-    }
-  }, [stats?.generated_at]);
-
   const { data: stats, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["cloud-usage-stats"],
     queryFn: async () => {
@@ -103,6 +97,12 @@ export function CloudUsagePanel() {
     },
     refetchInterval: 60_000,
   });
+
+  useEffect(() => {
+    if (stats?.generated_at) {
+      setRecentRuns({});
+    }
+  }, [stats?.generated_at]);
 
   const { data: history } = useQuery({
     queryKey: ["cleanup-history"],
