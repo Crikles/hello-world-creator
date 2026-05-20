@@ -86,6 +86,7 @@ const ACTION_META: Record<CleanupAction, { label: string; description: string; i
 export function CloudUsagePanel() {
   const qc = useQueryClient();
   const [pendingAction, setPendingAction] = useState<CleanupAction | null>(null);
+  const [recentRuns, setRecentRuns] = useState<Partial<Record<CleanupAction, number>>>({});
 
   const { data: stats, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["cloud-usage-stats"],
@@ -122,6 +123,7 @@ export function CloudUsagePanel() {
     },
     onSuccess: ({ action, data }) => {
       const rows = (data as any)?.rows_affected ?? ((data as any)?.cron_logs ?? 0) + ((data as any)?.pg_net_logs ?? 0);
+      setRecentRuns((prev) => ({ ...prev, [action]: rows }));
       toast.success(
         `${ACTION_META[action].label}`,
         {
@@ -147,22 +149,32 @@ export function CloudUsagePanel() {
   const healthLabel =
     healthLevel === "ok" ? "Saudável" : healthLevel === "warn" ? "Atenção" : "Crítico";
 
+  const effectiveCandidates = useMemo(() => {
+    const base = stats?.cleanup_candidates ?? {};
+    return (Object.keys(ACTION_META) as CleanupAction[]).reduce((acc, key) => {
+      acc[key] = Math.max(0, (base[key] ?? 0) - (recentRuns[key] ?? 0));
+      return acc;
+    }, {} as Record<CleanupAction, number>);
+  }, [stats?.cleanup_candidates, recentRuns]);
+
   // Recomendações dinâmicas
   const recs: Array<{ kind: "warn" | "info" | "ok"; text: string }> = [];
   if (stats) {
     const pedidos = stats.tables.find(t => t.table_name === "pedidos");
     const webhooks = stats.tables.find(t => t.table_name === "webhook_logs");
     const wa = stats.tables.find(t => t.table_name === "whatsapp_send_queue");
-    if (pedidos && pedidos.size_bytes > 200 * 1024 * 1024)
-      recs.push({ kind: "warn", text: `Tabela "Pedidos" está com ${formatMB(pedidos.size_bytes)} — recomendamos limpar payloads antigos.` });
-    if (webhooks && webhooks.size_bytes > 50 * 1024 * 1024)
-      recs.push({ kind: "warn", text: `Tabela "Webhook Logs" está com ${formatMB(webhooks.size_bytes)} — pode reduzir.` });
-    if (wa && wa.size_bytes > 20 * 1024 * 1024)
-      recs.push({ kind: "info", text: `Fila WhatsApp acumulou ${formatMB(wa.size_bytes)} — limpe registros finalizados.` });
+    if ((effectiveCandidates.pedidos_payloads ?? 0) > 0 && pedidos)
+      recs.push({ kind: "warn", text: `Ainda há ${(effectiveCandidates.pedidos_payloads ?? 0).toLocaleString("pt-BR")} pedidos com payload bruto limpável em "Pedidos" (${formatMB(pedidos.size_bytes)} na tabela).` });
+    if ((effectiveCandidates.webhook_logs ?? 0) > 0 && webhooks)
+      recs.push({ kind: "warn", text: `Ainda há ${(effectiveCandidates.webhook_logs ?? 0).toLocaleString("pt-BR")} webhooks processados com payload bruto que podem ser limpos.` });
+    if ((effectiveCandidates.whatsapp_queue ?? 0) > 0 && wa)
+      recs.push({ kind: "info", text: `Ainda há ${(effectiveCandidates.whatsapp_queue ?? 0).toLocaleString("pt-BR")} itens finalizados na fila WhatsApp prontos para remoção.` });
+    if ((effectiveCandidates.internal_logs ?? 0) > 0)
+      recs.push({ kind: "info", text: `Ainda há ${(effectiveCandidates.internal_logs ?? 0).toLocaleString("pt-BR")} logs internos antigos que podem ser removidos.` });
     if (healthLevel === "critical")
       recs.push({ kind: "warn", text: "Banco passou de 80% da capacidade de referência — considere upgrade da instância na Lovable Cloud (Backend → Configurações avançadas)." });
     if (recs.length === 0)
-      recs.push({ kind: "ok", text: "Tudo em ordem — nenhuma ação urgente necessária." });
+      recs.push({ kind: "ok", text: "Tudo em ordem — não há itens antigos pendentes de limpeza neste momento." });
   }
 
   const totalRows = stats?.tables.reduce((s, t) => s + (t.row_estimate || 0), 0) ?? 0;
@@ -230,18 +242,19 @@ export function CloudUsagePanel() {
 
         <Card className="border-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Última Limpeza</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Itens Limpáveis</CardTitle>
             <Trash2 className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <p className="text-sm font-semibold">
-              {lastCleanup
-                ? formatDistanceToNow(new Date(lastCleanup.executed_at), { locale: ptBR, addSuffix: true })
-                : "Nunca executada"}
+            <p className="text-2xl font-bold tabular-nums">
+              {Object.values(effectiveCandidates).reduce((sum, value) => sum + value, 0).toLocaleString("pt-BR")}
+            </p>
+            <p className="text-xs text-muted-foreground mt-3">
+              Registros ainda elegíveis para limpeza segura agora
             </p>
             {lastCleanup && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {lastCleanup.action} — {lastCleanup.rows_affected.toLocaleString("pt-BR")} regs
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Última execução {formatDistanceToNow(new Date(lastCleanup.executed_at), { locale: ptBR, addSuffix: true })}
               </p>
             )}
           </CardContent>
@@ -362,16 +375,19 @@ export function CloudUsagePanel() {
             <div key={act} className="border border-border/50 rounded-lg p-4 space-y-2 bg-secondary/20">
               <h4 className="text-sm font-semibold">{ACTION_META[act].label}</h4>
               <p className="text-xs text-muted-foreground">{ACTION_META[act].description}</p>
+              <p className="text-xs text-muted-foreground">
+                Pendentes agora: <span className="font-semibold text-foreground">{(effectiveCandidates[act] ?? 0).toLocaleString("pt-BR")}</span>
+              </p>
               <p className="text-xs text-emerald-400">✓ {ACTION_META[act].impact}</p>
               <Button
                 size="sm"
                 variant="outline"
                 className="w-full gap-2 mt-2"
                 onClick={() => setPendingAction(act)}
-                disabled={cleanupMutation.isPending}
+                disabled={cleanupMutation.isPending || (effectiveCandidates[act] ?? 0) === 0}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Executar
+                {(effectiveCandidates[act] ?? 0) === 0 ? "Nada para limpar" : "Executar"}
               </Button>
             </div>
           ))}
