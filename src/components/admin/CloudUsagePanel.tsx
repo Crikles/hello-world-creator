@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,6 +88,12 @@ export function CloudUsagePanel() {
   const [pendingAction, setPendingAction] = useState<CleanupAction | null>(null);
   const [recentRuns, setRecentRuns] = useState<Partial<Record<CleanupAction, number>>>({});
 
+  useEffect(() => {
+    if (stats?.generated_at) {
+      setRecentRuns({});
+    }
+  }, [stats?.generated_at]);
+
   const { data: stats, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["cloud-usage-stats"],
     queryFn: async () => {
@@ -133,6 +139,7 @@ export function CloudUsagePanel() {
       );
       qc.invalidateQueries({ queryKey: ["cloud-usage-stats"] });
       qc.invalidateQueries({ queryKey: ["cleanup-history"] });
+      refetch();
     },
     onError: (err: Error) => toast.error(`Falha: ${err.message}`),
     onSettled: () => setPendingAction(null),
