@@ -121,7 +121,13 @@ export function CloudUsagePanel() {
     },
     onSuccess: ({ action, data }) => {
       const rows = (data as any)?.rows_affected ?? ((data as any)?.cron_logs ?? 0) + ((data as any)?.pg_net_logs ?? 0);
-      toast.success(`${ACTION_META[action].label} — ${rows.toLocaleString("pt-BR")} registros tratados`);
+      toast.success(
+        `${ACTION_META[action].label}`,
+        {
+          description: `${rows.toLocaleString("pt-BR")} registros tratados. O espaço será reaproveitado nas próximas inserções (o tamanho exibido só diminui após manutenção da Lovable Cloud).`,
+          duration: 8000,
+        }
+      );
       qc.invalidateQueries({ queryKey: ["cloud-usage-stats"] });
       qc.invalidateQueries({ queryKey: ["cleanup-history"] });
     },
