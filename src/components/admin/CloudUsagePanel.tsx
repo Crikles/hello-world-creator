@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ type Stats = {
   db_size_bytes: number;
   db_size_pretty: string;
   tables: TableStat[];
+  cleanup_candidates?: Partial<Record<CleanupAction, number>>;
   total_dead_tuples?: number;
   total_live_tuples?: number;
   bloat_estimate_pct?: number;
