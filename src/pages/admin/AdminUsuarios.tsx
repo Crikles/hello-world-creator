@@ -191,12 +191,11 @@ export default function AdminUsuarios() {
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["admin-usuarios"],
     queryFn: async () => {
-      const [profilesRes, rolesRes, creditosRes, lojasRes, verificacoesRes, allVerificacoesRes] = await Promise.all([
+      const [profilesRes, rolesRes, creditosRes, lojasRes, allVerificacoesRes] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("user_roles").select("*"),
         supabase.from("creditos").select("*"),
         supabase.from("lojas").select("id, user_id"),
-        supabase.from("signup_verifications").select("phone, email, status").eq("status", "verificado"),
         supabase.from("signup_verifications").select("phone, email, code, status, created_at").eq("status", "pendente").order("created_at", { ascending: false }),
       ]);
 
@@ -204,14 +203,9 @@ export default function AdminUsuarios() {
       const roles = rolesRes.data || [];
       const creditos = creditosRes.data || [];
       const lojas = lojasRes.data || [];
-      const verificacoes = verificacoesRes.data || [];
       const allPendingVerificacoes = allVerificacoesRes.data || [];
 
-      // Build sets of verified phones and emails
-      const verifiedPhones = new Set(verificacoes.map(v => v.phone?.replace(/\D/g, "")));
-      const verifiedEmails = new Set(verificacoes.map(v => v.email?.toLowerCase()));
-
-      // Build map of latest pending code by phone/email
+      // Mapa de códigos pendentes (para exibir quando ainda não verificado)
       const pendingCodeByPhone: Record<string, string> = {};
       const pendingCodeByEmail: Record<string, string> = {};
       allPendingVerificacoes.forEach((v: any) => {
@@ -227,7 +221,8 @@ export default function AdminUsuarios() {
         const userLojas = lojas.filter((l) => l.user_id === p.id);
         const userPhone = ((p as any).whatsapp || "").replace(/\D/g, "");
         const userEmail = (p.email || "").toLowerCase();
-        const isVerified = (userPhone && verifiedPhones.has(userPhone)) || verifiedEmails.has(userEmail);
+        // Fonte de verdade: profiles.whatsapp_verified (signup_verifications é limpa periodicamente)
+        const isVerified = !!(p as any).whatsapp_verified;
         const pendingCode = !isVerified
           ? (userPhone && pendingCodeByPhone[userPhone]) || pendingCodeByEmail[userEmail] || null
           : null;
