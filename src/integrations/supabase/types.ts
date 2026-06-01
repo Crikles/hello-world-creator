@@ -1495,6 +1495,42 @@ export type Database = {
           },
         ]
       }
+      signup_verifications: {
+        Row: {
+          approved_by: string | null
+          code: string | null
+          created_at: string
+          email: string | null
+          id: string
+          phone: string | null
+          status: string
+          user_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          code?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          status?: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          code?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          status?: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       sms_templates: {
         Row: {
           ativo: boolean
@@ -1534,18 +1570,21 @@ export type Database = {
       system_config: {
         Row: {
           key: string
+          label: string | null
           text_value: string | null
           updated_at: string
           value: number
         }
         Insert: {
           key: string
+          label?: string | null
           text_value?: string | null
           updated_at?: string
           value?: number
         }
         Update: {
           key?: string
+          label?: string | null
           text_value?: string | null
           updated_at?: string
           value?: number
@@ -1701,6 +1740,7 @@ export type Database = {
           phone: string | null
           qr_code: string | null
           status: string
+          subscription_id: string | null
           updated_at: string
           user_id: string | null
         }
@@ -1718,6 +1758,7 @@ export type Database = {
           phone?: string | null
           qr_code?: string | null
           status?: string
+          subscription_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1735,6 +1776,7 @@ export type Database = {
           phone?: string | null
           qr_code?: string | null
           status?: string
+          subscription_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1834,6 +1876,33 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          loja_id: string | null
+          price_paid: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          loja_id?: string | null
+          price_paid?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          loja_id?: string | null
+          price_paid?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1859,6 +1928,16 @@ export type Database = {
           user_email: string
           user_id: string
           user_nome: string
+        }[]
+      }
+      get_admin_user_activity: {
+        Args: never
+        Returns: {
+          envios_30d: number
+          total_envios: number
+          ultimo_deposito: string
+          ultimo_envio: string
+          user_id: string
         }[]
       }
       get_confirmacao_grouped: {
