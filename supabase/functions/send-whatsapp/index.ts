@@ -8,6 +8,13 @@ const corsHeaders = {
 
 const UAZAPI_BASE = "https://rushsend.uazapi.com";
 
+function normalizeBrazilianPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10 || digits.length === 11) return "55" + digits;
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+  return digits;
+}
+
 function jsonResp(body: unknown, status = 200) {
     return new Response(JSON.stringify(body), {
         status,
@@ -15,7 +22,20 @@ function jsonResp(body: unknown, status = 200) {
     });
 }
 
-async function getWhatsAppPrice(supabaseAdmin: any): Promise<number> {
+async function getWhatsAppPrice(supabaseAdmin: any, userId?: string): Promise<number> {
+    // 1. Check user custom price
+    if (userId) {
+        const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("custom_prices")
+            .eq("id", userId)
+            .maybeSingle();
+        const custom = profile?.custom_prices as Record<string, number> | null;
+        if (custom && custom.custo_whatsapp != null) {
+            return custom.custo_whatsapp;
+        }
+    }
+    // 2. Fallback to global
     const { data } = await supabaseAdmin
         .from("system_config")
         .select("value")
@@ -65,6 +85,9 @@ Deno.serve(async (req) => {
 
         if (!loja) return jsonResp({ error: "Loja not found or not owned by user" }, 403);
 
+        // Billing always follows the loja owner (works for admin visualization mode too)
+        const billingUserId = loja.user_id || userId;
+
         const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN")!;
 
         // ── Helper: find a free subscription slot (active sub with no linked instance) ──
@@ -106,10 +129,10 @@ Deno.serve(async (req) => {
                 price = 0;
             } else {
                 // No free slot — charge credits and create new subscription
-                price = await getWhatsAppPrice(supabaseAdmin);
+                price = await getWhatsAppPrice(supabaseAdmin, billingUserId);
 
                 const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
-                    _user_id: userId,
+                    _user_id: billingUserId,
                     _quantidade: price,
                     _descricao: `Assinatura WhatsApp (${price} moedas/mês)`,
                 });
@@ -125,7 +148,7 @@ Deno.serve(async (req) => {
                     .from("whatsapp_subscriptions")
                     .insert({
                         loja_id,
-                        user_id: userId,
+                        user_id: billingUserId,
                         expires_at: expiresAt,
                         price_paid: price,
                     })
@@ -139,7 +162,18 @@ Deno.serve(async (req) => {
                 subscriptionId = newSub.id;
             }
 
-            const instanceName = body.instance_name || `magnus-${loja_id.slice(0, 8)}-${Date.now().toString(36)}`;
+            // Build instance name using owner email for easy identification in UAZAPI
+            const { data: ownerProfile } = await supabaseAdmin
+                .from("profiles")
+                .select("email")
+                .eq("id", billingUserId)
+                .maybeSingle();
+            const emailPrefix = (ownerProfile?.email || "")
+                .split("@")[0]
+                .replace(/[^a-zA-Z0-9]/g, "")
+                .slice(0, 20)
+                .toLowerCase();
+            const instanceName = body.instance_name || `magnus-${emailPrefix || loja_id.slice(0, 8)}-${Date.now().toString(36)}`;
 
             const res = await fetch(`${UAZAPI_BASE}/instance/init`, {
                 method: "POST",
@@ -170,7 +204,7 @@ Deno.serve(async (req) => {
                     instance_token: token,
                     status: "disconnected",
                     expires_at: expiresAt,
-                    subscription_price: price || (await getWhatsAppPrice(supabaseAdmin)),
+                    subscription_price: price || (await getWhatsAppPrice(supabaseAdmin, billingUserId)),
                     subscription_id: subscriptionId,
                     updated_at: new Date().toISOString(),
                 });
@@ -216,10 +250,10 @@ Deno.serve(async (req) => {
 
         // ── RENEW: Renew subscription ──
         if (action === "renew") {
-            const price = await getWhatsAppPrice(supabaseAdmin);
+            const price = await getWhatsAppPrice(supabaseAdmin, billingUserId);
 
             const { data: debited, error: debitErr } = await supabaseAdmin.rpc("debit_user_credits", {
-                _user_id: userId,
+                _user_id: billingUserId,
                 _quantidade: price,
                 _descricao: `Renovação WhatsApp (${price} moedas/mês)`,
             });
@@ -266,7 +300,7 @@ Deno.serve(async (req) => {
                     .from("whatsapp_subscriptions")
                     .insert({
                         loja_id,
-                        user_id: userId,
+                        user_id: billingUserId,
                         expires_at: newExpires,
                         price_paid: price,
                     })
@@ -443,12 +477,15 @@ Deno.serve(async (req) => {
         }
 
         // ── Helper: log message to whatsapp_message_log ──
-        async function logMessage(envioId: string, instanceId: string, status: string) {
+        async function logMessage(envioId: string, instanceId: string, status: string, errorReason?: string, providerResponse?: any, httpStatus?: number) {
             await supabaseAdmin.from("whatsapp_message_log").insert({
                 envio_id: envioId,
                 loja_id,
                 instance_id: instanceId,
                 status,
+                error_reason: errorReason || null,
+                provider_response: providerResponse || null,
+                http_status: httpStatus || null,
             });
         }
 
@@ -493,11 +530,13 @@ Deno.serve(async (req) => {
             const data = await res.json();
             console.log("UAZAPI send response:", JSON.stringify(data));
 
+            const errorReason = res.ok ? undefined : (data?.message || data?.error || JSON.stringify(data).slice(0, 200));
+
             if (envio_id) {
-                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed");
+                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed", errorReason, data, res.status);
             }
 
-            if (!res.ok) return jsonResp({ error: "Send failed", details: data }, 500);
+            if (!res.ok) return jsonResp({ error: "Send failed", details: data, error_reason: errorReason }, 500);
 
             return jsonResp({ success: true, ...data });
         }
@@ -524,17 +563,18 @@ Deno.serve(async (req) => {
             });
 
             const data = await res.json();
+            const errorReason = res.ok ? undefined : (data?.message || data?.error || JSON.stringify(data).slice(0, 200));
 
             if (envio_id) {
-                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed");
+                await logMessage(envio_id, instance.id, res.ok ? "sent" : "failed", errorReason, data, res.status);
             }
 
-            if (!res.ok) return jsonResp({ error: "Send failed", details: data }, 500);
+            if (!res.ok) return jsonResp({ error: "Send failed", details: data, error_reason: errorReason }, 500);
 
             return jsonResp({ success: true, ...data });
         }
 
-        // ── SEND-QUEUE: Bulk send with rotation ──
+        // ── SEND-QUEUE: Bulk send via queue (respects delay, works offline) ──
         if (action === "send-queue") {
             console.log("SEND-QUEUE action received body:", JSON.stringify({ envio_ids_count: body.envio_ids?.length, btn_text: body.btn_text, btn_url_template: body.btn_url_template, btn2_text: body.btn2_text, btn2_url: body.btn2_url, footer: body.footer }));
             const { envio_ids, msg_template, btn_text, btn_url_template, footer, btn2_text: queueBtn2Text, btn2_url: queueBtn2Url } = body;
@@ -543,20 +583,29 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "envio_ids array is required" }, 400);
             }
 
+            // Fetch active connected instances
             const { data: allInstances } = await supabaseAdmin
                 .from("whatsapp_instances")
                 .select("*")
                 .eq("loja_id", loja_id)
                 .eq("status", "connected");
 
-            const activeInstances = (allInstances || []).filter(
+            let activeInstances = (allInstances || []).filter(
                 (i: any) => i.expires_at && new Date(i.expires_at) > new Date()
             );
+
+            const requestedInstanceIds: string[] | undefined = body.instance_ids;
+            if (requestedInstanceIds && Array.isArray(requestedInstanceIds) && requestedInstanceIds.length > 0) {
+                const idSet = new Set(requestedInstanceIds);
+                const filtered = activeInstances.filter((i: any) => idSet.has(i.id));
+                if (filtered.length > 0) activeInstances = filtered;
+            }
 
             if (activeInstances.length === 0) {
                 return jsonResp({ error: "Nenhuma instância WhatsApp ativa e conectada encontrada." }, 400);
             }
 
+            // Fetch envios data
             const { data: enviosData } = await supabaseAdmin
                 .from("envios")
                 .select("*")
@@ -566,45 +615,62 @@ Deno.serve(async (req) => {
                 return jsonResp({ error: "No envios found" }, 404);
             }
 
+            // Fetch config for delay and extras
             const { data: configData } = await supabaseAdmin
                 .from("postagem_config")
                 .select("whatsapp_delay_seconds, whatsapp_image_url, whatsapp_reply_text, whatsapp_btn2_text, whatsapp_btn2_url")
                 .eq("loja_id", loja_id)
                 .maybeSingle();
 
-            const delayMs = ((configData?.whatsapp_delay_seconds) || 300) * 1000;
+            const delaySeconds = (configData?.whatsapp_delay_seconds) || 300;
             const queueImageUrl = configData?.whatsapp_image_url || null;
             const queueReplyText = configData?.whatsapp_reply_text || null;
             const cfgBtn2Text = queueBtn2Text || configData?.whatsapp_btn2_text || null;
             const cfgBtn2Url = queueBtn2Url || configData?.whatsapp_btn2_url || null;
 
-            const results: { envio_id: string; status: string; instance_name: string }[] = [];
+            // Build queue items with staggered scheduled_at and round-robin instance assignment
+            // Check existing pending items to avoid overlapping schedules
+            const { data: lastQueued } = await supabaseAdmin
+                .from("whatsapp_send_queue")
+                .select("scheduled_at")
+                .eq("loja_id", loja_id)
+                .eq("status", "pending")
+                .order("scheduled_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            const now = Date.now();
+            let baseTime: number;
+
+            if (lastQueued?.scheduled_at) {
+                const lastTime = new Date(lastQueued.scheduled_at).getTime();
+                const nextTime = lastTime + delaySeconds * 1000;
+                baseTime = Math.max(now, nextTime);
+            } else {
+                baseTime = now;
+            }
+
+            const queueItems: any[] = [];
 
             for (let i = 0; i < enviosData.length; i++) {
                 const envio = enviosData[i];
                 const inst = activeInstances[i % activeInstances.length];
 
-                if (!envio.cliente_telefone) {
-                    await logMessage(envio.id, inst.id, "failed");
-                    results.push({ envio_id: envio.id, status: "failed", instance_name: inst.instance_name });
-                    continue;
-                }
+                if (!envio.cliente_telefone) continue;
 
-                // Parse produto for display name
                 let produtoNome = envio.produto;
                 try {
                     const parsed = JSON.parse(envio.produto);
                     if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
-                } catch { /* not JSON, use as-is */ }
+                } catch { /* not JSON */ }
 
-                let text = (msg_template || envio.produto)
+                const text = (msg_template || envio.produto)
                     .replace(/\{\{nome\}\}/g, envio.cliente_nome || "")
                     .replace(/\{\{produto\}\}/g, produtoNome)
                     .replace(/\{\{valor\}\}/g, Number(envio.valor || 0).toFixed(2))
                     .replace(/\{\{codigo_rastreio\}\}/g, envio.codigo_rastreio || "");
-                const number = envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
-                    ? envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
-                    : "55" + envio.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
+
+                const number = normalizeBrazilianPhone(envio.cliente_telefone);
 
                 const choices: string[] = [];
                 if (btn_text && btn_url_template) {
@@ -613,42 +679,46 @@ Deno.serve(async (req) => {
                 if (cfgBtn2Text && cfgBtn2Url) choices.push(`${cfgBtn2Text}|${cfgBtn2Url}`);
                 if (queueReplyText) choices.push(queueReplyText);
 
-                const sendBody: Record<string, unknown> = {
+                // Stagger by delay: first item now, subsequent items spaced by delaySeconds
+                const scheduledAt = new Date(baseTime + i * delaySeconds * 1000).toISOString();
+
+                queueItems.push({
+                    loja_id,
+                    envio_id: envio.id,
+                    instance_id: inst.id,
                     number,
-                    type: "button",
-                    text: queueImageUrl ? `\n${text}` : text,
-                    choices,
-                };
-                if (queueImageUrl) sendBody.imageButton = queueImageUrl;
-                if (footer) sendBody.footerText = footer;
-
-                console.log(`SEND-QUEUE payload for envio ${envio.id}:`, JSON.stringify({ choices, text: sendBody.text, number: sendBody.number, btn2: cfgBtn2Text }));
-
-                try {
-                    const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            token: inst.instance_token,
-                        },
-                        body: JSON.stringify(sendBody),
-                    });
-
-                    const status = res.ok ? "sent" : "failed";
-                    await logMessage(envio.id, inst.id, status);
-                    results.push({ envio_id: envio.id, status, instance_name: inst.instance_name });
-                } catch {
-                    await logMessage(envio.id, inst.id, "failed");
-                    results.push({ envio_id: envio.id, status: "failed", instance_name: inst.instance_name });
-                }
-
-                if (i < enviosData.length - 1 && delayMs > 0) {
-                    await new Promise((r) => setTimeout(r, Math.min(delayMs, 10000)));
-                }
+                    msg_text: queueImageUrl ? `\n${text}` : text,
+                    choices: JSON.stringify(choices),
+                    image_url: queueImageUrl || null,
+                    footer_text: footer || null,
+                    scheduled_at: scheduledAt,
+                    status: "pending",
+                });
             }
 
-            return jsonResp({ success: true, results });
+            if (queueItems.length === 0) {
+                return jsonResp({ error: "Nenhum envio com telefone válido encontrado." }, 400);
+            }
+
+            // Insert all queue items
+            const { error: queueErr } = await supabaseAdmin
+                .from("whatsapp_send_queue")
+                .insert(queueItems);
+
+            if (queueErr) {
+                console.error("Failed to insert queue items:", queueErr);
+                return jsonResp({ error: "Erro ao enfileirar mensagens", details: queueErr.message }, 500);
+            }
+
+            console.log(`Queued ${queueItems.length} WhatsApp messages for loja ${loja_id}`);
+
+            return jsonResp({
+                success: true,
+                queued: queueItems.length,
+                total_instances: activeInstances.length,
+                delay_seconds: delaySeconds,
+                estimated_minutes: Math.ceil((queueItems.length * delaySeconds) / 60),
+            });
         }
 
         return jsonResp({ error: `Unknown action: ${action}` }, 400);

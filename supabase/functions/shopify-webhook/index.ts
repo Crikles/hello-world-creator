@@ -51,6 +51,21 @@ Deno.serve(async (req) => {
 
     const lojaId = lojaData.id;
 
+    // Check if integration is active
+    const { data: integrationStatus } = await supabase
+      .from("checkout_integrations")
+      .select("ativo")
+      .eq("loja_id", lojaId)
+      .eq("checkout_id", "shopify")
+      .maybeSingle();
+
+    if (integrationStatus?.ativo === false) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "integration_disabled" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // === Shopify native payload mapping ===
     const customer = payload.customer || {};
     const shippingAddress = payload.shipping_address || {};
@@ -133,8 +148,82 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
-    // 3. If paid and no envio linked yet, create envio
+    // === Recovery: PIX Pendente ===
+    const methodLower = (payload.method || payload.payment_gateway_names?.[0] || "").toLowerCase();
+    if (status === "pending" && methodLower.includes("pix") && customerEmail) {
+      const recoveryTipo = "pix_pendente";
+      try {
+        const { data: recoveryConfig } = await supabase
+          .from("recovery_config")
+          .select("ativo")
+          .eq("loja_id", lojaId)
+          .eq("tipo", recoveryTipo)
+          .maybeSingle();
+
+        if (recoveryConfig?.ativo) {
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const { data: existingLead } = await supabase
+            .from("recovery_leads")
+            .select("id")
+            .eq("loja_id", lojaId)
+            .eq("customer_email", customerEmail)
+            .eq("tipo", recoveryTipo)
+            .gte("created_at", oneDayAgo)
+            .limit(1);
+
+          if (!existingLead || existingLead.length === 0) {
+            const recoveryProducts = normalizedProducts.map((p: any) => ({
+              name: p.title,
+              value: p.amount / 100,
+              qty: p.quantity,
+            }));
+
+            await supabase.from("recovery_leads").insert({
+              loja_id: lojaId,
+              customer_name: customerName || "",
+              customer_email: customerEmail,
+              customer_phone: customerPhone || "",
+              products: recoveryProducts,
+              total_value: totalPrice / 100,
+              checkout_url: payload.order_url || "",
+              raw_payload: payload,
+              status: "pendente",
+              tipo: recoveryTipo,
+            });
+
+            supabase.functions.invoke("send-recovery-email", {
+              body: { loja_id: lojaId, customer_email: customerEmail, tipo: recoveryTipo },
+            }).catch((e) => console.error("[recovery-email] error:", e));
+
+            supabase.functions.invoke("send-recovery-sms", {
+              body: { loja_id: lojaId, customer_email: customerEmail, tipo: recoveryTipo },
+            }).catch((e) => console.error("[recovery-sms] error:", e));
+          }
+        }
+      } catch (e) {
+        console.error("[shopify-recovery] error:", e);
+      }
+    }
+
+    // 3. If paid and no envio linked yet, create envio (with payment method filter)
     if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
+      const { data: integrationConfig } = await supabase
+        .from("checkout_integrations")
+        .select("filtro_metodo")
+        .eq("loja_id", lojaId)
+        .eq("checkout_id", "shopify")
+        .maybeSingle();
+
+      const filtroMetodo = integrationConfig?.filtro_metodo || "todos";
+      const methodValue = (payload.payment_gateway_names?.[0] || "").toLowerCase();
+      const isPix = methodValue.includes("pix");
+      const shouldCreateEnvio = filtroMetodo === "todos" || (filtroMetodo === "cartao" && !isPix) || (filtroMetodo === "pix" && isPix);
+
+      if (!shouldCreateEnvio) {
+        await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "shopify").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
+        return new Response(JSON.stringify({ success: true, event_type: eventType, status, envio_skipped: true, reason: `filtro_metodo=${filtroMetodo}` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       const firstProduct = normalizedProducts[0] || {};
 
       const { data: empresaData } = await supabase
@@ -172,10 +261,30 @@ Deno.serve(async (req) => {
         .single();
 
       if (newEnvio) {
-        await supabase
+        // Race condition protection: only link envio if pedido still has no envio_id
+        const { data: updateResult } = await supabase
           .from("pedidos")
           .update({ envio_id: newEnvio.id })
-          .eq("id", pedidoId);
+          .eq("id", pedidoId)
+          .is("envio_id", null)
+          .select("id")
+          .maybeSingle();
+
+        if (!updateResult) {
+          console.log("[shopify-webhook] Race condition detected, deleting duplicate envio:", newEnvio.id);
+          await supabase.from("envios").delete().eq("id", newEnvio.id);
+        } else {
+          supabase.functions.invoke("auto-whatsapp-new-order", {
+            body: { envio_id: newEnvio.id, loja_id: lojaId }
+          }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
+
+          supabase.functions.invoke("advance-shipments", { body: { loja_id: lojaId } })
+            .catch((err) => console.error("[advance-shipments] invoke error:", err));
+
+          supabase.functions.invoke("send-payment-confirmation", {
+            body: { pedido_id: pedidoId, loja_id: lojaId }
+          }).catch((err) => console.error("[payment-confirmation] invoke error:", err));
+        }
       }
     }
 

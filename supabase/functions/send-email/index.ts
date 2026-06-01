@@ -1,4 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+
+const NCM_CODES = ["61091000","62046200","64041900","85171200","84713012","33049910","42021200","42029200","71171900","96032100","39241000","85167100","94036000","49019900","85234990","62034200","61102000","85044090","90049090","95030090"];
+const CST_CODES = ["102","101","103","202","300","400","500","900","000","010","020","041","060"];
+function hashCode(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; } return h; }
+function getRandomNcm(seed?: string): string { const i = seed ? Math.abs(hashCode(seed)) % NCM_CODES.length : Math.floor(Math.random() * NCM_CODES.length); return NCM_CODES[i]; }
+function getRandomCst(seed?: string): string { const i = seed ? Math.abs(hashCode(seed + "_cst")) % CST_CODES.length : Math.floor(Math.random() * CST_CODES.length); return CST_CODES[i]; }
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,9 +20,227 @@ interface SendEmailRequest {
   nfe_pdf_base64?: string;
   nfe_storage_path?: string;
   nfe_filename?: string;
+  generate_nfe_server?: boolean;
+  skip_debit?: boolean;
+}
+
+// ============ Server-side DANFE PDF generation ============
+
+interface ProductItem {
+  codigo?: number;
+  nome: string;
+  quantidade: number;
+  valor: number;
+  cfop?: string | null;
+  ncm_sh?: string | null;
+  cst?: string | null;
+  unidade?: string | null;
+}
+
+// deno-lint-ignore no-explicit-any
+function parseProductItems(envio: any): ProductItem[] {
+  const raw = envio.produto || "";
+  if (raw.startsWith("[")) {
+    try {
+      const items = JSON.parse(raw) as ProductItem[];
+      if (Array.isArray(items) && items.length > 0) {
+        const hasAnyValor = items.some((i: ProductItem) => i.valor && i.valor > 0);
+        if (!hasAnyValor && envio.valor && envio.valor > 0) {
+          const totalQty = items.reduce((s: number, i: ProductItem) => s + (i.quantidade || 1), 0);
+          items.forEach((i: ProductItem) => { i.valor = envio.valor / totalQty; });
+        }
+        items.forEach((i: ProductItem, idx: number) => {
+          const seed = `${envio.id || ""}${idx}`;
+          if (!i.cfop) i.cfop = envio.cfop || "5102";
+          if (!i.ncm_sh) i.ncm_sh = envio.ncm_sh || getRandomNcm(seed);
+          if (!i.cst) i.cst = envio.cst || getRandomCst(seed);
+          if (!i.unidade) i.unidade = envio.unidade;
+        });
+        return items;
+      }
+    } catch { /* fallthrough */ }
+  }
+  const seed = envio.id || "default";
+  return [{
+    codigo: 1, nome: raw || "Produto", quantidade: envio.quantidade || 1,
+    valor: envio.valor || 0, cfop: envio.cfop || "5102", ncm_sh: envio.ncm_sh || getRandomNcm(seed), cst: envio.cst || getRandomCst(seed), unidade: envio.unidade,
+  }];
+}
+
+function formatCurrencyPdf(val: number): string {
+  return val.toFixed(2).replace(".", ",");
+}
+
+function truncatePdf(text: string, maxLen: number): string {
+  if (!text) return "";
+  return text.length > maxLen ? text.substring(0, maxLen - 2) + ".." : text;
+}
+
+// deno-lint-ignore no-explicit-any
+async function generateDanfePdfServerSide(empresa: any, envio: any): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595.28, 841.89]);
+  const { width, height } = page.getSize();
+  const fontBold = await pdfDoc.embedFont(StandardFonts.CourierBold);
+  const fontRegular = await pdfDoc.embedFont(StandardFonts.Courier);
+  const black = rgb(0, 0, 0);
+  const gray = rgb(0.4, 0.4, 0.4);
+  const lightGray = rgb(0.92, 0.92, 0.92);
+  const margin = 30;
+  const colWidth = width - 2 * margin;
+  let y = height - margin;
+
+  const drawText = (text: string, x: number, yPos: number, size: number, font = fontRegular, color = black) => {
+    page.drawText(text || "", { x, y: yPos, size, font, color });
+  };
+  const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
+    page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 0.5, color: black });
+  };
+  const drawRect = (x: number, yPos: number, w: number, h: number, color = lightGray) => {
+    page.drawRectangle({ x, y: yPos, width: w, height: h, color });
+  };
+
+  drawRect(margin, y - 50, colWidth, 50);
+  drawText("DANFE - DOCUMENTO AUXILIAR DA NOTA FISCAL ELETRÔNICA", margin + 10, y - 20, 8, fontBold);
+  drawText("ENTRADA/SAÍDA: 1 (Saída)", margin + 10, y - 35, 7);
+  y -= 60;
+
+  drawText(truncatePdf(empresa?.nome_fantasia || empresa?.razao_social || "EMPRESA", 60), margin, y, 9, fontBold);
+  y -= 12;
+  drawText(truncatePdf(empresa?.razao_social || "", 70), margin, y, 7);
+  y -= 12;
+  const endEmpresa = [empresa?.endereco, empresa?.numero, empresa?.bairro, empresa?.cidade, empresa?.estado].filter(Boolean).join(", ");
+  drawText(truncatePdf(endEmpresa, 80), margin, y, 7);
+  y -= 12;
+  drawText(`CNPJ: ${empresa?.cnpj || "N/A"}   IE: ${empresa?.inscricao_estadual || "N/A"}`, margin, y, 7);
+  y -= 20;
+
+  drawLine(margin, y, margin + colWidth, y);
+  y -= 12;
+  drawText(`NF-e Nº: ${envio.nfe_numero || "000001"}`, margin, y, 8, fontBold);
+  drawText(`Série: ${envio.nfe_serie || "001"}`, margin + 200, y, 8);
+  y -= 12;
+  drawText(`Chave de Acesso: ${envio.nfe_chave_acesso || "N/A"}`, margin, y, 7);
+  y -= 20;
+
+  drawLine(margin, y, margin + colWidth, y);
+  y -= 5;
+  drawText("DESTINATÁRIO / REMETENTE", margin, y, 8, fontBold);
+  y -= 14;
+  drawText(`Nome: ${envio.cliente_nome || ""}`, margin, y, 7);
+  y -= 12;
+  drawText(`CPF/CNPJ: ${envio.cliente_cpf || "N/A"}`, margin, y, 7);
+  y -= 12;
+  const endDest = [envio.cliente_endereco, envio.cliente_numero, envio.cliente_bairro].filter(Boolean).join(", ");
+  drawText(`Endereço: ${truncatePdf(endDest, 70)}`, margin, y, 7);
+  y -= 12;
+  drawText(`Cidade: ${envio.cliente_cidade || ""}  UF: ${envio.cliente_estado || ""}  CEP: ${envio.cliente_cep || ""}`, margin, y, 7);
+  y -= 20;
+
+  drawLine(margin, y, margin + colWidth, y);
+  y -= 5;
+  drawText("DADOS DOS PRODUTOS / SERVIÇOS", margin, y, 8, fontBold);
+  y -= 14;
+  drawRect(margin, y - 2, colWidth, 14);
+  const cols = [margin, margin + 30, margin + 230, margin + 280, margin + 330, margin + 390, margin + 440, margin + 490];
+  const headers = ["CÓD", "DESCRIÇÃO", "NCM/SH", "CST", "CFOP", "UN", "QTD", "V.UNIT"];
+  headers.forEach((h, i) => drawText(h, cols[i], y, 6, fontBold));
+  y -= 16;
+
+  const items = parseProductItems(envio);
+  items.forEach((item, idx) => {
+    if (idx % 2 === 0) drawRect(margin, y - 2, colWidth, 12, lightGray);
+    drawText(String(item.codigo || idx + 1), cols[0], y, 6);
+    drawText(truncatePdf(item.nome, 30), cols[1], y, 6);
+    drawText(item.ncm_sh || getRandomNcm(String(idx)), cols[2], y, 6);
+    drawText(item.cst || getRandomCst(String(idx)), cols[3], y, 6);
+    drawText(item.cfop || "", cols[4], y, 6);
+    drawText(item.unidade || "UN", cols[5], y, 6);
+    drawText(String(item.quantidade), cols[6], y, 6);
+    drawText(formatCurrencyPdf(item.valor), cols[7], y, 6);
+    y -= 14;
+  });
+
+  y -= 10;
+  drawLine(margin, y, margin + colWidth, y);
+  y -= 14;
+  const totalVal = items.reduce((s, i) => s + i.valor * i.quantidade, 0);
+  drawText(`VALOR TOTAL DOS PRODUTOS: R$ ${formatCurrencyPdf(totalVal)}`, margin, y, 8, fontBold);
+  y -= 14;
+  drawText(`VALOR TOTAL DA NOTA: R$ ${formatCurrencyPdf(envio.valor || totalVal)}`, margin, y, 8, fontBold);
+
+  y -= 30;
+  drawText("Documento auxiliar gerado automaticamente pelo sistema.", margin, y, 6, fontRegular, gray);
+
+  return await pdfDoc.save();
 }
 
 const DEFAULT_TRANSPORTADORA = "JL Transportadora e Logística LTDA";
+
+// ============ Vizinho (Neighbor) deterministic logic ============
+const VIZINHO_NOMES = [
+  "Maria Aparecida","José Carlos","Ana Paula","Carlos Eduardo","Fernanda Silva",
+  "Mariana Oliveira","Roberto Souza","Patrícia Lima","Lucas Ferreira","Juliana Costa",
+  "André Mendes","Beatriz Almeida","Rafael Santos","Camila Ribeiro","Thiago Pereira",
+  "Larissa Barbosa","Gustavo Rocha","Isabela Cardoso","Diego Martins","Vanessa Araújo",
+  "Felipe Nascimento","Tatiana Moreira","Bruno Teixeira","Priscila Correia","Rodrigo Pinto",
+  "Aline Monteiro","Marcelo Duarte","Renata Farias","Leandro Machado","Gabriela Nunes",
+  "Eduardo Vieira","Sandra Carvalho","Henrique Dias","Elaine Castro","Marcos Lopes",
+  "Cláudia Ramos","Alexandre Gonçalves","Luciana Freitas","Paulo Nogueira","Adriana Campos",
+  "Fábio Azevedo","Cristiane Melo","Ricardo Guimarães","Simone Borges","Vinícius Cunha",
+  "Daniele Moraes","Sérgio Cavalcanti","Andréa Pires","Cássio Braga","Lúcia Fontes",
+  "Peterson Reis","Elisa Tavares","Willian Amaral","Débora Siqueira","Reginaldo Batista",
+  "Jéssica Gomes","Rogério Xavier","Monique Miranda","Otávio Coelho","Carolina Sampaio",
+  "Matheus Andrade","Viviane Passos","Leonardo Medeiros","Rosana Rezende","Jorge Figueiredo",
+  "Bianca Peixoto","Daniel Alencar","Flávia Assis","Maurício Sales","Eliane Barros",
+  "Caio Bittencourt","Karina Bastos","Raul Queiroz","Natália Marques","César Leal",
+  "Amanda Esteves","Ronaldo Lacerda","Ingrid Rangel","Augusto Brandão","Sabrina Aguiar",
+  "Luís Henrique","Tereza Silveira","Thales Pacheco","Lia Domingues","Nelson Valente",
+  "Letícia Vasconcelos","Ítalo Bezerra","Miriam Paiva","Otton Coutinho","Raquel Trindade",
+  "Wendel Magalhães","Heloísa Barreto","Caetano Soares","Milena Sá","Josué Maciel",
+  "Lorena Dornelas","Murilo Carneiro","Sueli Torres","Davi Ferraz","Fabiana Bonfim"
+];
+const VIZINHO_CPFS = [
+  "***.234.567-**","***.891.012-**","***.456.789-**","***.123.654-**","***.987.321-**",
+  "***.412.553-**","***.882.119-**","***.321.774-**","***.675.238-**","***.194.667-**",
+  "***.548.391-**","***.763.825-**","***.217.946-**","***.836.512-**","***.459.173-**",
+  "***.628.347-**","***.185.729-**","***.974.163-**","***.342.586-**","***.716.438-**",
+  "***.293.851-**","***.567.214-**","***.831.479-**","***.148.635-**","***.479.362-**",
+  "***.654.128-**","***.218.543-**","***.965.271-**","***.537.894-**","***.183.426-**",
+  "***.742.615-**","***.316.958-**","***.894.237-**","***.461.573-**","***.825.149-**",
+  "***.573.461-**","***.149.826-**","***.638.274-**","***.271.938-**","***.486.152-**",
+  "***.952.347-**","***.314.568-**","***.768.423-**","***.527.196-**","***.693.814-**",
+  "***.241.679-**","***.856.312-**","***.419.753-**","***.782.146-**","***.365.827-**",
+  "***.128.594-**","***.974.263-**","***.543.817-**","***.617.342-**","***.286.951-**",
+  "***.831.624-**","***.472.158-**","***.615.439-**","***.359.872-**","***.724.516-**",
+  "***.196.743-**","***.843.269-**","***.567.391-**","***.231.684-**","***.918.527-**",
+  "***.684.213-**","***.352.978-**","***.719.345-**","***.463.891-**","***.297.536-**",
+  "***.836.174-**","***.571.429-**","***.148.763-**","***.925.618-**","***.413.952-**",
+  "***.769.384-**","***.284.537-**","***.651.829-**","***.937.146-**","***.512.673-**",
+  "***.346.291-**","***.879.534-**","***.423.867-**","***.198.745-**","***.764.312-**",
+  "***.531.498-**","***.847.623-**","***.275.981-**","***.618.357-**","***.493.712-**",
+  "***.156.849-**","***.729.436-**","***.384.571-**","***.962.183-**","***.517.264-**",
+  "***.643.918-**","***.238.475-**","***.871.532-**","***.426.197-**","***.793.648-**"
+];
+
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getVizinhoExtras(envioId: string, clienteNome: string): Record<string, string> {
+  const idx = simpleHash(envioId) % VIZINHO_NOMES.length;
+  const primeiroNome = clienteNome.split(" ")[0];
+  return {
+    recebedor_nome: VIZINHO_NOMES[idx],
+    recebedor_cpf: VIZINHO_CPFS[idx],
+    cliente_primeiro_nome: primeiroNome,
+  };
+}
 
 const emojiMap: Record<string, string> = {
   "Postado": "📄",
@@ -143,19 +368,20 @@ interface FalhaEntregaSettings {
   valor_taxa_falha: string;
 }
 
-function parseFalhaEntregaSettings(corpoEmail: string): FalhaEntregaSettings | null {
-  if (!corpoEmail || !corpoEmail.includes("{{falha_checkout_url:")) return null;
-
-  const urlMatch = corpoEmail.match(/\{\{falha_checkout_url:([^}]*)\}\}/);
-  const valorMatch = corpoEmail.match(/\{\{falha_valor:([^}]*)\}\}/);
+function parseFalhaEntregaSettings(
+  corpoEmail: string,
+  configCheckoutUrl?: string,
+  configValorTaxa?: number | string
+): FalhaEntregaSettings | null {
+  if (!corpoEmail || !corpoEmail.includes("{{falha_")) return null;
 
   const msgEnd = corpoEmail.indexOf("{{falha_");
   const plainMessage = msgEnd > 0 ? corpoEmail.substring(0, msgEnd).trim() : "Houve uma falha na entrega.";
 
   return {
     msg_falha_entrega: plainMessage,
-    checkout_url_falha: urlMatch?.[1] || "",
-    valor_taxa_falha: valorMatch?.[1] || "0.00",
+    checkout_url_falha: configCheckoutUrl || "",
+    valor_taxa_falha: String(configValorTaxa || "0.00"),
   };
 }
 
@@ -170,19 +396,76 @@ function buildWhatsAppButton(whatsapp: string): string {
   </table>`;
 }
 
+// ============ Upsell Block Builder ============
+interface UpsellConfig {
+  ativo: boolean;
+  headline: string;
+  sub_headline: string;
+  produto_nome: string;
+  produto_descricao: string;
+  produto_valor: string;
+  produto_imagem_url: string;
+  botao_texto: string;
+  botao_url: string;
+  cor_headline: string;
+  cor_sub_headline: string;
+  cor_nome_produto: string;
+  cor_descricao: string;
+  cor_valor: string;
+  cor_botao_bg: string;
+  cor_botao_texto: string;
+  cor_fundo: string;
+}
+
+function buildUpsellHtml(u: UpsellConfig): string {
+  const imageBlock = u.produto_imagem_url
+    ? `<td width="120" style="padding-right:16px;vertical-align:top;">
+        <img src="${u.produto_imagem_url}" alt="${u.produto_nome}" width="120" height="120" style="width:120px;height:120px;object-fit:cover;border-radius:12px;display:block;" />
+      </td>`
+    : "";
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+    <tr><td style="background-color:${u.cor_fundo};border-radius:16px;padding:24px;">
+      <p style="margin:0 0 4px;font-size:20px;font-weight:800;color:${u.cor_headline};text-align:center;">${u.headline || ""}</p>
+      <p style="margin:0 0 16px;font-size:13px;color:${u.cor_sub_headline};text-align:center;">${u.sub_headline || ""}</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          ${imageBlock}
+          <td style="vertical-align:top;">
+            <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:${u.cor_nome_produto};">${u.produto_nome || ""}</p>
+            <p style="margin:0 0 8px;font-size:12px;color:${u.cor_descricao};line-height:1.4;">${u.produto_descricao || ""}</p>
+            <p style="margin:0;font-size:18px;font-weight:800;color:${u.cor_valor};">${u.produto_valor || ""}</p>
+          </td>
+        </tr>
+      </table>
+      ${u.botao_url ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px auto 0;">
+        <tr><td style="background-color:${u.cor_botao_bg};border-radius:50px;box-shadow:0 4px 16px ${u.cor_botao_bg}44;">
+          <a href="${u.botao_url}" style="display:inline-block;color:${u.cor_botao_texto};text-decoration:none;padding:12px 36px;font-size:14px;font-weight:700;letter-spacing:0.3px;">${u.botao_texto || "Comprar Agora"}</a>
+        </td></tr>
+      </table>` : ""}
+    </td></tr>
+  </table>`;
+}
+
 function buildEmailHtml(
   evento: Record<string, unknown>,
   envio: Record<string, unknown>,
   extras: Record<string, string>,
   primaryColor = "#6366f1",
-  appBaseUrl = "https://rastreio.logisticajltransportes.com",
-  ctaColor = "#1a1a1a"
+  appBaseUrl = "https://rastreio.jltransportelogistica.com",
+  ctaColor = "#1a1a1a",
+  postagemConfig?: Record<string, unknown>,
+  upsellConfig?: UpsellConfig | null
 ): string {
   // --- Check for Taxação-specific settings ---
   const statusLabel = (evento.status_label as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const taxSettings = (statusLabel === "Taxação") ? parseTaxacaoSettings(corpoEmail) : null;
-  const falhaSettings = (statusLabel === "Falha Entrega") ? parseFalhaEntregaSettings(corpoEmail) : null;
+  const falhaSettings = (statusLabel === "Falha Entrega") ? parseFalhaEntregaSettings(
+    corpoEmail,
+    (postagemConfig?.checkout_url_falha as string) || "",
+    postagemConfig?.valor_taxa_falha as number | string | undefined
+  ) : null;
   const envioId = (envio.id as string) || "";
 
   if (taxSettings) {
@@ -197,17 +480,17 @@ function buildEmailHtml(
   const emoji = emojiMap[statusLabel] || "📬";
 
   let saudacao = `Olá {{cliente_nome}},`;
-  let mensagem = corpoEmail || `Atualização sobre o seu pedido **{{produto}}**.`;
+  let mensagem = (corpoEmail || `Atualização sobre o seu pedido **{{produto}}**.`).replace(/\{\{(?:falha|taxacao)_[^}]*\}\}/g, "").trim();
   let rodape = `Atenciosamente,\n{{empresa_nome}}`;
   let mostrarInfoPedido = true;
   let mostrarBotaoCta = true;
   let textoBotaoCta = "Rastrear Pedido";
   const codigoRastreio = (envio.codigo_rastreio as string) || "";
-  let urlBotaoCta = codigoRastreio ? `${appBaseUrl}/r/${codigoRastreio}` : "#";
+  let urlBotaoCta = codigoRastreio ? `${appBaseUrl}?c=${codigoRastreio}` : "#";
 
   // For Taxação status, always point the CTA to the payment page
   if (statusLabel === "Taxação" && envioId) {
-    urlBotaoCta = `${appBaseUrl}/p/${envioId}`;
+    urlBotaoCta = `${appBaseUrl}?p=${envioId}`;
     textoBotaoCta = "PAGAR TAXA";
   }
 
@@ -347,16 +630,28 @@ function buildEmailHtml(
   // WhatsApp button
   const whatsappBlock = buildWhatsAppButton(extras.whatsapp_vendedor || "");
 
-  // Special celebration block for "Entregue"
-  const entregueBlock = statusLabel === "Entregue"
-    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;">
+  // Special celebration block for "Entregue" with receiver/neighbor data
+  let entregueBlock = "";
+  if (statusLabel === "Entregue") {
+    const recebedorNome = extras.recebedor_nome || "Maria Aparecida";
+    const recebedorCpf = extras.recebedor_cpf || "***.234.567-**";
+    const primeiroNome = extras.cliente_primeiro_nome || (envio.cliente_nome as string || "").split(" ")[0] || "Cliente";
+
+    entregueBlock = `<table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;">
         <tr><td style="background:linear-gradient(135deg, #dcfce7, #f0fdf4);border-radius:16px;padding:24px;text-align:center;border:1px solid #bbf7d0;">
           <p style="margin:0 0 4px;font-size:32px;">🎉</p>
           <p style="margin:0 0 4px;font-size:16px;font-weight:800;color:#15803d;">Seu pedido foi entregue!</p>
           <p style="margin:0;font-size:13px;color:#166534;">Esperamos que você aproveite sua compra.</p>
         </td></tr>
-      </table>`
-    : "";
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 0;">
+        <tr><td style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;">
+          <p style="margin:0 0 2px;font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Dados do Recebedor</p>
+          <p style="margin:8px 0 4px;font-size:14px;font-weight:700;color:#1e293b;">Recebedor: ${recebedorNome} <span style="font-weight:400;color:#64748b;">(Vizinho(a) de ${primeiroNome})</span></p>
+          <p style="margin:0;font-size:13px;color:#64748b;">Documento: ${recebedorCpf}</p>
+        </td></tr>
+      </table>`;
+  }
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -407,6 +702,7 @@ function buildEmailHtml(
             ${infoBlock}
             ${ctaBlock}
             ${whatsappBlock}
+            ${upsellConfig?.ativo ? buildUpsellHtml(upsellConfig) : ""}
           </td>
         </tr>
 
@@ -452,7 +748,7 @@ function buildTaxacaoEmailHtml(
   const mensagem = replaceVariables(tax.mensagem_taxa, envio, extras);
 
   // Link to the public payment page instead of direct checkout
-  const paymentPageUrl = `${appBaseUrl}/p/${envioId}`;
+  const paymentPageUrl = `${appBaseUrl}?p=${envioId}`;
 
   const prazoHtml = tax.mostrar_prazo && tax.prazo_dias
     ? `<p style="margin:6px 0 0;font-size:11px;color:#78716c;">Prazo: ${tax.prazo_dias} dias para pagamento</p>`
@@ -786,8 +1082,22 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Check if called with service role key (server-to-server, e.g. cron)
+    // Decode JWT payload to detect role=service_role (works across key rotations / new key formats)
     const token = authHeader.replace("Bearer ", "");
-    const isServiceRole = token === SUPABASE_SERVICE_ROLE_KEY;
+    let isServiceRole = token === SUPABASE_SERVICE_ROLE_KEY;
+    if (!isServiceRole) {
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payloadB64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+          const padded = payloadB64 + "=".repeat((4 - (payloadB64.length % 4)) % 4);
+          const payload = JSON.parse(atob(padded));
+          if (payload?.role === "service_role") isServiceRole = true;
+        }
+      } catch (_e) {
+        // ignore decode errors, fall through to user auth
+      }
+    }
 
     if (!isServiceRole) {
       // Verify user via token
@@ -809,11 +1119,35 @@ Deno.serve(async (req) => {
       console.log("Authenticated via service role (server-to-server)");
     }
 
-    const { envio_id, evento_id, loja_id, nfe_pdf_base64, nfe_storage_path, nfe_filename } =
+    const { envio_id, evento_id, loja_id, nfe_pdf_base64, nfe_storage_path, nfe_filename, generate_nfe_server } =
       (await req.json()) as SendEmailRequest;
 
     if (!envio_id || !evento_id || !loja_id) {
       throw new Error("Missing required fields: envio_id, evento_id, loja_id");
+    }
+
+    // ── IDEMPOTÊNCIA: bloqueia envio duplicado para o mesmo (envio_id, evento_id) ──
+    // Causa raiz: cron `advance-shipments` + trigger client (`email-trigger.ts`) podem
+    // disparar em paralelo. Mesmo com optimistic lock no envios, ambos podem chegar até
+    // aqui se o lock for adicionado depois. Esta verificação é a barreira final.
+    {
+      const { data: existingLogs, error: existErr } = await supabase
+        .from("postagem_email_log")
+        .select("id, status")
+        .eq("envio_id", envio_id)
+        .eq("evento_id", evento_id)
+        .in("status", ["sent", "delivered", "opened", "clicked", "bounced", "complained", "delivery_delayed"]) // qualquer estado pós-envio
+        .limit(1);
+
+      if (existErr) {
+        console.warn("Idempotency check failed (continuing):", existErr);
+      } else if (existingLogs && existingLogs.length > 0) {
+        console.log(`[IDEMPOTENT] Skip send-email: já enviado para envio=${envio_id} evento=${evento_id} (log_id=${existingLogs[0].id})`);
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "already_sent" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Fetch envio data
@@ -839,23 +1173,21 @@ Deno.serve(async (req) => {
     }
 
     // Fetch postagem_config for sender email + whatsapp
-    let emailRemetente = "noreply@jltransportes.pro";
+    let emailRemetente = "noreply@holdingtransportesbr.com";
     let whatsappVendedor = "";
     const isJadlog = envio.transportadora?.toUpperCase().includes("JADLOG");
-    if (isJadlog) {
-      emailRemetente = "noreply@centrojadlog.com"; // default jadlog email
-    }
+    const isVetor = envio.transportadora?.toUpperCase().includes("VETOR");
 
     let corPrimaria = "#6366f1";
     let corBotaoCta = "#1a1a1a";
 
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta")
+      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
-    if (config?.email_remetente && !isJadlog) {
+    if (config?.email_remetente) {
       emailRemetente = config.email_remetente;
     }
     if (config?.whatsapp_vendedor) {
@@ -908,22 +1240,81 @@ Deno.serve(async (req) => {
       whatsapp_vendedor: whatsappVendedor,
     };
 
+    // Add vizinho (neighbor) data for "Entregue" events — only if ativar_vizinho is enabled
+    const statusLabel = (evento.status_label as string) || "";
+    const ativarVizinho = config?.ativar_vizinho ?? true;
+    if (statusLabel === "Entregue" && ativarVizinho) {
+      const vizinhoExtras = getVizinhoExtras(envio.id, envio.cliente_nome || "");
+      Object.assign(extras, vizinhoExtras);
+    }
+
     // Build beautiful HTML email
     const subject = replaceVariables(
       evento.assunto_email || "Atualização do seu pedido",
       envio,
       extras
     );
-    // Determine app base URL for payment page links
-    const appBaseUrl = isJadlog
-      ? "https://rastreio.centrojadlog.com"
-      : (Deno.env.get("APP_BASE_URL") || "https://rastreio.logisticajltransportes.com");
+    // Use redirect edge function as base URL so links never break if domain changes
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const appBaseUrl = `${supabaseUrl}/functions/v1/redirect`;
 
-    const primaryColor = isJadlog ? "#e10526" : corPrimaria;
-    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta);
+    const primaryColor = isJadlog ? "#e10526" : isVetor ? "#1B5E20" : corPrimaria;
 
-    // Resolve PDF attachment: prefer storage path, fallback to inline base64
+    // Fetch upsell config if applicable (only for NF-e/Postado or Coletado events)
+    let upsellData: UpsellConfig | null = null;
+    let upsellCharged = false;
+    const upsellTipoMap: Record<string, string> = {
+      "Postado": "nfe",
+      "Nota Fiscal Emitida": "nfe",
+      "Coletado": "coletado",
+    };
+    const upsellTipo = upsellTipoMap[statusLabel] || null;
+    if (upsellTipo) {
+      const { data: upsellRow } = await supabase
+        .from("upsell_config")
+        .select("*")
+        .eq("loja_id", loja_id)
+        .eq("tipo", upsellTipo)
+        .eq("ativo", true)
+        .maybeSingle();
+      if (upsellRow) {
+        // Try to charge 0.10 moedas — get cost from system_config
+        const { data: custoRow } = await supabase
+          .from("system_config")
+          .select("value")
+          .eq("key", "custo_upsell_email")
+          .maybeSingle();
+        const custoUpsell = custoRow?.value ?? 0.10;
+
+        // Get loja owner
+        const { data: lojaRow } = await supabase
+          .from("lojas")
+          .select("user_id")
+          .eq("id", loja_id)
+          .single();
+
+        if (lojaRow?.user_id) {
+          const { data: debitOk } = await supabase.rpc("debit_user_credits", {
+            _user_id: lojaRow.user_id,
+            _quantidade: custoUpsell,
+            _descricao: `Upsell no e-mail - ${statusLabel}`,
+          });
+          if (debitOk) {
+            upsellData = upsellRow as unknown as UpsellConfig;
+            upsellCharged = true;
+            console.log("Upsell block included, charged", custoUpsell, "moedas");
+          } else {
+            console.warn("Insufficient credits for upsell, skipping block");
+          }
+        }
+      }
+    }
+
+    const htmlBody = buildEmailHtml(evento, envio, extras, primaryColor, appBaseUrl, corBotaoCta, config || undefined, upsellData);
+
+    // Resolve PDF attachment: prefer storage path, then server-side generation, fallback to inline base64
     let pdfBase64ForAttachment: string | undefined = nfe_pdf_base64;
+    let resolvedNfeFilename = nfe_filename || "NF-e.pdf";
 
     if (nfe_storage_path) {
       console.log("Downloading PDF from storage:", nfe_storage_path);
@@ -934,7 +1325,6 @@ Deno.serve(async (req) => {
       if (dlErr || !fileData) {
         console.error("Failed to download PDF from storage:", dlErr);
       } else {
-        // Convert ArrayBuffer to base64 safely (in chunks to avoid stack overflow)
         const arrayBuffer = await fileData.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
         const chunkSize = 8192;
@@ -946,27 +1336,76 @@ Deno.serve(async (req) => {
         pdfBase64ForAttachment = btoa(binary);
         console.log("PDF downloaded from storage, size:", bytes.length);
 
-        // Cleanup: delete the temporary file from storage
         const { error: delErr } = await supabase.storage
           .from("nfe-pdfs")
           .remove([nfe_storage_path]);
         if (delErr) {
           console.error("Failed to cleanup PDF from storage:", delErr);
-        } else {
-          console.log("PDF cleaned up from storage:", nfe_storage_path);
         }
+      }
+    } else if (generate_nfe_server && evento.enviar_nfe_pdf) {
+      // Generate PDF server-side using pdf-lib (no html2canvas dependency)
+      console.log("Generating DANFE PDF server-side for envio:", envio_id);
+      try {
+        let empresaForPdf = null;
+        if (envio.empresa_id) {
+          const { data: emp } = await supabase.from("empresas").select("*").eq("id", envio.empresa_id).single();
+          empresaForPdf = emp;
+        }
+        if (!empresaForPdf && envio.loja_id) {
+          const { data: emp } = await supabase.from("empresas").select("*").eq("loja_id", envio.loja_id).maybeSingle();
+          empresaForPdf = emp;
+        }
+
+        if (empresaForPdf) {
+          const pdfBytes = await generateDanfePdfServerSide(empresaForPdf, envio);
+          const chunkSize = 8192;
+          let binary = "";
+          for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+            const chunk = pdfBytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode(...chunk);
+          }
+          pdfBase64ForAttachment = btoa(binary);
+          resolvedNfeFilename = `DANFE_${Math.floor(Math.random() * 9000000000 + 1000000000)}.pdf`;
+          console.log("DANFE PDF generated server-side, size:", pdfBytes.length);
+        } else {
+          console.warn("No empresa found for PDF generation, skipping attachment");
+        }
+      } catch (pdfErr) {
+        console.error("Server-side PDF generation failed:", pdfErr);
       }
     }
 
     // Build attachments array
     const attachments = pdfBase64ForAttachment
-      ? [{ filename: nfe_filename || "NF-e.pdf", content: pdfBase64ForAttachment }]
+      ? [{ filename: resolvedNfeFilename, content: pdfBase64ForAttachment }]
       : undefined;
+
+    // Validate email before sending
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const recipientEmail = (envio.cliente_email || "").trim();
+
+    if (!recipientEmail || !emailRegex.test(recipientEmail)) {
+      console.warn("Invalid recipient email, skipping send:", recipientEmail);
+      await supabase.from("postagem_email_log").insert({
+        loja_id,
+        envio_id,
+        evento_id,
+        destinatario: recipientEmail || "(vazio)",
+        assunto: subject,
+        status: "failed",
+        custo: 0,
+      });
+      return new Response(
+        JSON.stringify({ success: false, error: `E-mail do destinatário inválido: "${recipientEmail}"` }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Send email via Resend
     const resendBody: Record<string, unknown> = {
       from: `${fromName} <${emailRemetente}>`,
-      to: [envio.cliente_email],
+      to: [recipientEmail],
       subject,
       html: htmlBody,
     };
@@ -974,18 +1413,32 @@ Deno.serve(async (req) => {
       resendBody.attachments = attachments;
     }
 
-    console.log("Sending email from:", resendBody.from, "to:", envio.cliente_email);
+    console.log("Sending email from:", resendBody.from, "to:", recipientEmail);
 
-    const resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(resendBody),
-    });
+    // Resend free tier rate limit: 5 req/s. Retry on 429 with exponential backoff (max 4 tries).
+    let resendResponse: Response;
+    let resendData: any;
+    let attempt = 0;
+    const MAX_RETRIES = 4;
+    while (true) {
+      resendResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(resendBody),
+      });
+      resendData = await resendResponse.json().catch(() => ({}));
 
-    const resendData = await resendResponse.json();
+      if (resendResponse.status !== 429 || attempt >= MAX_RETRIES) break;
+
+      // Exponential backoff: 400ms, 800ms, 1600ms, 3200ms
+      const delayMs = 400 * Math.pow(2, attempt);
+      console.warn(`Resend 429 rate limit, retry ${attempt + 1}/${MAX_RETRIES} after ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      attempt++;
+    }
 
     if (!resendResponse.ok) {
       await supabase.from("postagem_email_log").insert({
@@ -1011,6 +1464,7 @@ Deno.serve(async (req) => {
       assunto: subject,
       status: "sent",
       custo: 0.0021,
+      resend_email_id: resendData.id || null,
     });
 
     return new Response(

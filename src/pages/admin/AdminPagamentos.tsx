@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,10 +7,17 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, Coins, CheckCircle, Clock } from "lucide-react";
-import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { DollarSign, Coins, CheckCircle, Clock, CalendarIcon, Webhook, Trash2, Plus } from "lucide-react";
+import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type PixPaymentRow = {
   id: string;
@@ -30,8 +37,22 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   CANCELLED: { label: "Cancelado", variant: "destructive" },
 };
 
+type DatePreset = "today" | "7d" | "30d" | "all";
+
 export default function AdminPagamentos() {
   const [tab, setTab] = useState("all");
+  const [preset, setPreset] = useState<DatePreset>("today");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(startOfDay(new Date()));
+  const [dateTo, setDateTo] = useState<Date | undefined>(endOfDay(new Date()));
+
+  const applyPreset = (p: DatePreset) => {
+    setPreset(p);
+    const now = new Date();
+    if (p === "today") { setDateFrom(startOfDay(now)); setDateTo(endOfDay(now)); }
+    else if (p === "7d") { setDateFrom(startOfDay(subDays(now, 6))); setDateTo(endOfDay(now)); }
+    else if (p === "30d") { setDateFrom(startOfDay(subDays(now, 29))); setDateTo(endOfDay(now)); }
+    else { setDateFrom(undefined); setDateTo(undefined); }
+  };
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["admin-pix-payments"],
@@ -45,20 +66,60 @@ export default function AdminPagamentos() {
     },
   });
 
-  const paid = payments.filter((p) => p.status === "PAID");
-  const pending = payments.filter((p) => p.status === "PENDING");
+  const filteredByDate = useMemo(() => {
+    return payments.filter((p) => {
+      const d = new Date(p.created_at);
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }, [payments, dateFrom, dateTo]);
+
+  const paid = filteredByDate.filter((p) => p.status === "PAID");
+  const pending = filteredByDate.filter((p) => p.status === "PENDING");
 
   const totalReais = paid.reduce((s, p) => s + p.amount_cents, 0) / 100;
   const totalMoedas = paid.reduce((s, p) => s + Number(p.moedas), 0);
 
-  const filtered = tab === "all" ? payments : payments.filter((p) => p.status === tab);
+  const filtered = tab === "all" ? filteredByDate : filteredByDate.filter((p) => p.status === tab);
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-foreground">Pagamentos PIX</h1>
 
-        {/* Summary cards */}
+        {/* Date filter bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {([["today", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["all", "Todos"]] as const).map(([key, label]) => (
+            <Button key={key} size="sm" variant={preset === key ? "default" : "outline"} onClick={() => applyPreset(key)}>
+              {label}
+            </Button>
+          ))}
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "De"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d ? startOfDay(d) : undefined); setPreset("all"); }} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateTo ? format(dateTo, "dd/MM/yyyy") : "Até"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d ? endOfDay(d) : undefined); setPreset("all"); }} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -171,7 +232,127 @@ export default function AdminPagamentos() {
             </Card>
           </TabsContent>
         </Tabs>
+        {/* Webhooks Section */}
+        <WebhooksSection />
       </div>
     </AdminLayout>
+  );
+}
+
+function WebhooksSection() {
+  const queryClient = useQueryClient();
+  const [newUrl, setNewUrl] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+
+  const { data: webhooks = [] } = useQuery({
+    queryKey: ["admin-payment-webhooks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("admin_payment_webhooks")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("admin_payment_webhooks")
+        .insert({ url: newUrl.trim(), label: newLabel.trim() || null });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-payment-webhooks"] });
+      setNewUrl("");
+      setNewLabel("");
+      toast.success("Webhook adicionado");
+    },
+    onError: () => toast.error("Erro ao adicionar webhook"),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, ativo }: { id: string; ativo: boolean }) => {
+      const { error } = await supabase
+        .from("admin_payment_webhooks")
+        .update({ ativo })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-payment-webhooks"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("admin_payment_webhooks")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-payment-webhooks"] });
+      toast.success("Webhook removido");
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-foreground">
+          <Webhook className="h-5 w-5" />
+          Webhooks de Notificação
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">Receba notificações externas quando uma recarga PIX for confirmada.</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Add new */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            placeholder="Label (opcional)"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            className="sm:w-48"
+          />
+          <Input
+            placeholder="https://..."
+            value={newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            className="flex-1"
+          />
+          <Button
+            size="sm"
+            disabled={!newUrl.trim().startsWith("http") || addMutation.isPending}
+            onClick={() => addMutation.mutate()}
+          >
+            <Plus className="h-4 w-4 mr-1" /> Adicionar
+          </Button>
+        </div>
+
+        {/* List */}
+        {webhooks.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhum webhook configurado.</p>
+        ) : (
+          <div className="space-y-2">
+            {webhooks.map((wh) => (
+              <div key={wh.id} className="flex items-center gap-3 rounded-md border border-border p-3">
+                <Switch
+                  checked={wh.ativo}
+                  onCheckedChange={(checked) => toggleMutation.mutate({ id: wh.id, ativo: checked })}
+                />
+                <div className="flex-1 min-w-0">
+                  {wh.label && <span className="text-sm font-medium text-foreground mr-2">{wh.label}</span>}
+                  <span className="text-xs text-muted-foreground break-all">{wh.url}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(wh.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

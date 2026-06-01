@@ -50,6 +50,22 @@ Deno.serve(async (req) => {
         }
 
         const lojaId = lojaData.id;
+
+        // Check if integration is active
+        const { data: integrationStatus } = await supabase
+            .from("checkout_integrations")
+            .select("ativo")
+            .eq("loja_id", lojaId)
+            .eq("checkout_id", "adoorei")
+            .maybeSingle();
+
+        if (integrationStatus?.ativo === false) {
+            return new Response(
+                JSON.stringify({ success: true, skipped: true, reason: "integration_disabled" }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         const event = payload.event || "";
         const resource = payload.resource || {};
         const status = resource.status || "";
@@ -65,6 +81,75 @@ Deno.serve(async (req) => {
             loja_id: lojaId,
         });
 
+        // === CARRINHO ABANDONADO (early return) ===
+        if (event === "cart.abandoned") {
+            const cartCustomer = resource.customer || {};
+            const cartEmail = cartCustomer.email || "";
+            if (cartEmail) {
+                const recoveryTipo = "carrinho";
+                const { data: recoveryConfig } = await supabase
+                    .from("recovery_config")
+                    .select("ativo, enviar_sms")
+                    .eq("loja_id", lojaId)
+                    .eq("tipo", recoveryTipo)
+                    .eq("ativo", true)
+                    .maybeSingle();
+
+                if (recoveryConfig) {
+                    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                    const { data: existingLead } = await supabase
+                        .from("recovery_leads")
+                        .select("id")
+                        .eq("loja_id", lojaId)
+                        .eq("customer_email", cartEmail)
+                        .eq("tipo", recoveryTipo)
+                        .gte("created_at", since24h)
+                        .maybeSingle();
+
+                    if (!existingLead) {
+                        const cartProducts = (resource.products || []).map((p: any) => ({
+                            name: p.name || "Produto",
+                            value: Number(p.price || 0),
+                            qty: Number(p.qty || 1),
+                        }));
+                        const phoneLimpo = cartCustomer.phone_number ? cartCustomer.phone_number.replace(/\D/g, '') : "";
+
+                        const { data: newLead } = await supabase
+                            .from("recovery_leads")
+                            .insert({
+                                loja_id: lojaId,
+                                tipo: recoveryTipo,
+                                customer_name: cartCustomer.name || "Cliente",
+                                customer_email: cartEmail,
+                                customer_phone: phoneLimpo,
+                                checkout_url: resource.checkout_url || "",
+                                total_value: Number(resource.total || 0),
+                                products: cartProducts,
+                                raw_payload: payload,
+                                status: "pendente",
+                            })
+                            .select("id")
+                            .single();
+
+                        if (newLead) {
+                            supabase.functions.invoke("send-recovery-email", {
+                                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                            }).catch((e) => console.error("[recovery-email] error:", e));
+
+                            if (recoveryConfig.enviar_sms && phoneLimpo) {
+                                supabase.functions.invoke("send-recovery-sms", {
+                                    body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                                }).catch((e) => console.error("[recovery-sms] error:", e));
+                            }
+                        }
+                    }
+                }
+            }
+
+            await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "adoorei").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
+            return new Response(JSON.stringify({ success: true, event, recovery: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
         // 2. Normalize data
         const customer = resource.customer || {};
         const address = resource.address || {};
@@ -75,7 +160,7 @@ Deno.serve(async (req) => {
 
         const normalizedProducts = items.map((p: any) => ({
             code: String(p.source_reference || ""),
-            title: p.name || "Produto Adoorei",
+            title: p.name || (p.source_reference ? `Produto #${p.source_reference}` : "Produto Adoorei"),
             quantity: Number(p.quantity || 1),
             amount: Math.round(Number(p.price || 0) * 100),
         }));
@@ -132,8 +217,90 @@ Deno.serve(async (req) => {
             pedidoId = newPedido?.id;
         }
 
-        // 4. If approved and no envio linked yet, create envio
+        // === PIX PENDENTE recovery ===
+        const paymentMethod = (resource.payment_method || "").toLowerCase();
+        if ((event === "order.created" || event === "order.status.updated") && status === "pending" && paymentMethod.includes("pix")) {
+            const custEmail = customer.email || "";
+            if (custEmail) {
+                const recoveryTipo = "pix_pendente";
+                const { data: recoveryConfig } = await supabase
+                    .from("recovery_config")
+                    .select("ativo, enviar_sms")
+                    .eq("loja_id", lojaId)
+                    .eq("tipo", recoveryTipo)
+                    .eq("ativo", true)
+                    .maybeSingle();
+
+                if (recoveryConfig) {
+                    // Deduplicação por transaction_token (number do pedido)
+                    const { data: existingLead } = await supabase
+                        .from("recovery_leads")
+                        .select("id")
+                        .eq("loja_id", lojaId)
+                        .eq("tipo", recoveryTipo)
+                        .filter("raw_payload->resource->>number", "eq", String(resource.number || ""))
+                        .maybeSingle();
+
+                    if (!existingLead) {
+                        const recoveryProducts = normalizedProducts.map((p: any) => ({
+                            name: p.title || "Produto",
+                            value: p.amount / 100,
+                            qty: p.quantity || 1,
+                        }));
+                        const custPhone = phoneLimpo || "";
+
+                        const { data: newLead } = await supabase
+                            .from("recovery_leads")
+                            .insert({
+                                loja_id: lojaId,
+                                tipo: recoveryTipo,
+                                customer_name: pedidoData.customer_name || "Cliente",
+                                customer_email: custEmail,
+                                customer_phone: custPhone,
+                                checkout_url: "",
+                                total_value: totalPriceInCents / 100,
+                                products: recoveryProducts,
+                                raw_payload: payload,
+                                status: "pendente",
+                            })
+                            .select("id")
+                            .single();
+
+                        if (newLead) {
+                            supabase.functions.invoke("send-recovery-email", {
+                                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                            }).catch((e) => console.error("[recovery-email] error:", e));
+
+                            if (recoveryConfig.enviar_sms && custPhone) {
+                                supabase.functions.invoke("send-recovery-sms", {
+                                    body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+                                }).catch((e) => console.error("[recovery-sms] error:", e));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. If approved and no envio linked yet, create envio (with payment method filter)
         if (status === "approved" && !existingPedido?.envio_id && pedidoId) {
+            const { data: integrationConfig } = await supabase
+                .from("checkout_integrations")
+                .select("filtro_metodo")
+                .eq("loja_id", lojaId)
+                .eq("checkout_id", "adoorei")
+                .maybeSingle();
+
+            const filtroMetodo = integrationConfig?.filtro_metodo || "todos";
+            const methodValue = (resource.payment_method || "").toLowerCase();
+            const isPix = methodValue.includes("pix");
+            const shouldCreateEnvio = filtroMetodo === "todos" || (filtroMetodo === "cartao" && !isPix) || (filtroMetodo === "pix" && isPix);
+
+            if (!shouldCreateEnvio) {
+                await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "adoorei").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
+                return new Response(JSON.stringify({ success: true, event, status, envio_skipped: true, reason: `filtro_metodo=${filtroMetodo}` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+
             const produtoJson = JSON.stringify(
                 normalizedProducts.map((p: any) => ({ nome: p.title, quantidade: p.quantity }))
             );
@@ -154,7 +321,7 @@ Deno.serve(async (req) => {
                 cliente_endereco: address.street || null,
                 cliente_numero: address.number || null,
                 cliente_bairro: address.neighborhood || null,
-                cliente_cep: address.zipcode || null,
+                cliente_cep: address.zipcode ? address.zipcode.replace(/\D/g, '') : null,
                 cliente_cidade: address.city || null,
                 cliente_estado: address.uf || null,
                 cliente_complemento: address.complement || null,
@@ -166,17 +333,56 @@ Deno.serve(async (req) => {
                 empresa_id: empresaData?.id || null,
             };
 
-            const { data: newEnvio } = await supabase
-                .from("envios")
-                .insert(envioData)
-                .select("id")
-                .single();
+            // ATOMIC DEDUPE via RPC: serializa por (loja+email+valor) usando advisory lock
+            const { data: dedupeResult, error: dedupeError } = await supabase
+                .rpc("try_create_envio_dedupe", {
+                    _loja_id: lojaId,
+                    _cliente_email: envioData.cliente_email,
+                    _valor: envioData.valor,
+                    _envio_data: envioData,
+                })
+                .maybeSingle();
 
-            if (newEnvio) {
-                await supabase
+            if (dedupeError || !dedupeResult) {
+                console.error("[webhook-adoorei] dedupe RPC error:", dedupeError);
+                return new Response(JSON.stringify({ error: "Failed to create envio" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+
+            const newEnvio = { id: (dedupeResult as any).envio_id };
+            const wasDuplicate = (dedupeResult as any).was_duplicate === true;
+
+            if (wasDuplicate) {
+                console.log("[webhook-adoorei] Duplicate envio blocked atomically:", newEnvio.id);
+                await supabase.from("pedidos").update({ envio_id: newEnvio.id }).eq("id", pedidoId).is("envio_id", null);
+                supabase.functions.invoke("send-payment-confirmation", {
+                    body: { pedido_id: pedidoId, loja_id: lojaId }
+                }).catch((err: any) => console.error("[payment-confirmation] invoke error (dedupe path):", err));
+                return new Response(JSON.stringify({ success: true, dedupe: true, envio_id: newEnvio.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+
+            {
+                const { data: updateResult } = await supabase
                     .from("pedidos")
                     .update({ envio_id: newEnvio.id })
-                    .eq("id", pedidoId);
+                    .eq("id", pedidoId)
+                    .is("envio_id", null)
+                    .select("id")
+                    .maybeSingle();
+
+                if (!updateResult) {
+                    console.log("[webhook-adoorei] Pedido already linked, skipping invokes:", newEnvio.id);
+                } else {
+                    supabase.functions.invoke("auto-whatsapp-new-order", {
+                        body: { envio_id: newEnvio.id, loja_id: lojaId }
+                    }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
+
+                    supabase.functions.invoke("advance-shipments", { body: { loja_id: lojaId } })
+                        .catch((err) => console.error("[advance-shipments] invoke error:", err));
+
+                    supabase.functions.invoke("send-payment-confirmation", {
+                        body: { pedido_id: pedidoId, loja_id: lojaId }
+                    }).catch((err) => console.error("[payment-confirmation] invoke error:", err));
+                }
             }
         }
 

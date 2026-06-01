@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 180">
+  <!-- Yellow chevron top half -->
+  <polygon points="0,0 68,0 106,90 38,90" fill="#F7B700"/>
+  <!-- Yellow chevron bottom half (darker amber) -->
+  <polygon points="38,90 106,90 68,180 0,180" fill="#C07E00"/>
+  <!-- Blue chevron top half -->
+  <polygon points="52,0 120,0 158,90 90,90" fill="#0089CC"/>
+  <!-- Blue chevron bottom half (darker blue) -->
+  <polygon points="90,90 158,90 120,180 52,180" fill="#005F99"/>
+  <!-- Correios wordmark -->
+  <text x="178" y="130"
+        font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="80"
+        font-weight="700"
+        fill="#003F6C"
+        letter-spacing="-1">Correios</text>
+</svg>

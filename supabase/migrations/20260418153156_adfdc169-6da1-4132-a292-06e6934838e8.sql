@@ -1,0 +1,1 @@
+UPDATE public.retry_execucoes SET status = 'error', mensagem = 'Execução travada por timeout - liberada para nova tentativa', finished_at = now(), expires_at = now() - interval '1 minute' WHERE status IN ('queued','running') AND expires_at > now() - interval '1 day';

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isLogisticsDomain } from "@/lib/domain-config";
-import { Gauge, SendHorizonal, Megaphone, ShieldAlert, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy, PackageX, Users, MessageCircle } from "lucide-react";
+import { Gauge, SendHorizonal, Megaphone, ShieldAlert, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy, PackageX, Users, MessageCircle, Sparkles, ShoppingCart, BadgeCheck, Activity, GraduationCap } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
@@ -65,6 +65,8 @@ export function AppSidebar() {
 
   const base = loja ? `/loja/${loja.id}` : "";
 
+  const isRecoveryAllowed = user?.email === "vdklanca@gmail.com" || user?.email === "backupativado@gmail.com" || user?.email === "andretelees@hotmail.com";
+
   const menuSections = [
     {
       label: "Principal",
@@ -74,9 +76,13 @@ export function AppSidebar() {
       label: "Operações",
       items: [
         { title: "Envios", url: `${base}/envios`, icon: SendHorizonal },
+        { title: "Live View", url: `${base}/live-view`, icon: Activity },
         { title: "Postagens", url: `${base}/postagens`, icon: Megaphone },
+        { title: "Upsell", url: `${base}/upsell`, icon: Sparkles },
+        { title: "Recuperação", url: `${base}/recuperacao`, icon: ShoppingCart, restricted: !isRecoveryAllowed },
         { title: "Taxação", url: `${base}/taxacao`, icon: ShieldAlert },
         { title: "Falha na Entrega", url: `${base}/falha-entrega`, icon: PackageX },
+        { title: "Confirmação Pgto", url: `${base}/confirmacao-pagamento`, icon: BadgeCheck },
       ],
     },
     {
@@ -98,6 +104,7 @@ export function AppSidebar() {
       label: "Sistema",
       items: [
         { title: "Configurações", url: `${base}/configuracoes`, icon: SlidersHorizontal },
+        { title: "Tutorial", url: `${base}/tutorial`, icon: GraduationCap },
         { title: "Suporte", url: `${base}/suporte`, icon: LifeBuoy },
       ],
     },
@@ -144,15 +151,23 @@ export function AppSidebar() {
                 {section.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === base}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/60 hover:text-primary hover:bg-primary/5 transition-all duration-200"
-                        activeClassName="glass glow-border text-primary font-semibold"
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </NavLink>
+                      {(item as any).restricted ? (
+                        <span className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/30 cursor-not-allowed select-none">
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                          <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/50 bg-muted/30 px-1.5 py-0.5 rounded">Em breve</span>
+                        </span>
+                      ) : (
+                        <NavLink
+                          to={item.url}
+                          end={item.url === base}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/60 hover:text-primary hover:bg-primary/5 transition-all duration-200"
+                          activeClassName="glass glow-border text-primary font-semibold"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </NavLink>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}

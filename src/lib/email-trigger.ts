@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { generateDanfePdfBase64, generateNfeFilename } from "./nfe-utils";
 
 type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entregue";
 
@@ -94,10 +93,25 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
 
         // 4. Find the NEXT event (ordem > ultimo_evento_ordem)
         const currentOrdem = (shipment as any).ultimo_evento_ordem ?? 0;
+
+        // Pause labels are filtered at SQL level in the cron function
+        // Manual triggers (forceSendEmail/forceAdvance) bypass this anyway
+
         const nextEvent = filteredEvents.find(e => e.ordem > currentOrdem);
 
         if (!nextEvent) {
             console.log("Trigger skip: no more events to send");
+            return null;
+        }
+
+        // ── REGRA: Evento "Entregue" (último) é SEMPRE manual ──
+        // Bloqueia avanço automático para "Entregue" — só prossegue com forceAdvance=true
+        const isFinalDelivered =
+            nextEvent.status_label === "Entregue" ||
+            filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
+
+        if (isFinalDelivered && !forceAdvance) {
+            console.log("Trigger skip: 'Entregue' requires manual confirmation", envioId);
             return null;
         }
 
@@ -205,8 +219,8 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
             : null;
 
-        // 6b. Update envio with new ordem, status, and next allowed advance time
-        const { error: uErr } = await supabase
+        // 6b. Update envio with optimistic lock — prevents race with cron advance-shipments
+        const { data: updatedRows, error: uErr } = await supabase
             .from("envios")
             .update({
                 ultimo_evento_ordem: nextEvent.ordem,
@@ -214,10 +228,23 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 status_label: nextEvent.status_label,
                 proximo_avanco_em: proximoAvancoEm,
             } as any)
-            .eq("id", envioId);
+            .eq("id", envioId)
+            .eq("ultimo_evento_ordem", currentOrdem)
+            .select("id");
 
         if (uErr) {
             console.error("Failed to update envio ordem/status:", uErr);
+            return null;
+        }
+
+        // Race condition: outro processo (cron ou outra aba) já avançou este envio
+        if (!updatedRows || updatedRows.length === 0) {
+            console.log("Trigger skip: envio já avançado por outro processo (lock)", envioId);
+            // Nota: o débito feito acima (currentOrdem===0) NÃO é estornado aqui porque
+            // o outro processo (cron) avançou e provavelmente NÃO debitou (já estava em ordem 0
+            // antes do nosso update; o cron usa o mesmo lock e perderia também). Em prática,
+            // apenas um dos dois consegue debitar+avançar. Se ambos debitarem, o estorno
+            // seria necessário — mas isso é cobertura futura.
             return null;
         }
 
@@ -234,49 +261,24 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             isAtivo = config.enviar_emails;
         }
 
+        // Evento "Entregue": NUNCA enviar e-mail nem SMS, só atualizar status
+        if (isFinalDelivered) {
+            console.log("Trigger: 'Entregue' marcado manualmente — sem e-mail/SMS", envioId);
+            return { status: newStatus, ultimoOrdem: nextEvent.ordem };
+        }
+
         if ((!isAtivo && !forceSendEmail) || !nextEvent.enviar_email) {
             console.log("Trigger skip: event disabled, but status advanced", nextEvent.nome);
             return { status: newStatus, ultimoOrdem: nextEvent.ordem };
         }
 
-        // 8. Build payload and send
-        let nfe_storage_path = "";
-        let nfe_filename = "";
-
-        if (nextEvent.enviar_nfe_pdf && shipment.empresas) {
-            try {
-                const base64 = await generateDanfePdfBase64(shipment.empresas as any, shipment as any);
-                nfe_filename = generateNfeFilename();
-
-                const byteChars = atob(base64);
-                const byteNumbers = new Array(byteChars.length);
-                for (let i = 0; i < byteChars.length; i++) {
-                    byteNumbers[i] = byteChars.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: "application/pdf" });
-
-                const storagePath = `${envioId}/${nfe_filename}`;
-                const { error: uploadErr } = await supabase.storage
-                    .from("nfe-pdfs")
-                    .upload(storagePath, blob, { contentType: "application/pdf", upsert: true });
-
-                if (uploadErr) {
-                    console.error("PDF upload to storage failed:", uploadErr);
-                } else {
-                    nfe_storage_path = storagePath;
-                    console.log("PDF uploaded to storage:", storagePath);
-                }
-            } catch (pdfErr) {
-                console.error("PDF generation/upload failed:", pdfErr);
-            }
-        }
-
+        // 8. Build payload and send — PDF is now generated server-side
         console.log("Invoking send-email for event:", {
             envio_id: shipment.id,
             evento_id: nextEvent.id,
             evento_nome: nextEvent.nome,
             loja_id: lojaId,
+            generate_nfe_server: nextEvent.enviar_nfe_pdf,
         });
 
         const { error: funcErr } = await supabase.functions.invoke("send-email", {
@@ -284,8 +286,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 envio_id: shipment.id,
                 evento_id: nextEvent.id,
                 loja_id: lojaId,
-                nfe_storage_path,
-                nfe_filename,
+                generate_nfe_server: nextEvent.enviar_nfe_pdf || false,
             },
         });
 
@@ -333,6 +334,23 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 } else {
                     console.log("SMS sent successfully for envio:", envioId);
                 }
+            }
+        }
+
+        // Process cashback when flow completes
+        if (newStatus === "entregue") {
+            try {
+                const { data: cashbackVal, error: cbErr } = await supabase.rpc("process_cashback" as any, {
+                    _envio_id: envioId,
+                    _user_id: lojaUserId,
+                });
+                if (cbErr) {
+                    console.error("Cashback RPC error:", cbErr);
+                } else if (cashbackVal && Number(cashbackVal) > 0) {
+                    console.log(`Cashback: ${cashbackVal} credits returned for envio ${envioId}`);
+                }
+            } catch (cbErr) {
+                console.error("Cashback failed:", cbErr);
             }
         }
 

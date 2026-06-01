@@ -5,6 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+function maskCpf(cpf: string | null): string | null {
+  if (!cpf) return null;
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return '***.***.***-**';
+  return `***.${digits.slice(3, 6)}.${digits[6]}**-**`;
+}
+
 function decodeHtmlEntities(str: string): string {
     return str.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
 }
@@ -154,10 +161,7 @@ Deno.serve(async (req: Request) => {
           produto: formatProduto(envio.produto),
           codigo_rastreio: envio.codigo_rastreio,
           cliente_nome: envio.cliente_nome,
-          cliente_cpf: envio.cliente_cpf,
-          cliente_endereco: envio.cliente_endereco,
-          cliente_numero: envio.cliente_numero,
-          cliente_bairro: envio.cliente_bairro,
+          cliente_cpf: maskCpf(envio.cliente_cpf),
           cliente_cidade: envio.cliente_cidade,
           cliente_estado: envio.cliente_estado,
           cliente_cep: envio.cliente_cep,

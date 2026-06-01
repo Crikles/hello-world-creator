@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,8 +8,12 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { LojaProvider } from "@/contexts/LojaContext";
-import { isLogisticsDomain, isJadlogDomain } from "@/lib/domain-config";
+import { BatchProgressProvider } from "@/contexts/BatchProgressContext";
+import { isLogisticsDomain, getLogisticsProvider } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { MobileBlocker } from "@/components/MobileBlocker";
+import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
+import TermosPrivacidade from "./pages/TermosPrivacidade";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Lojas from "./pages/Lojas";
@@ -16,12 +21,13 @@ import Dashboard from "./pages/Dashboard";
 import Envios from "./pages/Envios";
 import Empresa from "./pages/Empresa";
 import Integracoes from "./pages/Integracoes";
+import ApiDocs from "./pages/ApiDocs";
 import Configuracoes from "./pages/Configuracoes";
 import Postagens from "./pages/Postagens";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminCreditos from "./pages/admin/AdminCreditos";
-import AdminEmail from "./pages/admin/AdminEmail";
+
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminValores from "./pages/admin/AdminValores";
 import AdminSMS from "./pages/admin/AdminSMS";
@@ -30,6 +36,9 @@ import AdminPush from "./pages/admin/AdminPush";
 import AdminPagamentos from "./pages/admin/AdminPagamentos";
 import AdminSuporte from "./pages/admin/AdminSuporte";
 import AdminWhatsApp from "./pages/admin/AdminWhatsApp";
+import AdminEmail from "./pages/admin/AdminEmail";
+import AdminEmailSaude from "./pages/admin/AdminEmailSaude";
+import AdminCashback from "./pages/admin/AdminCashback";
 import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
 import PagamentoFalha from "./pages/PagamentoFalha";
@@ -41,13 +50,23 @@ import Indicacao from "./pages/Indicacao";
 import ResetPassword from "./pages/ResetPassword";
 import Suporte from "./pages/Suporte";
 import WhatsApp from "./pages/WhatsApp";
+import DocumentacaoPublica from "./pages/DocumentacaoPublica";
+import Upsell from "./pages/Upsell";
+import RecuperacaoVendas from "./pages/RecuperacaoVendas";
+import ConfirmacaoPagamento from "./pages/ConfirmacaoPagamento";
+import Tutorial from "./pages/Tutorial";
+
+const LiveView = lazy(() => import("./pages/LiveView"));
 
 const queryClient = new QueryClient();
+
 
 function LojaLayoutWrapper() {
   return (
     <LojaProvider>
-      <AppLayout />
+      <BatchProgressProvider>
+        <AppLayout />
+      </BatchProgressProvider>
     </LojaProvider>
   );
 }
@@ -60,6 +79,8 @@ function LogisticsRoutes() {
       <Route path="/f/:envioId" element={<PagamentoFalha />} />
       <Route path="/r" element={<Rastreio />} />
       <Route path="/r/:codigoParam" element={<Rastreio />} />
+      <Route path="/termos" element={<TermosPrivacidade tipo="termos" />} />
+      <Route path="/privacidade" element={<TermosPrivacidade tipo="privacidade" />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -68,6 +89,7 @@ function LogisticsRoutes() {
 function PanelRoutes() {
   return (
     <AuthProvider>
+      <WhatsAppVerificationPopup />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
@@ -93,13 +115,26 @@ function PanelRoutes() {
           <Route path="postagens" element={<Postagens />} />
           <Route path="empresa" element={<Empresa />} />
           <Route path="integracoes" element={<Integracoes />} />
+          <Route path="api-docs" element={<ApiDocs />} />
           <Route path="configuracoes" element={<Configuracoes />} />
+          <Route path="upsell" element={<Upsell />} />
           <Route path="taxacao" element={<Taxacao />} />
           <Route path="falha-entrega" element={<FalhaEntrega />} />
           <Route path="moedas" element={<Moedas />} />
           <Route path="indicacao" element={<Indicacao />} />
           <Route path="suporte" element={<Suporte />} />
           <Route path="whatsapp" element={<WhatsApp />} />
+          <Route path="recuperacao" element={<RecuperacaoVendas />} />
+          <Route path="confirmacao-pagamento" element={<ConfirmacaoPagamento />} />
+          <Route path="tutorial" element={<Tutorial />} />
+          <Route
+            path="live-view"
+            element={
+              <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Carregando Live View…</div>}>
+                <LiveView />
+              </Suspense>
+            }
+          />
         </Route>
         <Route
           path="/admin"
@@ -108,10 +143,6 @@ function PanelRoutes() {
         <Route
           path="/admin/usuarios"
           element={<AdminRoute><AdminUsuarios /></AdminRoute>}
-        />
-        <Route
-          path="/admin/email"
-          element={<AdminRoute><AdminEmail /></AdminRoute>}
         />
         <Route
           path="/admin/creditos"
@@ -149,9 +180,22 @@ function PanelRoutes() {
           path="/admin/whatsapp"
           element={<AdminRoute><AdminWhatsApp /></AdminRoute>}
         />
+        <Route
+          path="/admin/emails"
+          element={<AdminRoute><AdminEmail /></AdminRoute>}
+        />
+        <Route
+          path="/admin/email-saude"
+          element={<AdminRoute><AdminEmailSaude /></AdminRoute>}
+        />
+        <Route
+          path="/admin/cashback"
+          element={<AdminRoute><AdminCashback /></AdminRoute>}
+        />
         <Route path="/r" element={<Rastreio />} />
         <Route path="/r/:codigoParam" element={<Rastreio />} />
         <Route path="/p/:envioId" element={<Pagamento />} />
+        <Route path="/documentacao" element={<DocumentacaoPublica />} />
         <Route path="/" element={<Navigate to="/lojas" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -161,10 +205,11 @@ function PanelRoutes() {
 
 const App = () => {
   const logistics = isLogisticsDomain();
+  const provider = getLogisticsProvider();
 
   if (typeof document !== 'undefined') {
-    if (isJadlogDomain()) {
-      document.title = 'JADLOG Logística';
+    if (provider === 'vetor') {
+      document.title = 'Vetor Transportes — Rastreamento';
     } else if (logistics) {
       document.title = 'Logística JL Transportes';
     } else {
@@ -178,7 +223,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          {logistics ? <LogisticsRoutes /> : <PanelRoutes />}
+          {logistics ? <LogisticsRoutes /> : <MobileBlocker><PanelRoutes /></MobileBlocker>}
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

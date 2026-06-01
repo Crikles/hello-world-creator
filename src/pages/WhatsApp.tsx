@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +7,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
     MessageCircle, Wifi, WifiOff, QrCode, Trash2, Send, Search,
-    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply
+    Loader2, Eye, Phone, RefreshCw, Power, Plug, Copy, Check, AlertCircle, Coins, Clock, Zap, RotateCcw, Reply, Pencil, X, Save, Smartphone
 } from "lucide-react";
 import { useLoja } from "@/contexts/LojaContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const SUPABASE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`;
-const TRACKING_BASE_URL = "https://rastreio.logisticajltransportes.com/r";
+const TRACKING_BASE_URL = "https://rastreio.jltransportelogistica.com/r";
 
 const AVAILABLE_VARS = [
     { key: "{{nome}}", label: "Nome", desc: "Nome do cliente" },
@@ -39,9 +41,13 @@ Seu pedido *{{produto}}* no valor de *R$ {{valor}}* foi despachado!
 Clique no botão abaixo para acompanhar a entrega em tempo real:`;
 
 function formatPhone(phone: string): string {
-    const cleaned = phone.replace(/[\s\-\(\)\+\.]/g, "");
-    if (cleaned.startsWith("55")) return cleaned;
-    return "55" + cleaned;
+    const digits = phone.replace(/\D/g, "");
+    // Brazilian local number (10-11 digits) → prepend 55
+    if (digits.length === 10 || digits.length === 11) return "55" + digits;
+    // Already has country code (12-13 digits starting with 55)
+    if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+    // International or other → return as-is
+    return digits;
 }
 
 function buildFullAddress(envio: any): string {
@@ -150,17 +156,75 @@ export default function WhatsApp() {
     const [activeTab, setActiveTab] = useState<"instance" | "template" | "send">("instance");
     const [phoneInput, setPhoneInput] = useState("");
     const [search, setSearch] = useState("");
-    const [filterStatus, setFilterStatus] = useState("todos");
+    const [sendSubTab, setSendSubTab] = useState<"pendentes" | "enviados">("pendentes");
+    const [pendentesPage, setPendentesPage] = useState(1);
+    const PENDENTES_PER_PAGE = 20;
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+    const [failReasons, setFailReasons] = useState<Record<string, string>>({});
     const [previewEnvio, setPreviewEnvio] = useState<any>(null);
     const [copiedVar, setCopiedVar] = useState<string | null>(null);
     const [connectData, setConnectData] = useState<{ instanceId: string; qrCode?: string; pairingCode?: string } | null>(null);
     const [connectingStartedAt, setConnectingStartedAt] = useState<number | null>(null);
-    const [selectedInstanceId, setSelectedInstanceId] = useState<string>("all");
+    const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
+    const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+    const [editingLabelValue, setEditingLabelValue] = useState("");
+    const [nowTick, setNowTick] = useState(Date.now());
+    const [retryingFailed, setRetryingFailed] = useState(false);
 
-    // ── User credits ──
+    const handleRetryFailed = async () => {
+        if (!loja) return;
+        setRetryingFailed(true);
+        try {
+            const { data, error } = await supabase.functions.invoke("retry-failed-sends", {
+                body: { loja_id: loja.id },
+            });
+            if (error) throw error;
+            if (data?.success === false) {
+                toast.error("Saldo ainda insuficiente. Recarregue antes de reenviar.");
+            } else {
+                toast.success(`${data?.whatsapp || 0} mensagens reenfileiradas.`);
+                queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log", loja.id] });
+                queryClient.invalidateQueries({ queryKey: ["whatsapp-queue", loja.id] });
+            }
+        } catch (err: any) {
+            toast.error("Erro ao reenviar: " + err.message);
+        } finally {
+            setRetryingFailed(false);
+        }
+    };
+
+    // Tick every second for the countdown
+    useEffect(() => {
+        const t = setInterval(() => setNowTick(Date.now()), 1000);
+        return () => clearInterval(t);
+    }, []);
+
+    // ── Next scheduled WhatsApp from the queue (for countdown) ──
+    const { data: nextQueued } = useQuery({
+        queryKey: ["wa-next-queued", loja?.id],
+        queryFn: async () => {
+            if (!loja) return null;
+            const { data } = await supabase
+                .from("whatsapp_send_queue")
+                .select("scheduled_at, envio_id, envios:envio_id(cliente_nome)")
+                .eq("loja_id", loja.id)
+                .eq("status", "pending")
+                .order("scheduled_at", { ascending: true })
+                .limit(1)
+                .maybeSingle();
+            if (!data) return null;
+            const nome = (data as any).envios?.cliente_nome ?? null;
+            return { scheduled_at: data.scheduled_at, cliente_nome: nome };
+        },
+        enabled: !!loja,
+        refetchInterval: 15000,
+    });
+    const nextScheduled = nextQueued?.scheduled_at || null;
+    const nextClienteNome = nextQueued?.cliente_nome || null;
+
+
     const { data: creditos } = useQuery({
         queryKey: ["creditos", user?.id],
         queryFn: async () => {
@@ -174,10 +238,26 @@ export default function WhatsApp() {
         enabled: !!user?.id,
     });
 
-    // ── WhatsApp price ──
+    // ── WhatsApp price (custom_prices overrides system_config) ──
+    const billingUserId = loja?.user_id || user?.id;
     const { data: whatsappPrice = 29.99 } = useQuery({
-        queryKey: ["system-config-whatsapp-price"],
+        queryKey: ["whatsapp-price", billingUserId],
         queryFn: async () => {
+            // 1. Check user custom price first
+            if (billingUserId) {
+                const { data: profile } = await supabase
+                    .from("profiles")
+                    .select("custom_prices")
+                    .eq("id", billingUserId)
+                    .maybeSingle();
+                const custom = profile?.custom_prices as Record<string, number | string> | null;
+                if (custom && custom.custo_whatsapp != null) {
+                    const customPrice = Number(custom.custo_whatsapp);
+                    if (!Number.isNaN(customPrice)) return customPrice;
+                }
+            }
+
+            // 2. Fallback to global system_config
             const { data } = await supabase
                 .from("system_config")
                 .select("value")
@@ -185,6 +265,7 @@ export default function WhatsApp() {
                 .maybeSingle();
             return data?.value ?? 29.99;
         },
+        enabled: !!billingUserId,
     });
 
     // ── ALL instances for this loja (multiple) ──
@@ -224,6 +305,13 @@ export default function WhatsApp() {
 
     const connectedInstances = instances.filter((i) => i.status === "connected" && i.expires_at && new Date(i.expires_at) > new Date());
 
+    // Auto-select all connected instances on first load
+    useEffect(() => {
+        if (connectedInstances.length > 0 && selectedInstanceIds.size === 0) {
+            setSelectedInstanceIds(new Set(connectedInstances.map((i) => i.id)));
+        }
+    }, [connectedInstances.length]);
+
     // ── Message log (persistent sent tracking) ──
     const { data: messageLogs = [] } = useQuery({
         queryKey: ["whatsapp-message-log", loja?.id],
@@ -231,7 +319,7 @@ export default function WhatsApp() {
             if (!loja?.id) return [];
             const { data } = await supabase
                 .from("whatsapp_message_log")
-                .select("envio_id, status")
+                .select("envio_id, status, created_at, error_reason, instance_id, instance:instance_id(label, instance_name)")
                 .eq("loja_id", loja.id);
             return data || [];
         },
@@ -240,6 +328,19 @@ export default function WhatsApp() {
 
     const sentEnvioIds = new Set(messageLogs.filter((l) => l.status === "sent").map((l) => l.envio_id));
     const failedEnvioIds = new Set(messageLogs.filter((l) => l.status === "failed").map((l) => l.envio_id));
+    const failedSaldoCount = messageLogs.filter((l: any) => {
+        if (l.status !== "failed") return false;
+        const r = (l.error_reason || "").toLowerCase();
+        return r.includes("saldo") || r.includes("insufic");
+    }).length;
+    const messageLogMap = Object.fromEntries(
+        messageLogs.map((l: any) => [l.envio_id, {
+            status: l.status,
+            created_at: l.created_at,
+            error_reason: l.error_reason,
+            instance_label: l.instance?.label || l.instance?.instance_name || null,
+        }])
+    );
 
     // ── Config (template + auto-send) ──
     const { data: config } = useQuery({
@@ -445,12 +546,17 @@ export default function WhatsApp() {
 
     const saveAutoSendMutation = useMutation({
         mutationFn: async ({ auto, delay }: { auto: boolean; delay: number }) => {
+            const update: any = {
+                whatsapp_auto_send: auto,
+                whatsapp_delay_seconds: delay * 60,
+            };
+            // Quando ativa o auto-envio, marca o instante para que apenas leads novos sejam considerados
+            if (auto) {
+                update.whatsapp_auto_send_started_at = new Date().toISOString();
+            }
             const { error } = await supabase
                 .from("postagem_config")
-                .update({
-                    whatsapp_auto_send: auto,
-                    whatsapp_delay_seconds: delay * 60,
-                } as any)
+                .update(update)
                 .eq("loja_id", loja!.id);
             if (error) throw error;
         },
@@ -461,11 +567,30 @@ export default function WhatsApp() {
         onError: () => toast.error("Erro ao salvar configurações"),
     });
 
+    // ── Save label mutation ──
+    const saveLabelMutation = useMutation({
+        mutationFn: async ({ id, label }: { id: string; label: string }) => {
+            const { error } = await supabase
+                .from("whatsapp_instances")
+                .update({ label: label || null } as any)
+                .eq("id", id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances", loja?.id] });
+            setEditingLabelId(null);
+            toast.success("Apelido salvo!");
+        },
+        onError: () => toast.error("Erro ao salvar apelido"),
+    });
+
     // ── Send message ──
     const sendMessage = useCallback(async (envio: any) => {
         if (!envio.cliente_telefone) {
-            toast.error(`${envio.cliente_nome}: sem telefone cadastrado`);
+            const reason = "Sem telefone cadastrado";
+            toast.error(`${envio.cliente_nome}: ${reason}`);
             setFailedIds((prev) => new Set(prev).add(envio.id));
+            setFailReasons((prev) => ({ ...prev, [envio.id]: reason }));
             return;
         }
 
@@ -473,6 +598,10 @@ export default function WhatsApp() {
         try {
             const text = replaceVars(msgTemplate, envio);
             const trackingUrl = `${TRACKING_BASE_URL}/${envio.codigo_rastreio || ""}`;
+
+            // Pick a specific instance if only one selected, otherwise let backend rotate
+            const instanceIdsArray = Array.from(selectedInstanceIds);
+            const instanceParam = instanceIdsArray.length === 1 ? { instance_id: instanceIdsArray[0] } : {};
 
             await callWhatsApp("send", {
                 loja_id: loja!.id,
@@ -486,14 +615,16 @@ export default function WhatsApp() {
                 reply_text: replyText || undefined,
                 btn2_text: btn2Text || undefined,
                 btn2_url: btn2Url || undefined,
-                ...(selectedInstanceId !== "all" ? { instance_id: selectedInstanceId } : {}),
+                ...instanceParam,
             });
 
             queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
             toast.success(`Mensagem enviada para ${envio.cliente_nome}!`);
         } catch (err: any) {
+            const reason = err.message || "Erro desconhecido";
             setFailedIds((prev) => new Set(prev).add(envio.id));
-            toast.error(`Erro ao enviar para ${envio.cliente_nome}: ${err.message}`);
+            setFailReasons((prev) => ({ ...prev, [envio.id]: reason }));
+            toast.error(`Erro ao enviar para ${envio.cliente_nome}: ${reason}`);
         } finally {
             setSendingIds((prev) => {
                 const next = new Set(prev);
@@ -501,18 +632,19 @@ export default function WhatsApp() {
                 return next;
             });
         }
-    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url, selectedInstanceId]);
+    }, [msgTemplate, btnText, footerText, loja, queryClient, imageUrl, replyText, btn2Text, btn2Url, selectedInstanceIds]);
 
     const handleSendSelected = async () => {
         const selected = envios.filter((e) => selectedIds.has(e.id));
         if (selected.length === 0) return toast.info("Selecione pelo menos 1 envio.");
 
-        if (connectedInstances.length > 1 && selectedInstanceId === "all") {
-            // Use send-queue for rotation
+        const delayBetweenMs = Math.max(delayMinutes * 60 * 1000, 1500);
+
+        if (connectedInstances.length > 1 && selectedInstanceIds.size > 1) {
+            // Use send-queue: messages are queued in DB and processed by cron with proper delays
             setSendingIds(new Set(selected.map((e) => e.id)));
             try {
-                const texts = selected.map((e) => replaceVars(msgTemplate, e));
-                await callWhatsApp("send-queue", {
+                const result = await callWhatsApp("send-queue", {
                     loja_id: loja!.id,
                     envio_ids: selected.map((e) => e.id),
                     msg_template: msgTemplate,
@@ -521,18 +653,24 @@ export default function WhatsApp() {
                     footer: footerText,
                     btn2_text: btn2Text || undefined,
                     btn2_url: btn2Url || undefined,
+                    ...(selectedInstanceIds.size > 0 ? { instance_ids: Array.from(selectedInstanceIds) } : {}),
                 });
-                queryClient.invalidateQueries({ queryKey: ["whatsapp-message-log"] });
-                toast.success(`Envio em massa finalizado com rotação entre ${connectedInstances.length} instâncias!`);
+                const queued = result?.queued || selected.length;
+                const estMinutes = result?.estimated_minutes || "?";
+                toast.success(`${queued} mensagens enfileiradas! Serão enviadas automaticamente em ~${estMinutes} min com rotação entre ${selectedInstanceIds.size} instâncias.`);
+                setSelectedIds(new Set());
             } catch (err: any) {
                 toast.error(err.message || "Erro no envio em massa");
             } finally {
                 setSendingIds(new Set());
             }
         } else {
-            for (const envio of selected) {
-                await sendMessage(envio);
-                await new Promise((r) => setTimeout(r, 1500));
+            // Single instance — send individually with configured delay from frontend
+            for (let i = 0; i < selected.length; i++) {
+                await sendMessage(selected[i]);
+                if (i < selected.length - 1) {
+                    await new Promise((r) => setTimeout(r, delayBetweenMs));
+                }
             }
             toast.success(`Envio em massa finalizado!`);
         }
@@ -553,11 +691,28 @@ export default function WhatsApp() {
             (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(s)) ||
             e.cliente_email.toLowerCase().includes(s);
 
-        if (filterStatus === "todos") return matchSearch;
-        if (filterStatus === "enviado") return matchSearch && sentEnvioIds.has(e.id);
-        if (filterStatus === "nao_enviado") return matchSearch && !sentEnvioIds.has(e.id);
-        return matchSearch;
+        if (!matchSearch) return false;
+
+        if (sendSubTab === "pendentes") return !sentEnvioIds.has(e.id);
+        if (sendSubTab === "enviados") return sentEnvioIds.has(e.id);
+        return true;
     });
+
+    // Counts for sub-tab badges
+    const pendentesCount = envios.filter((e) => !sentEnvioIds.has(e.id)).length;
+    const enviadosCount = envios.filter((e) => sentEnvioIds.has(e.id)).length;
+
+    // Pagination only for "pendentes" tab
+    const totalPendentesPages = sendSubTab === "pendentes"
+        ? Math.max(1, Math.ceil(filteredEnvios.length / PENDENTES_PER_PAGE))
+        : 1;
+    const currentPendentesPage = Math.min(pendentesPage, totalPendentesPages);
+    const visibleEnvios = sendSubTab === "pendentes"
+        ? filteredEnvios.slice((currentPendentesPage - 1) * PENDENTES_PER_PAGE, currentPendentesPage * PENDENTES_PER_PAGE)
+        : filteredEnvios;
+
+    // Reset to page 1 when tab or search changes
+    useEffect(() => { setPendentesPage(1); }, [sendSubTab, search]);
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
@@ -731,7 +886,37 @@ export default function WhatsApp() {
                                                 <div className="flex items-center gap-3">
                                                     <div className={`h-3 w-3 rounded-full ${inst.status === "connected" ? "bg-green-500 animate-pulse" : inst.status === "connecting" ? "bg-yellow-500 animate-pulse" : "bg-red-400"}`} />
                                                     <div>
-                                                        <p className="text-sm font-semibold text-foreground">{inst.instance_name}</p>
+                                                        {editingLabelId === inst.id ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Input
+                                                                    value={editingLabelValue}
+                                                                    onChange={(e) => setEditingLabelValue(e.target.value)}
+                                                                    className="h-7 w-40 text-xs bg-transparent border-border/50"
+                                                                    placeholder="Ex: Loja SP, Suporte..."
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === "Enter") saveLabelMutation.mutate({ id: inst.id, label: editingLabelValue });
+                                                                        if (e.key === "Escape") setEditingLabelId(null);
+                                                                    }}
+                                                                />
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => saveLabelMutation.mutate({ id: inst.id, label: editingLabelValue })} disabled={saveLabelMutation.isPending}>
+                                                                    {saveLabelMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 text-green-500" />}
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingLabelId(null)}>
+                                                                    <X className="h-3 w-3 text-muted-foreground" />
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-sm font-semibold text-foreground">{(inst as any).label || inst.instance_name}</p>
+                                                                <Button variant="ghost" size="icon" className="h-5 w-5 opacity-50 hover:opacity-100" onClick={() => { setEditingLabelId(inst.id); setEditingLabelValue((inst as any).label || ""); }}>
+                                                                    <Pencil className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                        {!(editingLabelId === inst.id) && (inst as any).label && (
+                                                            <p className="text-[10px] text-muted-foreground font-mono">{inst.instance_name}</p>
+                                                        )}
                                                         <p className={`text-xs font-medium ${instStatusColor}`}>{instStatusLabel}</p>
                                                     </div>
                                                 </div>
@@ -1010,7 +1195,7 @@ export default function WhatsApp() {
                                             <div className="p-3">
                                                 <p className="text-sm text-white whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{
-                                                        __html: formatWhatsAppText(
+                                                        __html: DOMPurify.sanitize(formatWhatsAppText(
                                                             previewEnvio
                                                                 ? replaceVars(msgTemplate, previewEnvio)
                                                                 : replaceVars(msgTemplate, {
@@ -1028,7 +1213,7 @@ export default function WhatsApp() {
                                                                     cliente_email: "joao@email.com",
                                                                     cliente_telefone: "11999999999",
                                                                 })
-                                                        ),
+                                                        )),
                                                     }}
                                                 />
                                                 {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
@@ -1115,46 +1300,94 @@ export default function WhatsApp() {
                         </div>
                     )}
 
-                    {/* Instance selector */}
+                    {/* Instance selector — checkbox cards */}
                     {connectedInstances.length > 0 && (
                         <div className="glass glow-border rounded-xl p-4 space-y-3">
-                            <div className="flex items-center gap-3 mb-1">
-                                <div className="p-2 rounded-xl bg-primary/10">
-                                    <Wifi className="h-4 w-4 text-primary" />
+                            <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-xl bg-primary/10">
+                                        <Wifi className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">Instâncias de Envio</p>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            Selecione as instâncias que serão usadas. Múltiplas = rotação automática.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-foreground">Instância de Envio</p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        Escolha qual instância será usada para enviar as mensagens.
-                                    </p>
+                                <div className="flex gap-1.5">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[10px] px-2"
+                                        onClick={() => setSelectedInstanceIds(new Set(connectedInstances.map((i) => i.id)))}
+                                    >
+                                        Todas
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[10px] px-2"
+                                        onClick={() => setSelectedInstanceIds(new Set())}
+                                    >
+                                        Nenhuma
+                                    </Button>
                                 </div>
                             </div>
-                            <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
-                                <SelectTrigger className="w-full glass border-border/50 h-9 text-sm">
-                                    <SelectValue placeholder="Selecione a instância" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {connectedInstances.length > 1 && (
-                                        <SelectItem value="all">
-                                            <div className="flex items-center gap-2">
-                                                <RotateCcw className="h-3.5 w-3.5 text-primary" />
-                                                <span>Todas — rotação automática ({connectedInstances.length} instâncias)</span>
-                                            </div>
-                                        </SelectItem>
-                                    )}
-                                    {connectedInstances.map((inst) => (
-                                        <SelectItem key={inst.id} value={inst.id}>
-                                            <div className="flex items-center gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {connectedInstances.map((inst) => {
+                                    const isSelected = selectedInstanceIds.has(inst.id);
+                                    return (
+                                        <div
+                                            key={inst.id}
+                                            onClick={() => {
+                                                setSelectedInstanceIds((prev) => {
+                                                    const next = new Set(prev);
+                                                    next.has(inst.id) ? next.delete(inst.id) : next.add(inst.id);
+                                                    return next;
+                                                });
+                                            }}
+                                            className={`cursor-pointer rounded-lg p-3 border transition-all duration-200 ${
+                                                isSelected
+                                                    ? "border-primary bg-primary/10 shadow-sm shadow-primary/10"
+                                                    : "border-border/30 bg-transparent hover:border-border/60"
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <Checkbox
+                                                    checked={isSelected}
+                                                    className="h-4 w-4 border-primary/30 pointer-events-none"
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-foreground truncate">
+                                                        {(inst as any).label || inst.instance_name}
+                                                    </p>
+                                                    {inst.phone && (
+                                                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                            <Phone className="h-2.5 w-2.5" />
+                                                            {inst.phone}
+                                                        </p>
+                                                    )}
+                                                </div>
                                                 <span className="inline-block h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                                                <span>{inst.instance_name}</span>
-                                                {inst.phone && (
-                                                    <span className="text-muted-foreground text-xs">({inst.phone})</span>
-                                                )}
                                             </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {selectedInstanceIds.size > 1 && (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <RotateCcw className="h-3 w-3 text-primary" />
+                                    <span className="text-[10px] text-muted-foreground">
+                                        Rotação automática entre {selectedInstanceIds.size} instâncias selecionadas.
+                                    </span>
+                                </div>
+                            )}
+                            {selectedInstanceIds.size === 0 && (
+                                <p className="text-[10px] text-yellow-500 flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" /> Selecione ao menos uma instância para enviar.
+                                </p>
+                            )}
                         </div>
                     )}
 
@@ -1208,25 +1441,90 @@ export default function WhatsApp() {
                         )}
                     </div>
 
-                    {/* Action bar */}
-                    <div className="glass-strong glow-border rounded-xl p-3">
+                    {/* Sub-tabs: Pendentes / Enviados */}
+                    <div className="glass-strong glow-border rounded-xl p-3 space-y-3">
                         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
-                                    <Checkbox
-                                        checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
-                                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                                        className="h-4 w-4 border-primary/30"
-                                    />
-                                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Tudo</span>
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant={sendSubTab === "pendentes" ? "default" : "ghost"}
+                                    size="sm"
+                                    className="h-8 text-xs gap-1.5"
+                                    onClick={() => { setSendSubTab("pendentes"); setSelectedIds(new Set()); }}
+                                >
+                                    <Clock className="h-3.5 w-3.5" />
+                                    Pendentes
+                                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-yellow-500/20 text-yellow-500">
+                                        {pendentesCount}
+                                    </Badge>
+                                </Button>
+                                <Button
+                                    variant={sendSubTab === "enviados" ? "default" : "ghost"}
+                                    size="sm"
+                                    className="h-8 text-xs gap-1.5"
+                                    onClick={() => { setSendSubTab("enviados"); setSelectedIds(new Set()); }}
+                                >
+                                    <Check className="h-3.5 w-3.5" />
+                                    Enviados
+                                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-green-500/20 text-green-500">
+                                        {enviadosCount}
+                                    </Badge>
+                                </Button>
+                                {sendSubTab === "enviados" && failedSaldoCount > 0 && (
+                                    <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-8 text-xs gap-1.5"
+                                        onClick={handleRetryFailed}
+                                        disabled={retryingFailed}
+                                    >
+                                        {retryingFailed ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                        Reenviar {failedSaldoCount} {failedSaldoCount === 1 ? "falha" : "falhas"} de saldo
+                                    </Button>
+                                )}
+                            </div>
 
-                                {selectedIds.size > 0 && (
+                            <div className="flex gap-2 items-center w-full sm:w-auto">
+                                {sendSubTab === "pendentes" && nextScheduled && autoSend && (() => {
+                                    const remaining = Math.max(0, new Date(nextScheduled).getTime() - nowTick);
+                                    const totalSec = Math.ceil(remaining / 1000);
+                                    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+                                    const ss = String(totalSec % 60).padStart(2, "0");
+                                    const isReady = remaining <= 0;
+                                    return (
+                                        <div className={`flex items-center gap-3 rounded-lg px-4 py-2 border transition-colors ${isReady ? "bg-green-500/10 border-green-500/40" : "bg-yellow-500/5 border-yellow-500/30"}`}>
+                                            <Clock className={`h-5 w-5 ${isReady ? "text-green-500 animate-pulse" : "text-yellow-500"}`} />
+                                            <div className="flex flex-col leading-tight">
+                                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Próximo envio</span>
+                                                <span className={`text-lg font-bold tabular-nums ${isReady ? "text-green-500" : "text-foreground"}`}>
+                                                    {isReady ? "Enviando..." : `${mm}:${ss}`}
+                                                </span>
+                                                {nextClienteNome && (
+                                                    <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                                                        {nextClienteNome}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {sendSubTab === "pendentes" && (
+                                    <div className="flex items-center gap-2 glass rounded-lg px-3 py-1.5">
+                                        <Checkbox
+                                            checked={filteredEnvios.length > 0 && selectedIds.size === filteredEnvios.length}
+                                            onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                            className="h-4 w-4 border-primary/30"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Tudo</span>
+                                    </div>
+                                )}
+
+                                {sendSubTab === "pendentes" && selectedIds.size > 0 && (
                                     <Button
                                         size="sm"
                                         className="shimmer-btn h-8 text-xs"
                                         onClick={handleSendSelected}
-                                        disabled={connectedInstances.length === 0 || sendingIds.size > 0}
+                                        disabled={connectedInstances.length === 0 || sendingIds.size > 0 || selectedInstanceIds.size === 0}
                                     >
                                         {sendingIds.size > 0 ? (
                                             <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -1234,14 +1532,12 @@ export default function WhatsApp() {
                                             <Send className="h-3.5 w-3.5 mr-1" />
                                         )}
                                         Enviar ({selectedIds.size})
-                                        {connectedInstances.length > 1 && (
-                                            <span className="ml-1 text-[9px] opacity-70">🔄 rotação</span>
+                                        {selectedInstanceIds.size > 1 && (
+                                            <span className="ml-1 text-[9px] opacity-70">🔄 {selectedInstanceIds.size}x rotação</span>
                                         )}
                                     </Button>
                                 )}
-                            </div>
 
-                            <div className="flex gap-2 items-center w-full sm:w-auto">
                                 <div className="relative flex-1 sm:w-56">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                                     <Input
@@ -1251,16 +1547,6 @@ export default function WhatsApp() {
                                         className="pl-8 h-8 text-xs bg-transparent border-border/50"
                                     />
                                 </div>
-                                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                    <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/50">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="todos">Todos</SelectItem>
-                                        <SelectItem value="enviado">✅ Enviado</SelectItem>
-                                        <SelectItem value="nao_enviado">⏳ Não Enviado</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </div>
                         </div>
                     </div>
@@ -1269,21 +1555,39 @@ export default function WhatsApp() {
                     {filteredEnvios.length === 0 ? (
                         <div className="flex flex-col items-center py-16 text-center">
                             <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center mb-4">
-                                <Send className="h-8 w-8 text-muted-foreground/30" />
+                                {sendSubTab === "pendentes" ? (
+                                    <Clock className="h-8 w-8 text-muted-foreground/30" />
+                                ) : (
+                                    <Check className="h-8 w-8 text-muted-foreground/30" />
+                                )}
                             </div>
-                            <p className="text-foreground font-medium">Nenhum envio encontrado</p>
+                            <p className="text-foreground font-medium">
+                                {sendSubTab === "pendentes" ? "Nenhum envio pendente" : "Nenhum envio enviado"}
+                            </p>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Adicione envios na aba "Envios" para enviar mensagens via WhatsApp.
+                                {sendSubTab === "pendentes"
+                                    ? "Todos os envios já foram enviados via WhatsApp ou adicione novos na aba \"Envios\"."
+                                    : "Envie mensagens na aba \"Pendentes\" para vê-las aqui."}
                             </p>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-1.5">
-                            {filteredEnvios.map((envio, idx) => {
+                            {visibleEnvios.map((envio, idx) => {
                                 const isSending = sendingIds.has(envio.id);
-                                const isSent = sentEnvioIds.has(envio.id) || failedIds.has(envio.id) === false && sendingIds.has(envio.id) === false && sentEnvioIds.has(envio.id);
                                 const isFailed = failedEnvioIds.has(envio.id) || failedIds.has(envio.id);
                                 const hasPhone = !!envio.cliente_telefone;
                                 const anyInstanceReady = connectedInstances.length > 0;
+                                const logEntry = messageLogMap[envio.id];
+                                const entryTime = envio.created_at ? new Date(envio.created_at) : null;
+                                const actionTime = logEntry?.created_at ? new Date(logEntry.created_at) : null;
+
+                                const formatTime = (d: Date) => {
+                                    const day = String(d.getDate()).padStart(2, "0");
+                                    const mon = String(d.getMonth() + 1).padStart(2, "0");
+                                    const h = String(d.getHours()).padStart(2, "0");
+                                    const m = String(d.getMinutes()).padStart(2, "0");
+                                    return `${day}/${mon} ${h}:${m}`;
+                                };
 
                                 return (
                                     <div
@@ -1292,11 +1596,14 @@ export default function WhatsApp() {
                                         style={{ animationDelay: `${idx * 0.02}s` }}
                                     >
                                         <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
-                                            <Checkbox
-                                                checked={selectedIds.has(envio.id)}
-                                                onCheckedChange={() => toggleSelect(envio.id)}
-                                                className="h-4 w-4 border-primary/30 shrink-0"
-                                            />
+                                            {/* Checkbox only in Pendentes */}
+                                            {sendSubTab === "pendentes" && (
+                                                <Checkbox
+                                                    checked={selectedIds.has(envio.id)}
+                                                    onCheckedChange={() => toggleSelect(envio.id)}
+                                                    className="h-4 w-4 border-primary/30 shrink-0"
+                                                />
+                                            )}
 
                                             {/* Name + Phone */}
                                             <div className="min-w-0 w-40 shrink-0">
@@ -1324,38 +1631,122 @@ export default function WhatsApp() {
                                                 R$ {Number(envio.valor).toFixed(2)}
                                             </span>
 
-                                            {/* Status indicator */}
-                                            <div className="flex items-center gap-2 ml-auto shrink-0">
-                                                {sentEnvioIds.has(envio.id) && (
-                                                    <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
-                                                        <Check className="h-3 w-3 mr-0.5" /> Enviado
-                                                    </Badge>
+                                            {/* Timestamps */}
+                                            <div className="hidden xl:flex flex-col items-end gap-0.5 shrink-0 min-w-[100px]">
+                                                {entryTime && (
+                                                    <span className="text-[9px] text-muted-foreground flex items-center gap-1" title="Entrou no painel">
+                                                        <Clock className="h-2.5 w-2.5" /> {formatTime(entryTime)}
+                                                    </span>
                                                 )}
-                                                {(failedEnvioIds.has(envio.id) || failedIds.has(envio.id)) && !sentEnvioIds.has(envio.id) && (
-                                                    <Badge variant="secondary" className="bg-red-500/20 text-red-500 text-[9px] px-1.5 py-0 h-5">
-                                                        <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
-                                                    </Badge>
+                                                {actionTime && (
+                                                    <span className={`text-[9px] flex items-center gap-1 ${logEntry?.status === "sent" ? "text-green-500" : "text-red-400"}`} title={logEntry?.status === "sent" ? "Enviado em" : "Falhou em"}>
+                                                        {logEntry?.status === "sent" ? <Check className="h-2.5 w-2.5" /> : <AlertCircle className="h-2.5 w-2.5" />}
+                                                        {formatTime(actionTime)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Status / Actions */}
+                                            <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                                                {sendSubTab === "enviados" && logEntry?.status === "sent" && (
+                                                    <>
+                                                        {(logEntry as any)?.instance_label && (
+                                                            <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-2 py-0 h-5 whitespace-nowrap">
+                                                                <Smartphone className="h-3 w-3 mr-1 shrink-0" />
+                                                                <span>{(logEntry as any).instance_label}</span>
+                                                            </Badge>
+                                                        )}
+                                                        <Badge variant="secondary" className="bg-green-500/20 text-green-500 text-[9px] px-1.5 py-0 h-5">
+                                                            <Check className="h-3 w-3 mr-0.5" /> Enviado
+                                                        </Badge>
+                                                    </>
                                                 )}
 
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 hover:bg-green-500/10"
-                                                    onClick={() => sendMessage(envio)}
-                                                    disabled={isSending || !anyInstanceReady}
-                                                    title={!anyInstanceReady ? "Nenhuma instância ativa" : "Enviar mensagem"}
-                                                >
-                                                    {isSending ? (
-                                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />
-                                                    ) : (
-                                                        <Send className="h-3.5 w-3.5 text-green-500" />
-                                                    )}
-                                                </Button>
+                                                {sendSubTab === "enviados" && logEntry?.status === "failed" && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Badge variant="secondary" className="bg-red-500/20 text-red-400 text-[9px] px-1.5 py-0 h-5 cursor-help">
+                                                                <AlertCircle className="h-3 w-3 mr-0.5" /> Falhou
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left" className="max-w-[300px] text-xs">
+                                                            <p className="font-medium mb-1">Motivo da falha:</p>
+                                                            <p>{(logEntry as any)?.error_reason || "Falha no envio da mensagem via UAZAPI"}</p>
+                                                            {actionTime && <p className="mt-1 text-muted-foreground">Falhou em: {formatTime(actionTime)}</p>}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
+
+                                                {sendSubTab === "pendentes" && isFailed && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <span className="inline-flex items-center gap-1 text-[9px] text-red-400 cursor-help">
+                                                                <AlertCircle className="h-3 w-3" />
+                                                                <span className="hidden sm:inline max-w-[120px] truncate">
+                                                                    {failReasons[envio.id] || "Falha no envio"}
+                                                                </span>
+                                                            </span>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left" className="max-w-[300px] text-xs">
+                                                            <p className="font-medium mb-1">Motivo da falha:</p>
+                                                            <p>{failReasons[envio.id] || (logEntry as any)?.error_reason || "Falha no envio da mensagem via UAZAPI"}</p>
+                                                            {actionTime && <p className="mt-1 text-muted-foreground">Falhou em: {formatTime(actionTime)}</p>}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
+
+                                                {sendSubTab === "pendentes" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 hover:bg-green-500/10"
+                                                        onClick={() => sendMessage(envio)}
+                                                        disabled={isSending || !anyInstanceReady || selectedInstanceIds.size === 0}
+                                                        title={!anyInstanceReady ? "Nenhuma instância ativa" : "Enviar mensagem"}
+                                                    >
+                                                        {isSending ? (
+                                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />
+                                                        ) : (
+                                                            <Send className="h-3.5 w-3.5 text-green-500" />
+                                                        )}
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+
+                    {sendSubTab === "pendentes" && filteredEnvios.length > PENDENTES_PER_PAGE && (
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/30">
+                            <p className="text-[11px] text-muted-foreground">
+                                Mostrando {(currentPendentesPage - 1) * PENDENTES_PER_PAGE + 1}–{Math.min(currentPendentesPage * PENDENTES_PER_PAGE, filteredEnvios.length)} de {filteredEnvios.length}
+                            </p>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => setPendentesPage((p) => Math.max(1, p - 1))}
+                                    disabled={currentPendentesPage === 1}
+                                >
+                                    Anterior
+                                </Button>
+                                <span className="text-[11px] text-muted-foreground px-2">
+                                    {currentPendentesPage} / {totalPendentesPages}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => setPendentesPage((p) => Math.min(totalPendentesPages, p + 1))}
+                                    disabled={currentPendentesPage === totalPendentesPages}
+                                >
+                                    Próxima
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>

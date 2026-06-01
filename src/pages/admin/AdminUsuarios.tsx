@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
-import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn } from "lucide-react";
+import { Coins, Plus, Minus, Settings, Ban, Trash2, ShieldCheck, LogIn, Trophy, MessageSquare, MailCheck, CheckCircle, Copy, Users, Tag, Pencil, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { DiagnosticoDebitos } from "@/components/admin/DiagnosticoDebitos";
 
 interface UserRow {
   id: string;
@@ -27,6 +28,11 @@ interface UserRow {
   lojas_count: number;
   custom_prices: Record<string, number> | null;
   blocked: boolean;
+  whatsapp_verificado: boolean;
+  pending_code: string | null;
+  referral_code: string | null;
+  referred_by_name: string | null;
+  admin_tag: string | null;
 }
 
 export default function AdminUsuarios() {
@@ -43,6 +49,135 @@ export default function AdminUsuarios() {
 
   const [userToBlock, setUserToBlock] = useState<UserRow | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserRow | null>(null);
+  const [editingTagUserId, setEditingTagUserId] = useState<string | null>(null);
+  const [tagValue, setTagValue] = useState("");
+
+  // Pending SMS verifications
+  const { data: pendingVerifications = [] } = useQuery({
+    queryKey: ["admin-pending-verifications"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("signup_verifications")
+        .select("*")
+        .eq("status", "pendente")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 15000,
+  });
+
+  const confirmEmailMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "confirm_email", target_user_id: userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      toast.success("Email confirmado com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao confirmar email.");
+    },
+  });
+
+  const approveSmsVerification = useMutation({
+    mutationFn: async (verificationId: string) => {
+      const { error } = await supabase
+        .from("signup_verifications")
+        .update({ status: "verificado", verified_at: new Date().toISOString(), approved_by: user?.id })
+        .eq("id", verificationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-verifications"] });
+      toast.success("Verificação SMS aprovada manualmente!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao aprovar verificação.");
+    },
+  });
+
+  const deleteSmsVerification = useMutation({
+    mutationFn: async (verificationId: string) => {
+      const { error } = await supabase
+        .from("signup_verifications")
+        .delete()
+        .eq("id", verificationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-verifications"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      toast.success("Verificação excluída!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao excluir verificação.");
+    },
+  });
+
+  const { data: rankingData = [] } = useQuery({
+    queryKey: ["admin-ranking-recargas"],
+    queryFn: async () => {
+      const { data: payments } = await supabase
+        .from("pix_payments")
+        .select("user_id, amount_cents")
+        .eq("status", "PAID");
+
+      const totals: Record<string, number> = {};
+      (payments || []).forEach(p => {
+        totals[p.user_id] = (totals[p.user_id] || 0) + Number(p.amount_cents) / 100;
+      });
+
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, email");
+
+      return Object.entries(totals)
+        .map(([uid, total]) => {
+          const prof = (profiles || []).find(p => p.id === uid);
+          return { user_id: uid, full_name: prof?.full_name, email: prof?.email, total_recargas: total };
+        })
+        .sort((a, b) => b.total_recargas - a.total_recargas);
+    }
+  });
+
+  // Build a lookup map for recargas totals
+  const recargasMap: Record<string, number> = {};
+  rankingData.forEach(r => { recargasMap[r.user_id] = r.total_recargas; });
+
+  // Activity data per user (last deposit / last shipment / counts)
+  const { data: activityData = [] } = useQuery({
+    queryKey: ["admin-user-activity"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_admin_user_activity");
+      if (error) throw error;
+      return (data || []) as Array<{
+        user_id: string;
+        ultimo_deposito: string | null;
+        total_envios: number;
+        envios_30d: number;
+        ultimo_envio: string | null;
+      }>;
+    },
+    refetchInterval: 60000,
+  });
+  const activityMap: Record<string, typeof activityData[number]> = {};
+  activityData.forEach((a) => { activityMap[a.user_id] = a; });
+
+  const formatInactivity = (lastDate: string | null, createdAt?: string) => {
+    if (!lastDate) {
+      if (!createdAt) return { label: "Nunca", critical: true };
+      const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000);
+      return { label: `Nunca (${days}d)`, critical: days >= 30 };
+    }
+    const days = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
+    if (days === 0) return { label: "Hoje", critical: false };
+    if (days === 1) return { label: "1 dia", critical: false };
+    return { label: `${days} dias`, critical: days >= 30 };
+  };
 
   const { data: systemConfigs } = useQuery({
     queryKey: ["system-config-admin"],
@@ -56,22 +191,48 @@ export default function AdminUsuarios() {
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["admin-usuarios"],
     queryFn: async () => {
-      const [profilesRes, rolesRes, creditosRes, lojasRes] = await Promise.all([
+      const [profilesRes, rolesRes, creditosRes, lojasRes, allVerificacoesRes] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("user_roles").select("*"),
         supabase.from("creditos").select("*"),
         supabase.from("lojas").select("id, user_id"),
+        supabase.from("signup_verifications").select("phone, email, code, status, created_at").eq("status", "pendente").order("created_at", { ascending: false }),
       ]);
 
       const profiles = profilesRes.data || [];
       const roles = rolesRes.data || [];
       const creditos = creditosRes.data || [];
       const lojas = lojasRes.data || [];
+      const allPendingVerificacoes = allVerificacoesRes.data || [];
+
+      // Mapa de códigos pendentes (para exibir quando ainda não verificado)
+      const pendingCodeByPhone: Record<string, string> = {};
+      const pendingCodeByEmail: Record<string, string> = {};
+      allPendingVerificacoes.forEach((v: any) => {
+        const ph = v.phone?.replace(/\D/g, "");
+        const em = v.email?.toLowerCase();
+        if (ph && !pendingCodeByPhone[ph]) pendingCodeByPhone[ph] = v.code;
+        if (em && !pendingCodeByEmail[em]) pendingCodeByEmail[em] = v.code;
+      });
 
       return profiles.map((p): UserRow => {
         const userRole = roles.find((r) => r.user_id === p.id);
         const userCredito = creditos.find((c) => c.user_id === p.id);
         const userLojas = lojas.filter((l) => l.user_id === p.id);
+        const userPhone = ((p as any).whatsapp || "").replace(/\D/g, "");
+        const userEmail = (p.email || "").toLowerCase();
+        // Fonte de verdade: profiles.whatsapp_verified (signup_verifications é limpa periodicamente)
+        const isVerified = !!(p as any).whatsapp_verified;
+        const pendingCode = !isVerified
+          ? (userPhone && pendingCodeByPhone[userPhone]) || pendingCodeByEmail[userEmail] || null
+          : null;
+        // Resolve referrer name
+        const referrer = p.referred_by
+          ? profiles.find((r) => r.id === p.referred_by)
+          : null;
+        const referred_by_name = referrer
+          ? (referrer.full_name || referrer.email || referrer.id.slice(0, 8))
+          : null;
         return {
           id: p.id,
           full_name: p.full_name,
@@ -83,8 +244,31 @@ export default function AdminUsuarios() {
           lojas_count: userLojas.length,
           custom_prices: (p.custom_prices as Record<string, number>) || null,
           blocked: !!(p as any).blocked,
+          whatsapp_verificado: !!isVerified,
+          pending_code: pendingCode,
+          referral_code: p.referral_code || null,
+          referred_by_name,
+          admin_tag: (p as any).admin_tag || null,
         };
       });
+    },
+  });
+
+  const saveTagMutation = useMutation({
+    mutationFn: async ({ userId, tag }: { userId: string; tag: string | null }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ admin_tag: tag } as any)
+        .eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
+      setEditingTagUserId(null);
+      toast.success("Tag salva!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao salvar tag.");
     },
   });
 
@@ -188,7 +372,7 @@ export default function AdminUsuarios() {
       const defaultDesc = action === "adicionar" ? "Adicionado pelo admin" : "Removido pelo admin";
       const { error: insertErr } = await supabase.from("creditos_transacoes").insert({
         user_id: userId,
-        tipo: action === "adicionar" ? "adicao" : "remocao",
+        tipo: action === "adicionar" ? "adicao" : "consumo",
         quantidade: qty,
         descricao: desc || defaultDesc,
         admin_id: user!.id,
@@ -233,6 +417,114 @@ export default function AdminUsuarios() {
     <AdminLayout>
       <h1 className="text-2xl font-bold text-foreground mb-6">Gestão de Usuários</h1>
 
+      <DiagnosticoDebitos />
+
+      {/* Pending SMS Verifications */}
+      {pendingVerifications.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              Verificações SMS Pendentes ({pendingVerifications.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Expira em</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingVerifications.map((v: any) => (
+                    <TableRow key={v.id}>
+                      <TableCell className="font-medium">{v.full_name}</TableCell>
+                      <TableCell>{v.phone}</TableCell>
+                      <TableCell>{v.email}</TableCell>
+                      <TableCell>
+                        <code className="bg-muted px-2 py-0.5 rounded text-sm font-mono">{v.code}</code>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {format(new Date(v.expires_at), "dd/MM HH:mm")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-primary"
+                            onClick={() => approveSmsVerification.mutate(v.id)}
+                            disabled={approveSmsVerification.isPending}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                            Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive border-destructive/20 hover:bg-destructive/5"
+                            onClick={() => deleteSmsVerification.mutate(v.id)}
+                            disabled={deleteSmsVerification.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />
+                            Excluir
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {rankingData.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-primary" />
+              Ranking de Recargas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="text-right">Total Recarregado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rankingData.slice(0, 10).map((r, i) => (
+                    <TableRow key={r.user_id}>
+                      <TableCell className="font-bold text-center">
+                        {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}º`}
+                      </TableCell>
+                      <TableCell className="font-medium">{r.full_name || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.email || "—"}</TableCell>
+                      <TableCell className="text-right font-semibold text-primary">
+                        {r.total_recargas.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Todos os Usuários</CardTitle>
@@ -250,20 +542,44 @@ export default function AdminUsuarios() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>WhatsApp</TableHead>
+                    <TableHead>WA Verificado</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Cadastro</TableHead>
                     <TableHead>Créditos</TableHead>
+                    <TableHead>Recargas</TableHead>
+                    <TableHead>Última Recarga</TableHead>
+                    <TableHead>Último Envio</TableHead>
+                    <TableHead>Envios (30d / total)</TableHead>
+                    <TableHead>Inatividade</TableHead>
                     <TableHead>Lojas</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                     <TableHead>Indicação</TableHead>
+                     <TableHead>Tag</TableHead>
+                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {usuarios.map((u) => (
+                  {[...usuarios].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((u) => (
                     <TableRow key={u.id} className={u.blocked ? "opacity-60" : ""}>
                       <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
                       <TableCell>{u.email || "—"}</TableCell>
                       <TableCell>{u.whatsapp || "—"}</TableCell>
+                      <TableCell>
+                        {u.whatsapp_verificado ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium flex items-center gap-1 w-fit">
+                            <CheckCircle className="h-3 w-3" /> Verificado
+                          </span>
+                        ) : (
+                          <div className="space-y-1">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Não verificado</span>
+                            {u.pending_code && (
+                              <div className="text-xs text-muted-foreground">
+                                Código: <code className="bg-muted px-1.5 py-0.5 rounded font-mono font-semibold">{u.pending_code}</code>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {u.blocked ? (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive font-medium">Bloqueado</span>
@@ -276,15 +592,122 @@ export default function AdminUsuarios() {
                           {u.role}
                         </span>
                       </TableCell>
-                      <TableCell>{format(new Date(u.created_at), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{format(new Date(u.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
                       <TableCell>
                         <span className="flex items-center gap-1">
                           <Coins className="h-3.5 w-3.5 text-primary" />
                           {Number(u.saldo).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          {(recargasMap[u.id] || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </TableCell>
+                      {(() => {
+                        const act = activityMap[u.id];
+                        const lastDep = act?.ultimo_deposito || null;
+                        const lastShip = act?.ultimo_envio || null;
+                        const total = Number(act?.total_envios || 0);
+                        const d30 = Number(act?.envios_30d || 0);
+                        const inact = formatInactivity(lastShip, u.created_at);
+                        return (
+                          <>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {lastDep ? format(new Date(lastDep), "dd/MM/yy") : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {lastShip ? format(new Date(lastShip), "dd/MM/yy") : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              <span className={d30 === 0 ? "text-muted-foreground" : "text-foreground font-medium"}>{d30}</span>
+                              <span className="text-muted-foreground"> / {total}</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${inact.critical ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                                {inact.label}
+                              </span>
+                            </TableCell>
+                          </>
+                        );
+                      })()}
                       <TableCell>{u.lojas_count}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
+                        <div className="space-y-1 min-w-[180px]">
+                          {u.referred_by_name && (
+                            <div className="flex items-center gap-1 text-xs">
+                              <Users className="h-3 w-3 text-primary" />
+                              <span className="text-muted-foreground">Indicado por:</span>
+                              <span className="font-medium text-foreground">{u.referred_by_name}</span>
+                            </div>
+                          )}
+                          {u.referral_code && (
+                            <div className="flex items-center gap-1">
+                              <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono truncate max-w-[160px]">
+                                /signup?ref={u.referral_code}
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-5 w-5 p-0"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`https://magnusfrete.com/signup?ref=${u.referral_code}`);
+                                  toast.success("Link copiado!");
+                                }}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          {!u.referred_by_name && !u.referral_code && (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
+                       </TableCell>
+                       <TableCell>
+                         {editingTagUserId === u.id ? (
+                           <div className="flex items-center gap-1 min-w-[140px]">
+                             <Input
+                               value={tagValue}
+                               onChange={(e) => setTagValue(e.target.value)}
+                               className="h-7 text-xs w-24"
+                               placeholder="Tag..."
+                               autoFocus
+                               onKeyDown={(e) => {
+                                 if (e.key === "Enter") {
+                                   saveTagMutation.mutate({ userId: u.id, tag: tagValue.trim() || null });
+                                 } else if (e.key === "Escape") {
+                                   setEditingTagUserId(null);
+                                 }
+                               }}
+                             />
+                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => saveTagMutation.mutate({ userId: u.id, tag: tagValue.trim() || null })}>
+                               <Save className="h-3 w-3 text-primary" />
+                             </Button>
+                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setEditingTagUserId(null)}>
+                               <X className="h-3 w-3 text-muted-foreground" />
+                             </Button>
+                           </div>
+                         ) : (
+                           <div
+                             className="flex items-center gap-1 cursor-pointer group min-w-[80px]"
+                             onClick={() => { setEditingTagUserId(u.id); setTagValue(u.admin_tag || ""); }}
+                           >
+                             {u.admin_tag ? (
+                               <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium flex items-center gap-1">
+                                 <Tag className="h-3 w-3" />
+                                 {u.admin_tag}
+                               </span>
+                             ) : (
+                               <span className="text-xs text-muted-foreground group-hover:text-foreground flex items-center gap-1">
+                                 <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                 Adicionar
+                               </span>
+                             )}
+                           </div>
+                         )}
+                       </TableCell>
+                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5 flex-wrap">
                           <Button size="sm" variant="outline" onClick={() => {
                             setSelectedUserForPrices(u);
@@ -317,6 +740,15 @@ export default function AdminUsuarios() {
                           </Button>
                           {u.id !== user?.id && (
                             <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => confirmEmailMutation.mutate(u.id)}
+                                disabled={confirmEmailMutation.isPending}
+                              >
+                                <MailCheck className="h-3.5 w-3.5 mr-1" />
+                                Confirmar Email
+                              </Button>
                               <Button
                                 size="sm"
                                 variant={u.blocked ? "outline" : "secondary"}

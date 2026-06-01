@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
     const { data: envio, error: envioErr } = await supabase
       .from("envios")
-      .select("cliente_nome, cliente_telefone, codigo_rastreio")
+      .select("cliente_nome, cliente_telefone, codigo_rastreio, transportadora")
       .eq("id", envio_id)
       .single();
 
@@ -97,33 +97,20 @@ Deno.serve(async (req) => {
 
     const firstName = (envio.cliente_nome || "").split(" ")[0];
     const code = envio.codigo_rastreio || "";
-    const link = `https://rastreio.logisticajltransportes.com/r/${code}`;
+    // Determine tracking domain based on carrier
+    const transportadora = (envio.transportadora || "").toLowerCase();
+    const isVetor = transportadora.includes("vetor") || 
+                    (code && code.toUpperCase().endsWith("VT"));
+    const baseUrl = isVetor 
+      ? "https://vetortransportesltda.com"
+      : "https://rastreio.jltransportelogistica.com";
+    const link = `${baseUrl}/r/${code}`;
 
     const message = removeAccents(
       await getMessageFromDB(supabase, status_label, firstName, link)
     );
 
-    let finalMessage = message;
-
-    // Se a mensagem for "Falha na Entrega", buscamos a config para sobrescrever se o cliente alterou na UI.
-    // Falha na Entrega SMS fallback = tracking link 
-    if (status_label === "Falha Entrega" || status_label === "Falha na Entrega") {
-      const { data: configData } = await supabase
-        .from("postagem_config")
-        .select("msg_falha_entrega")
-        .eq("loja_id", loja_id)
-        .maybeSingle();
-
-      if (configData && configData.msg_falha_entrega) {
-        // Basic regex replacements for the personalized fallback SMS message
-        let falhaMsg = configData.msg_falha_entrega
-          .replace(/\{\{cliente_nome\}\}/g, firstName)
-          .replace(/\{\{codigo_rastreio\}\}/g, code)
-          .replace(/\{\{produto\}\}/g, "seu pedido");
-
-        finalMessage = removeAccents(`${falhaMsg} Acesse: ${link}`);
-      }
-    }
+    const finalMessage = message;
 
     const phone = formatPhone(envio.cliente_telefone);
     const token = Deno.env.get("INTEGRAX_API_KEY")!;

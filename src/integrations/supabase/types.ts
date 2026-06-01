@@ -14,11 +14,149 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_cashback_processed: {
+        Row: {
+          destinatarios: Json
+          id: string
+          period_end: string
+          period_start: string
+          processed_at: string
+          processed_by: string
+          total_cashback: number
+          total_clients: number
+          user_id: string
+        }
+        Insert: {
+          destinatarios?: Json
+          id?: string
+          period_end: string
+          period_start: string
+          processed_at?: string
+          processed_by: string
+          total_cashback?: number
+          total_clients?: number
+          user_id: string
+        }
+        Update: {
+          destinatarios?: Json
+          id?: string
+          period_end?: string
+          period_start?: string
+          processed_at?: string
+          processed_by?: string
+          total_cashback?: number
+          total_clients?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      admin_payment_webhooks: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          label: string | null
+          url: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          label?: string | null
+          url: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          label?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
+      batch_progress: {
+        Row: {
+          cancelled: boolean
+          current_item: number
+          id: string
+          loja_id: string
+          started_at: string
+          total_items: number
+          updated_at: string
+        }
+        Insert: {
+          cancelled?: boolean
+          current_item?: number
+          id?: string
+          loja_id: string
+          started_at?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Update: {
+          cancelled?: boolean
+          current_item?: number
+          id?: string
+          loja_id?: string
+          started_at?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_progress_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cashback_log: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          envio_id: string
+          id: string
+          loja_id: string
+          motivo: string | null
+          status: string
+          user_id: string
+          valor_devolvido: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          envio_id: string
+          id?: string
+          loja_id: string
+          motivo?: string | null
+          status?: string
+          user_id: string
+          valor_devolvido?: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          envio_id?: string
+          id?: string
+          loja_id?: string
+          motivo?: string | null
+          status?: string
+          user_id?: string
+          valor_devolvido?: number
+        }
+        Relationships: []
+      }
       checkout_integrations: {
         Row: {
           ativo: boolean
           checkout_id: string
           created_at: string
+          filtro_metodo: string
           id: string
           loja_id: string
           updated_at: string
@@ -27,6 +165,7 @@ export type Database = {
           ativo?: boolean
           checkout_id: string
           created_at?: string
+          filtro_metodo?: string
           id?: string
           loja_id: string
           updated_at?: string
@@ -35,11 +174,140 @@ export type Database = {
           ativo?: boolean
           checkout_id?: string
           created_at?: string
+          filtro_metodo?: string
           id?: string
           loja_id?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      cleanup_history: {
+        Row: {
+          action: string
+          details: Json | null
+          executed_at: string
+          executed_by: string | null
+          id: string
+          rows_affected: number
+        }
+        Insert: {
+          action: string
+          details?: Json | null
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          rows_affected?: number
+        }
+        Update: {
+          action?: string
+          details?: Json | null
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          rows_affected?: number
+        }
+        Relationships: []
+      }
+      confirmacao_pagamento_config: {
+        Row: {
+          assunto_email: string
+          ativo: boolean
+          corpo_email: string
+          created_at: string
+          email_remetente_nome: string | null
+          enviar_email: boolean
+          enviar_sms: boolean
+          id: string
+          loja_id: string
+          sms_template: string
+          updated_at: string
+        }
+        Insert: {
+          assunto_email?: string
+          ativo?: boolean
+          corpo_email?: string
+          created_at?: string
+          email_remetente_nome?: string | null
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          id?: string
+          loja_id: string
+          sms_template?: string
+          updated_at?: string
+        }
+        Update: {
+          assunto_email?: string
+          ativo?: boolean
+          corpo_email?: string
+          created_at?: string
+          email_remetente_nome?: string | null
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          id?: string
+          loja_id?: string
+          sms_template?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confirmacao_pagamento_config_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      confirmacao_pagamento_log: {
+        Row: {
+          created_at: string
+          custo: number
+          destinatario: string
+          error_reason: string | null
+          id: string
+          loja_id: string
+          pedido_id: string | null
+          status: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          custo?: number
+          destinatario: string
+          error_reason?: string | null
+          id?: string
+          loja_id: string
+          pedido_id?: string | null
+          status?: string
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          custo?: number
+          destinatario?: string
+          error_reason?: string | null
+          id?: string
+          loja_id?: string
+          pedido_id?: string | null
+          status?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confirmacao_pagamento_log_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "confirmacao_pagamento_log_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       creditos: {
         Row: {
@@ -364,6 +632,54 @@ export type Database = {
           },
         ]
       }
+      live_view_pings: {
+        Row: {
+          cidade: string | null
+          codigo_rastreio: string | null
+          created_at: string
+          estado: string | null
+          id: string
+          last_seen_at: string
+          lat: number | null
+          lng: number | null
+          loja_id: string
+          pais: string | null
+          pais_codigo: string | null
+          session_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          codigo_rastreio?: string | null
+          created_at?: string
+          estado?: string | null
+          id?: string
+          last_seen_at?: string
+          lat?: number | null
+          lng?: number | null
+          loja_id: string
+          pais?: string | null
+          pais_codigo?: string | null
+          session_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          codigo_rastreio?: string | null
+          created_at?: string
+          estado?: string | null
+          id?: string
+          last_seen_at?: string
+          lat?: number | null
+          lng?: number | null
+          loja_id?: string
+          pais?: string | null
+          pais_codigo?: string | null
+          session_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       lojas: {
         Row: {
           created_at: string
@@ -545,6 +861,7 @@ export type Database = {
           ativar_falha_entrega: boolean
           ativar_site_rastreio: boolean
           ativar_taxacao: boolean
+          ativar_vizinho: boolean
           auto_envio: boolean | null
           checkout_url_falha: string | null
           cor_botao_cta: string | null
@@ -562,6 +879,7 @@ export type Database = {
           updated_at: string
           valor_taxa_falha: number | null
           whatsapp_auto_send: boolean | null
+          whatsapp_auto_send_started_at: string | null
           whatsapp_btn_text: string | null
           whatsapp_btn2_text: string | null
           whatsapp_btn2_url: string | null
@@ -576,6 +894,7 @@ export type Database = {
           ativar_falha_entrega?: boolean
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
+          ativar_vizinho?: boolean
           auto_envio?: boolean | null
           checkout_url_falha?: string | null
           cor_botao_cta?: string | null
@@ -593,6 +912,7 @@ export type Database = {
           updated_at?: string
           valor_taxa_falha?: number | null
           whatsapp_auto_send?: boolean | null
+          whatsapp_auto_send_started_at?: string | null
           whatsapp_btn_text?: string | null
           whatsapp_btn2_text?: string | null
           whatsapp_btn2_url?: string | null
@@ -607,6 +927,7 @@ export type Database = {
           ativar_falha_entrega?: boolean
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
+          ativar_vizinho?: boolean
           auto_envio?: boolean | null
           checkout_url_falha?: string | null
           cor_botao_cta?: string | null
@@ -624,6 +945,7 @@ export type Database = {
           updated_at?: string
           valor_taxa_falha?: number | null
           whatsapp_auto_send?: boolean | null
+          whatsapp_auto_send_started_at?: string | null
           whatsapp_btn_text?: string | null
           whatsapp_btn2_text?: string | null
           whatsapp_btn2_url?: string | null
@@ -661,7 +983,9 @@ export type Database = {
           evento_id: string | null
           id: string
           loja_id: string
+          resend_email_id: string | null
           status: string
+          updated_at: string | null
         }
         Insert: {
           assunto?: string | null
@@ -672,7 +996,9 @@ export type Database = {
           evento_id?: string | null
           id?: string
           loja_id: string
+          resend_email_id?: string | null
           status?: string
+          updated_at?: string | null
         }
         Update: {
           assunto?: string | null
@@ -683,7 +1009,9 @@ export type Database = {
           evento_id?: string | null
           id?: string
           loja_id?: string
+          resend_email_id?: string | null
           status?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -805,6 +1133,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_tag: string | null
           blocked: boolean
           created_at: string
           custom_prices: Json | null
@@ -815,8 +1144,10 @@ export type Database = {
           referral_code: string | null
           referred_by: string | null
           whatsapp: string | null
+          whatsapp_verified: boolean
         }
         Insert: {
+          admin_tag?: string | null
           blocked?: boolean
           created_at?: string
           custom_prices?: Json | null
@@ -827,8 +1158,10 @@ export type Database = {
           referral_code?: string | null
           referred_by?: string | null
           whatsapp?: string | null
+          whatsapp_verified?: boolean
         }
         Update: {
+          admin_tag?: string | null
           blocked?: boolean
           created_at?: string
           custom_prices?: Json | null
@@ -839,6 +1172,7 @@ export type Database = {
           referral_code?: string | null
           referred_by?: string | null
           whatsapp?: string | null
+          whatsapp_verified?: boolean
         }
         Relationships: []
       }
@@ -959,6 +1293,148 @@ export type Database = {
         }
         Relationships: []
       }
+      recovery_config: {
+        Row: {
+          assunto_email: string
+          ativo: boolean
+          beneficio_1: string | null
+          beneficio_2: string | null
+          beneficio_3: string | null
+          beneficio_principal: string | null
+          codigo_cupom: string | null
+          corpo_email: string
+          created_at: string
+          cupom_ativo: boolean
+          delay_minutos: number
+          descricao_cupom: string | null
+          enviar_sms: boolean
+          garantia: string | null
+          id: string
+          loja_id: string
+          ps_reforco_urgencia: string | null
+          sms_template: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          assunto_email?: string
+          ativo?: boolean
+          beneficio_1?: string | null
+          beneficio_2?: string | null
+          beneficio_3?: string | null
+          beneficio_principal?: string | null
+          codigo_cupom?: string | null
+          corpo_email?: string
+          created_at?: string
+          cupom_ativo?: boolean
+          delay_minutos?: number
+          descricao_cupom?: string | null
+          enviar_sms?: boolean
+          garantia?: string | null
+          id?: string
+          loja_id: string
+          ps_reforco_urgencia?: string | null
+          sms_template?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          assunto_email?: string
+          ativo?: boolean
+          beneficio_1?: string | null
+          beneficio_2?: string | null
+          beneficio_3?: string | null
+          beneficio_principal?: string | null
+          codigo_cupom?: string | null
+          corpo_email?: string
+          created_at?: string
+          cupom_ativo?: boolean
+          delay_minutos?: number
+          descricao_cupom?: string | null
+          enviar_sms?: boolean
+          garantia?: string | null
+          id?: string
+          loja_id?: string
+          ps_reforco_urgencia?: string | null
+          sms_template?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_config_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recovery_leads: {
+        Row: {
+          checkout_url: string | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string | null
+          email_sent_at: string | null
+          id: string
+          loja_id: string
+          pix_code: string | null
+          pix_qrcode_url: string | null
+          products: Json | null
+          raw_payload: Json | null
+          sms_sent_at: string | null
+          status: string
+          tipo: string
+          total_value: number
+        }
+        Insert: {
+          checkout_url?: string | null
+          created_at?: string
+          customer_email: string
+          customer_name?: string
+          customer_phone?: string | null
+          email_sent_at?: string | null
+          id?: string
+          loja_id: string
+          pix_code?: string | null
+          pix_qrcode_url?: string | null
+          products?: Json | null
+          raw_payload?: Json | null
+          sms_sent_at?: string | null
+          status?: string
+          tipo?: string
+          total_value?: number
+        }
+        Update: {
+          checkout_url?: string | null
+          created_at?: string
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string | null
+          email_sent_at?: string | null
+          id?: string
+          loja_id?: string
+          pix_code?: string | null
+          pix_qrcode_url?: string | null
+          products?: Json | null
+          raw_payload?: Json | null
+          sms_sent_at?: string | null
+          status?: string
+          tipo?: string
+          total_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_leads_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_earnings: {
         Row: {
           amount_earned: number
@@ -983,6 +1459,51 @@ export type Database = {
           pix_payment_id?: string
           referred_id?: string
           referrer_id?: string
+        }
+        Relationships: []
+      }
+      retry_execucoes: {
+        Row: {
+          expires_at: string
+          falhas: number
+          finished_at: string | null
+          id: string
+          loja_id: string
+          mensagem: string | null
+          processados: number
+          started_at: string
+          status: string
+          sucesso: number
+          total_pendentes: number
+          updated_at: string
+        }
+        Insert: {
+          expires_at?: string
+          falhas?: number
+          finished_at?: string | null
+          id?: string
+          loja_id: string
+          mensagem?: string | null
+          processados?: number
+          started_at?: string
+          status?: string
+          sucesso?: number
+          total_pendentes?: number
+          updated_at?: string
+        }
+        Update: {
+          expires_at?: string
+          falhas?: number
+          finished_at?: string | null
+          id?: string
+          loja_id?: string
+          mensagem?: string | null
+          processados?: number
+          started_at?: string
+          status?: string
+          sucesso?: number
+          total_pendentes?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1030,6 +1551,45 @@ export type Database = {
           },
         ]
       }
+      signup_verifications: {
+        Row: {
+          approved_by: string | null
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          phone: string
+          status: string
+          verified_at: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          code: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          full_name: string
+          id?: string
+          phone: string
+          status?: string
+          verified_at?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          full_name?: string
+          id?: string
+          phone?: string
+          status?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       sms_templates: {
         Row: {
           created_at: string
@@ -1062,6 +1622,7 @@ export type Database = {
           created_at: string
           key: string
           label: string | null
+          text_value: string | null
           updated_at: string
           value: number
         }
@@ -1069,6 +1630,7 @@ export type Database = {
           created_at?: string
           key: string
           label?: string | null
+          text_value?: string | null
           updated_at?: string
           value?: number
         }
@@ -1076,10 +1638,94 @@ export type Database = {
           created_at?: string
           key?: string
           label?: string | null
+          text_value?: string | null
           updated_at?: string
           value?: number
         }
         Relationships: []
+      }
+      upsell_config: {
+        Row: {
+          ativo: boolean
+          botao_texto: string | null
+          botao_url: string | null
+          cor_botao_bg: string | null
+          cor_botao_texto: string | null
+          cor_descricao: string | null
+          cor_fundo: string | null
+          cor_headline: string | null
+          cor_nome_produto: string | null
+          cor_sub_headline: string | null
+          cor_valor: string | null
+          created_at: string
+          headline: string | null
+          id: string
+          loja_id: string
+          produto_descricao: string | null
+          produto_imagem_url: string | null
+          produto_nome: string | null
+          produto_valor: string | null
+          sub_headline: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          botao_texto?: string | null
+          botao_url?: string | null
+          cor_botao_bg?: string | null
+          cor_botao_texto?: string | null
+          cor_descricao?: string | null
+          cor_fundo?: string | null
+          cor_headline?: string | null
+          cor_nome_produto?: string | null
+          cor_sub_headline?: string | null
+          cor_valor?: string | null
+          created_at?: string
+          headline?: string | null
+          id?: string
+          loja_id: string
+          produto_descricao?: string | null
+          produto_imagem_url?: string | null
+          produto_nome?: string | null
+          produto_valor?: string | null
+          sub_headline?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          botao_texto?: string | null
+          botao_url?: string | null
+          cor_botao_bg?: string | null
+          cor_botao_texto?: string | null
+          cor_descricao?: string | null
+          cor_fundo?: string | null
+          cor_headline?: string | null
+          cor_nome_produto?: string | null
+          cor_sub_headline?: string | null
+          cor_valor?: string | null
+          created_at?: string
+          headline?: string | null
+          id?: string
+          loja_id?: string
+          produto_descricao?: string | null
+          produto_imagem_url?: string | null
+          produto_nome?: string | null
+          produto_valor?: string | null
+          sub_headline?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upsell_config_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -1147,6 +1793,7 @@ export type Database = {
           id: string
           instance_name: string
           instance_token: string
+          label: string | null
           loja_id: string
           pairing_code: string | null
           phone: string | null
@@ -1162,6 +1809,7 @@ export type Database = {
           id?: string
           instance_name: string
           instance_token: string
+          label?: string | null
           loja_id: string
           pairing_code?: string | null
           phone?: string | null
@@ -1177,6 +1825,7 @@ export type Database = {
           id?: string
           instance_name?: string
           instance_token?: string
+          label?: string | null
           loja_id?: string
           pairing_code?: string | null
           phone?: string | null
@@ -1207,25 +1856,34 @@ export type Database = {
         Row: {
           created_at: string
           envio_id: string
+          error_reason: string | null
+          http_status: number | null
           id: string
           instance_id: string | null
           loja_id: string
+          provider_response: Json | null
           status: string
         }
         Insert: {
           created_at?: string
           envio_id: string
+          error_reason?: string | null
+          http_status?: number | null
           id?: string
           instance_id?: string | null
           loja_id: string
+          provider_response?: Json | null
           status?: string
         }
         Update: {
           created_at?: string
           envio_id?: string
+          error_reason?: string | null
+          http_status?: number | null
           id?: string
           instance_id?: string | null
           loja_id?: string
+          provider_response?: Json | null
           status?: string
         }
         Relationships: [
@@ -1245,6 +1903,88 @@ export type Database = {
           },
           {
             foreignKeyName: "whatsapp_message_log_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_send_queue: {
+        Row: {
+          choices: Json | null
+          created_at: string
+          envio_id: string
+          error_reason: string | null
+          footer_text: string | null
+          http_status: number | null
+          id: string
+          image_url: string | null
+          instance_id: string | null
+          loja_id: string
+          msg_text: string
+          number: string
+          processed_at: string | null
+          provider_response: Json | null
+          retry_count: number
+          scheduled_at: string
+          status: string
+        }
+        Insert: {
+          choices?: Json | null
+          created_at?: string
+          envio_id: string
+          error_reason?: string | null
+          footer_text?: string | null
+          http_status?: number | null
+          id?: string
+          image_url?: string | null
+          instance_id?: string | null
+          loja_id: string
+          msg_text: string
+          number: string
+          processed_at?: string | null
+          provider_response?: Json | null
+          retry_count?: number
+          scheduled_at?: string
+          status?: string
+        }
+        Update: {
+          choices?: Json | null
+          created_at?: string
+          envio_id?: string
+          error_reason?: string | null
+          footer_text?: string | null
+          http_status?: number | null
+          id?: string
+          image_url?: string | null
+          instance_id?: string | null
+          loja_id?: string
+          msg_text?: string
+          number?: string
+          processed_at?: string | null
+          provider_response?: Json | null
+          retry_count?: number
+          scheduled_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_send_queue_envio_id_fkey"
+            columns: ["envio_id"]
+            isOneToOne: false
+            referencedRelation: "envios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_send_queue_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_send_queue_loja_id_fkey"
             columns: ["loja_id"]
             isOneToOne: false
             referencedRelation: "lojas"
@@ -1292,9 +2032,159 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_cashback: {
+        Args: { _admin_id: string; _cashback_id: string }
+        Returns: boolean
+      }
+      cleanup_internal_logs: { Args: never; Returns: Json }
+      cleanup_old_data: { Args: never; Returns: Json }
+      cleanup_pedidos_payloads: { Args: never; Returns: Json }
+      cleanup_webhook_logs: { Args: never; Returns: Json }
+      cleanup_whatsapp_queue: { Args: never; Returns: Json }
       debit_user_credits: {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
+      }
+      get_admin_debit_diagnostics: {
+        Args: never
+        Returns: {
+          auto_envio: boolean
+          custo_estimado: number
+          envios_travados: number
+          filtro_metodo: string
+          loja_id: string
+          loja_nome: string
+          motivo: string
+          pedidos_descartados: number
+          saldo: number
+          ultima_atividade: string
+          user_email: string
+          user_id: string
+          user_nome: string
+        }[]
+      }
+      get_admin_user_activity: {
+        Args: never
+        Returns: {
+          envios_30d: number
+          total_envios: number
+          ultimo_deposito: string
+          ultimo_envio: string
+          user_id: string
+        }[]
+      }
+      get_cloud_usage_stats: { Args: never; Returns: Json }
+      get_confirmacao_grouped: {
+        Args: {
+          p_date?: string
+          p_limit?: number
+          p_loja_id: string
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          created_at: string
+          custo_total: number
+          email: string
+          email_status: string
+          group_key: string
+          nome: string
+          pedido_id: string
+          sms_status: string
+          telefone: string
+          total_count: number
+        }[]
+      }
+      get_confirmacao_placar: {
+        Args: { p_loja_id: string }
+        Returns: {
+          enviados: number
+          pendentes: number
+          total: number
+        }[]
+      }
+      get_envios_paginated: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_loja_id: string
+          p_metodo?: string
+          p_origem?: string
+          p_page?: number
+          p_per_page?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          cfop: string
+          cliente_bairro: string
+          cliente_cep: string
+          cliente_cidade: string
+          cliente_complemento: string
+          cliente_cpf: string
+          cliente_email: string
+          cliente_endereco: string
+          cliente_estado: string
+          cliente_nome: string
+          cliente_numero: string
+          cliente_telefone: string
+          codigo_rastreio: string
+          created_at: string
+          cst: string
+          deleted_at: string
+          empresa_id: string
+          id: string
+          loja_id: string
+          metodo_pagamento: string
+          ncm_sh: string
+          nfe_chave_acesso: string
+          nfe_numero: string
+          nfe_serie: string
+          origem: string
+          postagem_template_id: string
+          produto: string
+          proximo_avanco_em: string
+          quantidade: number
+          status: Database["public"]["Enums"]["shipment_status"]
+          status_label: string
+          total_count: number
+          transportadora: string
+          ultimo_evento_ordem: number
+          unidade: string
+          updated_at: string
+          valor: number
+        }[]
+      }
+      get_envios_stats: {
+        Args: { p_loja_id: string }
+        Returns: {
+          em_transito: number
+          entregues: number
+          pendentes: number
+          total: number
+        }[]
+      }
+      get_loja_chart_data: {
+        Args: { p_loja_id: string }
+        Returns: {
+          dia: string
+          pedidos: number
+          receita: number
+        }[]
+      }
+      get_loja_faturamento: { Args: { p_loja_id: string }; Returns: number }
+      get_my_debit_blocks: {
+        Args: { p_loja_id: string }
+        Returns: {
+          auto_envio: boolean
+          custo_estimado: number
+          envios_travados: number
+          filtro_metodo: string
+          motivo: string
+          pedidos_descartados: number
+          saldo: number
+        }[]
       }
       has_role: {
         Args: {
@@ -1302,6 +2192,31 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      process_cashback: {
+        Args: { _envio_id: string; _user_id: string }
+        Returns: number
+      }
+      refund_user_credits: {
+        Args: { _descricao: string; _quantidade: number; _user_id: string }
+        Returns: boolean
+      }
+      reject_cashback: {
+        Args: { _admin_id: string; _cashback_id: string }
+        Returns: boolean
+      }
+      try_create_envio_dedupe: {
+        Args: {
+          _cliente_email: string
+          _envio_data: Json
+          _loja_id: string
+          _valor: number
+        }
+        Returns: {
+          codigo_rastreio: string
+          envio_id: string
+          was_duplicate: boolean
+        }[]
       }
       user_owns_loja: {
         Args: { _loja_id: string; _user_id: string }

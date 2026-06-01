@@ -174,11 +174,17 @@ export default function AdminEmail() {
                         <TableCell>{log.destinatario}</TableCell>
                         <TableCell>{log.assunto}</TableCell>
                         <TableCell>
-                          {log.status === "sent" || log.status === "success" ? (
-                            <Badge className="bg-green-500 hover:bg-green-600">Enviado</Badge>
-                          ) : (
-                            <Badge variant="destructive">Falha</Badge>
-                          )}
+                          {(() => {
+                            const s = log.status;
+                            if (s === "delivered") return <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white">Entregue</Badge>;
+                            if (s === "opened") return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Aberto</Badge>;
+                            if (s === "clicked") return <Badge className="bg-indigo-500 hover:bg-indigo-600 text-white">Clicado</Badge>;
+                            if (s === "sent" || s === "success") return <Badge className="bg-green-500 hover:bg-green-600 text-white">Enviado</Badge>;
+                            if (s === "bounced") return <Badge className="bg-red-500 hover:bg-red-600 text-white">Bounce</Badge>;
+                            if (s === "complained") return <Badge className="bg-orange-500 hover:bg-orange-600 text-white">Spam</Badge>;
+                            if (s === "delivery_delayed") return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-black">Atrasado</Badge>;
+                            return <Badge variant="destructive">Falha</Badge>;
+                          })()}
                         </TableCell>
                         <TableCell className="text-right">
                           {Number(log.custo).toLocaleString("pt-BR", {

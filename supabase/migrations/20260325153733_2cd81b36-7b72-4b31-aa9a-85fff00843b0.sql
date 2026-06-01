@@ -1,0 +1,1 @@
+ALTER TABLE public.system_config ADD COLUMN text_value text;

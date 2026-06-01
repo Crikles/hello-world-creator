@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     AlertTriangle,
@@ -43,6 +44,8 @@ import { formatProduto } from "@/lib/format-produto";
 export default function FalhaEntrega() {
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("pendentes");
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
     const queryClient = useQueryClient();
     const { loja } = useLoja();
 
@@ -52,7 +55,7 @@ export default function FalhaEntrega() {
             if (!loja) return null;
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id")
+                .select("template_ativo_id, valor_taxa_falha")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
             if (!config?.template_ativo_id) return null;
@@ -67,6 +70,7 @@ export default function FalhaEntrega() {
             return {
                 falha_ordem: falhaEvento?.ordem ?? null,
                 template_id: config.template_ativo_id,
+                valor_reenvio: Number(config.valor_taxa_falha) || 0,
             };
         },
         enabled: !!loja,
@@ -112,6 +116,50 @@ export default function FalhaEntrega() {
         },
     });
 
+    const bulkApproveMutation = useMutation({
+        mutationFn: async (ids: string[]) => {
+            if (!loja?.id) throw new Error("Loja não encontrada");
+            const results: { id: string; ok: boolean }[] = [];
+            for (let i = 0; i < ids.length; i++) {
+                setBulkProgress({ current: i + 1, total: ids.length });
+                try {
+                    const result = await triggerNextEmail(ids[i], loja.id, true);
+                    results.push({ id: ids[i], ok: !!result });
+                } catch {
+                    results.push({ id: ids[i], ok: false });
+                }
+            }
+            return results;
+        },
+        onSuccess: (results) => {
+            const ok = results.filter((r) => r.ok).length;
+            const fail = results.length - ok;
+            setSelectedIds(new Set());
+            setBulkProgress(null);
+            queryClient.invalidateQueries({ queryKey: ["falha-envios"] });
+            queryClient.invalidateQueries({ queryKey: ["envios"] });
+            toast.success(`${ok} pagamento(s) aprovado(s)${fail > 0 ? `, ${fail} falha(s)` : ""}`);
+        },
+        onError: () => {
+            setBulkProgress(null);
+            toast.error("Erro ao processar aprovações em massa");
+        },
+    });
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const handleTabChange = (newTab: string) => {
+        setTab(newTab);
+        setSelectedIds(new Set());
+    };
+
     const pendentes = envios.filter((e) => e.falha_status === "pendente");
     const aprovados = envios.filter((e) => e.falha_status === "aprovado");
     const currentList = tab === "pendentes" ? pendentes : aprovados;
@@ -128,7 +176,8 @@ export default function FalhaEntrega() {
 
     const totalPendentes = pendentes.length;
     const totalAprovados = aprovados.length;
-    const totalValorPendente = pendentes.reduce((sum, e) => sum + Number(e.valor), 0);
+    const valorReenvio = falhaEventos?.valor_reenvio || 0;
+    const totalValorPendente = totalPendentes * valorReenvio;
 
     const metrics = [
         { label: "Pendentes", value: String(totalPendentes), icon: Clock, delay: 0 },
@@ -197,23 +246,64 @@ export default function FalhaEntrega() {
             {/* Action Bar */}
             <div className="glass-strong glow-border rounded-xl p-3">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-                    <Tabs value={tab} onValueChange={setTab} className="w-auto">
-                        <TabsList className="glass h-8">
-                            <TabsTrigger value="pendentes" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
-                                <Clock className="h-3 w-3" />
-                                Pendentes
-                                {totalPendentes > 0 && (
-                                    <span className="ml-0.5 bg-destructive/80 text-destructive-foreground text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                                        {totalPendentes}
-                                    </span>
+                    <div className="flex items-center gap-3">
+                        <Tabs value={tab} onValueChange={handleTabChange} className="w-auto">
+                            <TabsList className="glass h-8">
+                                <TabsTrigger value="pendentes" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
+                                    <Clock className="h-3 w-3" />
+                                    Pendentes
+                                    {totalPendentes > 0 && (
+                                        <span className="ml-0.5 bg-destructive/80 text-destructive-foreground text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                                            {totalPendentes}
+                                        </span>
+                                    )}
+                                </TabsTrigger>
+                                <TabsTrigger value="aprovados" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Aprovados
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+
+                        {tab === "pendentes" && pendentes.length > 0 && (
+                            <>
+                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                                    <Checkbox
+                                        checked={pendentes.length > 0 && selectedIds.size === pendentes.length}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                setSelectedIds(new Set(pendentes.map((e) => e.id)));
+                                            } else {
+                                                setSelectedIds(new Set());
+                                            }
+                                        }}
+                                    />
+                                    Selecionar todos
+                                </label>
+
+                                {selectedIds.size > 0 && (
+                                    <Button
+                                        size="sm"
+                                        className="h-7 text-xs shimmer-btn gap-1"
+                                        disabled={bulkApproveMutation.isPending}
+                                        onClick={() => bulkApproveMutation.mutate(Array.from(selectedIds))}
+                                    >
+                                        {bulkApproveMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                Aprovando {bulkProgress?.current}/{bulkProgress?.total}...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ShieldCheck className="h-3 w-3" />
+                                                Aprovar ({selectedIds.size})
+                                            </>
+                                        )}
+                                    </Button>
                                 )}
-                            </TabsTrigger>
-                            <TabsTrigger value="aprovados" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-7">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Aprovados
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                            </>
+                        )}
+                    </div>
 
                     <div className="relative w-full md:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -254,14 +344,23 @@ export default function FalhaEntrega() {
                     {filteredList.map((envio, idx) => (
                         <div
                             key={envio.id}
-                            className="glass glow-border-hover rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] animate-stagger-in group"
+                            className={`glass glow-border-hover rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] animate-stagger-in group ${selectedIds.has(envio.id) ? "ring-2 ring-primary/40" : ""}`}
                             style={{ animationDelay: `${idx * 0.05}s` }}
                         >
                             {/* Header */}
                             <div className="flex items-start justify-between mb-3">
-                                <div className="min-w-0 flex-1">
-                                    <p className="font-semibold text-foreground truncate">{envio.cliente_nome}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{envio.cliente_email}</p>
+                                <div className="flex items-start gap-2 min-w-0 flex-1">
+                                    {tab === "pendentes" && (
+                                        <Checkbox
+                                            checked={selectedIds.has(envio.id)}
+                                            onCheckedChange={() => toggleSelect(envio.id)}
+                                            className="mt-0.5 shrink-0"
+                                        />
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold text-foreground truncate">{envio.cliente_nome}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{envio.cliente_email}</p>
+                                    </div>
                                 </div>
                                 <Badge
                                     variant="secondary"
@@ -283,7 +382,7 @@ export default function FalhaEntrega() {
                                 </div>
 
                                 <div className="flex items-center justify-between">
-                                    <span className="text-lg font-bold text-primary">R$ {Number(envio.valor).toFixed(2)}</span>
+                                    <span className="text-lg font-bold text-primary">R$ {valorReenvio.toFixed(2)}</span>
                                     {envio.codigo_rastreio && (
                                         <span className="font-mono text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
                                             {envio.codigo_rastreio}

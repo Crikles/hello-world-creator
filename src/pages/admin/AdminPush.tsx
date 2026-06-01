@@ -410,7 +410,7 @@ export default function AdminPush() {
                                     URL de Direcionamento Padrão
                                 </label>
                                 <Input
-                                    placeholder="https://rastreio.logisticajltransportes.com/"
+                                    placeholder="https://rastreio.jltransportelogistica.com/"
                                     value={defaultUrl}
                                     onChange={(e) => setDefaultUrl(e.target.value)}
                                 />
@@ -522,7 +522,7 @@ export default function AdminPush() {
                                     <Badge variant="secondary" className="text-[10px]">Opcional</Badge>
                                 </label>
                                 <Input
-                                    placeholder="https://rastreio.logisticajltransportes.com/r/CODIGO"
+                                    placeholder="https://rastreio.jltransportelogistica.com/r/CODIGO"
                                     value={pushUrl}
                                     onChange={(e) => setPushUrl(e.target.value)}
                                 />

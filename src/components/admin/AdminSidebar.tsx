@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Coins, Store, LogOut, Mail, FileText, DollarSign, MessageSquare, Contact, Bell, CreditCard, HeadphonesIcon, Smartphone } from "lucide-react";
+import { LayoutDashboard, Users, Coins, Store, LogOut, Mail, FileText, DollarSign, MessageSquare, Contact, Bell, CreditCard, HeadphonesIcon, Smartphone, HeartPulse, Undo2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -21,13 +21,16 @@ const menuItems = [
   { title: "Usuários", url: "/admin/usuarios", icon: Users },
   { title: "Créditos", url: "/admin/creditos", icon: Coins },
   { title: "Templates", url: "/admin/templates", icon: FileText },
-  { title: "Emails", url: "/admin/email", icon: Mail },
+  
   { title: "Valores", url: "/admin/valores", icon: DollarSign },
   { title: "SMS", url: "/admin/sms", icon: MessageSquare },
   { title: "Leads", url: "/admin/leads", icon: Contact },
   { title: "Push Web", url: "/admin/push", icon: Bell },
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
   { title: "WhatsApp", url: "/admin/whatsapp", icon: Smartphone },
+  { title: "Emails", url: "/admin/emails", icon: Mail },
+  { title: "Saúde Emails", url: "/admin/email-saude", icon: HeartPulse },
+  { title: "Cashback", url: "/admin/cashback", icon: Undo2 },
   { title: "Suporte", url: "/admin/suporte", icon: HeadphonesIcon },
 ];
 

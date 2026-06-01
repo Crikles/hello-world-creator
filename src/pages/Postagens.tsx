@@ -68,6 +68,7 @@ interface PostagemConfig {
   ativar_site_rastreio: boolean;
   ativar_taxacao: boolean;
   ativar_falha_entrega: boolean;
+  ativar_vizinho: boolean;
   origem_cidade: string | null;
   origem_estado: string | null;
   whatsapp_vendedor: string | null;
@@ -179,7 +180,8 @@ export default function Postagens() {
         .in("template_id", [
           "00000000-0000-0000-0000-000000000001",
           "00000000-0000-0000-0000-000000000002",
-          "00000000-0000-0000-0000-000000000003",
+          "00000000-0000-0000-0000-000000000004",
+          "00000000-0000-0000-0000-000000000005",
         ])
         .order("ordem");
       if (error) throw error;
@@ -282,7 +284,8 @@ export default function Postagens() {
       (config as any).origem_estado !== localConfig.origem_estado ||
       (config as any).whatsapp_vendedor !== localConfig.whatsapp_vendedor ||
       (config as any).cor_primaria !== localConfig.cor_primaria ||
-      (config as any).cor_botao_cta !== localConfig.cor_botao_cta;
+      (config as any).cor_botao_cta !== localConfig.cor_botao_cta ||
+      (config as any).ativar_vizinho !== localConfig.ativar_vizinho;
     const delaysChanged = activeEventos?.some(
       e => localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas
     );
@@ -291,11 +294,18 @@ export default function Postagens() {
 
   const sortedActiveEventos = activeEventos?.slice().sort((a, b) => a.ordem - b.ordem);
 
-  // Count SMS events (events without enviar_nfe_pdf) in active template
+  // Count SMS events — exclude NF-e and disabled flows (Falha/Taxação)
   const smsEventCount = useMemo(() => {
-    if (!sortedActiveEventos) return 0;
-    return sortedActiveEventos.filter(e => !e.enviar_nfe_pdf).length;
-  }, [sortedActiveEventos]);
+    if (!sortedActiveEventos || !localConfig) return 0;
+    const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+    const taxLabels = ["Taxação", "Pago"];
+    return sortedActiveEventos.filter(e => {
+      if (e.enviar_nfe_pdf) return false;
+      if (falhaLabels.includes(e.status_label || "") && !localConfig.ativar_falha_entrega) return false;
+      if (taxLabels.includes(e.status_label || "") && !localConfig.ativar_taxacao) return false;
+      return true;
+    }).length;
+  }, [sortedActiveEventos, localConfig]);
 
   const smsCostUnit = systemConfigValues?.custo_sms_rastreio ?? 0.25;
   const smsTotalCost = smsEventCount * smsCostUnit;
@@ -319,23 +329,58 @@ export default function Postagens() {
       if (!systemTemplate) return;
       const evts = systemEventos?.filter((e) => e.template_id === templateId) || [];
 
-      const { data: newTemplate, error: tErr } = await supabase
+      // Freeze: stamp the OLD template only on shipments already in progress (ordem >= 2),
+      // so newly-arrived pending orders pick up the NEW template instead of being locked
+      // into the previous one.
+      const oldTemplateId = config?.template_ativo_id;
+      if (oldTemplateId) {
+        await supabase
+          .from("envios")
+          .update({ postagem_template_id: oldTemplateId })
+          .eq("loja_id", loja.id)
+          .is("postagem_template_id", null)
+          .neq("status", "entregue")
+          .gte("ultimo_evento_ordem", 2)
+          .is("deleted_at", null);
+      }
+
+      // Reuse an existing non-system copy of this tipo for this loja if one already exists,
+      // otherwise create a fresh copy. Avoids accumulating duplicate template rows.
+      const { data: existingCopies } = await supabase
         .from("postagem_templates")
-        .insert({
-          loja_id: loja.id,
-          nome: systemTemplate.nome,
-          descricao: systemTemplate.descricao,
-          tipo: systemTemplate.tipo,
-          is_system: false,
-        })
-        .select()
-        .single();
-      if (tErr) throw tErr;
+        .select("id")
+        .eq("loja_id", loja.id)
+        .eq("tipo", systemTemplate.tipo)
+        .eq("is_system", false)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      let activeTemplateId: string;
+
+      if (existingCopies && existingCopies.length > 0) {
+        // Reuse: wipe its events and re-seed from the system template
+        activeTemplateId = existingCopies[0].id;
+        await supabase.from("postagem_eventos").delete().eq("template_id", activeTemplateId);
+      } else {
+        const { data: newTemplate, error: tErr } = await supabase
+          .from("postagem_templates")
+          .insert({
+            loja_id: loja.id,
+            nome: systemTemplate.nome,
+            descricao: systemTemplate.descricao,
+            tipo: systemTemplate.tipo,
+            is_system: false,
+          })
+          .select()
+          .single();
+        if (tErr) throw tErr;
+        activeTemplateId = newTemplate.id;
+      }
 
       if (evts.length > 0) {
         const { error: eErr } = await supabase.from("postagem_eventos").insert(
           evts.map((e) => ({
-            template_id: newTemplate.id,
+            template_id: activeTemplateId,
             nome: e.nome,
             descricao: e.descricao,
             status_label: e.status_label,
@@ -354,7 +399,7 @@ export default function Postagens() {
       const { error: cErr } = await supabase.from("postagem_config").upsert(
         {
           loja_id: loja.id,
-          template_ativo_id: newTemplate.id,
+          template_ativo_id: activeTemplateId,
           enviar_emails: config?.enviar_emails ?? true,
           enviar_nfe_email: config?.enviar_nfe_email ?? true,
         },
@@ -384,6 +429,7 @@ export default function Postagens() {
           ativar_site_rastreio: localConfig.ativar_site_rastreio,
           ativar_taxacao: localConfig.ativar_taxacao,
           ativar_falha_entrega: localConfig.ativar_falha_entrega,
+          ativar_vizinho: localConfig.ativar_vizinho,
           origem_cidade: localConfig.origem_cidade,
           origem_estado: localConfig.origem_estado,
           whatsapp_vendedor: localConfig.whatsapp_vendedor || null,
@@ -462,6 +508,17 @@ export default function Postagens() {
       checked: localConfig.ativar_falha_entrega || false,
       cost: systemConfigValues?.custo_falha_entrega ?? 1,
       toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_falha_entrega: !prev.ativar_falha_entrega } : prev),
+    },
+    {
+      key: "ativar_vizinho",
+      label: "Recebido por Vizinho",
+      desc: localConfig.ativar_vizinho
+        ? "Mostra dados fictícios de um vizinho como recebedor na entrega."
+        : 'Exibe apenas "Pedido entregue ao destinatário" sem dados de vizinho.',
+      icon: CheckCircle2,
+      checked: localConfig.ativar_vizinho ?? true,
+      cost: 0,
+      toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_vizinho: !prev.ativar_vizinho } : prev),
     },
   ] : [];
 
@@ -612,7 +669,7 @@ export default function Postagens() {
               <Zap className="h-4 w-4 text-primary" />
               Templates Pré-configurados
             </h2>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {systemTemplates?.map((template, idx) => {
                 const evts = systemEventos?.filter((e) => e.template_id === template.id) || [];
                 const isActive = activeTemplate?.tipo === template.tipo;
@@ -869,7 +926,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
   });
 
   const mutation = useMutation({
-    mutationFn: async (provider: "jl" | "jadlog") => {
+    mutationFn: async (provider: "jl" | "jadlog" | "vetor") => {
       if (!lojaId) return;
       const { error } = await supabase
         .from("lojas")
@@ -887,7 +944,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
     },
   });
 
-  const activeLabel = logisticaProvider === "jadlog" ? "JADLOG" : "JL Transportes";
+  const activeLabel = logisticaProvider === "vetor" ? "Vetor Transportes" : "JL Transportes";
 
   return (
     <Card>
@@ -905,7 +962,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
             Transportadora ativa: <strong className="text-primary">{activeLabel}</strong>
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => mutation.mutate("jl")}
             disabled={mutation.isPending}
@@ -918,15 +975,15 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
             <span className={`font-semibold text-sm ${logisticaProvider === "jl" ? "text-primary" : "text-slate-600"}`}>JL Transportes</span>
           </button>
           <button
-            onClick={() => mutation.mutate("jadlog")}
+            onClick={() => mutation.mutate("vetor")}
             disabled={mutation.isPending}
-            className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "jadlog"
+            className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "vetor"
                 ? "border-primary ring-2 ring-primary/20"
                 : "border-border hover:border-primary/50"
               }`}
           >
-            <img src="/logojadlog.png" alt="JADLOG" className="h-16 mb-3 object-contain" />
-            <span className={`font-semibold text-sm ${logisticaProvider === "jadlog" ? "text-primary" : "text-slate-600"}`}>JADLOG</span>
+            <img src="/logovetor.png" alt="Vetor Transportes" className="h-16 mb-3 object-contain" />
+            <span className={`font-semibold text-sm ${logisticaProvider === "vetor" ? "text-primary" : "text-slate-600"}`}>Vetor Transportes</span>
           </button>
         </div>
       </CardContent>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -12,6 +12,10 @@ export default function Login() {
   const [signupEmail, setSignupEmail] = useState("");
   const [resending, setResending] = useState(false);
   const isLogistics = isLogisticsDomain();
+
+  useEffect(() => {
+    document.title = "Magnus Frete - Login";
+  }, []);
 
   const handleLogin = async (email: string, password: string) => {
     setLoading(true);

@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { realUser, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
 
   if (authLoading || adminLoading) {
@@ -14,7 +14,7 @@ export function AdminRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!realUser) return <Navigate to="/login" replace />;
   if (!isAdmin) return <Navigate to="/lojas" replace />;
 
   return <>{children}</>;

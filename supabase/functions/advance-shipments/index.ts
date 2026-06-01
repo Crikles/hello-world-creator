@@ -1,6 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
+const NCM_CODES = ["61091000","62046200","64041900","85171200","84713012","33049910","42021200","42029200","71171900","96032100","39241000","85167100","94036000","49019900","85234990","62034200","61102000","85044090","90049090","95030090"];
+const CST_CODES = ["102","101","103","202","300","400","500","900","000","010","020","041","060"];
+function hashCode(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; } return h; }
+function getRandomNcm(seed?: string): string { const i = seed ? Math.abs(hashCode(seed)) % NCM_CODES.length : Math.floor(Math.random() * NCM_CODES.length); return NCM_CODES[i]; }
+function getRandomCst(seed?: string): string { const i = seed ? Math.abs(hashCode(seed + "_cst")) % CST_CODES.length : Math.floor(Math.random() * CST_CODES.length); return CST_CODES[i]; }
+
+function normalizeBrazilianPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10 || digits.length === 11) return "55" + digits;
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+  return digits;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -30,17 +43,34 @@ function parseProductItems(envio: any): ProductItem[] {
   if (raw.startsWith("[")) {
     try {
       const items = JSON.parse(raw) as ProductItem[];
-      if (Array.isArray(items) && items.length > 0) return items;
+      if (Array.isArray(items) && items.length > 0) {
+        // Distribute envio.valor if items lack individual valor
+        const hasAnyValor = items.some(i => i.valor && i.valor > 0);
+        if (!hasAnyValor && envio.valor && envio.valor > 0) {
+          const totalQty = items.reduce((s, i) => s + (i.quantidade || 1), 0);
+          items.forEach(i => { i.valor = envio.valor / totalQty; });
+        }
+        // Inherit fiscal fields
+        items.forEach((i, idx) => {
+          const seed = `${envio.id || ""}${idx}`;
+          if (!i.cfop) i.cfop = envio.cfop || "5102";
+          if (!i.ncm_sh) i.ncm_sh = envio.ncm_sh || getRandomNcm(seed);
+          if (!i.cst) i.cst = envio.cst || getRandomCst(seed);
+          if (!i.unidade) i.unidade = envio.unidade;
+        });
+        return items;
+      }
     } catch { /* fallthrough */ }
   }
+  const seed = envio.id || "default";
   return [{
     codigo: 1,
     nome: raw || "Produto",
     quantidade: envio.quantidade || 1,
     valor: envio.valor || 0,
-    cfop: envio.cfop,
-    ncm_sh: envio.ncm_sh,
-    cst: envio.cst,
+    cfop: envio.cfop || "5102",
+    ncm_sh: envio.ncm_sh || getRandomNcm(seed),
+    cst: envio.cst || getRandomCst(seed),
     unidade: envio.unidade,
   }];
 }
@@ -52,6 +82,13 @@ function formatCurrency(val: number): string {
 function truncate(text: string, maxLen: number): string {
   if (!text) return "";
   return text.length > maxLen ? text.substring(0, maxLen - 2) + ".." : text;
+}
+
+function toPdfSafeText(text: string): string {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "");
 }
 
 // deno-lint-ignore no-explicit-any
@@ -72,7 +109,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   let y = height - margin;
 
   const drawText = (text: string, x: number, yPos: number, size: number, font = fontRegular, color = black) => {
-    page.drawText(text || "", { x, y: yPos, size, font, color });
+    page.drawText(toPdfSafeText(text), { x, y: yPos, size, font, color });
   };
 
   const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
@@ -227,7 +264,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   const trH = 24;
   const tr1 = colWidth * 0.3;
   const tr2 = colWidth * 0.2;
-  drawLabelValue("RAZAO SOCIAL", "JL Transportes de Cargas LTDA", margin, y, tr1, trH);
+  drawLabelValue("RAZAO SOCIAL", "HOLDING Transportes de Cargas LTDA", margin, y, tr1, trH);
   drawLabelValue("FRETE POR CONTA", "0 - REMETENTE", margin + tr1, y, tr2, trH);
   drawLabelValue("PLACA", "FOD9C97", margin + tr1 + tr2, y, colWidth * 0.15, trH);
   drawLabelValue("UF", "SP", margin + tr1 + tr2 + colWidth * 0.15, y, colWidth * 0.1, trH);
@@ -258,7 +295,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
   y -= prodH;
 
   // Product rows
-  for (const item of productItems) {
+  for (const [idx, item] of productItems.entries()) {
     const rowH = 16;
     if (y - rowH < margin + 80) break; // Don't overflow page
 
@@ -270,7 +307,7 @@ async function generateDanfePdf(empresa: any, envio: any): Promise<Uint8Array> {
     const vals = [
       String(item.codigo || 1),
       truncate(item.nome || "Produto", 35),
-      item.ncm_sh || "00000000",
+      item.ncm_sh || getRandomNcm(String(idx)),
       item.cfop || "5102",
       item.unidade || "UN",
       `R$ ${formatCurrency(itemUnit)}`,
@@ -309,6 +346,19 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let targetLojaId: string | null = null;
+  let targetEnvioId: string | null = null;
+  try {
+    if (req.method !== "GET") {
+      const body = await req.json().catch(() => ({}));
+      targetLojaId = typeof body?.loja_id === "string" ? body.loja_id : null;
+      targetEnvioId = typeof body?.envio_id === "string" ? body.envio_id : null;
+    }
+  } catch {
+    targetLojaId = null;
+    targetEnvioId = null;
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -316,16 +366,22 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
   let totalProcessed = 0;
-  const MAX_PER_RUN = 200;
-  const MAX_PER_LOJA = 100;
-  const BATCH_DELAY_MS = 500; // delay between each shipment to avoid rate limits
+  const MAX_PER_RUN = 500;
+  const MAX_PER_LOJA = 300;
+  const BATCH_DELAY_MS = 200; // delay between each shipment to avoid rate limits
 
   try {
     // Fetch all stores with postagem config
-    const { data: configs, error: cfgErr } = await supabase
+    let configQuery = supabase
       .from("postagem_config")
       .select("*, lojas!postagem_config_loja_id_fkey(id, user_id)")
       .not("template_ativo_id", "is", null);
+
+    if (targetLojaId) {
+      configQuery = configQuery.eq("loja_id", targetLojaId);
+    }
+
+    const { data: configs, error: cfgErr } = await configQuery;
 
     if (cfgErr || !configs) {
       console.error("Failed to fetch configs:", cfgErr);
@@ -335,6 +391,35 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Pre-fetch active loja_ids to skip blocked/inactive accounts (otimização Cloud)
+    const allLojaIds = configs.map(c => c.loja_id).filter(Boolean);
+    const activeLojaIds = new Set<string>();
+    if (allLojaIds.length > 0 && !targetLojaId) {
+      const { data: recentEnvios } = await supabase
+        .from("envios")
+        .select("loja_id")
+        .in("loja_id", allLojaIds)
+        .is("deleted_at", null)
+        .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .limit(10000);
+      (recentEnvios || []).forEach((e: any) => e.loja_id && activeLojaIds.add(e.loja_id));
+
+      // Excluir contas bloqueadas
+      const userIds = Array.from(new Set(configs.map((c: any) => c.lojas?.user_id).filter(Boolean)));
+      if (userIds.length > 0) {
+        const { data: blockedProfiles } = await supabase
+          .from("profiles")
+          .select("id")
+          .in("id", userIds)
+          .eq("blocked", true);
+        const blockedUserIds = new Set((blockedProfiles || []).map((p: any) => p.id));
+        configs.forEach((c: any) => {
+          if (blockedUserIds.has(c.lojas?.user_id)) activeLojaIds.delete(c.loja_id);
+        });
+      }
+      console.log(`[advance-shipments] Filtragem: ${configs.length} lojas configuradas, ${activeLojaIds.size} ativas (últimos 30d, não bloqueadas)`);
+    }
+
     for (const config of configs) {
       if (totalProcessed >= MAX_PER_RUN) break;
 
@@ -342,6 +427,11 @@ Deno.serve(async (req) => {
       // deno-lint-ignore no-explicit-any
       const lojaUserId = (config as any).lojas?.user_id;
       if (!lojaUserId) continue;
+
+      // Pular lojas inativas/bloqueadas (otimização Cloud)
+      if (!targetLojaId && !activeLojaIds.has(lojaId)) {
+        continue;
+      }
 
       // Initialize a cache for template events for this cron run
       const templateEventsCache: Record<string, any[]> = {};
@@ -374,9 +464,10 @@ Deno.serve(async (req) => {
       }
 
       // --- 1. AUTO-START: new shipments if auto_envio is enabled ---
+      // Strict check: only start new shipments when explicitly true (not null/undefined)
       // deno-lint-ignore no-explicit-any
-      if ((config as any).auto_envio) {
-        const { data: pending } = await supabase
+      if ((config as any).auto_envio === true) {
+        let pendingQuery = supabase
           .from("envios")
           .select("id")
           .eq("loja_id", lojaId)
@@ -385,6 +476,12 @@ Deno.serve(async (req) => {
           .is("deleted_at", null)
           .order("created_at", { ascending: true })
           .limit(Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed));
+
+        if (targetEnvioId) {
+          pendingQuery = pendingQuery.eq("id", targetEnvioId).limit(1);
+        }
+
+        const { data: pending } = await pendingQuery;
 
         if (pending && pending.length > 0) {
           for (const envio of pending) {
@@ -401,17 +498,20 @@ Deno.serve(async (req) => {
       }
 
       // --- 2. ADVANCE: shipments where delay has expired ---
+      if (targetEnvioId) continue;
       if (totalProcessed >= MAX_PER_RUN) break;
 
       const lojaLimit = Math.min(MAX_PER_LOJA, MAX_PER_RUN - totalProcessed);
 
       const { data: eligible } = await supabase
         .from("envios")
-        .select("id, ultimo_evento_ordem, proximo_avanco_em")
+        .select("id, ultimo_evento_ordem, proximo_avanco_em, status_label")
         .eq("loja_id", lojaId)
         .neq("status", "entregue")
+        .neq("status", "saiu_para_entrega") // evento "Entregue" requer confirmação manual
         .gt("ultimo_evento_ordem", 0)
         .is("deleted_at", null)
+        .not("status_label", "in", '("Falha Entrega","Taxação","Taxacao")')
         .or(`proximo_avanco_em.is.null,proximo_avanco_em.lte.${now}`)
         .order("created_at", { ascending: true })
         .limit(lojaLimit);
@@ -430,9 +530,234 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Cron complete: processed ${totalProcessed} shipments`);
+    // ── 3. PROCESS WHATSAPP SEND QUEUE (1 per loja per cron cycle) ──
+    let queueProcessed = 0;
+    const QUEUE_BATCH = 100;
+    try {
+      const { data: queueItems } = await supabase
+        .from("whatsapp_send_queue")
+        .select("*")
+        .eq("status", "pending")
+        .lte("scheduled_at", now)
+        .order("scheduled_at", { ascending: true })
+        .limit(QUEUE_BATCH);
+
+      if (queueItems && queueItems.length > 0) {
+        // Group by loja_id and pick only the FIRST (oldest scheduled_at) per loja
+        const firstPerLoja = new Map<string, typeof queueItems[0]>();
+        for (const item of queueItems) {
+          if (!firstPerLoja.has(item.loja_id)) {
+            firstPerLoja.set(item.loja_id, item);
+          }
+        }
+        const itemsToProcess = Array.from(firstPerLoja.values());
+        console.log(`Queue: ${queueItems.length} pending items, processing ${itemsToProcess.length} (1 per loja)`);
+
+        for (const item of itemsToProcess) {
+          try {
+            const nowIso = new Date().toISOString();
+            let inst: {
+              instance_token: string;
+              instance_name: string;
+              id: string;
+              expires_at: string;
+              loja_id?: string;
+            } | null = null;
+
+            if (item.instance_id) {
+              const { data: selectedInst } = await supabase
+                .from("whatsapp_instances")
+                .select("instance_token, instance_name, id, expires_at, loja_id")
+                .eq("id", item.instance_id)
+                .maybeSingle();
+              inst = selectedInst;
+            }
+
+            if (!inst || !inst.instance_token || !inst.expires_at || new Date(inst.expires_at) < new Date()) {
+              // Try fallback with ROUND-ROBIN rotation: find all connected instances,
+              // then pick the one that was used least recently (or never used) for this loja.
+              const { data: connectedInsts } = await supabase
+                .from("whatsapp_instances")
+                .select("instance_token, instance_name, id, expires_at, loja_id, created_at")
+                .eq("loja_id", item.loja_id)
+                .eq("status", "connected")
+                .gt("expires_at", nowIso)
+                .order("created_at", { ascending: true });
+
+              let fallback: typeof inst = null;
+              if (connectedInsts && connectedInsts.length > 0) {
+                // Get last-used timestamp per instance from message log
+                const ids = connectedInsts.map((i: any) => i.id);
+                const { data: lastUsed } = await supabase
+                  .from("whatsapp_message_log")
+                  .select("instance_id, created_at")
+                  .eq("loja_id", item.loja_id)
+                  .in("instance_id", ids)
+                  .order("created_at", { ascending: false })
+                  .limit(200);
+
+                const lastUsedMap = new Map<string, string>();
+                for (const row of (lastUsed || [])) {
+                  if (row.instance_id && !lastUsedMap.has(row.instance_id)) {
+                    lastUsedMap.set(row.instance_id, row.created_at);
+                  }
+                }
+
+                // Sort: never-used first, then oldest-used first
+                const sorted = [...connectedInsts].sort((a: any, b: any) => {
+                  const aUsed = lastUsedMap.get(a.id);
+                  const bUsed = lastUsedMap.get(b.id);
+                  if (!aUsed && !bUsed) return 0;
+                  if (!aUsed) return -1;
+                  if (!bUsed) return 1;
+                  return new Date(aUsed).getTime() - new Date(bUsed).getTime();
+                });
+                fallback = sorted[0];
+                console.log(`[rotation] loja=${item.loja_id} picked instance=${fallback?.id} (least-recently-used among ${connectedInsts.length})`);
+              }
+              if (!fallback) {
+                const reason = item.instance_id
+                  ? (!inst ? "Instância não encontrada" : "Instância expirada")
+                  : "Nenhuma instância conectada";
+                await supabase
+                  .from("whatsapp_send_queue")
+                  .update({ status: "failed", processed_at: nowIso, error_reason: reason, http_status: 0 })
+                  .eq("id", item.id);
+                continue;
+              }
+
+              inst = fallback;
+
+              if (item.instance_id !== inst.id) {
+                await supabase
+                  .from("whatsapp_send_queue")
+                  .update({ instance_id: inst.id })
+                  .eq("id", item.id);
+              }
+            }
+
+            // Validate real instance status via UAZAPI API
+            let realStatus = "connected";
+            try {
+              const statusRes = await fetch(`${UAZAPI_BASE}/instance/status`, {
+                method: "GET",
+                headers: { Accept: "application/json", token: inst!.instance_token },
+              });
+              const statusData = await statusRes.json();
+              realStatus = statusData.instance?.status || statusData.status || statusData.state || "disconnected";
+            } catch { realStatus = "disconnected"; }
+
+            if (realStatus !== "connected") {
+              // Update DB status
+              await supabase
+                .from("whatsapp_instances")
+                .update({ status: realStatus, updated_at: new Date().toISOString() })
+                .eq("id", inst!.id);
+
+              // Try another instance
+              const { data: altInsts } = await supabase
+                .from("whatsapp_instances")
+                .select("instance_token, instance_name, id, expires_at, loja_id")
+                .eq("loja_id", item.loja_id)
+                .eq("status", "connected")
+                .neq("id", inst!.id)
+                .gt("expires_at", new Date().toISOString());
+
+              if (!altInsts || altInsts.length === 0) {
+                const reason = `Instância ${inst!.instance_name} está ${realStatus}`;
+                await supabase
+                  .from("whatsapp_send_queue")
+                  .update({ status: "failed", processed_at: new Date().toISOString(), error_reason: reason, http_status: 0 })
+                  .eq("id", item.id);
+                await supabase.from("whatsapp_message_log").insert({
+                  envio_id: item.envio_id, loja_id: item.loja_id, instance_id: inst!.id,
+                  status: "failed", error_reason: reason, http_status: 0,
+                });
+                console.log(`Queue failed: envio ${item.envio_id} — ${reason}`);
+                continue;
+              }
+              // Use alternative instance
+              inst = altInsts[0];
+              await supabase
+                .from("whatsapp_send_queue")
+                .update({ instance_id: inst.id })
+                .eq("id", item.id);
+            }
+
+            // Parse choices
+            let choices: string[] = [];
+            try {
+              const parsed = typeof item.choices === "string" ? JSON.parse(item.choices) : item.choices;
+              if (Array.isArray(parsed)) choices = parsed;
+            } catch { /* ignore */ }
+
+            const sendBody: Record<string, unknown> = {
+              number: item.number,
+              type: "button",
+              text: item.msg_text,
+              choices,
+            };
+            if (item.image_url) sendBody.imageButton = item.image_url;
+            if (item.footer_text) sendBody.footerText = item.footer_text;
+
+            const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                token: inst!.instance_token,
+              },
+              body: JSON.stringify(sendBody),
+            });
+
+            const resBody = await res.json();
+            const waStatus = res.ok ? "sent" : "failed";
+            const errorReason = res.ok ? null : (resBody?.message || resBody?.error || JSON.stringify(resBody).slice(0, 200));
+
+            // Update queue item with error details
+            await supabase
+              .from("whatsapp_send_queue")
+              .update({
+                status: waStatus,
+                processed_at: new Date().toISOString(),
+                error_reason: errorReason,
+                provider_response: resBody,
+                http_status: res.status,
+              })
+              .eq("id", item.id);
+
+            // Log to whatsapp_message_log with error details
+            await supabase.from("whatsapp_message_log").insert({
+              envio_id: item.envio_id,
+              loja_id: item.loja_id,
+              instance_id: inst!.id,
+              status: waStatus,
+              error_reason: errorReason,
+              provider_response: resBody,
+              http_status: res.status,
+            });
+
+            queueProcessed++;
+            console.log(`Queue ${waStatus}: envio ${item.envio_id} via ${inst!.instance_name}${errorReason ? ` | ${errorReason}` : ""}`);
+
+            // No artificial delay needed — we only process 1 item per loja per cron cycle
+          } catch (qErr) {
+            console.error(`Queue item ${item.id} failed:`, qErr);
+            const errMsg = qErr instanceof Error ? qErr.message : "Unknown error";
+            await supabase
+              .from("whatsapp_send_queue")
+              .update({ status: "failed", processed_at: new Date().toISOString(), error_reason: errMsg })
+              .eq("id", item.id);
+          }
+        }
+      }
+    } catch (queueError) {
+      console.error("Queue processing error:", queueError);
+    }
+
+    console.log(`Cron complete: processed ${totalProcessed} shipments, ${queueProcessed} queue items`);
     return new Response(
-      JSON.stringify({ success: true, processed: totalProcessed }),
+      JSON.stringify({ success: true, processed: totalProcessed, queue_processed: queueProcessed }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
@@ -464,6 +789,13 @@ async function advanceShipment(
       .single();
 
     if (sErr || !shipment) return false;
+
+    // ── RACE GUARD: respeita o delay mesmo se a query do caller estiver desatualizada ──
+    const proximoAvancoCheck = (shipment as any).proximo_avanco_em;
+    if (proximoAvancoCheck && new Date(proximoAvancoCheck) > new Date()) {
+      console.log(`Skip envio ${envioId}: delay ainda não venceu (${proximoAvancoCheck})`);
+      return false;
+    }
 
     // Determine which template this shipment should use
     const templateIdToUse = shipment.postagem_template_id || config.template_ativo_id;
@@ -500,11 +832,53 @@ async function advanceShipment(
     }
 
     const currentOrdem = shipment.ultimo_evento_ordem ?? 0;
+
+    // Pause labels already filtered at SQL level (.not("status_label", "in", ...))
+    // No redundant check needed here
+
     // deno-lint-ignore no-explicit-any
     const nextEvent = filteredEvents.find((e: any) => e.ordem > currentOrdem);
     if (!nextEvent) return false;
 
-    // Debit credits on first event
+    // ── REGRA: cron NUNCA avança para "Entregue" — confirmação manual obrigatória ──
+    const isFinalDelivered =
+      nextEvent.status_label === "Entregue" ||
+      filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
+    if (isFinalDelivered) {
+      // Marca como aguardando confirmação manual e remove da fila do cron
+      // (caso contrário entraria em loop infinito a cada execução, saturando o batch)
+      await supabase
+        .from("envios")
+        .update({ status: "saiu_para_entrega", proximo_avanco_em: null })
+        .eq("id", envioId);
+      return false;
+    }
+
+    // Determine new status
+    const totalEvents = filteredEvents.length;
+    const eventIndex = filteredEvents.indexOf(nextEvent);
+    let newStatus: string;
+
+    if (eventIndex === totalEvents - 1) {
+      newStatus = "entregue";
+    } else if (eventIndex === totalEvents - 2) {
+      newStatus = "saiu_para_entrega";
+    } else {
+      newStatus = "em_transito";
+    }
+
+    // Calculate next advance time
+    // deno-lint-ignore no-explicit-any
+    const followingEvent = filteredEvents.find((e: any) => e.ordem > nextEvent.ordem);
+    const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
+      ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
+      : null;
+
+    // ── DÉBITO PRIMEIRO (antes do avanço) ──
+    // Se saldo insuficiente, envio fica pendente e cron tentará novamente após recarga.
+    // Se outro processo avançar antes de nós (lock falha abaixo), estornamos o débito.
+    let debitedTotal = 0;
+    let debitedDescricao = "";
     if (currentOrdem === 0) {
       let total = 0;
       const activeServices: string[] = [];
@@ -535,35 +909,23 @@ async function advanceShipment(
         });
 
         if (debitErr || !debitOk) {
-          console.warn(`Insufficient balance for user ${lojaUserId}, skipping envio ${envioId}`);
+          console.warn(`Insufficient balance for user ${lojaUserId}; envio ${envioId} permanece pendente até recarga.`);
+          // Fire-and-forget low-balance alert (throttled to 1x/24h inside the function)
+          supabase.functions.invoke("low-balance-alert", {
+            body: { user_id: lojaUserId },
+          }).catch((e: unknown) => console.error("low-balance-alert invoke failed:", e));
+          // Envio continua pendente (ultimo_evento_ordem permanece 0). Próxima execução do cron tentará novamente.
           return false;
         }
+        debitedTotal = total;
+        debitedDescricao = descricao;
         console.log(`Debited ${total} credits for envio ${envioId}`);
       }
     }
 
-    // Determine new status
-    const totalEvents = filteredEvents.length;
-    const eventIndex = filteredEvents.indexOf(nextEvent);
-    let newStatus: string;
-
-    if (eventIndex === totalEvents - 1) {
-      newStatus = "entregue";
-    } else if (eventIndex === totalEvents - 2) {
-      newStatus = "saiu_para_entrega";
-    } else {
-      newStatus = "em_transito";
-    }
-
-    // Calculate next advance time
-    // deno-lint-ignore no-explicit-any
-    const followingEvent = filteredEvents.find((e: any) => e.ordem > nextEvent.ordem);
-    const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
-      ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
-      : null;
-
-    // Update envio
-    const { error: uErr } = await supabase
+    // ── OPTIMISTIC LOCK: só atualiza se ninguém mais avançou nesse meio tempo ──
+    // Se outro processo já avançou, estornamos o débito (se houve) para evitar dupla cobrança.
+    const { data: updatedRows, error: uErr } = await supabase
       .from("envios")
       .update({
         ultimo_evento_ordem: nextEvent.ordem,
@@ -571,10 +933,33 @@ async function advanceShipment(
         status_label: nextEvent.status_label,
         proximo_avanco_em: proximoAvancoEm,
       })
-      .eq("id", envioId);
+      .eq("id", envioId)
+      .eq("ultimo_evento_ordem", currentOrdem)
+      .select("id");
 
     if (uErr) {
       console.error(`Failed to update envio ${envioId}:`, uErr);
+      // Reverter débito se houve
+      if (debitedTotal > 0) {
+        await supabase.rpc("refund_user_credits", {
+          _user_id: lojaUserId,
+          _quantidade: debitedTotal,
+          _descricao: `Estorno: falha ao avançar envio ${envioId} (${debitedDescricao})`,
+        });
+      }
+      return false;
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      console.log(`Skip envio ${envioId}: já avançado por outro processo (lock)`);
+      // Reverter débito (race condition: outro processo já cobrou e avançou)
+      if (debitedTotal > 0) {
+        await supabase.rpc("refund_user_credits", {
+          _user_id: lojaUserId,
+          _quantidade: debitedTotal,
+          _descricao: `Estorno: envio ${envioId} avançado por outro processo (${debitedDescricao})`,
+        });
+      }
       return false;
     }
 
@@ -629,17 +1014,51 @@ async function advanceShipment(
         },
       });
       if (funcErr) {
-        console.error(`Email failed for envio ${envioId}:`, funcErr);
+        console.error(`Email failed for envio ${envioId} (will revert advance):`, funcErr);
+        // ── REVERTER O AVANÇO ──
+        // O cliente paga pelo serviço (NF-e/e-mail). Se o envio do e-mail falhou
+        // (ex: rate limit do Functions), revertemos a etapa e estornamos o débito,
+        // de modo que o próximo ciclo do cron tentará novamente.
+        const previousStatus =
+          currentOrdem === 0 ? "pendente" : (shipment.status ?? "pendente");
+        const previousStatusLabel =
+          currentOrdem === 0 ? null : ((shipment as any).status_label ?? null);
+
+        const { error: revertErr } = await supabase
+          .from("envios")
+          .update({
+            ultimo_evento_ordem: currentOrdem,
+            status: previousStatus,
+            status_label: previousStatusLabel,
+            proximo_avanco_em: null,
+          })
+          .eq("id", envioId)
+          .eq("ultimo_evento_ordem", nextEvent.ordem);
+        if (revertErr) {
+          console.error(`Failed to revert envio ${envioId}:`, revertErr);
+        }
+
+        if (debitedTotal > 0) {
+          await supabase.rpc("refund_user_credits", {
+            _user_id: lojaUserId,
+            _quantidade: debitedTotal,
+            _descricao: `Estorno: falha ao enviar e-mail/NF-e do envio ${envioId} (${debitedDescricao})`,
+          });
+        }
+        return false;
       }
     }
 
     // SMS dispatch — only when the flow is active
-    if (
-      isAtivo &&
-      config.ativar_site_rastreio &&
-      shipment.cliente_telefone &&
-      !nextEvent.enviar_nfe_pdf
-    ) {
+    if (!isAtivo) {
+      console.log(`[SMS] Skip envio ${envioId}: event not active (isAtivo=false)`);
+    } else if (!config.ativar_site_rastreio) {
+      console.log(`[SMS] Skip envio ${envioId}: ativar_site_rastreio is OFF`);
+    } else if (!shipment.cliente_telefone) {
+      console.log(`[SMS] Skip envio ${envioId}: no cliente_telefone`);
+    } else if (nextEvent.enviar_nfe_pdf) {
+      console.log(`[SMS] Skip envio ${envioId}: NF-e event (email only)`);
+    } else {
       const smsCost = costMap["custo_sms_rastreio"] || 0;
       let canSendSms = true;
 
@@ -651,109 +1070,120 @@ async function advanceShipment(
         });
 
         if (smsDebitErr || !smsDebitOk) {
+          console.warn(`[SMS] Skip envio ${envioId}: insufficient balance (cost=${smsCost})`);
           canSendSms = false;
+        } else {
+          console.log(`[SMS] Debited ${smsCost} credits for envio ${envioId}`);
         }
       }
 
       if (canSendSms) {
+        console.log(`[SMS] Dispatching for envio ${envioId}, status: ${nextEvent.status_label}, phone: ${shipment.cliente_telefone}`);
         const { error: smsErr } = await supabase.functions.invoke("send-sms", {
           body: { envio_id: envioId, loja_id: lojaId, status_label: nextEvent.status_label },
         });
-        if (smsErr) console.error(`SMS failed for envio ${envioId}:`, smsErr);
+        if (smsErr) {
+          console.error(`[SMS] Failed for envio ${envioId}:`, smsErr);
+        } else {
+          console.log(`[SMS] Sent successfully for envio ${envioId}`);
+        }
       }
     }
 
-    // WhatsApp auto-send with round-robin instance rotation
+    // WhatsApp auto-send — enqueue with delay instead of sending directly
+    // Skip on first advance (currentOrdem === 0) — already queued at creation time by auto-whatsapp-new-order
     if (
+      currentOrdem > 0 &&
       config.whatsapp_auto_send &&
       shipment.cliente_telefone &&
       !nextEvent.enviar_nfe_pdf
     ) {
       try {
-        const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN");
-        if (ADMIN_TOKEN) {
-          // Fetch connected instances with active subscriptions
-          const { data: waInstances } = await supabase
-            .from("whatsapp_instances")
-            .select("*")
-            .eq("loja_id", lojaId)
-            .eq("status", "connected");
+        // Build message from template
+        let produtoNome = shipment.produto;
+        try {
+          const parsed = JSON.parse(shipment.produto);
+          if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
+        } catch { /* not JSON */ }
 
-          const activeWaInstances = (waInstances || []).filter(
-            (i: any) => i.expires_at && new Date(i.expires_at) > new Date()
-          );
+        const msgTemplate = config.whatsapp_msg_template || "Olá {{nome}}! Seu pedido foi atualizado.";
+        let text = msgTemplate
+          .replace(/\{\{nome\}\}/g, shipment.cliente_nome || "")
+          .replace(/\{\{produto\}\}/g, produtoNome)
+          .replace(/\{\{valor\}\}/g, Number(shipment.valor || 0).toFixed(2))
+          .replace(/\{\{codigo_rastreio\}\}/g, shipment.codigo_rastreio || "");
 
-          if (activeWaInstances.length > 0) {
-            // Round-robin rotation per loja
-            if (!whatsappCounters[lojaId]) whatsappCounters[lojaId] = 0;
-            const inst = activeWaInstances[whatsappCounters[lojaId] % activeWaInstances.length];
-            whatsappCounters[lojaId]++;
+        const number = normalizeBrazilianPhone(shipment.cliente_telefone);
 
-            // Build message from template
-            let produtoNome = shipment.produto;
-            try {
-              const parsed = JSON.parse(shipment.produto);
-              if (Array.isArray(parsed)) produtoNome = parsed.map((p: any) => p.nome).join(", ");
-            } catch { /* not JSON */ }
+        const btnText = config.whatsapp_btn_text || "📦 Rastrear Pedido";
+        const waRedirectUrl = Deno.env.get("SUPABASE_URL") || "";
+        const trackingUrl = `${waRedirectUrl}/functions/v1/redirect?c=${shipment.codigo_rastreio || ""}`;
+        const footerText = config.whatsapp_footer || "";
+        const imageUrl = config.whatsapp_image_url || null;
+        const replyText = config.whatsapp_reply_text || null;
+        const btn2Text = config.whatsapp_btn2_text || null;
+        const btn2Url = config.whatsapp_btn2_url || null;
 
-            const msgTemplate = config.whatsapp_msg_template || "Olá {{nome}}! Seu pedido foi atualizado.";
-            let text = msgTemplate
-              .replace(/\{\{nome\}\}/g, shipment.cliente_nome || "")
-              .replace(/\{\{produto\}\}/g, produtoNome)
-              .replace(/\{\{valor\}\}/g, Number(shipment.valor || 0).toFixed(2))
-              .replace(/\{\{codigo_rastreio\}\}/g, shipment.codigo_rastreio || "");
+        const choices: string[] = [];
+        if (btnText && trackingUrl) choices.push(`${btnText}|${trackingUrl}`);
+        if (btn2Text && btn2Url) choices.push(`${btn2Text}|${btn2Url}`);
+        if (replyText) choices.push(replyText);
 
-            const number = shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "").startsWith("55")
-              ? shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "")
-              : "55" + shipment.cliente_telefone.replace(/[\s\-\(\)\+\.]/g, "");
+        // Calculate scheduled_at respecting delay
+        const delaySeconds = config.whatsapp_delay_seconds || 300;
 
-            const btnText = config.whatsapp_btn_text || "📦 Rastrear Pedido";
-            const trackingUrl = `https://rastreio.logisticajltransportes.com/r/${shipment.codigo_rastreio || ""}`;
-            const footerText = config.whatsapp_footer || "";
-            const imageUrl = config.whatsapp_image_url || null;
-            const replyText = config.whatsapp_reply_text || null;
-            const btn2Text = config.whatsapp_btn2_text || null;
-            const btn2Url = config.whatsapp_btn2_url || null;
+        const { data: lastQueued } = await supabase
+          .from("whatsapp_send_queue")
+          .select("scheduled_at")
+          .eq("loja_id", lojaId)
+          .eq("status", "pending")
+          .order("scheduled_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-            const choices: string[] = [];
-            if (btnText && trackingUrl) choices.push(`${btnText}|${trackingUrl}`);
-            if (btn2Text && btn2Url) choices.push(`${btn2Text}|${btn2Url}`);
-            if (replyText) choices.push(replyText);
+        const nowMs = Date.now();
+        let scheduledAt: Date;
 
-            const sendBody: Record<string, unknown> = {
-              number,
-              type: "button",
-              text: imageUrl ? `\n${text}` : text,
-              choices,
-            };
-            if (imageUrl) sendBody.imageButton = imageUrl;
-            if (footerText) sendBody.footerText = footerText;
-
-            const res = await fetch(`${UAZAPI_BASE}/send/menu`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                token: inst.instance_token,
-              },
-              body: JSON.stringify(sendBody),
-            });
-
-            const waStatus = res.ok ? "sent" : "failed";
-
-            // Log message
-            await supabase.from("whatsapp_message_log").insert({
-              envio_id: envioId,
-              loja_id: lojaId,
-              instance_id: inst.id,
-              status: waStatus,
-            });
-
-            console.log(`WhatsApp ${waStatus} for envio ${envioId} via instance ${inst.instance_name}`);
-          }
+        if (lastQueued?.scheduled_at) {
+          const lastTime = new Date(lastQueued.scheduled_at).getTime();
+          const nextTime = lastTime + delaySeconds * 1000;
+          scheduledAt = new Date(Math.max(nowMs, nextTime));
+        } else {
+          scheduledAt = new Date(nowMs);
         }
+
+        await supabase.from("whatsapp_send_queue").insert({
+          envio_id: envioId,
+          loja_id: lojaId,
+          number,
+          msg_text: imageUrl ? `\n${text}` : text,
+          image_url: imageUrl,
+          footer_text: footerText || null,
+          choices,
+          scheduled_at: scheduledAt.toISOString(),
+          status: "pending",
+        });
+
+        console.log(`WhatsApp queued for envio ${envioId}, scheduled_at: ${scheduledAt.toISOString()}`);
       } catch (waErr) {
-        console.error(`WhatsApp auto-send failed for envio ${envioId}:`, waErr);
+        console.error(`WhatsApp queue failed for envio ${envioId}:`, waErr);
+      }
+    }
+
+    // Process cashback when flow completes
+    if (newStatus === "entregue") {
+      try {
+        const { data: cashbackVal, error: cbErr } = await supabase.rpc("process_cashback", {
+          _envio_id: envioId,
+          _user_id: lojaUserId,
+        });
+        if (cbErr) {
+          console.error(`Cashback RPC error for envio ${envioId}:`, cbErr);
+        } else if (cashbackVal && cashbackVal > 0) {
+          console.log(`Cashback: ${cashbackVal} credits returned for envio ${envioId}`);
+        }
+      } catch (cbErr) {
+        console.error(`Cashback failed for envio ${envioId}:`, cbErr);
       }
     }
 

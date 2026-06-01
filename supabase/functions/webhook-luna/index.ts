@@ -50,17 +50,37 @@ Deno.serve(async (req) => {
     }
 
     const lojaId = lojaData.id;
+
+    // Check if integration is active
+    const { data: integrationStatus } = await supabase
+      .from("checkout_integrations")
+      .select("ativo")
+      .eq("loja_id", lojaId)
+      .eq("checkout_id", "luna")
+      .maybeSingle();
+
+    if (integrationStatus?.ativo === false) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "integration_disabled" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const event = payload.event || "";
     const status = payload.status || "";
     const transactionToken = String(payload.id || `luna_${Date.now()}`);
 
-    // Map event to event_type
+    // Map event to event_type (Luna sends event names without "event_" prefix)
     const eventTypeMap: Record<string, string> = {
-      "event_sale_paid": "sale",
-      "event_sale_pending": "pending",
-      "event_sale_waiting_payment": "waiting_payment",
-      "event_sale_refused": "refused",
+      "sale_approved": "sale",
+      "sale_pending": "pending",
+      "sale_waiting_payment": "waiting_payment",
+      "sale_refused": "refused",
+      "sale_chargeback": "chargeback",
+      "sale_refunded": "refunded",
+      "sale_cancelled": "cancelled",
       "sale_cart_abandoned": "abandoned_cart",
+      "sale_cart_recovered": "cart_recovered",
     };
     const eventType = eventTypeMap[event] || event;
 
@@ -137,8 +157,94 @@ Deno.serve(async (req) => {
       pedidoId = newPedido?.id;
     }
 
-    // 4. If paid and no envio linked yet, create envio
+    // 4. Recovery: pending PIX
+    const methodLower = (payload.method || "").toLowerCase();
+    const isPendingPix = event === "sale_waiting_payment" && methodLower === "pix";
+
+    if (isPendingPix && client.email) {
+      const recoveryTipo = "pix_pendente";
+      try {
+        const { data: recoveryConfig } = await supabase
+          .from("recovery_config")
+          .select("ativo")
+          .eq("loja_id", lojaId)
+          .eq("tipo", recoveryTipo)
+          .eq("ativo", true)
+          .maybeSingle();
+
+        if (recoveryConfig) {
+          // Deduplicação por transaction token (payload.id)
+          const { data: existingLead } = await supabase
+            .from("recovery_leads")
+            .select("id")
+            .eq("loja_id", lojaId)
+            .filter("raw_payload->>id", "eq", String(payload.id || ""))
+            .maybeSingle();
+
+          if (!existingLead) {
+            const recoveryProducts = items.map((item: any) => ({
+              name: item.name || "",
+              value: parseFloat(String(item.price || "0")),
+              qty: parseInt(String(item.quantity || "1"), 10),
+            }));
+
+            const checkoutUrl = payload.checkout_url || "";
+            const totalValue = parseFloat(String(payload.amount || "0"));
+            const pixCode = payload.payment?.qrcode || "";
+
+            const { data: newLead } = await supabase
+              .from("recovery_leads")
+              .insert({
+                loja_id: lojaId,
+                tipo: recoveryTipo,
+                customer_name: client.name || "",
+                customer_email: client.email,
+                customer_phone: client.phone || "",
+                checkout_url: checkoutUrl,
+                total_value: totalValue,
+                pix_code: pixCode,
+                products: recoveryProducts,
+                raw_payload: payload,
+                status: "pendente",
+              })
+              .select("id")
+              .single();
+
+            if (newLead) {
+              supabase.functions.invoke("send-recovery-email", {
+                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+              }).catch((err) => console.error("[recovery-email] error:", err));
+
+              supabase.functions.invoke("send-recovery-sms", {
+                body: { lead_id: newLead.id, loja_id: lojaId, tipo: recoveryTipo },
+              }).catch((err) => console.error("[recovery-sms] error:", err));
+            }
+          }
+        }
+      } catch (recoveryErr) {
+        console.error("[recovery] Luna error:", recoveryErr);
+      }
+    }
+
+    // 5. If paid and no envio linked yet, create envio (with payment method filter)
     if (status === "paid" && !existingPedido?.envio_id && pedidoId) {
+      const { data: integrationConfig } = await supabase
+        .from("checkout_integrations")
+        .select("filtro_metodo")
+        .eq("loja_id", lojaId)
+        .eq("checkout_id", "luna")
+        .maybeSingle();
+
+      const filtroMetodo = integrationConfig?.filtro_metodo || "todos";
+      const methodValue = (payload.method || "").toLowerCase();
+      const isPix = methodValue.includes("pix");
+      const shouldCreateEnvio = filtroMetodo === "todos" || (filtroMetodo === "cartao" && !isPix) || (filtroMetodo === "pix" && isPix);
+
+      if (!shouldCreateEnvio) {
+        await supabase.from("webhook_logs").update({ processed: true }).eq("checkout_provider", "luna").eq("loja_id", lojaId).order("created_at", { ascending: false }).limit(1);
+        return new Response(JSON.stringify({ success: true, event_type: eventType, status, envio_skipped: true, reason: `filtro_metodo=${filtroMetodo}` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       const produtoJson = JSON.stringify(
         normalizedProducts.map((p: any) => ({ nome: p.title, quantidade: p.quantity || 1 }))
       );
@@ -171,21 +277,60 @@ Deno.serve(async (req) => {
         empresa_id: empresaData?.id || null,
       };
 
-      const { data: newEnvio } = await supabase
-        .from("envios")
-        .insert(envioData)
-        .select("id")
-        .single();
+      // ATOMIC DEDUPE via RPC: serializa por (loja+email+valor) usando advisory lock
+      const { data: dedupeResult, error: dedupeError } = await supabase
+        .rpc("try_create_envio_dedupe", {
+          _loja_id: lojaId,
+          _cliente_email: envioData.cliente_email,
+          _valor: envioData.valor,
+          _envio_data: envioData,
+        })
+        .maybeSingle();
 
-      if (newEnvio) {
-        await supabase
+      if (dedupeError || !dedupeResult) {
+        console.error("[webhook-luna] dedupe RPC error:", dedupeError);
+        return new Response(JSON.stringify({ error: "Failed to create envio" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const newEnvio = { id: (dedupeResult as any).envio_id };
+      const wasDuplicate = (dedupeResult as any).was_duplicate === true;
+
+      if (wasDuplicate) {
+        console.log("[webhook-luna] Duplicate envio blocked atomically:", newEnvio.id);
+        await supabase.from("pedidos").update({ envio_id: newEnvio.id }).eq("id", pedidoId).is("envio_id", null);
+        supabase.functions.invoke("send-payment-confirmation", {
+          body: { pedido_id: pedidoId, loja_id: lojaId }
+        }).catch((err: any) => console.error("[payment-confirmation] invoke error (dedupe path):", err));
+        return new Response(JSON.stringify({ success: true, dedupe: true, envio_id: newEnvio.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      {
+        const { data: updateResult } = await supabase
           .from("pedidos")
           .update({ envio_id: newEnvio.id })
-          .eq("id", pedidoId);
+          .eq("id", pedidoId)
+          .is("envio_id", null)
+          .select("id")
+          .maybeSingle();
+
+        if (!updateResult) {
+          console.log("[webhook-luna] Pedido already linked, skipping invokes:", newEnvio.id);
+        } else {
+          supabase.functions.invoke("auto-whatsapp-new-order", {
+            body: { envio_id: newEnvio.id, loja_id: lojaId }
+          }).catch((err) => console.error("[auto-whatsapp] invoke error:", err));
+
+          supabase.functions.invoke("advance-shipments", { body: { loja_id: lojaId } })
+            .catch((err) => console.error("[advance-shipments] invoke error:", err));
+
+          supabase.functions.invoke("send-payment-confirmation", {
+            body: { pedido_id: pedidoId, loja_id: lojaId }
+          }).catch((err) => console.error("[payment-confirmation] invoke error:", err));
+        }
       }
     }
 
-    // 5. Mark webhook as processed
+    // 6. Mark webhook as processed
     await supabase
       .from("webhook_logs")
       .update({ processed: true })

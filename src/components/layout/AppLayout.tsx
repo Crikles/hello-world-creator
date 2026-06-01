@@ -5,11 +5,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Megaphone, AlertTriangle, MessageCircle } from "lucide-react";
+import { Megaphone, AlertTriangle, MessageCircle, Zap, Square } from "lucide-react";
+import { useBatchProgress } from "@/contexts/BatchProgressContext";
+import { Progress } from "@/components/ui/progress";
+
 
 export function AppLayout() {
   const navigate = useNavigate();
   const { isImpersonating, exitImpersonation, user } = useAuth();
+  const { progress: batchProgress, cancelBatch, getEstimatedTime } = useBatchProgress();
 
   const { data: whatsappConfig } = useQuery({
     queryKey: ["whatsapp-suporte-global"],
@@ -93,6 +97,28 @@ export function AppLayout() {
           <header className="sticky top-0 z-40 h-12 glass-strong flex items-center px-4 gap-4">
             <SidebarTrigger className="text-muted-foreground hover:text-primary transition-colors" />
           </header>
+
+          {batchProgress?.processing && (
+            <div className="sticky top-12 z-40 bg-accent border-b border-border/50 px-4 py-2 animate-in slide-in-from-top-1">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2 text-sm font-medium text-accent-foreground">
+                  <Zap className="h-4 w-4 text-primary animate-pulse" />
+                  <span>Processando {batchProgress.current}/{batchProgress.total}</span>
+                  <span className="text-muted-foreground">— Estimativa: {getEstimatedTime()}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs hover:bg-destructive/10 hover:text-destructive"
+                  onClick={cancelBatch}
+                >
+                  <Square className="h-3 w-3 mr-1" />
+                  Cancelar
+                </Button>
+              </div>
+              <Progress value={(batchProgress.current / batchProgress.total) * 100} className="h-1.5" />
+            </div>
+          )}
           <main className="flex-1 p-6 overflow-auto relative z-10">
             <Outlet />
           </main>

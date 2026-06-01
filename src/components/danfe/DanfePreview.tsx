@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import jsPDF from "jspdf";
+import { getRandomNcm, getRandomCst } from "@/lib/fiscal-codes";
 
 export interface EmpresaData {
   razao_social: string;
@@ -56,18 +57,43 @@ function parseProductItems(envio: EnvioData): ProductItem[] {
   if (raw.startsWith("[")) {
     try {
       const items = JSON.parse(raw) as ProductItem[];
-      if (Array.isArray(items) && items.length > 0) return items;
+      if (Array.isArray(items) && items.length > 0) {
+        // Webhooks store only { nome, quantidade } without valor per item.
+        // If no item has a valor, distribute the envio total evenly across items.
+        const hasAnyValor = items.some(i => i.valor && i.valor > 0);
+        if (!hasAnyValor && envio.valor && envio.valor > 0) {
+          const totalQty = items.reduce((s, i) => s + (i.quantidade || 1), 0);
+          items.forEach(i => {
+            i.valor = envio.valor! / totalQty;
+          });
+        }
+        // Inherit fiscal fields from envio when not set per item
+        return items.map((item, idx) => {
+          const seed = `${envio.cliente_nome || ""}${idx}`;
+          return {
+            codigo: item.codigo || idx + 1,
+            nome: item.nome || "Produto",
+            quantidade: item.quantidade || 1,
+            valor: item.valor || 0,
+            cfop: item.cfop || envio.cfop || "5102",
+            ncm_sh: item.ncm_sh || envio.ncm_sh || getRandomNcm(seed),
+            cst: item.cst || envio.cst || getRandomCst(seed),
+            unidade: item.unidade || envio.unidade,
+          };
+        });
+      }
     } catch { /* fallthrough */ }
   }
   // Single product (backward compatible)
+  const seed = envio.cliente_nome || "default";
   return [{
     codigo: 1,
     nome: raw || "Produto",
     quantidade: envio.quantidade || 1,
     valor: envio.valor || 0,
-    cfop: envio.cfop,
-    ncm_sh: envio.ncm_sh,
-    cst: envio.cst,
+    cfop: envio.cfop || "5102",
+    ncm_sh: envio.ncm_sh || getRandomNcm(seed),
+    cst: envio.cst || getRandomCst(seed),
     unidade: envio.unidade,
   }];
 }
@@ -204,7 +230,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Destinatário Header -->
     <tr>
-      <td colspan="7" class="section-title">DESTINATÁRIO / REMETENTE</td>
+      <td colspan="8" class="section-title">DESTINATÁRIO / REMETENTE</td>
     </tr>
 
     <tr>
@@ -225,15 +251,15 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     <tr>
       <td colspan="3">
         <span class="label">ENDEREÇO</span><br>
-        <span class="value">${[c.cliente_endereco, c.cliente_numero].filter(Boolean).join(", ") || "Rua Exemplo, 123"}</span>
+        <span class="value">${[c.cliente_endereco, c.cliente_numero].filter(Boolean).join(", ") || "—"}</span>
       </td>
       <td colspan="2">
         <span class="label">BAIRRO/DISTRITO</span><br>
-        <span class="value">${c.cliente_bairro || "Centro"}</span>
+        <span class="value">${c.cliente_bairro || "—"}</span>
       </td>
       <td>
         <span class="label">CEP</span><br>
-        <span class="value">${c.cliente_cep || "00000-000"}</span>
+        <span class="value">${c.cliente_cep || "—"}</span>
       </td>
       <td>
         <span class="label">DATA SAÍDA</span><br>
@@ -244,7 +270,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     <tr>
       <td colspan="2">
         <span class="label">MUNICÍPIO</span><br>
-        <span class="value">${c.cliente_cidade || "São Paulo"}</span>
+        <span class="value">${c.cliente_cidade || "—"}</span>
       </td>
       <td>
         <span class="label">FONE/FAX</span><br>
@@ -252,7 +278,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
       </td>
       <td>
         <span class="label">UF</span><br>
-        <span class="value">${c.cliente_estado || "SP"}</span>
+        <span class="value">${c.cliente_estado || "—"}</span>
       </td>
       <td>
         <span class="label">INSCRIÇÃO ESTADUAL</span><br>
@@ -266,7 +292,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Cálculo do Imposto -->
     <tr>
-      <td colspan="7" class="section-title">CÁLCULO DO IMPOSTO</td>
+      <td colspan="8" class="section-title">CÁLCULO DO IMPOSTO</td>
     </tr>
     <tr>
       <td><span class="label">BASE CÁLC. ICMS</span><br><span class="value">0,00</span></td>
@@ -286,10 +312,10 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Transportador -->
     <tr>
-      <td colspan="7" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
+      <td colspan="8" class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</td>
     </tr>
     <tr>
-      <td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell">JL Transportes de Cargas LTDA</span></td>
+      <td colspan="2"><span class="label">RAZÃO SOCIAL</span><br><span class="value truncate-cell">HOLDING Transportes de Cargas LTDA</span></td>
       <td><span class="label">FRETE POR CONTA</span><br><span class="value">0 - REMETENTE</span></td>
       <td><span class="label">CÓDIGO ANTT</span><br><span class="value"></span></td>
       <td><span class="label">PLACA DO VEÍCULO</span><br><span class="value">FOD9C97</span></td>
@@ -305,12 +331,13 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Produtos -->
     <tr>
-      <td colspan="7" class="section-title">DADOS DOS PRODUTOS / SERVIÇOS</td>
+      <td colspan="8" class="section-title">DADOS DOS PRODUTOS / SERVIÇOS</td>
     </tr>
     <tr style="font-size: 6pt; font-weight: bold; text-align: center;">
       <td>CÓDIGO</td>
       <td>DESCRIÇÃO DO PRODUTO</td>
       <td>NCM/SH</td>
+      <td>CST</td>
       <td>CFOP</td>
       <td>UNID.</td>
       <td>VALOR UNIT.</td>
@@ -323,7 +350,8 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
     return `<tr style="text-align: center;">
       <td>${item.codigo || idx + 1}</td>
       <td style="text-align: left;">${item.nome || "Produto"}</td>
-      <td>${item.ncm_sh || "00000000"}</td>
+      <td>${item.ncm_sh || getRandomNcm(String(idx))}</td>
+      <td>${item.cst || getRandomCst(String(idx))}</td>
       <td>${item.cfop || "5102"}</td>
       <td>${item.unidade || "UN"}</td>
       <td>R$ ${formatCurrency(itemUnit)}</td>
@@ -333,7 +361,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Dados Adicionais -->
     <tr>
-      <td colspan="7" class="section-title">DADOS ADICIONAIS</td>
+      <td colspan="8" class="section-title">DADOS ADICIONAIS</td>
     </tr>
     <tr>
       <td colspan="4" style="height: 60px;">
@@ -350,7 +378,7 @@ export function getDanfeCssAndBody(empresa: EmpresaData, envio: EnvioData): { cs
 
     <!-- Footer -->
     <tr>
-      <td colspan="7" class="right" style="font-size: 7pt; border: none;">
+      <td colspan="8" class="right" style="font-size: 7pt; border: none;">
         DATA E HORA DA IMPRESSÃO: ${dataEmissao} ${horaEmissao}
       </td>
     </tr>

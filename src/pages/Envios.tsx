@@ -1,17 +1,31 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Truck, Trash2, Play, FastForward, Package, Clock, Navigation, CheckCircle2, Calendar, ExternalLink, FileText, CreditCard, Square, Zap, PackageX, ChevronLeft, ChevronRight, Download, FileSpreadsheet, PackageCheck } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import * as XLSX from "xlsx";
 import { ImportarPlanilha } from "@/components/envios/ImportarPlanilha";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
-import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { BloqueioCobrancaBanner } from "@/components/BloqueioCobrancaBanner";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -19,11 +33,12 @@ import { cn } from "@/lib/utils";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
 import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
 import { generateDanfePdfBase64 } from "@/lib/nfe-utils";
+import { useBatchProgress } from "@/contexts/BatchProgressContext";
 import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
 import { formatProduto } from "@/lib/format-produto";
 
-const ITEMS_PER_PAGE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200, 300, 400, 500, 700, 800];
 
 const statusLabels: Record<string, string> = {
   pendente: "Pendente",
@@ -34,6 +49,19 @@ const statusLabels: Record<string, string> = {
   entregue: "Entregue",
   taxacao: "Taxação",
   pagamento_confirmado: "Pgto. Confirmado",
+  // status_label based
+  "Pendente": "Pendente",
+  "Postado": "Postado (NF-e)",
+  "Coletado": "Coletado",
+  "Em Trânsito": "Em Trânsito",
+  "Centro Local": "Centro Local",
+  "Taxação": "Taxação",
+  "Pgto. Confirmado": "Pgto. Confirmado",
+  "Saiu para Entrega": "Saiu p/ Entrega",
+  "Falha Entrega": "Falha Entrega",
+  "Reenvio Pago": "Reenvio Pago",
+  "Reenvio Saiu": "Reenvio Saiu",
+  "Entregue": "Entregue",
 };
 
 const statusColors: Record<string, string> = {
@@ -45,28 +73,52 @@ const statusColors: Record<string, string> = {
   entregue: "bg-primary/15 text-primary",
   taxacao: "bg-destructive/20 text-destructive",
   pagamento_confirmado: "bg-primary/20 text-primary",
+  // status_label based
+  "Pendente": "bg-primary/20 text-primary",
+  "Postado": "bg-accent text-accent-foreground",
+  "Coletado": "bg-accent text-accent-foreground",
+  "Em Trânsito": "bg-accent text-accent-foreground",
+  "Centro Local": "bg-primary/25 text-primary",
+  "Taxação": "bg-destructive/20 text-destructive",
+  "Pgto. Confirmado": "bg-primary/20 text-primary",
+  "Saiu para Entrega": "bg-primary/30 text-primary",
+  "Falha Entrega": "bg-destructive/20 text-destructive",
+  "Reenvio Pago": "bg-primary/20 text-primary",
+  "Reenvio Saiu": "bg-accent text-accent-foreground",
+  "Entregue": "bg-primary/15 text-primary",
 };
 
 const statusOptions = [
-  { value: "pendente", label: "Pendente" },
-  { value: "coletado", label: "Coletado" },
-  { value: "em_transito", label: "Em Trânsito" },
-  { value: "centro_local", label: "Centro Local" },
-  { value: "saiu_para_entrega", label: "Saiu para Entrega" },
-  { value: "entregue", label: "Entregue" },
-  { value: "taxacao", label: "Taxação" },
-  { value: "pagamento_confirmado", label: "Pgto. Confirmado" },
+  { value: "Pendente", label: "Pendente" },
+  { value: "Postado", label: "Postado (NF-e)" },
+  { value: "Coletado", label: "Coletado" },
+  { value: "Em Trânsito", label: "Em Trânsito" },
+  { value: "Centro Local", label: "Centro Local" },
+  { value: "Taxação", label: "Taxação" },
+  { value: "Pgto. Confirmado", label: "Pgto. Confirmado" },
+  { value: "Saiu para Entrega", label: "Saiu para Entrega" },
+  { value: "Falha Entrega", label: "Falha Entrega" },
+  { value: "Reenvio Pago", label: "Reenvio Pago" },
+  { value: "Reenvio Saiu", label: "Reenvio Saiu" },
+  { value: "Entregue", label: "Entregue" },
 ];
 
 export default function Envios() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [filterMetodo, setFilterMetodo] = useState<string>("todos");
+  const [filterOrigem, setFilterOrigem] = useState<string>("todos");
   const [autoEnvio, setAutoEnvio] = useState(false);
   const [autoEnvioLoading, setAutoEnvioLoading] = useState(false);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [batchCooldown, setBatchCooldown] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectedIdsRef = useRef<Set<string>>(selectedIds);
+  useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [batchConfirm, setBatchConfirm] = useState<{ type: "avancar" | "forcar"; count: number; label: string } | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
@@ -76,6 +128,10 @@ export default function Envios() {
   const { loja } = useLoja();
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const saved = localStorage.getItem('envios_per_page');
+    return saved ? Number(saved) : 20;
+  });
 
   const isJadlog = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
     if (envio.transportadora) {
@@ -87,13 +143,25 @@ export default function Envios() {
     return false;
   }, []);
 
-  const getTrackingDomain = useCallback((envio: { transportadora?: string | null }) => {
-    return isJadlog(envio) ? 'rastreio.centrojadlog.com' : 'rastreio.logisticajltransportes.com';
-  }, [isJadlog]);
+  const isVetor = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
+    if (envio.transportadora) {
+      return envio.transportadora.toUpperCase().includes('VETOR');
+    }
+    if (envio.codigo_rastreio) {
+      return envio.codigo_rastreio.toUpperCase().endsWith('VT');
+    }
+    return false;
+  }, []);
 
-  // Batch advance state
-  const [batchProgress, setBatchProgress] = useState<{ processing: boolean; current: number; total: number } | null>(null);
-  const batchCancelRef = useRef(false);
+  const getTrackingDomain = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
+    if (isVetor(envio)) {
+      return 'vetortransportesltda.com';
+    }
+    return 'rastreio.jltransportelogistica.com';
+  }, [isVetor]);
+
+  // Batch advance state (global context)
+  const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep, checkCancelled } = useBatchProgress();
 
   const handleDownloadNfe = useCallback(async (envio: any) => {
     if (!loja?.id) return;
@@ -175,6 +243,12 @@ export default function Envios() {
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   // Force re-render every second for countdown display
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
@@ -188,24 +262,87 @@ export default function Envios() {
     return `${m}m ${s.toString().padStart(2, "0")}s`;
   };
 
-  const { data: envios = [] } = useQuery({
-    queryKey: ["envios", loja?.id],
+  // Stats via server-side RPC (instant counts)
+  const { data: stats } = useQuery({
+    queryKey: ["envios-stats", loja?.id],
     queryFn: async () => {
-      if (!loja) return [];
-      const { data, error } = await supabase
-        .from("envios")
-        .select("*")
-        .eq("loja_id", loja.id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+      if (!loja) return { total: 0, pendentes: 0, em_transito: 0, entregues: 0 };
+      const { data, error } = await supabase.rpc("get_envios_stats", { p_loja_id: loja.id });
       if (error) throw error;
-      return data;
+      return (data as any)?.[0] || { total: 0, pendentes: 0, em_transito: 0, entregues: 0 };
     },
     enabled: !!loja,
   });
 
+  // Paginated envios via server-side RPC (with filters + pedido join)
+  const { data: paginatedResult = [] } = useQuery({
+    queryKey: ["envios-paginated", loja?.id, debouncedSearch, filterStatus, filterMetodo, filterOrigem, dateRange.from?.toISOString(), dateRange.to?.toISOString(), currentPage, itemsPerPage],
+    queryFn: async () => {
+      if (!loja) return [];
+      const { data, error } = await supabase.rpc("get_envios_paginated", {
+        p_loja_id: loja.id,
+        p_search: debouncedSearch || '',
+        p_status: filterStatus,
+        p_metodo: filterMetodo,
+        p_origem: filterOrigem,
+        p_date_from: dateRange.from ? startOfDay(dateRange.from).toISOString() : null,
+        p_date_to: dateRange.to ? endOfDay(dateRange.to).toISOString() : dateRange.from ? endOfDay(dateRange.from).toISOString() : null,
+        p_page: currentPage,
+        p_per_page: itemsPerPage,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!loja,
+  });
+
+  const paginatedEnvios = paginatedResult as any[];
+  const totalFilteredCount = paginatedEnvios.length > 0 ? Number(paginatedEnvios[0].total_count) : 0;
+  const totalPages = Math.ceil(totalFilteredCount / itemsPerPage);
+
+  // Derive origem/metodo maps from paginated data
+  const pedidoOrigemMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of paginatedEnvios) {
+      if (e.origem) map[e.id] = e.origem;
+    }
+    return map;
+  }, [paginatedEnvios]);
+
+  const pedidoMetodoMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of paginatedEnvios) {
+      if (e.metodo_pagamento) map[e.id] = e.metodo_pagamento;
+    }
+    return map;
+  }, [paginatedEnvios]);
+
+  const getMetodoLabel = (method: string) => {
+    const m = method.toLowerCase();
+    if (m.includes("pix")) return "PIX";
+    if (m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit")) return "Cartão";
+    if (m.includes("boleto")) return "Boleto";
+    return method;
+  };
+
+  const getMetodoBadgeClass = (method: string) => {
+    const m = method.toLowerCase();
+    if (m.includes("pix")) return "bg-emerald-500/15 text-emerald-600 border-emerald-500/30";
+    if (m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit")) return "bg-blue-500/15 text-blue-600 border-blue-500/30";
+    if (m.includes("boleto")) return "bg-amber-500/15 text-amber-600 border-amber-500/30";
+    return "bg-muted text-muted-foreground border-border/50";
+  };
+
+  const getOrigemLabel = (provider: string) => {
+    const labels: Record<string, string> = {
+      vega: "Vega", zedy: "Zedy", luna: "Luna", corvex: "Corvex",
+      adoorei: "Adoorei", shopify: "Shopify", api_externa: "API",
+    };
+    return labels[provider.toLowerCase()] || provider;
+  };
+
   // Fetch event counts per template_id for progress calculation
-  const templateIdsKey = envios.map(e => e.postagem_template_id).filter(Boolean).join(",");
+  const templateIdsKey = paginatedEnvios.map(e => e.postagem_template_id).filter(Boolean).join(",");
   const { data: eventCountMap = {} } = useQuery<Record<string, number>>({
     queryKey: ["event-count-map", loja?.id, templateIdsKey],
     queryFn: async () => {
@@ -218,7 +355,7 @@ export default function Envios() {
       if (!config) return {};
 
       const templateIds = [...new Set(
-        envios.map(e => e.postagem_template_id).filter(Boolean) as string[]
+        paginatedEnvios.map(e => e.postagem_template_id).filter(Boolean) as string[]
       )];
       if (config.template_ativo_id && !templateIds.includes(config.template_ativo_id)) {
         templateIds.push(config.template_ativo_id);
@@ -244,7 +381,7 @@ export default function Envios() {
       }
       return map;
     },
-    enabled: !!loja && envios.length > 0,
+    enabled: !!loja && paginatedEnvios.length > 0,
   });
 
   // Realtime listener for envios updates
@@ -256,7 +393,8 @@ export default function Envios() {
         "postgres_changes",
         { event: "*", schema: "public", table: "envios", filter: `loja_id=eq.${loja.id}` },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["envios", loja.id] });
+          queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+          queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
         }
       )
       .subscribe();
@@ -274,10 +412,22 @@ export default function Envios() {
         async (payload) => {
           const newEnvio = payload.new as any;
           if ((newEnvio.ultimo_evento_ordem ?? 0) === 0 && newEnvio.status === "pendente") {
+            // Re-check auto_envio from DB to avoid stale state across tabs
+            const { data: freshConfig } = await supabase
+              .from("postagem_config")
+              .select("auto_envio")
+              .eq("loja_id", loja.id)
+              .maybeSingle();
+
+            if (!freshConfig?.auto_envio) {
+              console.log("AUTO: skipped — auto_envio disabled in DB");
+              return;
+            }
+
             console.log("AUTO: Starting new shipment", newEnvio.id);
             try {
               await triggerNextEmail(newEnvio.id, loja.id);
-              queryClient.invalidateQueries({ queryKey: ["envios", loja.id] });
+              queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
               toast.success(`Auto: envio ${newEnvio.cliente_nome} iniciado!`);
             } catch (err: any) {
               if (err instanceof InsufficientBalanceError) {
@@ -301,7 +451,7 @@ export default function Envios() {
       return result;
     },
     onSuccess: (_data, envioId) => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       setCooldowns((prev) => ({ ...prev, [envioId]: Date.now() + 120000 }));
       toast.success("Avançado!");
     },
@@ -322,7 +472,7 @@ export default function Envios() {
       return result;
     },
     onSuccess: (_data, envioId) => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       setCooldowns((prev) => ({ ...prev, [envioId]: Date.now() + 120000 }));
       toast.success("Avanço forçado!");
     },
@@ -335,13 +485,32 @@ export default function Envios() {
     },
   });
 
+  const markDeliveredMutation = useMutation({
+    mutationFn: async (envioId: string) => {
+      if (!loja?.id) throw new Error("No loja");
+      // forceAdvance=true permite avançar para "Entregue" (último evento)
+      // E-mail e SMS são automaticamente pulados nesse evento (regra do triggerNextEmail)
+      const result = await triggerNextEmail(envioId, loja.id, false, true);
+      if (!result) throw new Error("Não foi possível marcar como entregue");
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
+      toast.success("Marcado como Entregue ✅");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao marcar como entregue");
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("envios").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       queryClient.invalidateQueries({ queryKey: ["taxacao-envios"] });
       toast.success("Envio removido.");
       setSelectedIds((prev) => {
@@ -355,14 +524,19 @@ export default function Envios() {
 
   const batchDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from("envios")
-        .update({ deleted_at: new Date().toISOString() })
-        .in("id", ids);
-      if (error) throw error;
+      const chunkSize = 50;
+      const deletedAt = new Date().toISOString();
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const { error } = await supabase
+          .from("envios")
+          .update({ deleted_at: deletedAt })
+          .in("id", chunk);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
       queryClient.invalidateQueries({ queryKey: ["taxacao-envios"] });
       toast.success(`${selectedIds.size} envio(s) removido(s).`);
       setSelectedIds(new Set());
@@ -377,9 +551,9 @@ export default function Envios() {
     return !pa || new Date(pa) <= new Date();
   };
 
-  // INICIAR PENDENTES: only starts envios at stage 0
+  // INICIAR PENDENTES: only starts envios at stage 0 (from current page)
   const handleIniciarPendentes = async () => {
-    const pendentes = envios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
+    const pendentes = paginatedEnvios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
     if (pendentes.length === 0) return toast.info("Nenhum envio pendente na estaca zero.");
     let count = 0;
     for (const envio of pendentes) {
@@ -394,120 +568,131 @@ export default function Envios() {
         }
       }
     }
-    queryClient.invalidateQueries({ queryKey: ["envios"] });
+    queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+    queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
     setBatchCooldown(Date.now() + 120000);
     toast.success(`${count} envio(s) iniciado(s)!`);
   };
 
-  // AVANÇAR TODOS: advance 1 at a time with 60s interval
-  const handleAvancarTodos = async () => {
-    const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
+  // Pre-click: show confirmation dialog
+  const handleAvancarTodosClick = () => {
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
+    const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
     if (targets.length === 0) return toast.info("Nenhum envio elegível para avançar (verifique os delays).");
-
-    batchCancelRef.current = false;
-    setBatchProgress({ processing: true, current: 0, total: targets.length });
-
-    let count = 0;
-    for (let i = 0; i < targets.length; i++) {
-      if (batchCancelRef.current) {
-        toast.info("Processamento cancelado.");
-        break;
-      }
-      setBatchProgress({ processing: true, current: i + 1, total: targets.length });
-      if (!loja?.id) continue;
-      try {
-        const result = await triggerNextEmail(targets[i].id, loja.id);
-        if (result) count++;
-      } catch (err: any) {
-        if (err instanceof InsufficientBalanceError) {
-          toast.error("Saldo insuficiente. Parado.");
-          break;
-        }
-      }
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
-      // Wait 60 seconds between each, except after last
-      if (i < targets.length - 1 && !batchCancelRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, 60000));
-      }
-    }
-
-    setBatchProgress(null);
-    setBatchCooldown(Date.now() + 120000);
-    toast.success(`${count} envio(s) avançado(s)!`);
+    setBatchConfirm({ type: "avancar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "da página" });
   };
 
-  // FORÇAR TODOS: force-advance ignoring delays, 1 at a time with 60s interval
-  const handleForcarTodos = async () => {
-    const targets = envios.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
+  const handleForcarTodosClick = () => {
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
+    const targets = base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0);
     if (targets.length === 0) return toast.info("Nenhum envio elegível para forçar avanço.");
+    setBatchConfirm({ type: "forcar", count: targets.length, label: ids.size > 0 ? "selecionado(s)" : "da página" });
+  };
 
-    batchCancelRef.current = false;
-    setBatchProgress({ processing: true, current: 0, total: targets.length });
+  const handleMarcarEntregueTodosClick = async () => {
+    if (!loja?.id) return;
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
+    // Elegíveis: em trânsito ou saiu para entrega (não pendente, não entregue)
+    const targets = base.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega");
+    if (targets.length === 0) return toast.info("Nenhum envio elegível para marcar como entregue.");
 
-    let count = 0;
-    for (let i = 0; i < targets.length; i++) {
-      if (batchCancelRef.current) {
-        toast.info("Processamento cancelado.");
-        break;
-      }
-      setBatchProgress({ processing: true, current: i + 1, total: targets.length });
-      if (!loja?.id) continue;
-      try {
-        const result = await triggerNextEmail(targets[i].id, loja.id, false, true);
-        if (result) count++;
-      } catch (err: any) {
-        if (err instanceof InsufficientBalanceError) {
-          toast.error("Saldo insuficiente. Parado.");
+    if (!confirm(`Marcar ${targets.length} envio(s) como Entregue? Nenhum e-mail ou SMS será enviado.`)) return;
+
+    const targetIds = targets.map((e) => e.id);
+    let ok = 0;
+    await startBatch(targetIds.length);
+    try {
+      for (let i = 0; i < targetIds.length; i++) {
+        const cancelled = await checkCancelled();
+        if (cancelled) {
+          toast.info(`Cancelado. ${ok}/${targetIds.length} marcados.`);
           break;
         }
+        try {
+          const result = await triggerNextEmail(targetIds[i], loja.id, false, true);
+          if (result) ok++;
+        } catch (err) {
+          console.error("Falha ao marcar entregue:", targetIds[i], err);
+        }
+        await updateProgress(i + 1);
       }
-      queryClient.invalidateQueries({ queryKey: ["envios"] });
-      if (i < targets.length - 1 && !batchCancelRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, 60000));
+      if (ok > 0) {
+        queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+        queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
+        toast.success(`${ok} envio(s) marcado(s) como Entregue.`);
       }
+    } finally {
+      await finishBatch();
     }
-
-    setBatchProgress(null);
-    setBatchCooldown(Date.now() + 120000);
-    toast.success(`${count} envio(s) forçado(s)!`);
   };
 
-  const handleCancelBatch = () => {
-    batchCancelRef.current = true;
-  };
+  const handleBatchConfirmed = async () => {
+    if (!batchConfirm || !loja?.id) return;
+    const isForce = batchConfirm.type === "forcar";
+    setBatchConfirm(null);
 
-  const filteredEnvios = envios.filter((e) => {
-    const searchLower = search.toLowerCase();
-    const matchSearch =
-      e.cliente_nome.toLowerCase().includes(searchLower) ||
-      e.produto.toLowerCase().includes(searchLower) ||
-      (e.codigo_rastreio && e.codigo_rastreio.toLowerCase().includes(searchLower)) ||
-      e.cliente_email.toLowerCase().includes(searchLower) ||
-      e.valor.toString().includes(searchLower);
+    const ids = selectedIdsRef.current;
+    const base = ids.size > 0 ? paginatedEnvios.filter((e) => ids.has(e.id)) : paginatedEnvios;
+    const targets = isForce
+      ? base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0)
+      : base.filter((e) => e.status !== "entregue" && (e.ultimo_evento_ordem ?? 0) > 0 && canAdvanceNow(e));
+    if (targets.length === 0) return;
 
-    const matchStatus = filterStatus === "todos" || e.status === filterStatus;
+    const targetIds = targets.map((e) => e.id);
+    const chunkSize = 50;
+    let updated = 0;
 
-    let matchDate = true;
-    if (dateRange.from) {
-      const envioDate = new Date(e.created_at);
-      const start = startOfDay(dateRange.from);
-      const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-      matchDate = isWithinInterval(envioDate, { start, end });
+    await startBatch(targetIds.length);
+
+    try {
+      for (let i = 0; i < targetIds.length; i += chunkSize) {
+        const cancelled = await checkCancelled();
+        if (cancelled) {
+          toast.info(`Operação cancelada. ${updated} de ${targetIds.length} agendados.`);
+          break;
+        }
+
+        const chunk = targetIds.slice(i, i + chunkSize);
+        const { error } = await supabase
+          .from("envios")
+          .update({ proximo_avanco_em: new Date().toISOString() })
+          .in("id", chunk);
+        if (error) {
+          console.error("Batch update error:", error);
+          toast.error("Erro ao agendar envios: " + error.message);
+          break;
+        }
+        updated += chunk.length;
+        await updateProgress(updated);
+      }
+
+      if (updated > 0) {
+        queryClient.invalidateQueries({ queryKey: ["envios-paginated"] }); queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
+        toast.success(
+          `${updated} envio(s) agendado(s) para ${isForce ? "avanço forçado" : "avanço"}. O servidor processará automaticamente em até 5 minutos.`
+        );
+      }
+    } finally {
+      await finishBatch();
     }
-
-    return matchSearch && matchStatus && matchDate;
-  });
+  };
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterStatus, dateRange.from, dateRange.to]);
+  }, [debouncedSearch, filterStatus, filterMetodo, filterOrigem, dateRange.from, dateRange.to]);
 
-  const totalPages = Math.ceil(filteredEnvios.length / ITEMS_PER_PAGE);
-  const paginatedEnvios = filteredEnvios.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const ROW_HEIGHT = 52;
+  const rowVirtualizer = useVirtualizer({
+    count: paginatedEnvios.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 15,
+  });
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -532,6 +717,87 @@ export default function Envios() {
     }
     return pages;
   };
+
+  const handleExportCSV = useCallback(() => {
+    if (paginatedEnvios.length === 0) {
+      toast.info("Nenhum envio para exportar.");
+      return;
+    }
+    const headers = ["Nome", "Email", "Telefone", "Produto", "Valor", "Código Rastreio", "Link Rastreio", "Status", "Data"];
+    const escapeCSV = (val: string) => {
+      if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+    const rows = paginatedEnvios.map((e) => {
+      const trackingUrl = e.codigo_rastreio
+        ? `https://${getTrackingDomain(e)}/rastreio?codigo=${e.codigo_rastreio}`
+        : "";
+      const displayStatus = e.status_label || statusLabels[e.status] || e.status;
+      return [
+        e.cliente_nome,
+        e.cliente_email,
+        e.cliente_telefone || "",
+        formatProduto(e.produto),
+        e.valor.toFixed(2).replace(".", ","),
+        e.codigo_rastreio || "",
+        trackingUrl,
+        displayStatus,
+        format(new Date(e.created_at), "dd/MM/yyyy HH:mm"),
+      ].map(escapeCSV).join(",");
+    });
+    const bom = "\uFEFF";
+    const csv = bom + headers.join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `envios_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${paginatedEnvios.length} envio(s) exportado(s) como CSV!`);
+  }, [paginatedEnvios, getTrackingDomain]);
+
+  const handleExportXLSX = useCallback(() => {
+    if (paginatedEnvios.length === 0) {
+      toast.info("Nenhum envio para exportar.");
+      return;
+    }
+    const headers = ["Nome", "Email", "Telefone", "Produto", "Valor", "Código Rastreio", "Link Rastreio", "Status", "Data"];
+    const data = paginatedEnvios.map((e) => {
+      const trackingUrl = e.codigo_rastreio
+        ? `https://${getTrackingDomain(e)}/rastreio?codigo=${e.codigo_rastreio}`
+        : "";
+      const displayStatus = e.status_label || statusLabels[e.status] || e.status;
+      return [
+        e.cliente_nome,
+        e.cliente_email,
+        e.cliente_telefone || "",
+        formatProduto(e.produto),
+        e.valor,
+        e.codigo_rastreio || "",
+        trackingUrl,
+        displayStatus,
+        format(new Date(e.created_at), "dd/MM/yyyy HH:mm"),
+      ];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    // Auto-width columns
+    const colWidths = headers.map((h, i) => {
+      let max = h.length;
+      data.forEach((row) => {
+        const val = String(row[i] ?? "");
+        if (val.length > max) max = val.length;
+      });
+      return { wch: Math.min(max + 2, 50) };
+    });
+    ws["!cols"] = colWidths;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Envios");
+    XLSX.writeFile(wb, `envios_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    toast.success(`${paginatedEnvios.length} envio(s) exportado(s) como Excel!`);
+  }, [paginatedEnvios, getTrackingDomain]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -577,10 +843,10 @@ export default function Envios() {
   };
 
   // Metrics
-  const totalCount = envios.length;
-  const pendentesCount = envios.filter((e) => e.status === "pendente").length;
-  const transitoCount = envios.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega" || e.status === "coletado" || e.status === "centro_local").length;
-  const entreguesCount = envios.filter((e) => e.status === "entregue").length;
+  const totalCount = stats?.total ?? 0;
+  const pendentesCount = stats?.pendentes ?? 0;
+  const transitoCount = Number(stats?.em_transito ?? 0);
+  const entreguesCount = stats?.entregues ?? 0;
 
   const metrics = [
     { label: "Total", value: totalCount, icon: Package, delay: 0 },
@@ -592,6 +858,7 @@ export default function Envios() {
   return (
     <>
       <div className="space-y-6">
+        <BloqueioCobrancaBanner />
         {/* Hero + Metrics */}
         <div className="space-y-5">
           <div>
@@ -657,7 +924,7 @@ export default function Envios() {
                   variant="ghost"
                   size="sm"
                   className="text-xs hover:bg-destructive/10 hover:text-destructive"
-                  onClick={handleCancelBatch}
+                  onClick={() => cancelBatch()}
                 >
                   <Square className="h-3.5 w-3.5 mr-1 text-destructive" />
                   Avançando {batchProgress.current}/{batchProgress.total}... Cancelar
@@ -669,20 +936,30 @@ export default function Envios() {
                     size="sm"
                     className="text-xs hover:bg-primary/10 hover:text-primary"
                     disabled={batchCooldown > Date.now()}
-                    onClick={handleAvancarTodos}
+                    onClick={handleAvancarTodosClick}
                   >
                     <FastForward className="h-3.5 w-3.5 mr-1 text-primary" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Avançar Todos"}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Avançar Todos (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-xs hover:bg-yellow-500/10 hover:text-yellow-500"
                     disabled={batchCooldown > Date.now()}
-                    onClick={handleForcarTodos}
+                    onClick={handleForcarTodosClick}
                   >
                     <Zap className="h-3.5 w-3.5 mr-1 text-yellow-500" />
-                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : "Forçar Todos"}
+                    {batchCooldown > Date.now() ? formatCooldown(batchCooldown) : `Forçar Todos (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs hover:bg-emerald-500/10 hover:text-emerald-600"
+                    onClick={handleMarcarEntregueTodosClick}
+                    title="Marca como Entregue em massa — sem e-mail/SMS"
+                  >
+                    <PackageCheck className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                    {`Marcar Entregue (${selectedIds.size > 0 ? selectedIds.size : paginatedEnvios.length})`}
                   </Button>
                 </>
               )}
@@ -694,11 +971,7 @@ export default function Envios() {
                   variant="destructive"
                   size="sm"
                   className="h-8 text-xs"
-                  onClick={() => {
-                    if (confirm(`Excluir ${selectedIds.size} envios selecionados?`)) {
-                      batchDeleteMutation.mutate(Array.from(selectedIds));
-                    }
-                  }}
+                  onClick={() => setDeleteConfirmOpen(true)}
                   disabled={batchDeleteMutation.isPending}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
@@ -765,7 +1038,7 @@ export default function Envios() {
               </Popover>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[120px] h-8 text-xs bg-transparent border-border/50">
+                <SelectTrigger className="w-[160px] h-8 text-xs bg-transparent border-border/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -775,6 +1048,50 @@ export default function Envios() {
                   ))}
                 </SelectContent>
               </Select>
+
+              <Select value={filterMetodo} onValueChange={setFilterMetodo}>
+                <SelectTrigger className="w-[170px] h-8 text-xs bg-transparent border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Pagamentos</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="cartao">Cartão</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterOrigem} onValueChange={setFilterOrigem}>
+                <SelectTrigger className="w-[160px] h-8 text-xs bg-transparent border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas Origens</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="vega">Vega</SelectItem>
+                  <SelectItem value="zedy">Zedy</SelectItem>
+                  <SelectItem value="luna">Luna</SelectItem>
+                  <SelectItem value="corvex">Corvex</SelectItem>
+                  <SelectItem value="adoorei">Adoorei</SelectItem>
+                  <SelectItem value="shopify">Shopify</SelectItem>
+                  <SelectItem value="api_externa">API Externa</SelectItem>
+                </SelectContent>
+              </Select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8 text-xs">
+                    <Download className="h-3.5 w-3.5 mr-1" /> Exportar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportCSV}>
+                    <FileText className="h-4 w-4 mr-2" /> Exportar CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportXLSX}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar Excel (.xlsx)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {loja && <ImportarPlanilha lojaId={loja.id} />}
               <Button
                 size="sm"
@@ -788,7 +1105,7 @@ export default function Envios() {
         </div>
 
         {/* Content */}
-        {filteredEnvios.length === 0 ? (
+        {paginatedEnvios.length === 0 ? (
           /* Empty State */
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="relative mb-6">
@@ -812,13 +1129,30 @@ export default function Envios() {
           </div>
         ) : (
           <>
-          {/* Envio Rows */}
-          <div className="flex flex-col gap-1.5">
-            {paginatedEnvios.map((envio, idx) => (
+          {/* Envio Rows - Virtualized */}
+          <div
+            ref={scrollContainerRef}
+            className="overflow-auto"
+            style={{ maxHeight: 'calc(100vh - 320px)' }}
+          >
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const envio = paginatedEnvios[virtualRow.index];
+              if (!envio) return null;
+              return (
               <div
                 key={envio.id}
-                className="glass glow-border-hover rounded-lg px-3 py-2 transition-all duration-200 hover:bg-primary/5 animate-stagger-in group"
-                style={{ animationDelay: `${idx * 0.02}s` }}
+                className="glass glow-border-hover rounded-lg px-3 py-2 transition-colors duration-200 hover:bg-primary/5 group absolute w-full"
+                style={{
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
               >
                 {/* Single compact row */}
                 <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
@@ -831,9 +1165,11 @@ export default function Envios() {
                   </div>
 
                   {/* Name + Email */}
-                  <div className="min-w-0 w-32 md:w-40 shrink-0">
+                   <div className="min-w-0 w-48 md:w-64 shrink-0">
                     <p className="text-sm font-medium text-foreground truncate leading-tight">{envio.cliente_nome}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{envio.cliente_email}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {envio.cliente_email}{envio.cliente_telefone ? ` · ${envio.cliente_telefone}` : ''}
+                    </p>
                   </div>
 
                   {/* Product */}
@@ -853,7 +1189,7 @@ export default function Envios() {
                   {/* Status */}
                   <Badge
                     variant="secondary"
-                    className={`${statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[9px] px-1.5 py-0 h-5 whitespace-nowrap shrink-0`}
+                    className={`${statusColors[envio.status_label || ""] || statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[9px] px-1.5 py-0 h-5 whitespace-nowrap shrink-0`}
                   >
                     <span className="inline-block h-1 w-1 rounded-full bg-current mr-1" />
                     {getDisplayStatus(envio)}
@@ -864,13 +1200,38 @@ export default function Envios() {
                     className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${
                       isJadlog(envio)
                         ? 'bg-destructive/10 text-destructive border-destructive/30'
-                        : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                        : isVetor(envio)
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
+                          : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
                     }`}
                   >
-                    {isJadlog(envio) ? 'JADLOG' : 'JL'}
+                    {isJadlog(envio) ? 'JADLOG' : isVetor(envio) ? 'VETOR' : 'JL'}
                   </Badge>
+                  {/* Origem badge */}
+                  <Badge
+                    variant="outline"
+                    className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-medium ${
+                      pedidoOrigemMap[envio.id]
+                        ? 'bg-primary/10 text-primary border-primary/30'
+                        : 'bg-muted text-muted-foreground border-border/50'
+                    }`}
+                  >
+                    {pedidoOrigemMap[envio.id] ? (
+                      <><Zap className="h-2.5 w-2.5 mr-0.5" />{getOrigemLabel(pedidoOrigemMap[envio.id])}</>
+                    ) : (
+                      'Manual'
+                    )}
+                  </Badge>
+                  {/* Método de pagamento badge */}
+                  {pedidoMetodoMap[envio.id] && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-medium ${getMetodoBadgeClass(pedidoMetodoMap[envio.id])}`}
+                    >
+                      {getMetodoLabel(pedidoMetodoMap[envio.id])}
+                    </Badge>
+                  )}
 
-                  {/* Quick links */}
                   <div className="flex items-center gap-0.5 ml-auto shrink-0">
                     {envio.codigo_rastreio && (
                       <Button
@@ -951,6 +1312,18 @@ export default function Envios() {
                           </Button>
                         )
                       )}
+                      {envio.status !== "entregue" && (envio.ultimo_evento_ordem ?? 0) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 hover:bg-emerald-500/10 text-emerald-600 hover:text-emerald-700"
+                          title="Marcar como Entregue (manual — não envia e-mail/SMS)"
+                          disabled={markDeliveredMutation.isPending}
+                          onClick={() => markDeliveredMutation.mutate(envio.id)}
+                        >
+                          <PackageCheck className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -964,15 +1337,30 @@ export default function Envios() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
+            </div>
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {totalFilteredCount > 0 && (
             <div className="flex items-center justify-between glass glow-border rounded-xl px-4 py-3 mt-2">
-              <span className="text-xs text-muted-foreground">
-                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredEnvios.length)} de {filteredEnvios.length} envios
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, totalFilteredCount)} de {totalFilteredCount} envios
+                </span>
+                <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); localStorage.setItem('envios_per_page', v); }}>
+                  <SelectTrigger className="h-7 w-[80px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    {PAGE_SIZE_OPTIONS.map(n => (
+                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
@@ -1008,12 +1396,53 @@ export default function Envios() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
+              )}
             </div>
           )}
           </>
         )}
 
         <NovoEnvioWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir envios selecionados</AlertDialogTitle>
+              <AlertDialogDescription>
+                Realmente deseja apagar todos os seus Clientes? Pedidos irão parar de ser enviados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => batchDeleteMutation.mutate(Array.from(selectedIds))}
+              >
+                Confirmar exclusão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!batchConfirm} onOpenChange={(open) => { if (!open) setBatchConfirm(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {batchConfirm?.type === "forcar" ? "Forçar avanço em massa" : "Avançar em massa"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Você está prestes a {batchConfirm?.type === "forcar" ? "forçar" : "avançar"}{" "}
+                <strong>{batchConfirm?.count}</strong> envio(s) {batchConfirm?.label}. Continuar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBatchConfirmed}>
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );

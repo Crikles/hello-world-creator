@@ -96,6 +96,11 @@ export default function PagamentoFalha() {
     const [tax, setTax] = useState<TaxSettings>(DEFAULT_TAX);
 
     useEffect(() => {
+        document.title = "Atualização de Entrega";
+        return () => { document.title = "Rastreio de Encomendas"; };
+    }, []);
+
+    useEffect(() => {
         if (!envioId) {
             setError("Link de pagamento inválido ou expirado");
             setLoading(false);
@@ -133,10 +138,11 @@ export default function PagamentoFalha() {
     }, [envioId]);
 
     const isJadlog = envio?.transportadora?.toUpperCase().includes("JADLOG");
-    const empresaNome = isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
-    const logoUrl = isJadlog ? "/logojadlog.png" : (empresa?.logo_url || "/logojltransportes.png");
-    const accentColor = isJadlog ? "#e10526" : (tax.cor_botao || "#ea580c");
-    const destaqueColor = isJadlog ? "#e10526" : (tax.cor_destaque || "#ea580c");
+    const isVetor = envio?.transportadora?.toUpperCase().includes("VETOR");
+    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || (isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : "Logística JL Transportes");
+    const logoUrl = empresa?.logo_url || (isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : "/logojltransportes.png");
+    const accentColor = tax.cor_botao || (isVetor ? "#1B5E20" : isJadlog ? "#e10526" : "#ea580c");
+    const destaqueColor = tax.cor_destaque || (isJadlog ? "#e10526" : "#ea580c");
     const tituloResumoColor = tax.cor_titulo_resumo || "#020617";
     const labelTaxaColor = tax.cor_label_taxa || "#020617";
     const descricaoColor = tax.cor_descricao || "#9a3412";

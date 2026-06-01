@@ -1,0 +1,1 @@
+ALTER TABLE postagem_config ADD COLUMN ativar_vizinho boolean NOT NULL DEFAULT true;

@@ -11,12 +11,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Package, Plus, Store, LogOut, Shield, Coins, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Package, Plus, Store, LogOut, Shield, Coins, MoreVertical, Pencil, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function Lojas() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isImpersonating, exitImpersonation } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -112,30 +112,29 @@ export default function Lojas() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("postagem_email_log").delete().eq("loja_id", id);
-      await supabase.from("postagem_config").delete().eq("loja_id", id);
-      await supabase.from("envios").delete().eq("loja_id", id);
-      await supabase.from("pedidos").delete().eq("loja_id", id);
-      await supabase.from("empresas").delete().eq("loja_id", id);
-      await supabase.from("webhook_logs").delete().eq("loja_id", id);
-      await supabase.from("checkout_integrations").delete().eq("loja_id", id);
-      await supabase.from("shopify_integrations").delete().eq("loja_id", id);
-      await supabase.from("leads").delete().eq("loja_id", id);
-      const { data: templates } = await supabase.from("postagem_templates").select("id").eq("loja_id", id);
-      if (templates?.length) {
-        const ids = templates.map(t => t.id);
-        await supabase.from("postagem_eventos").delete().in("template_id", ids);
-        await supabase.from("postagem_templates").delete().eq("loja_id", id);
+      const { data, error } = await supabase.functions.invoke("delete-store", {
+        body: { loja_id: id },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Erro ao excluir loja.");
       }
-      const { error } = await supabase.from("lojas").delete().eq("id", id);
-      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lojas"] });
       setDeleteDialog({ open: false, lojaId: "", nome: "" });
       toast.success("Loja excluída com sucesso!");
     },
-    onError: () => toast.error("Erro ao excluir loja."),
+    onError: (err: Error) => {
+      console.error("Erro ao excluir loja:", err);
+      toast.error(err.message || "Erro ao excluir loja.");
+    },
   });
 
   const handleCreate = (e: React.FormEvent) => {
@@ -147,6 +146,11 @@ export default function Lojas() {
   const handleLogout = async () => {
     await signOut();
     navigate("/login");
+  };
+
+  const handleExitImpersonation = () => {
+    exitImpersonation();
+    navigate("/admin/usuarios");
   };
 
   return (
@@ -169,7 +173,13 @@ export default function Lojas() {
               <Coins className="h-3.5 w-3.5 animate-glow-pulse" />
               {saldo ?? 0}
             </div>
-            {isAdmin && (
+            {isImpersonating && (
+              <Button variant="destructive" size="sm" onClick={handleExitImpersonation}>
+                <Eye className="h-4 w-4 mr-1.5" />
+                Encerrar Visualização
+              </Button>
+            )}
+            {isAdmin && !isImpersonating && (
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary transition-colors" onClick={() => navigate("/admin")}>
                 <Shield className="h-4 w-4 mr-1.5" />
                 Admin

@@ -15,21 +15,22 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [sessionReady, setSessionReady] = useState(false);
   const isLogistics = isLogisticsDomain();
 
-  // Check for recovery session
   useEffect(() => {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const type = hashParams.get("type");
-    if (type !== "recovery") {
-      // Also check via event
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === "PASSWORD_RECOVERY") {
-          // user is in recovery mode
-        }
-      });
-      return () => subscription.unsubscribe();
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        setSessionReady(true);
+      }
+    });
+
+    // Also check if there's already an active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setSessionReady(true);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,13 +46,22 @@ export default function ResetPassword() {
       return;
     }
 
+    if (!sessionReady) {
+      setError("Sessão de autenticação ausente. Clique no link do email novamente.");
+      return;
+    }
+
     setLoading(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setLoading(false);
 
     if (updateError) {
+      if (updateError.message?.includes("session") || updateError.message?.includes("Auth session")) {
+        setError("Sessão expirada. Solicite um novo link de recuperação.");
+      } else {
+        setError(updateError.message);
+      }
       toast.error(updateError.message);
-      setError(updateError.message);
     } else {
       setSuccess(true);
       toast.success("Senha redefinida com sucesso!");
@@ -140,6 +150,13 @@ export default function ResetPassword() {
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
                     {error}
+                  </p>
+                )}
+
+                {!sessionReady && !error && (
+                  <p className="text-xs text-yellow-500 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Aguardando sessão de autenticação...
                   </p>
                 )}
 

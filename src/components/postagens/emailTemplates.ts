@@ -66,7 +66,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "{{redirect_url_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   Coletado: {
@@ -75,7 +75,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "{{redirect_url_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Em Trânsito": {
@@ -84,7 +84,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Acompanhar Entrega",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "{{redirect_url_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Centro Local": {
@@ -93,7 +93,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "{{redirect_url_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Em Rota": {
@@ -102,7 +102,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Acompanhar Entrega",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "{{redirect_url_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Saiu para Entrega": {
@@ -111,12 +111,12 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Acompanhar em Tempo Real",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "{{redirect_url_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   Entregue: {
     saudacao: "Olá {{cliente_nome}},",
-    mensagem: "Seu pedido **{{produto}}** foi entregue com sucesso!\n\nEsperamos que você aproveite! Se tiver alguma dúvida, não hesite em nos contatar.",
+    mensagem: "Seu pedido **{{produto}}** foi entregue com sucesso!\n\n**Dados do recebedor:**\nRecebedor: {{recebedor_nome}} (Vizinho(a) de {{cliente_primeiro_nome}})\nDocumento: {{recebedor_cpf}}\n\nEsperamos que você aproveite! Se tiver alguma dúvida, não hesite em nos contatar.",
     mostrar_info_pedido: true,
     mostrar_botao_cta: false,
     texto_botao_cta: "",
@@ -138,7 +138,7 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
     mostrar_info_pedido: true,
     mostrar_botao_cta: true,
     texto_botao_cta: "Rastrear Pedido",
-    url_botao_cta: "https://rastreio.logisticajltransportes.com/r/{{codigo_rastreio}}",
+    url_botao_cta: "{{redirect_url_rastreio}}",
     rodape: "Atenciosamente,\n{{empresa_nome}}",
   },
   "Falha Entrega": {
@@ -154,6 +154,13 @@ export const defaultSectionsByEvent: Record<string, EmailSections> = {
 
 export function replaceVariables(text: string, data: Record<string, string> = dadosExemplo): string {
   let result = text;
+
+  // Process mustache conditionals {{#key}}...{{/key}}
+  result = result.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_match, key, content) => {
+    return data[key] && data[key].trim() !== "" ? content : "";
+  });
+
+  // Replace simple variables {{key}}
   for (const [key, value] of Object.entries(data)) {
     result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
   }
@@ -166,7 +173,7 @@ function markdownToHtml(text: string): string {
     .replace(/\n/g, "<br>");
 }
 
-export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1", eventName?: string, whatsappVendedor?: string): string {
+export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1", eventName?: string, whatsappVendedor?: string, upsellHtml?: string): string {
   const saudacaoHtml = markdownToHtml(sections.saudacao);
   const mensagemHtml = markdownToHtml(sections.mensagem);
   const rodapeHtml = markdownToHtml(sections.rodape);
@@ -236,7 +243,7 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
           <!-- Logo Section -->
           <tr>
             <td style="background-color:#f5f5f5;padding:36px 40px 20px;text-align:center;">
-              {{#empresa_logo_url}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 16px;"><tr><td style="width:90px;height:90px;border-radius:50%;background:#ffffff;text-align:center;vertical-align:middle;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><img src="{{empresa_logo_url}}" alt="{{empresa_nome}}" style="max-height:60px;max-width:60px;vertical-align:middle;" /></td></tr></table>{{/empresa_logo_url}}
+              {{#empresa_logo_url}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 16px;"><tr><td style="width:90px;height:90px;border-radius:50%;background:#ffffff;text-align:center;vertical-align:middle;box-shadow:0 4px 12px rgba(0,0,0,0.15);overflow:hidden;"><img src="{{empresa_logo_url}}" alt="{{empresa_nome}}" style="width:90px;height:90px;object-fit:cover;border-radius:50%;display:block;" /></td></tr></table>{{/empresa_logo_url}}
               <p style="margin:0;color:#666;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">{{empresa_nome}}</p>
             </td>
           </tr>
@@ -256,6 +263,7 @@ export function buildEmailHtml(sections: EmailSections, primaryColor = "#6366f1"
               ${infoBlock}
               ${ctaBlock}
               ${whatsappBlock}
+              ${upsellHtml || ""}
             </td>
           </tr>
 

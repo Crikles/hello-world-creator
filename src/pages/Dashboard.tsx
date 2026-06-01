@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatProduto } from "@/lib/format-produto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { useLoja } from "@/contexts/LojaContext";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
+import { BloqueioCobrancaBanner } from "@/components/BloqueioCobrancaBanner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,8 +40,63 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const { data: envios = [] } = useQuery({
-    queryKey: ["envios-dashboard", loja?.id],
+  useEffect(() => {
+    document.title = "Magnus Frete - Dashboard";
+  }, []);
+
+  // Server-side counts for cards (no 1000 limit)
+  const { data: counts } = useQuery({
+    queryKey: ["envios-counts", loja?.id],
+    queryFn: async () => {
+      if (!loja) return { total: 0, pendentes: 0, emTransito: 0, entregues: 0 };
+      const [totalQ, pendentesQ, emTransitoQ, saiuQ, entreguesQ] = await Promise.all([
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null),
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null).eq("status", "pendente"),
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null).eq("status", "em_transito"),
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null).eq("status", "saiu_para_entrega"),
+        supabase.from("envios").select("id", { count: "exact", head: true }).eq("loja_id", loja.id).is("deleted_at", null).eq("status", "entregue"),
+      ]);
+      return {
+        total: totalQ.count || 0,
+        pendentes: pendentesQ.count || 0,
+        emTransito: (emTransitoQ.count || 0) + (saiuQ.count || 0),
+        entregues: entreguesQ.count || 0,
+      };
+    },
+    enabled: !!loja,
+  });
+
+  // Faturamento: server-side aggregation
+  const { data: faturamento = 0 } = useQuery({
+    queryKey: ["envios-faturamento", loja?.id],
+    queryFn: async () => {
+      if (!loja) return 0;
+      const { data, error } = await supabase.rpc("get_loja_faturamento", { p_loja_id: loja.id });
+      if (error) throw error;
+      return Number(data) || 0;
+    },
+    enabled: !!loja,
+  });
+
+  // Chart data: server-side aggregation
+  const { data: chartData = [] } = useQuery({
+    queryKey: ["envios-chart", loja?.id],
+    queryFn: async () => {
+      if (!loja) return [];
+      const { data, error } = await supabase.rpc("get_loja_chart_data", { p_loja_id: loja.id });
+      if (error) throw error;
+      return (data || []).map((row: { dia: string; receita: number; pedidos: number }) => ({
+        name: format(new Date(row.dia + "T00:00:00"), "dd/MM/yy"),
+        receita: Number(row.receita),
+        pedidos: Number(row.pedidos),
+      }));
+    },
+    enabled: !!loja,
+  });
+
+  // Recent updates: only 6
+  const { data: recentUpdates = [] } = useQuery({
+    queryKey: ["envios-recent", loja?.id],
     queryFn: async () => {
       if (!loja) return [];
       const { data, error } = await supabase
@@ -48,7 +104,8 @@ export default function Dashboard() {
         .select("*")
         .eq("loja_id", loja.id)
         .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(6);
       if (error) throw error;
       return data;
     },
@@ -111,7 +168,10 @@ export default function Dashboard() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["envios-dashboard", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-counts", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-faturamento", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-chart", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-recent", loja?.id] });
       queryClient.invalidateQueries({ queryKey: ["envios", loja?.id] });
       toast.success("Todos os registros de envios foram limpos.");
       setConfirmOpen(false);
@@ -123,26 +183,11 @@ export default function Dashboard() {
   const emailAtivo = postagemConfig?.enviar_emails ?? false;
   const webhookAtivo = (!!shopifyConfig && (shopifyConfig as any).ativo === true && !!(shopifyConfig as any).access_token) || checkoutIntegrations.length > 0;
 
-  const total = envios.length;
-  const pendentes = envios.filter((e) => e.status === "pendente").length;
-  const emTransito = envios.filter((e) => e.status === "em_transito" || e.status === "saiu_para_entrega").length;
-  const entregues = envios.filter((e) => e.status === "entregue").length;
-  const faturamento = envios.reduce((acc, e) => acc + Number(e.valor || 0), 0);
+  const total = counts?.total ?? 0;
+  const pendentes = counts?.pendentes ?? 0;
+  const emTransito = counts?.emTransito ?? 0;
+  const entregues = counts?.entregues ?? 0;
 
-  const chartDataMap = new Map<string, { receita: number; pedidos: number }>();
-  envios.forEach((e) => {
-    const day = format(new Date(e.created_at), "dd/MM");
-    const existing = chartDataMap.get(day) || { receita: 0, pedidos: 0 };
-    existing.receita += Number(e.valor || 0);
-    existing.pedidos += 1;
-    chartDataMap.set(day, existing);
-  });
-  const chartData = Array.from(chartDataMap.entries())
-    .map(([name, vals]) => ({ name, ...vals }))
-    .reverse()
-    .slice(-7);
-
-  const recentUpdates = envios.slice(0, 6);
 
   const cards = [
     { title: "Total de Pedidos", value: total, icon: Package },
@@ -153,6 +198,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <BloqueioCobrancaBanner />
       {/* Header */}
       <div className="animate-stagger-in flex items-start justify-between">
         <div>
@@ -243,7 +289,8 @@ export default function Dashboard() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 18%)" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                <YAxis yAxisId="left" tick={{ fontSize: 12 }} stroke="hsl(45, 10%, 55%)" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} stroke="hsl(200, 70%, 55%)" />
                 <Tooltip
                   contentStyle={{
                     borderRadius: "12px",
@@ -253,7 +300,19 @@ export default function Dashboard() {
                     color: "hsl(45, 30%, 92%)",
                     fontSize: "12px",
                   }}
-                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Receita"]}
+                  formatter={(value: number, name: string) => {
+                    if (name === "pedidos") return [value, "Pedidos"];
+                    return [`R$ ${value.toFixed(2)}`, "Receita"];
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="pedidos"
+                  stroke="hsl(200, 70%, 55%)"
+                  strokeWidth={2}
+                  fill="none"
+                  strokeDasharray="5 5"
+                  yAxisId="right"
                 />
                 <Area
                   type="monotone"
@@ -261,6 +320,7 @@ export default function Dashboard() {
                   stroke="hsl(43, 74%, 49%)"
                   strokeWidth={2}
                   fill="url(#colorReceita)"
+                  yAxisId="left"
                 />
               </AreaChart>
             </ResponsiveContainer>
