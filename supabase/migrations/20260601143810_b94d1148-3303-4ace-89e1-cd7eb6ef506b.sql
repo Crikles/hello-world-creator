@@ -1,0 +1,1 @@
+ALTER TABLE public.signup_verifications ADD COLUMN IF NOT EXISTS full_name text;
