@@ -1501,6 +1501,7 @@ export type Database = {
           code: string | null
           created_at: string
           email: string | null
+          expires_at: string | null
           id: string
           phone: string | null
           status: string
@@ -1512,6 +1513,7 @@ export type Database = {
           code?: string | null
           created_at?: string
           email?: string | null
+          expires_at?: string | null
           id?: string
           phone?: string | null
           status?: string
@@ -1523,6 +1525,7 @@ export type Database = {
           code?: string | null
           created_at?: string
           email?: string | null
+          expires_at?: string | null
           id?: string
           phone?: string | null
           status?: string
