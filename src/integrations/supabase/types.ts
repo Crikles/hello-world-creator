@@ -52,6 +52,39 @@ export type Database = {
           },
         ]
       }
+      cashback_log: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          envio_id: string | null
+          id: string
+          loja_id: string | null
+          status: string
+          user_id: string | null
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          envio_id?: string | null
+          id?: string
+          loja_id?: string | null
+          status?: string
+          user_id?: string | null
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          envio_id?: string | null
+          id?: string
+          loja_id?: string | null
+          status?: string
+          user_id?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
       checkout_integrations: {
         Row: {
           api_key: string | null
@@ -735,6 +768,15 @@ export type Database = {
           template_ativo_id: string | null
           updated_at: string
           valor_taxa_falha: number | null
+          whatsapp_auto_send: boolean | null
+          whatsapp_btn_text: string | null
+          whatsapp_btn2_text: string | null
+          whatsapp_btn2_url: string | null
+          whatsapp_delay_seconds: number | null
+          whatsapp_footer: string | null
+          whatsapp_image_url: string | null
+          whatsapp_msg_template: string | null
+          whatsapp_reply_text: string | null
           whatsapp_vendedor: string | null
         }
         Insert: {
@@ -762,6 +804,15 @@ export type Database = {
           template_ativo_id?: string | null
           updated_at?: string
           valor_taxa_falha?: number | null
+          whatsapp_auto_send?: boolean | null
+          whatsapp_btn_text?: string | null
+          whatsapp_btn2_text?: string | null
+          whatsapp_btn2_url?: string | null
+          whatsapp_delay_seconds?: number | null
+          whatsapp_footer?: string | null
+          whatsapp_image_url?: string | null
+          whatsapp_msg_template?: string | null
+          whatsapp_reply_text?: string | null
           whatsapp_vendedor?: string | null
         }
         Update: {
@@ -789,6 +840,15 @@ export type Database = {
           template_ativo_id?: string | null
           updated_at?: string
           valor_taxa_falha?: number | null
+          whatsapp_auto_send?: boolean | null
+          whatsapp_btn_text?: string | null
+          whatsapp_btn2_text?: string | null
+          whatsapp_btn2_url?: string | null
+          whatsapp_delay_seconds?: number | null
+          whatsapp_footer?: string | null
+          whatsapp_image_url?: string | null
+          whatsapp_msg_template?: string | null
+          whatsapp_reply_text?: string | null
           whatsapp_vendedor?: string | null
         }
         Relationships: [
@@ -824,37 +884,49 @@ export type Database = {
       }
       postagem_email_log: {
         Row: {
+          assunto: string | null
           created_at: string
+          custo: number | null
           destinatario: string
           envio_id: string | null
           error_message: string | null
           evento: string | null
+          evento_id: string | null
           id: string
           loja_id: string | null
           resend_id: string | null
           status: string
+          updated_at: string
         }
         Insert: {
+          assunto?: string | null
           created_at?: string
+          custo?: number | null
           destinatario: string
           envio_id?: string | null
           error_message?: string | null
           evento?: string | null
+          evento_id?: string | null
           id?: string
           loja_id?: string | null
           resend_id?: string | null
           status?: string
+          updated_at?: string
         }
         Update: {
+          assunto?: string | null
           created_at?: string
+          custo?: number | null
           destinatario?: string
           envio_id?: string | null
           error_message?: string | null
           evento?: string | null
+          evento_id?: string | null
           id?: string
           loja_id?: string | null
           resend_id?: string | null
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1516,11 +1588,16 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
+          expires_at: string | null
           id: string
+          instance_name: string | null
           instance_token: string | null
           label: string | null
           loja_id: string | null
           numero: string | null
+          pairing_code: string | null
+          phone: string | null
+          qr_code: string | null
           status: string
           updated_at: string
           user_id: string | null
@@ -1528,11 +1605,16 @@ export type Database = {
         Insert: {
           ativo?: boolean
           created_at?: string
+          expires_at?: string | null
           id?: string
+          instance_name?: string | null
           instance_token?: string | null
           label?: string | null
           loja_id?: string | null
           numero?: string | null
+          pairing_code?: string | null
+          phone?: string | null
+          qr_code?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -1540,11 +1622,16 @@ export type Database = {
         Update: {
           ativo?: boolean
           created_at?: string
+          expires_at?: string | null
           id?: string
+          instance_name?: string | null
           instance_token?: string | null
           label?: string | null
           loja_id?: string | null
           numero?: string | null
+          pairing_code?: string | null
+          phone?: string | null
+          qr_code?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -1563,9 +1650,12 @@ export type Database = {
         Row: {
           created_at: string
           destinatario: string
+          envio_id: string | null
           error_message: string | null
+          error_reason: string | null
           evento: string | null
           id: string
+          instance_id: string | null
           loja_id: string | null
           mensagem: string | null
           status: string
@@ -1574,9 +1664,12 @@ export type Database = {
         Insert: {
           created_at?: string
           destinatario: string
+          envio_id?: string | null
           error_message?: string | null
+          error_reason?: string | null
           evento?: string | null
           id?: string
+          instance_id?: string | null
           loja_id?: string | null
           mensagem?: string | null
           status?: string
@@ -1585,9 +1678,12 @@ export type Database = {
         Update: {
           created_at?: string
           destinatario?: string
+          envio_id?: string | null
           error_message?: string | null
+          error_reason?: string | null
           evento?: string | null
           id?: string
+          instance_id?: string | null
           loja_id?: string | null
           mensagem?: string | null
           status?: string
@@ -1602,6 +1698,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_send_queue: {
+        Row: {
+          created_at: string
+          envio_id: string | null
+          id: string
+          loja_id: string
+          payload: Json | null
+          scheduled_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          envio_id?: string | null
+          id?: string
+          loja_id: string
+          payload?: Json | null
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          envio_id?: string | null
+          id?: string
+          loja_id?: string
+          payload?: Json | null
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
