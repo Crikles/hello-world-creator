@@ -56,6 +56,7 @@ export type Database = {
         Row: {
           api_key: string | null
           ativo: boolean
+          checkout_id: string | null
           config: Json | null
           created_at: string
           filtro_metodo: string
@@ -68,6 +69,7 @@ export type Database = {
         Insert: {
           api_key?: string | null
           ativo?: boolean
+          checkout_id?: string | null
           config?: Json | null
           created_at?: string
           filtro_metodo?: string
@@ -80,6 +82,7 @@ export type Database = {
         Update: {
           api_key?: string | null
           ativo?: boolean
+          checkout_id?: string | null
           config?: Json | null
           created_at?: string
           filtro_metodo?: string
@@ -98,6 +101,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      confirmacao_pagamento_config: {
+        Row: {
+          assunto_email: string
+          ativo: boolean
+          corpo_email: string
+          created_at: string
+          email_remetente_nome: string | null
+          enviar_email: boolean
+          enviar_sms: boolean
+          id: string
+          loja_id: string
+          sms_template: string
+          updated_at: string
+        }
+        Insert: {
+          assunto_email?: string
+          ativo?: boolean
+          corpo_email?: string
+          created_at?: string
+          email_remetente_nome?: string | null
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          id?: string
+          loja_id: string
+          sms_template?: string
+          updated_at?: string
+        }
+        Update: {
+          assunto_email?: string
+          ativo?: boolean
+          corpo_email?: string
+          created_at?: string
+          email_remetente_nome?: string | null
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          id?: string
+          loja_id?: string
+          sms_template?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       confirmacao_pagamento_log: {
         Row: {
@@ -310,6 +355,7 @@ export type Database = {
           nfe_numero: string | null
           nfe_serie: string | null
           produto: string
+          proximo_avanco_em: string | null
           quantidade: number
           status: Database["public"]["Enums"]["shipment_status"]
           transportadora: string | null
@@ -343,6 +389,7 @@ export type Database = {
           nfe_numero?: string | null
           nfe_serie?: string | null
           produto: string
+          proximo_avanco_em?: string | null
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
@@ -376,6 +423,7 @@ export type Database = {
           nfe_numero?: string | null
           nfe_serie?: string | null
           produto?: string
+          proximo_avanco_em?: string | null
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
@@ -924,6 +972,8 @@ export type Database = {
           id: string
           preco_envio_custom: number | null
           preco_recarga_custom: number | null
+          referral_code: string | null
+          referred_by: string | null
           whatsapp: string | null
           whatsapp_verified: boolean | null
         }
@@ -936,6 +986,8 @@ export type Database = {
           id: string
           preco_envio_custom?: number | null
           preco_recarga_custom?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
           whatsapp?: string | null
           whatsapp_verified?: boolean | null
         }
@@ -948,6 +1000,8 @@ export type Database = {
           id?: string
           preco_envio_custom?: number | null
           preco_recarga_custom?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
           whatsapp?: string | null
           whatsapp_verified?: boolean | null
         }
@@ -1384,6 +1438,38 @@ export type Database = {
           total: number
         }[]
       }
+      get_envios_paginated: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_loja_id: string
+          p_metodo?: string
+          p_origem?: string
+          p_page?: number
+          p_per_page?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json[]
+      }
+      get_envios_stats: {
+        Args: { p_loja_id: string }
+        Returns: {
+          em_transito: number
+          entregues: number
+          pendentes: number
+          total: number
+        }[]
+      }
+      get_loja_chart_data: {
+        Args: { p_loja_id: string }
+        Returns: {
+          dia: string
+          pedidos: number
+          receita: number
+        }[]
+      }
+      get_loja_faturamento: { Args: { p_loja_id: string }; Returns: number }
       get_my_debit_blocks: {
         Args: { p_loja_id: string }
         Returns: {
