@@ -1,0 +1,1 @@
+ALTER TABLE public.signup_verifications ADD COLUMN IF NOT EXISTS expires_at timestamptz;
