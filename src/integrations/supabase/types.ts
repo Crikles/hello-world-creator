@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_cashback_processed: {
+        Row: {
+          created_at: string
+          destinatarios: string[] | null
+          id: string
+          period_end: string
+          period_start: string
+          processed_by: string
+          total_cashback: number
+          total_clients: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          destinatarios?: string[] | null
+          id?: string
+          period_end: string
+          period_start: string
+          processed_by: string
+          total_cashback?: number
+          total_clients?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          destinatarios?: string[] | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          processed_by?: string
+          total_cashback?: number
+          total_clients?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      admin_payment_webhooks: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          label: string | null
+          url: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          label?: string | null
+          url: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          label?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
       batch_progress: {
         Row: {
           cancelled: boolean
@@ -1196,6 +1256,39 @@ export type Database = {
         }
         Relationships: []
       }
+      push_templates: {
+        Row: {
+          created_at: string
+          icon_url: string | null
+          id: string
+          mensagem: string
+          nome: string
+          titulo: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          mensagem?: string
+          nome: string
+          titulo?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          mensagem?: string
+          nome?: string
+          titulo?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       recovery_config: {
         Row: {
           assunto_email: string
@@ -1410,6 +1503,8 @@ export type Database = {
           id: string
           mensagem: string
           nome: string
+          status_key: string | null
+          status_label: string | null
           updated_at: string
         }
         Insert: {
@@ -1419,6 +1514,8 @@ export type Database = {
           id?: string
           mensagem: string
           nome: string
+          status_key?: string | null
+          status_label?: string | null
           updated_at?: string
         }
         Update: {
@@ -1428,6 +1525,8 @@ export type Database = {
           id?: string
           mensagem?: string
           nome?: string
+          status_key?: string | null
+          status_label?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1435,16 +1534,19 @@ export type Database = {
       system_config: {
         Row: {
           key: string
+          text_value: string | null
           updated_at: string
           value: number
         }
         Insert: {
           key: string
+          text_value?: string | null
           updated_at?: string
           value?: number
         }
         Update: {
           key?: string
+          text_value?: string | null
           updated_at?: string
           value?: number
         }
