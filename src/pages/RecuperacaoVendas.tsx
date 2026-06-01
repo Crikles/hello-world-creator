@@ -400,7 +400,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
       };
 
       if (config) {
-        const { error } = await supabase.from("recovery_config").update(payload).eq("id", config.id);
+        const { error } = await supabase.from("recovery_config").update(payload as any).eq("id", config.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("recovery_config").insert(payload as any);

@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_cashback_processed: {
+        Row: {
+          created_at: string
+          destinatarios: string[] | null
+          id: string
+          period_end: string
+          period_start: string
+          processed_by: string
+          total_cashback: number
+          total_clients: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          destinatarios?: string[] | null
+          id?: string
+          period_end: string
+          period_start: string
+          processed_by: string
+          total_cashback?: number
+          total_clients?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          destinatarios?: string[] | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          processed_by?: string
+          total_cashback?: number
+          total_clients?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      admin_payment_webhooks: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          label: string | null
+          url: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          label?: string | null
+          url: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          label?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
       batch_progress: {
         Row: {
           cancelled: boolean
@@ -52,40 +112,76 @@ export type Database = {
           },
         ]
       }
+      cashback_log: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          envio_id: string | null
+          id: string
+          loja_id: string | null
+          status: string
+          user_id: string | null
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          envio_id?: string | null
+          id?: string
+          loja_id?: string | null
+          status?: string
+          user_id?: string | null
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          envio_id?: string | null
+          id?: string
+          loja_id?: string | null
+          status?: string
+          user_id?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
       checkout_integrations: {
         Row: {
           api_key: string | null
           ativo: boolean
+          checkout_id: string | null
           config: Json | null
           created_at: string
           filtro_metodo: string
           id: string
           loja_id: string
-          provider: string
+          provider: string | null
           updated_at: string
           webhook_secret: string | null
         }
         Insert: {
           api_key?: string | null
           ativo?: boolean
+          checkout_id?: string | null
           config?: Json | null
           created_at?: string
           filtro_metodo?: string
           id?: string
           loja_id: string
-          provider: string
+          provider?: string | null
           updated_at?: string
           webhook_secret?: string | null
         }
         Update: {
           api_key?: string | null
           ativo?: boolean
+          checkout_id?: string | null
           config?: Json | null
           created_at?: string
           filtro_metodo?: string
           id?: string
           loja_id?: string
-          provider?: string
+          provider?: string | null
           updated_at?: string
           webhook_secret?: string | null
         }
@@ -98,6 +194,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      confirmacao_pagamento_config: {
+        Row: {
+          assunto_email: string
+          ativo: boolean
+          corpo_email: string
+          created_at: string
+          email_remetente_nome: string | null
+          enviar_email: boolean
+          enviar_sms: boolean
+          id: string
+          loja_id: string
+          sms_template: string
+          updated_at: string
+        }
+        Insert: {
+          assunto_email?: string
+          ativo?: boolean
+          corpo_email?: string
+          created_at?: string
+          email_remetente_nome?: string | null
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          id?: string
+          loja_id: string
+          sms_template?: string
+          updated_at?: string
+        }
+        Update: {
+          assunto_email?: string
+          ativo?: boolean
+          corpo_email?: string
+          created_at?: string
+          email_remetente_nome?: string | null
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          id?: string
+          loja_id?: string
+          sms_template?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       confirmacao_pagamento_log: {
         Row: {
@@ -309,7 +447,9 @@ export type Database = {
           nfe_chave_acesso: string | null
           nfe_numero: string | null
           nfe_serie: string | null
+          postagem_template_id: string | null
           produto: string
+          proximo_avanco_em: string | null
           quantidade: number
           status: Database["public"]["Enums"]["shipment_status"]
           transportadora: string | null
@@ -342,7 +482,9 @@ export type Database = {
           nfe_chave_acesso?: string | null
           nfe_numero?: string | null
           nfe_serie?: string | null
+          postagem_template_id?: string | null
           produto: string
+          proximo_avanco_em?: string | null
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
@@ -375,7 +517,9 @@ export type Database = {
           nfe_chave_acesso?: string | null
           nfe_numero?: string | null
           nfe_serie?: string | null
+          postagem_template_id?: string | null
           produto?: string
+          proximo_avanco_em?: string | null
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
@@ -497,6 +641,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          logistica_provider: string | null
           nome: string
           slug: string
           updated_at: string
@@ -505,6 +650,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          logistica_provider?: string | null
           nome: string
           slug: string
           updated_at?: string
@@ -513,6 +659,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          logistica_provider?: string | null
           nome?: string
           slug?: string
           updated_at?: string
@@ -660,8 +807,11 @@ export type Database = {
           ativar_falha_entrega: boolean
           ativar_site_rastreio: boolean
           ativar_taxacao: boolean
+          ativar_vizinho: boolean
           auto_envio: boolean
           checkout_url_falha: string | null
+          cor_botao_cta: string | null
+          cor_primaria: string | null
           created_at: string
           enviar_emails: boolean
           enviar_nfe_email: boolean
@@ -678,13 +828,26 @@ export type Database = {
           template_ativo_id: string | null
           updated_at: string
           valor_taxa_falha: number | null
+          whatsapp_auto_send: boolean | null
+          whatsapp_btn_text: string | null
+          whatsapp_btn2_text: string | null
+          whatsapp_btn2_url: string | null
+          whatsapp_delay_seconds: number | null
+          whatsapp_footer: string | null
+          whatsapp_image_url: string | null
+          whatsapp_msg_template: string | null
+          whatsapp_reply_text: string | null
+          whatsapp_vendedor: string | null
         }
         Insert: {
           ativar_falha_entrega?: boolean
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
+          ativar_vizinho?: boolean
           auto_envio?: boolean
           checkout_url_falha?: string | null
+          cor_botao_cta?: string | null
+          cor_primaria?: string | null
           created_at?: string
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
@@ -701,13 +864,26 @@ export type Database = {
           template_ativo_id?: string | null
           updated_at?: string
           valor_taxa_falha?: number | null
+          whatsapp_auto_send?: boolean | null
+          whatsapp_btn_text?: string | null
+          whatsapp_btn2_text?: string | null
+          whatsapp_btn2_url?: string | null
+          whatsapp_delay_seconds?: number | null
+          whatsapp_footer?: string | null
+          whatsapp_image_url?: string | null
+          whatsapp_msg_template?: string | null
+          whatsapp_reply_text?: string | null
+          whatsapp_vendedor?: string | null
         }
         Update: {
           ativar_falha_entrega?: boolean
           ativar_site_rastreio?: boolean
           ativar_taxacao?: boolean
+          ativar_vizinho?: boolean
           auto_envio?: boolean
           checkout_url_falha?: string | null
+          cor_botao_cta?: string | null
+          cor_primaria?: string | null
           created_at?: string
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
@@ -724,6 +900,16 @@ export type Database = {
           template_ativo_id?: string | null
           updated_at?: string
           valor_taxa_falha?: number | null
+          whatsapp_auto_send?: boolean | null
+          whatsapp_btn_text?: string | null
+          whatsapp_btn2_text?: string | null
+          whatsapp_btn2_url?: string | null
+          whatsapp_delay_seconds?: number | null
+          whatsapp_footer?: string | null
+          whatsapp_image_url?: string | null
+          whatsapp_msg_template?: string | null
+          whatsapp_reply_text?: string | null
+          whatsapp_vendedor?: string | null
         }
         Relationships: [
           {
@@ -758,37 +944,49 @@ export type Database = {
       }
       postagem_email_log: {
         Row: {
+          assunto: string | null
           created_at: string
+          custo: number | null
           destinatario: string
           envio_id: string | null
           error_message: string | null
           evento: string | null
+          evento_id: string | null
           id: string
           loja_id: string | null
           resend_id: string | null
           status: string
+          updated_at: string
         }
         Insert: {
+          assunto?: string | null
           created_at?: string
+          custo?: number | null
           destinatario: string
           envio_id?: string | null
           error_message?: string | null
           evento?: string | null
+          evento_id?: string | null
           id?: string
           loja_id?: string | null
           resend_id?: string | null
           status?: string
+          updated_at?: string
         }
         Update: {
+          assunto?: string | null
           created_at?: string
+          custo?: number | null
           destinatario?: string
           envio_id?: string | null
           error_message?: string | null
           evento?: string | null
+          evento_id?: string | null
           id?: string
           loja_id?: string | null
           resend_id?: string | null
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -876,32 +1074,41 @@ export type Database = {
       postagem_templates: {
         Row: {
           created_at: string
+          descricao: string | null
           evento: string | null
           html: string
           id: string
+          is_system: boolean
           loja_id: string
           nome: string
           subject: string
+          tipo: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          descricao?: string | null
           evento?: string | null
           html?: string
           id?: string
+          is_system?: boolean
           loja_id: string
           nome: string
           subject?: string
+          tipo?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          descricao?: string | null
           evento?: string | null
           html?: string
           id?: string
+          is_system?: boolean
           loja_id?: string
           nome?: string
           subject?: string
+          tipo?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -924,6 +1131,8 @@ export type Database = {
           id: string
           preco_envio_custom: number | null
           preco_recarga_custom: number | null
+          referral_code: string | null
+          referred_by: string | null
           whatsapp: string | null
           whatsapp_verified: boolean | null
         }
@@ -936,6 +1145,8 @@ export type Database = {
           id: string
           preco_envio_custom?: number | null
           preco_recarga_custom?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
           whatsapp?: string | null
           whatsapp_verified?: boolean | null
         }
@@ -948,6 +1159,8 @@ export type Database = {
           id?: string
           preco_envio_custom?: number | null
           preco_recarga_custom?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
           whatsapp?: string | null
           whatsapp_verified?: boolean | null
         }
@@ -1043,6 +1256,159 @@ export type Database = {
         }
         Relationships: []
       }
+      push_templates: {
+        Row: {
+          created_at: string
+          icon_url: string | null
+          id: string
+          mensagem: string
+          nome: string
+          titulo: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          mensagem?: string
+          nome: string
+          titulo?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          mensagem?: string
+          nome?: string
+          titulo?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      recovery_config: {
+        Row: {
+          assunto_email: string
+          ativo: boolean
+          beneficio_1: string | null
+          beneficio_2: string | null
+          beneficio_3: string | null
+          beneficio_principal: string | null
+          codigo_cupom: string | null
+          corpo_email: string
+          created_at: string
+          cupom_ativo: boolean
+          delay_minutos: number
+          descricao_cupom: string | null
+          enviar_sms: boolean
+          garantia: string | null
+          id: string
+          loja_id: string
+          ps_reforco_urgencia: string | null
+          sms_template: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          assunto_email?: string
+          ativo?: boolean
+          beneficio_1?: string | null
+          beneficio_2?: string | null
+          beneficio_3?: string | null
+          beneficio_principal?: string | null
+          codigo_cupom?: string | null
+          corpo_email?: string
+          created_at?: string
+          cupom_ativo?: boolean
+          delay_minutos?: number
+          descricao_cupom?: string | null
+          enviar_sms?: boolean
+          garantia?: string | null
+          id?: string
+          loja_id: string
+          ps_reforco_urgencia?: string | null
+          sms_template?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          assunto_email?: string
+          ativo?: boolean
+          beneficio_1?: string | null
+          beneficio_2?: string | null
+          beneficio_3?: string | null
+          beneficio_principal?: string | null
+          codigo_cupom?: string | null
+          corpo_email?: string
+          created_at?: string
+          cupom_ativo?: boolean
+          delay_minutos?: number
+          descricao_cupom?: string | null
+          enviar_sms?: boolean
+          garantia?: string | null
+          id?: string
+          loja_id?: string
+          ps_reforco_urgencia?: string | null
+          sms_template?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recovery_leads: {
+        Row: {
+          created_at: string
+          email: string | null
+          email_sent_at: string | null
+          id: string
+          loja_id: string
+          metadata: Json | null
+          nome: string | null
+          produto: string | null
+          sms_sent_at: string | null
+          status: string
+          telefone: string | null
+          tipo: string
+          updated_at: string
+          valor: number | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          email_sent_at?: string | null
+          id?: string
+          loja_id: string
+          metadata?: Json | null
+          nome?: string | null
+          produto?: string | null
+          sms_sent_at?: string | null
+          status?: string
+          telefone?: string | null
+          tipo: string
+          updated_at?: string
+          valor?: number | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          email_sent_at?: string | null
+          id?: string
+          loja_id?: string
+          metadata?: Json | null
+          nome?: string | null
+          produto?: string | null
+          sms_sent_at?: string | null
+          status?: string
+          telefone?: string | null
+          tipo?: string
+          updated_at?: string
+          valor?: number | null
+        }
+        Relationships: []
+      }
       retry_execucoes: {
         Row: {
           expires_at: string
@@ -1129,6 +1495,42 @@ export type Database = {
           },
         ]
       }
+      signup_verifications: {
+        Row: {
+          approved_by: string | null
+          code: string | null
+          created_at: string
+          email: string | null
+          id: string
+          phone: string | null
+          status: string
+          user_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          code?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          status?: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          code?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          status?: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       sms_templates: {
         Row: {
           ativo: boolean
@@ -1137,6 +1539,8 @@ export type Database = {
           id: string
           mensagem: string
           nome: string
+          status_key: string | null
+          status_label: string | null
           updated_at: string
         }
         Insert: {
@@ -1146,6 +1550,8 @@ export type Database = {
           id?: string
           mensagem: string
           nome: string
+          status_key?: string | null
+          status_label?: string | null
           updated_at?: string
         }
         Update: {
@@ -1155,6 +1561,8 @@ export type Database = {
           id?: string
           mensagem?: string
           nome?: string
+          status_key?: string | null
+          status_label?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1162,18 +1570,99 @@ export type Database = {
       system_config: {
         Row: {
           key: string
+          label: string | null
+          text_value: string | null
           updated_at: string
           value: number
         }
         Insert: {
           key: string
+          label?: string | null
+          text_value?: string | null
           updated_at?: string
           value?: number
         }
         Update: {
           key?: string
+          label?: string | null
+          text_value?: string | null
           updated_at?: string
           value?: number
+        }
+        Relationships: []
+      }
+      upsell_config: {
+        Row: {
+          ativo: boolean
+          botao_texto: string | null
+          botao_url: string | null
+          cor_botao_bg: string | null
+          cor_botao_texto: string | null
+          cor_descricao: string | null
+          cor_fundo: string | null
+          cor_headline: string | null
+          cor_nome_produto: string | null
+          cor_sub_headline: string | null
+          cor_valor: string | null
+          created_at: string
+          headline: string | null
+          id: string
+          loja_id: string
+          produto_descricao: string | null
+          produto_imagem_url: string | null
+          produto_nome: string | null
+          produto_valor: string | null
+          sub_headline: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          botao_texto?: string | null
+          botao_url?: string | null
+          cor_botao_bg?: string | null
+          cor_botao_texto?: string | null
+          cor_descricao?: string | null
+          cor_fundo?: string | null
+          cor_headline?: string | null
+          cor_nome_produto?: string | null
+          cor_sub_headline?: string | null
+          cor_valor?: string | null
+          created_at?: string
+          headline?: string | null
+          id?: string
+          loja_id: string
+          produto_descricao?: string | null
+          produto_imagem_url?: string | null
+          produto_nome?: string | null
+          produto_valor?: string | null
+          sub_headline?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          botao_texto?: string | null
+          botao_url?: string | null
+          cor_botao_bg?: string | null
+          cor_botao_texto?: string | null
+          cor_descricao?: string | null
+          cor_fundo?: string | null
+          cor_headline?: string | null
+          cor_nome_produto?: string | null
+          cor_sub_headline?: string | null
+          cor_valor?: string | null
+          created_at?: string
+          headline?: string | null
+          id?: string
+          loja_id?: string
+          produto_descricao?: string | null
+          produto_imagem_url?: string | null
+          produto_nome?: string | null
+          produto_valor?: string | null
+          sub_headline?: string | null
+          tipo?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1240,36 +1729,54 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
+          expires_at: string | null
           id: string
+          instance_name: string | null
           instance_token: string | null
           label: string | null
           loja_id: string | null
           numero: string | null
+          pairing_code: string | null
+          phone: string | null
+          qr_code: string | null
           status: string
+          subscription_id: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           ativo?: boolean
           created_at?: string
+          expires_at?: string | null
           id?: string
+          instance_name?: string | null
           instance_token?: string | null
           label?: string | null
           loja_id?: string | null
           numero?: string | null
+          pairing_code?: string | null
+          phone?: string | null
+          qr_code?: string | null
           status?: string
+          subscription_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           ativo?: boolean
           created_at?: string
+          expires_at?: string | null
           id?: string
+          instance_name?: string | null
           instance_token?: string | null
           label?: string | null
           loja_id?: string | null
           numero?: string | null
+          pairing_code?: string | null
+          phone?: string | null
+          qr_code?: string | null
           status?: string
+          subscription_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1287,9 +1794,12 @@ export type Database = {
         Row: {
           created_at: string
           destinatario: string
+          envio_id: string | null
           error_message: string | null
+          error_reason: string | null
           evento: string | null
           id: string
+          instance_id: string | null
           loja_id: string | null
           mensagem: string | null
           status: string
@@ -1298,9 +1808,12 @@ export type Database = {
         Insert: {
           created_at?: string
           destinatario: string
+          envio_id?: string | null
           error_message?: string | null
+          error_reason?: string | null
           evento?: string | null
           id?: string
+          instance_id?: string | null
           loja_id?: string | null
           mensagem?: string | null
           status?: string
@@ -1309,9 +1822,12 @@ export type Database = {
         Update: {
           created_at?: string
           destinatario?: string
+          envio_id?: string | null
           error_message?: string | null
+          error_reason?: string | null
           evento?: string | null
           id?: string
+          instance_id?: string | null
           loja_id?: string | null
           mensagem?: string | null
           status?: string
@@ -1326,6 +1842,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_send_queue: {
+        Row: {
+          created_at: string
+          envio_id: string | null
+          id: string
+          loja_id: string
+          payload: Json | null
+          scheduled_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          envio_id?: string | null
+          id?: string
+          loja_id: string
+          payload?: Json | null
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          envio_id?: string | null
+          id?: string
+          loja_id?: string
+          payload?: Json | null
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          loja_id: string | null
+          price_paid: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          loja_id?: string | null
+          price_paid?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          loja_id?: string | null
+          price_paid?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -1352,6 +1928,16 @@ export type Database = {
           user_email: string
           user_id: string
           user_nome: string
+        }[]
+      }
+      get_admin_user_activity: {
+        Args: never
+        Returns: {
+          envios_30d: number
+          total_envios: number
+          ultimo_deposito: string
+          ultimo_envio: string
+          user_id: string
         }[]
       }
       get_confirmacao_grouped: {
@@ -1384,6 +1970,38 @@ export type Database = {
           total: number
         }[]
       }
+      get_envios_paginated: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_loja_id: string
+          p_metodo?: string
+          p_origem?: string
+          p_page?: number
+          p_per_page?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json[]
+      }
+      get_envios_stats: {
+        Args: { p_loja_id: string }
+        Returns: {
+          em_transito: number
+          entregues: number
+          pendentes: number
+          total: number
+        }[]
+      }
+      get_loja_chart_data: {
+        Args: { p_loja_id: string }
+        Returns: {
+          dia: string
+          pedidos: number
+          receita: number
+        }[]
+      }
+      get_loja_faturamento: { Args: { p_loja_id: string }; Returns: number }
       get_my_debit_blocks: {
         Args: { p_loja_id: string }
         Returns: {
