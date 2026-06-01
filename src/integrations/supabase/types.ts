@@ -1378,6 +1378,81 @@ export type Database = {
         }
         Relationships: []
       }
+      upsell_config: {
+        Row: {
+          ativo: boolean
+          botao_texto: string | null
+          botao_url: string | null
+          cor_botao_bg: string | null
+          cor_botao_texto: string | null
+          cor_descricao: string | null
+          cor_fundo: string | null
+          cor_headline: string | null
+          cor_nome_produto: string | null
+          cor_sub_headline: string | null
+          cor_valor: string | null
+          created_at: string
+          headline: string | null
+          id: string
+          loja_id: string
+          produto_descricao: string | null
+          produto_imagem_url: string | null
+          produto_nome: string | null
+          produto_valor: string | null
+          sub_headline: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          botao_texto?: string | null
+          botao_url?: string | null
+          cor_botao_bg?: string | null
+          cor_botao_texto?: string | null
+          cor_descricao?: string | null
+          cor_fundo?: string | null
+          cor_headline?: string | null
+          cor_nome_produto?: string | null
+          cor_sub_headline?: string | null
+          cor_valor?: string | null
+          created_at?: string
+          headline?: string | null
+          id?: string
+          loja_id: string
+          produto_descricao?: string | null
+          produto_imagem_url?: string | null
+          produto_nome?: string | null
+          produto_valor?: string | null
+          sub_headline?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          botao_texto?: string | null
+          botao_url?: string | null
+          cor_botao_bg?: string | null
+          cor_botao_texto?: string | null
+          cor_descricao?: string | null
+          cor_fundo?: string | null
+          cor_headline?: string | null
+          cor_nome_produto?: string | null
+          cor_sub_headline?: string | null
+          cor_valor?: string | null
+          created_at?: string
+          headline?: string | null
+          id?: string
+          loja_id?: string
+          produto_descricao?: string | null
+          produto_imagem_url?: string | null
+          produto_nome?: string | null
+          produto_valor?: string | null
+          sub_headline?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
