@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      checkout_integrations: {
+        Row: {
+          api_key: string | null
+          ativo: boolean
+          config: Json | null
+          created_at: string
+          id: string
+          loja_id: string
+          provider: string
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          ativo?: boolean
+          config?: Json | null
+          created_at?: string
+          id?: string
+          loja_id: string
+          provider: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          ativo?: boolean
+          config?: Json | null
+          created_at?: string
+          id?: string
+          loja_id?: string
+          provider?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_integrations_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creditos: {
         Row: {
           id: string
@@ -61,6 +105,33 @@ export type Database = {
           id?: string
           quantidade?: number
           tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      debit_blocks: {
+        Row: {
+          blocked_until: string | null
+          created_at: string
+          id: string
+          reason: string
+          resolved: boolean
+          user_id: string
+        }
+        Insert: {
+          blocked_until?: string | null
+          created_at?: string
+          id?: string
+          reason: string
+          resolved?: boolean
+          user_id: string
+        }
+        Update: {
+          blocked_until?: string | null
+          created_at?: string
+          id?: string
+          reason?: string
+          resolved?: boolean
           user_id?: string
         }
         Relationships: []
@@ -247,6 +318,39 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          metadata: Json | null
+          nome: string | null
+          origem: string | null
+          telefone: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          metadata?: Json | null
+          nome?: string | null
+          origem?: string | null
+          telefone?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          metadata?: Json | null
+          nome?: string | null
+          origem?: string | null
+          telefone?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       lojas: {
         Row: {
           created_at: string
@@ -370,24 +474,423 @@ export type Database = {
           },
         ]
       }
+      pix_payments: {
+        Row: {
+          amount_cents: number
+          copy_paste: string | null
+          created_at: string
+          id: string
+          moedas: number
+          paid_at: string | null
+          qr_code_base64: string | null
+          status: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          copy_paste?: string | null
+          created_at?: string
+          id?: string
+          moedas: number
+          paid_at?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          copy_paste?: string | null
+          created_at?: string
+          id?: string
+          moedas?: number
+          paid_at?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      postagem_config: {
+        Row: {
+          created_at: string
+          enviar_emails: boolean
+          enviar_nfe_email: boolean
+          failed_delivery_cost: number | null
+          failed_delivery_template_id: string | null
+          id: string
+          loja_id: string
+          origem_cidade: string | null
+          origem_estado: string | null
+          taxacao_template_id: string | null
+          taxacao_valor: number | null
+          template_ativo_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enviar_emails?: boolean
+          enviar_nfe_email?: boolean
+          failed_delivery_cost?: number | null
+          failed_delivery_template_id?: string | null
+          id?: string
+          loja_id: string
+          origem_cidade?: string | null
+          origem_estado?: string | null
+          taxacao_template_id?: string | null
+          taxacao_valor?: number | null
+          template_ativo_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enviar_emails?: boolean
+          enviar_nfe_email?: boolean
+          failed_delivery_cost?: number | null
+          failed_delivery_template_id?: string | null
+          id?: string
+          loja_id?: string
+          origem_cidade?: string | null
+          origem_estado?: string | null
+          taxacao_template_id?: string | null
+          taxacao_valor?: number | null
+          template_ativo_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postagem_config_failed_delivery_template_id_fkey"
+            columns: ["failed_delivery_template_id"]
+            isOneToOne: false
+            referencedRelation: "postagem_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postagem_config_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postagem_config_taxacao_template_id_fkey"
+            columns: ["taxacao_template_id"]
+            isOneToOne: false
+            referencedRelation: "postagem_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postagem_config_template_ativo_id_fkey"
+            columns: ["template_ativo_id"]
+            isOneToOne: false
+            referencedRelation: "postagem_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postagem_email_log: {
+        Row: {
+          created_at: string
+          destinatario: string
+          envio_id: string | null
+          error_message: string | null
+          evento: string | null
+          id: string
+          loja_id: string | null
+          resend_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          destinatario: string
+          envio_id?: string | null
+          error_message?: string | null
+          evento?: string | null
+          id?: string
+          loja_id?: string | null
+          resend_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          destinatario?: string
+          envio_id?: string | null
+          error_message?: string | null
+          evento?: string | null
+          id?: string
+          loja_id?: string | null
+          resend_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postagem_email_log_envio_id_fkey"
+            columns: ["envio_id"]
+            isOneToOne: false
+            referencedRelation: "envios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postagem_email_log_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postagem_templates: {
+        Row: {
+          created_at: string
+          evento: string | null
+          html: string
+          id: string
+          loja_id: string
+          nome: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          evento?: string | null
+          html?: string
+          id?: string
+          loja_id: string
+          nome: string
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          evento?: string | null
+          html?: string
+          id?: string
+          loja_id?: string
+          nome?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postagem_templates_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
           email: string | null
           full_name: string | null
           id: string
+          preco_envio_custom: number | null
+          preco_recarga_custom: number | null
+          whatsapp: string | null
+          whatsapp_verified: boolean | null
         }
         Insert: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          preco_envio_custom?: number | null
+          preco_recarga_custom?: number | null
+          whatsapp?: string | null
+          whatsapp_verified?: boolean | null
         }
         Update: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          preco_envio_custom?: number | null
+          preco_recarga_custom?: number | null
+          whatsapp?: string | null
+          whatsapp_verified?: boolean | null
+        }
+        Relationships: []
+      }
+      push_notification_log: {
+        Row: {
+          body: string
+          created_at: string
+          icon_url: string | null
+          id: string
+          title: string
+          total_failed: number | null
+          total_sent: number | null
+          url: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          title: string
+          total_failed?: number | null
+          total_sent?: number | null
+          url?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          title?: string
+          total_failed?: number | null
+          total_sent?: number | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      push_notification_settings: {
+        Row: {
+          badge_url: string | null
+          created_at: string
+          default_url: string | null
+          icon_url: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          badge_url?: string | null
+          created_at?: string
+          default_url?: string | null
+          icon_url?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          badge_url?: string | null
+          created_at?: string
+          default_url?: string | null
+          icon_url?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          codigo_rastreio: string | null
+          created_at: string
+          endpoint: string
+          id: string
+          keys_auth: string
+          keys_p256dh: string
+          user_id: string | null
+        }
+        Insert: {
+          codigo_rastreio?: string | null
+          created_at?: string
+          endpoint: string
+          id?: string
+          keys_auth: string
+          keys_p256dh: string
+          user_id?: string | null
+        }
+        Update: {
+          codigo_rastreio?: string | null
+          created_at?: string
+          endpoint?: string
+          id?: string
+          keys_auth?: string
+          keys_p256dh?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      shopify_integrations: {
+        Row: {
+          access_token: string | null
+          ativo: boolean
+          created_at: string
+          id: string
+          loja_id: string
+          shop_domain: string
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          loja_id: string
+          shop_domain: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          loja_id?: string
+          shop_domain?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopify_integrations_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_templates: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          evento: string | null
+          id: string
+          mensagem: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          evento?: string | null
+          id?: string
+          mensagem: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          evento?: string | null
+          id?: string
+          mensagem?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_config: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
         }
         Relationships: []
       }
@@ -450,11 +953,120 @@ export type Database = {
           },
         ]
       }
+      whatsapp_instances: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          instance_token: string | null
+          label: string | null
+          loja_id: string | null
+          numero: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          instance_token?: string | null
+          label?: string | null
+          loja_id?: string | null
+          numero?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          instance_token?: string | null
+          label?: string | null
+          loja_id?: string | null
+          numero?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_message_log: {
+        Row: {
+          created_at: string
+          destinatario: string
+          error_message: string | null
+          evento: string | null
+          id: string
+          loja_id: string | null
+          mensagem: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          destinatario: string
+          error_message?: string | null
+          evento?: string | null
+          id?: string
+          loja_id?: string | null
+          mensagem?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          destinatario?: string
+          error_message?: string | null
+          evento?: string | null
+          id?: string
+          loja_id?: string | null
+          mensagem?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_message_log_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_admin_debit_diagnostics: { Args: never; Returns: Json }
+      get_my_debit_blocks: {
+        Args: never
+        Returns: {
+          blocked_until: string | null
+          created_at: string
+          id: string
+          reason: string
+          resolved: boolean
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "debit_blocks"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
