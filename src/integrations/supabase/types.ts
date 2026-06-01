@@ -14,12 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      batch_progress: {
+        Row: {
+          cancelled: boolean
+          current_item: number
+          id: string
+          loja_id: string
+          started_at: string
+          total_items: number
+          updated_at: string
+        }
+        Insert: {
+          cancelled?: boolean
+          current_item?: number
+          id?: string
+          loja_id: string
+          started_at?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Update: {
+          cancelled?: boolean
+          current_item?: number
+          id?: string
+          loja_id?: string
+          started_at?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_progress_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkout_integrations: {
         Row: {
           api_key: string | null
           ativo: boolean
           config: Json | null
           created_at: string
+          filtro_metodo: string
           id: string
           loja_id: string
           provider: string
@@ -31,6 +70,7 @@ export type Database = {
           ativo?: boolean
           config?: Json | null
           created_at?: string
+          filtro_metodo?: string
           id?: string
           loja_id: string
           provider: string
@@ -42,6 +82,7 @@ export type Database = {
           ativo?: boolean
           config?: Json | null
           created_at?: string
+          filtro_metodo?: string
           id?: string
           loja_id?: string
           provider?: string
@@ -224,6 +265,7 @@ export type Database = {
           codigo_rastreio: string | null
           created_at: string
           cst: string | null
+          deleted_at: string | null
           empresa_id: string | null
           id: string
           loja_id: string | null
@@ -235,6 +277,7 @@ export type Database = {
           quantidade: number
           status: Database["public"]["Enums"]["shipment_status"]
           transportadora: string | null
+          ultimo_evento_ordem: number
           unidade: string
           updated_at: string
           valor: number
@@ -255,6 +298,7 @@ export type Database = {
           codigo_rastreio?: string | null
           created_at?: string
           cst?: string | null
+          deleted_at?: string | null
           empresa_id?: string | null
           id?: string
           loja_id?: string | null
@@ -266,6 +310,7 @@ export type Database = {
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
+          ultimo_evento_ordem?: number
           unidade?: string
           updated_at?: string
           valor?: number
@@ -286,6 +331,7 @@ export type Database = {
           codigo_rastreio?: string | null
           created_at?: string
           cst?: string | null
+          deleted_at?: string | null
           empresa_id?: string | null
           id?: string
           loja_id?: string | null
@@ -297,6 +343,7 @@ export type Database = {
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
           transportadora?: string | null
+          ultimo_evento_ordem?: number
           unidade?: string
           updated_at?: string
           valor?: number
@@ -323,6 +370,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          loja_id: string | null
           metadata: Json | null
           nome: string | null
           origem: string | null
@@ -333,6 +381,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          loja_id?: string | null
           metadata?: Json | null
           nome?: string | null
           origem?: string | null
@@ -343,13 +392,22 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          loja_id?: string | null
           metadata?: Json | null
           nome?: string | null
           origem?: string | null
           telefone?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lojas: {
         Row: {
@@ -515,6 +573,7 @@ export type Database = {
       }
       postagem_config: {
         Row: {
+          auto_envio: boolean
           created_at: string
           enviar_emails: boolean
           enviar_nfe_email: boolean
@@ -522,6 +581,8 @@ export type Database = {
           failed_delivery_template_id: string | null
           id: string
           loja_id: string
+          msg_falha_entrega: string | null
+          msg_taxacao: string | null
           origem_cidade: string | null
           origem_estado: string | null
           taxacao_template_id: string | null
@@ -530,6 +591,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_envio?: boolean
           created_at?: string
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
@@ -537,6 +599,8 @@ export type Database = {
           failed_delivery_template_id?: string | null
           id?: string
           loja_id: string
+          msg_falha_entrega?: string | null
+          msg_taxacao?: string | null
           origem_cidade?: string | null
           origem_estado?: string | null
           taxacao_template_id?: string | null
@@ -545,6 +609,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_envio?: boolean
           created_at?: string
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
@@ -552,6 +617,8 @@ export type Database = {
           failed_delivery_template_id?: string | null
           id?: string
           loja_id?: string
+          msg_falha_entrega?: string | null
+          msg_taxacao?: string | null
           origem_cidade?: string | null
           origem_estado?: string | null
           taxacao_template_id?: string | null
@@ -641,6 +708,72 @@ export type Database = {
           },
         ]
       }
+      postagem_eventos: {
+        Row: {
+          assunto_email: string | null
+          corpo_email: string | null
+          created_at: string
+          delay_horas: number
+          descricao: string | null
+          enviar_email: boolean
+          enviar_nfe_pdf: boolean
+          id: string
+          is_final: boolean
+          loja_id: string | null
+          nome: string
+          ordem: number
+          status_label: string | null
+          template_id: string
+        }
+        Insert: {
+          assunto_email?: string | null
+          corpo_email?: string | null
+          created_at?: string
+          delay_horas?: number
+          descricao?: string | null
+          enviar_email?: boolean
+          enviar_nfe_pdf?: boolean
+          id?: string
+          is_final?: boolean
+          loja_id?: string | null
+          nome?: string
+          ordem?: number
+          status_label?: string | null
+          template_id: string
+        }
+        Update: {
+          assunto_email?: string | null
+          corpo_email?: string | null
+          created_at?: string
+          delay_horas?: number
+          descricao?: string | null
+          enviar_email?: boolean
+          enviar_nfe_pdf?: boolean
+          id?: string
+          is_final?: boolean
+          loja_id?: string | null
+          nome?: string
+          ordem?: number
+          status_label?: string | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postagem_eventos_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postagem_eventos_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "postagem_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       postagem_templates: {
         Row: {
           created_at: string
@@ -684,6 +817,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          blocked: boolean
           created_at: string
           email: string | null
           full_name: string | null
@@ -694,6 +828,7 @@ export type Database = {
           whatsapp_verified: boolean | null
         }
         Insert: {
+          blocked?: boolean
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -704,6 +839,7 @@ export type Database = {
           whatsapp_verified?: boolean | null
         }
         Update: {
+          blocked?: boolean
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -880,17 +1016,17 @@ export type Database = {
         Row: {
           key: string
           updated_at: string
-          value: Json
+          value: number
         }
         Insert: {
           key: string
           updated_at?: string
-          value?: Json
+          value?: number
         }
         Update: {
           key?: string
           updated_at?: string
-          value?: Json
+          value?: number
         }
         Relationships: []
       }
@@ -1049,23 +1185,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_admin_debit_diagnostics: { Args: never; Returns: Json }
-      get_my_debit_blocks: {
+      get_admin_debit_diagnostics: {
         Args: never
         Returns: {
-          blocked_until: string | null
-          created_at: string
-          id: string
-          reason: string
-          resolved: boolean
+          auto_envio: boolean
+          custo_estimado: number
+          envios_travados: number
+          filtro_metodo: string
+          loja_id: string
+          loja_nome: string
+          motivo: string
+          pedidos_descartados: number
+          saldo: number
+          ultima_atividade: string
+          user_email: string
           user_id: string
+          user_nome: string
         }[]
-        SetofOptions: {
-          from: "*"
-          to: "debit_blocks"
-          isOneToOne: false
-          isSetofReturn: true
-        }
+      }
+      get_my_debit_blocks: {
+        Args: { p_loja_id: string }
+        Returns: {
+          auto_envio: boolean
+          custo_estimado: number
+          envios_travados: number
+          filtro_metodo: string
+          motivo: string
+          pedidos_descartados: number
+          saldo: number
+        }[]
       }
       has_role: {
         Args: {
