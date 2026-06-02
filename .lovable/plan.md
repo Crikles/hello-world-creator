@@ -1,28 +1,73 @@
+
 ## Objetivo
-Garantir que **todos** os custos cobrados pela operação apareçam editáveis em `Admin → Valores`. Hoje a tela só mostra 5 chaves, mas o código cobra outras 8 que estão "hardcoded" como fallback (ex.: SMS de rastreio, taxação, falha na entrega, recuperação PIX/carrinho, upsell).
 
-## Custos faltantes (atualmente sem registro em `system_config`)
-
-| Chave | Onde é cobrado | Padrão sugerido |
-|---|---|---|
-| `custo_sms_rastreio` | `email-trigger.ts`, `advance-shipments` (SMS por evento de rastreio) | 0.25 |
-| `custo_taxacao` | Funil de Taxação | 1.00 |
-| `custo_falha_entrega` | Funil de Falha na Entrega | 1.00 |
-| `custo_recovery_email_pix` | `send-recovery-email` (PIX pendente) | 0.10 |
-| `custo_recovery_sms_pix` | `send-recovery-sms` (PIX pendente) | 0.15 |
-| `custo_recovery_email_carrinho` | `send-recovery-email` (carrinho abandonado) | 0.10 |
-| `custo_recovery_sms_carrinho` | `send-recovery-sms` (carrinho abandonado) | 0.15 |
-| `custo_upsell_email` | `send-email` (e-mail de upsell) | 0.10 |
+Transformar a página pública de rastreio (`/r/:codigoParam`) na identidade da **ATLAS CARGO EXPRESS**, substituindo todo o branding da JL Transportes. A Vetor Transportes será desligada (mas o código permanece intacto). A JADLOG continua como está.
 
 ## Mudanças
 
-1. **Migration** — `INSERT ... ON CONFLICT DO NOTHING` das 8 chaves acima em `system_config`, cada uma com um `label` amigável. Também faz `UPDATE` dos 5 existentes (`custo_confirmacao_email`, `custo_confirmacao_sms`, `custo_email_rastreio`, `custo_nfe_email`, `custo_whatsapp`) para gravar `label` legível, já que hoje estão vazios.
+### 1. Lógica de detecção da transportadora (linhas 270–292)
+- **Vetor → "off"**: manter o bloco `isVetor` e todo o JSX/CSS da Vetor (linhas 306–741) intactos, mas forçar `isVetor = false` (comentando os checks de hostname/sufixo `VT`/`transportadora`). Nada da Vetor renderiza, mas o código fica preservado para reativar depois.
+- **JL → ATLAS**: o bloco "default" (linhas 1018+) deixa de ser "JL Transportes" e passa a ser **ATLAS CARGO EXPRESS**. Renomear variáveis/comentários `theme-jl` → `theme-atlas`, classes `jl-*` → `atlas-*` (apenas no bloco default).
+- `empresaNome` default → `"ATLAS Cargo Express"`.
+- `logoUrl` default → novo asset da logo ATLAS.
+- `primaryColor` default → vermelho ATLAS (`#E10E1A`) substituindo o roxo `#6366f1`.
+- `document.title` default → `"ATLAS Cargo Express - Rastreio"`.
 
-2. **`src/pages/admin/AdminValores.tsx`** — pequenos ajustes:
-   - `getDisplayLabel` passa a usar `config.label` como nome principal e mantém a `key` (mono) como subtítulo (já é assim, só revisa fallback).
-   - Agrupar visualmente em 3 seções para facilitar edição: **Rastreio & NF-e**, **Confirmação de Pagamento**, **Recuperação de Vendas**, **Outros** (suporte/URL). Filtro por prefixo de chave, sem mudar lógica de salvar.
+### 2. Paleta nova (substitui o roxo)
+Baseada na logo enviada (preto + cromado + vermelho):
 
-3. **Sem mudanças de cobrança** — toda a lógica de débito já lê de `system_config` (com `custom_prices` por usuário sobrescrevendo). Só estamos populando o que faltava.
+```
+--atlas-red:        #E10E1A   (primário / CTAs / destaques)
+--atlas-red-deep:   #8E0911   (hover / sombras)
+--atlas-black:      #0A0A0B   (fundos escuros)
+--atlas-graphite:   #17181C   (cards / superfícies)
+--atlas-silver:     #C9CDD2   (linhas / texto secundário)
+--atlas-white:      #F4F5F7   (texto)
+```
 
-## Resultado
-A tela `Admin → Valores` passa a listar **13 custos** (5 atuais + 8 novos) + WhatsApp suporte + URL base de rastreio, todos editáveis, com nomes amigáveis e agrupados por contexto. Qualquer alteração reflete imediatamente nos webhooks/edge functions.
+Aplicar em: header, hero, barra de stats, cards "como funciona", seção "sobre nós", footer, botões, badges, ícones, barra de progresso do rastreio.
+
+### 3. Assets
+Subir via `lovable-assets` (no modo build):
+- `src/assets/atlas-logo.png` ← `user-uploads://ChatGPT_Image_2_de_jun._de_2026_19_15_50-removebg-preview.png`
+- `src/assets/atlas-truck.jpg` ← `user-uploads://ChatGPT_Image_2_06_2026_19_23_57.png`
+
+Substituir as referências antigas:
+- `/logojltransportes.png` → import da logo ATLAS
+- `/jl-truck.png` (linha 1313) → import do caminhão ATLAS
+
+### 4. Conteúdo textual (bloco default)
+- Header: "JL Transportes" → "ATLAS Cargo Express"
+- Hero/headlines: trocar menções "JL" por "ATLAS"
+- Slogan: **"Sua carga, nosso compromisso."** (vem do próprio caminhão da marca)
+- Seção "Sobre nós": "Por que escolher a JL Transportes?" → "Por que escolher a ATLAS Cargo Express?"
+- Email de contato `contato@jltransportelogistica.com` → `contato@atlascargoexpressltda.com`
+- Stats bar e os 3 passos: mantém estrutura, só ajusta cor e copy onde cita "JL"
+
+### 5. Domínio customizado
+O endereço final será `https://rastrear.atlascargoexpressltda.com/r/<codigo>`.
+
+O SPA fallback da Lovable já cuida da rota `/r/:codigo` automaticamente — **não há mudança de código** para isso. Você precisa apenas:
+
+1. **Project Settings → Domains → Connect Domain**
+2. Informar `rastrear.atlascargoexpressltda.com`
+3. Adicionar no seu registrador um **A record** `rastrear` → `185.158.133.1` e o **TXT** `_lovable` que a Lovable mostrar
+4. Aguardar propagação (até 72h, SSL automático)
+
+> Não vou tocar em nada da Vetor (`vetortransportesltda.com`) nem da JADLOG — esses domínios continuam funcionando como hoje.
+
+### 6. Fora de escopo
+- Não mexo no painel admin nem em tabelas (`logistica_provider`, `lojas`, etc.). O rebranding é puramente visual no `/r/:codigo`.
+- JADLOG permanece inalterada.
+- O bloco de código da Vetor fica preservado, só desligado via flag.
+
+## Detalhes técnicos
+
+- Arquivo único afetado: `src/pages/Rastreio.tsx`
+- Novos arquivos: `src/assets/atlas-logo.png.asset.json`, `src/assets/atlas-truck.jpg.asset.json` (gerados via `lovable-assets create`)
+- Sem mudanças em rotas, banco, edge functions, ou outras páginas
+- Sem novas dependências
+
+## Resultado esperado
+
+Ao acessar `/r/<codigo>` (em qualquer domínio que não seja Vetor/Jadlog), o visitante vê a página da **ATLAS Cargo Express**: paleta preto+vermelho+prata, logo nova, foto da frota de caminhões ATLAS, copy reescrita. Vetor segue existindo no código, pronta pra ser religada trocando uma linha.
