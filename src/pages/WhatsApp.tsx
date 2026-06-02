@@ -124,6 +124,16 @@ function getDaysRemaining(expiresAt: string | null): number | null {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function formatDateBR(date: string | null): string {
+    if (!date) return "—";
+    return new Date(date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function getSignedDays(createdAt: string | null): number {
+    if (!createdAt) return 0;
+    return Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)));
+}
+
 function SubscriptionBadge({ expiresAt }: { expiresAt: string | null }) {
     const days = getDaysRemaining(expiresAt);
     if (days === null) return null;
@@ -297,6 +307,7 @@ export default function WhatsApp() {
 
     const totalActiveSubs = subsInfo?.total_active ?? 0;
     const freeSlots = Math.max(0, totalActiveSubs - instances.length);
+    const subscriptions = subsInfo?.subscriptions ?? [];
 
     // Compat: first instance for backwards compat in tabs
     const instance = instances.length > 0 ? instances[0] : null;
