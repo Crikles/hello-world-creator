@@ -157,6 +157,48 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
+  const { data: upsellAtivo = false } = useQuery({
+    queryKey: ["upsell-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return false;
+      const { count } = await supabase
+        .from("upsell_config")
+        .select("id", { count: "exact", head: true })
+        .eq("loja_id", loja.id)
+        .eq("ativo", true);
+      return (count || 0) > 0;
+    },
+    enabled: !!loja,
+  });
+
+  const { data: recoveryAtivo = false } = useQuery({
+    queryKey: ["recovery-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return false;
+      const { count } = await supabase
+        .from("recovery_config")
+        .select("id", { count: "exact", head: true })
+        .eq("loja_id", loja.id)
+        .eq("ativo", true);
+      return (count || 0) > 0;
+    },
+    enabled: !!loja,
+  });
+
+  const { data: confirmacaoAtivo = false } = useQuery({
+    queryKey: ["confirmacao-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return false;
+      const { data } = await supabase
+        .from("confirmacao_pagamento_config")
+        .select("ativo")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      return !!data?.ativo;
+    },
+    enabled: !!loja,
+  });
+
   const clearLogsMutation = useMutation({
     mutationFn: async () => {
       if (!loja) throw new Error("Sem loja");
