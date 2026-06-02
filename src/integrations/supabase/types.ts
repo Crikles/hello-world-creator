@@ -550,37 +550,70 @@ export type Database = {
       }
       leads: {
         Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          cpf: string | null
           created_at: string
           email: string | null
+          endereco: string | null
+          envio_id: string | null
+          estado: string | null
           id: string
           loja_id: string | null
           metadata: Json | null
           nome: string | null
+          numero: string | null
           origem: string | null
+          produto: string | null
           telefone: string | null
           user_id: string | null
+          valor: number | null
         }
         Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
+          endereco?: string | null
+          envio_id?: string | null
+          estado?: string | null
           id?: string
           loja_id?: string | null
           metadata?: Json | null
           nome?: string | null
+          numero?: string | null
           origem?: string | null
+          produto?: string | null
           telefone?: string | null
           user_id?: string | null
+          valor?: number | null
         }
         Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
+          endereco?: string | null
+          envio_id?: string | null
+          estado?: string | null
           id?: string
           loja_id?: string | null
           metadata?: Json | null
           nome?: string | null
+          numero?: string | null
           origem?: string | null
+          produto?: string | null
           telefone?: string | null
           user_id?: string | null
+          valor?: number | null
         }
         Relationships: [
           {
