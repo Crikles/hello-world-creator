@@ -1408,12 +1408,12 @@ export default function Rastreio() {
                     <div className="footer-top">
                         <div className="f-brand">
                             <img src={logoUrl} alt={empresaNome} style={{ width: 220 }} />
-                            <p>Soluções completas em logística e transporte de encomendas.</p>
+                            <p>Sua carga, nosso compromisso. Logística completa com frota própria e rastreamento em tempo real.</p>
                         </div>
                         <div className="f-links">
                             <div className="f-col">
                                 <h5>CONTATO</h5>
-                                <a href="mailto:contato@jltransportelogistica.com">contato@jltransportelogistica.com</a>
+                                <a href="mailto:contato@atlascargoexpressltda.com">contato@atlascargoexpressltda.com</a>
                                 <a href="tel:08006589589">0800 658 9589</a>
                             </div>
                             <div className="f-col">
