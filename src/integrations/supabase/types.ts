@@ -1079,7 +1079,7 @@ export type Database = {
           html: string
           id: string
           is_system: boolean
-          loja_id: string
+          loja_id: string | null
           nome: string
           subject: string
           tipo: string | null
@@ -1092,7 +1092,7 @@ export type Database = {
           html?: string
           id?: string
           is_system?: boolean
-          loja_id: string
+          loja_id?: string | null
           nome: string
           subject?: string
           tipo?: string | null
@@ -1105,7 +1105,7 @@ export type Database = {
           html?: string
           id?: string
           is_system?: boolean
-          loja_id?: string
+          loja_id?: string | null
           nome?: string
           subject?: string
           tipo?: string | null
