@@ -128,65 +128,95 @@ export default function AdminValores() {
         {isLoading ? (
           <p className="text-muted-foreground">Carregando...</p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {configs?.map((config) => (
-              <Card key={config.key}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    {getIcon(config.key)}
-                    {getDisplayLabel(config)}
-                  </CardTitle>
-                  <CardDescription className="text-xs font-mono">
-                    {config.key}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {TEXT_KEYS.includes(config.key) ? (
-                    <div className="space-y-1">
-                      <Input
-                        type="url"
-                        value={localLabels[config.key] ?? ""}
-                        onChange={(e) =>
-                          setLocalLabels((prev) => ({
-                            ...prev,
-                            [config.key]: e.target.value,
-                          }))
-                        }
-                        className="w-full"
-                        placeholder="https://rastreio.seudominio.com"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Se o domínio cair, mude aqui e todos os links antigos continuam funcionando
-                      </p>
+          (() => {
+            const groups: { title: string; match: (k: string) => boolean }[] = [
+              { title: "Rastreio & NF-e", match: (k) => ["custo_email_rastreio", "custo_sms_rastreio", "custo_nfe_email", "custo_taxacao", "custo_falha_entrega"].includes(k) },
+              { title: "Confirmação de Pagamento", match: (k) => k.startsWith("custo_confirmacao_") },
+              { title: "Recuperação de Vendas", match: (k) => k.startsWith("custo_recovery_") },
+              { title: "Upsell & WhatsApp", match: (k) => k === "custo_upsell_email" || k === "custo_whatsapp" },
+              { title: "Suporte & Domínio", match: (k) => k === "whatsapp_suporte" || TEXT_KEYS.includes(k) },
+            ];
+            const used = new Set<string>();
+            const sections = groups.map((g) => {
+              const items = configs.filter((c) => g.match(c.key));
+              items.forEach((c) => used.add(c.key));
+              return { ...g, items };
+            });
+            const rest = configs.filter((c) => !used.has(c.key));
+            if (rest.length) sections.push({ title: "Outros", match: () => true, items: rest });
+
+            return (
+              <div className="space-y-8">
+                {sections.filter((s) => s.items.length > 0).map((section) => (
+                  <div key={section.title} className="space-y-3">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      {section.title}
+                    </h2>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {section.items.map((config) => (
+                        <Card key={config.key}>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              {getIcon(config.key)}
+                              {getDisplayLabel(config)}
+                            </CardTitle>
+                            <CardDescription className="text-xs font-mono">
+                              {config.key}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            {TEXT_KEYS.includes(config.key) ? (
+                              <div className="space-y-1">
+                                <Input
+                                  type="url"
+                                  value={localLabels[config.key] ?? ""}
+                                  onChange={(e) =>
+                                    setLocalLabels((prev) => ({
+                                      ...prev,
+                                      [config.key]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full"
+                                  placeholder="https://rastreio.seudominio.com"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Se o domínio cair, mude aqui e todos os links antigos continuam funcionando
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  step={config.key === "whatsapp_suporte" ? "1" : "0.01"}
+                                  min="0"
+                                  value={localValues[config.key] ?? ""}
+                                  onChange={(e) =>
+                                    setLocalValues((prev) => ({
+                                      ...prev,
+                                      [config.key]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full"
+                                  placeholder={config.key === "whatsapp_suporte" ? "Ex: 5511999999999" : ""}
+                                />
+                                {config.key !== "whatsapp_suporte" && (
+                                  <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                                    moedas
+                                  </Label>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        step={config.key === "whatsapp_suporte" ? "1" : "0.01"}
-                        min="0"
-                        value={localValues[config.key] ?? ""}
-                        onChange={(e) =>
-                          setLocalValues((prev) => ({
-                            ...prev,
-                            [config.key]: e.target.value,
-                          }))
-                        }
-                        className="w-full"
-                        placeholder={config.key === "whatsapp_suporte" ? "Ex: 5511999999999" : ""}
-                      />
-                      {config.key !== "whatsapp_suporte" && (
-                        <Label className="text-xs text-muted-foreground whitespace-nowrap">
-                          moedas
-                        </Label>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()
         )}
+
       </div>
     </AdminLayout>
   );
