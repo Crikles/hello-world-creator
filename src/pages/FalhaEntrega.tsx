@@ -49,54 +49,64 @@ export default function FalhaEntrega() {
     const queryClient = useQueryClient();
     const { loja } = useLoja();
 
-    const { data: falhaEventos } = useQuery({
+    const { data: falhaEventos, isLoading: isLoadingConfig } = useQuery({
         queryKey: ["falha-eventos", loja?.id],
         queryFn: async () => {
             if (!loja) return null;
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id, valor_taxa_falha")
+                .select("ativar_falha_entrega, template_ativo_id, failed_delivery_template_id, valor_taxa_falha")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
-            if (!config?.template_ativo_id) return null;
+            if (!config) return { ativo: false, falha_ordem: null, template_id: null, valor_reenvio: 0 };
+
+            const ativo = !!config.ativar_falha_entrega;
+            const templateId = config.failed_delivery_template_id || config.template_ativo_id || null;
+            if (!templateId) {
+                return { ativo, falha_ordem: null, template_id: null, valor_reenvio: Number(config.valor_taxa_falha) || 0 };
+            }
+
             const { data: eventos } = await supabase
                 .from("postagem_eventos")
                 .select("id, nome, ordem, status_label")
-                .eq("template_id", config.template_ativo_id)
+                .eq("template_id", templateId)
                 .in("status_label", ["Falha Entrega"])
                 .order("ordem", { ascending: true });
-            if (!eventos || eventos.length === 0) return null;
-            const falhaEvento = eventos.find((e) => e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega");
+            const falhaEvento = (eventos || []).find((e) => e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega");
             return {
+                ativo,
                 falha_ordem: falhaEvento?.ordem ?? null,
-                template_id: config.template_ativo_id,
+                template_id: templateId,
                 valor_reenvio: Number(config.valor_taxa_falha) || 0,
             };
         },
         enabled: !!loja,
     });
 
+    const isAtivo = !!falhaEventos?.ativo;
+
     const { data: envios = [], isLoading } = useQuery({
         queryKey: ["falha-envios", loja?.id, falhaEventos],
         queryFn: async () => {
-            if (!loja || !falhaEventos?.falha_ordem) return [];
+            if (!loja || !isAtivo || !falhaEventos?.template_id || !falhaEventos?.falha_ordem) return [];
             const { data, error } = await supabase
                 .from("envios")
                 .select("*")
                 .eq("loja_id", loja.id)
+                .eq("postagem_template_id", falhaEventos.template_id)
                 .is("deleted_at", null)
                 .gte("ultimo_evento_ordem", falhaEventos.falha_ordem)
                 .order("updated_at", { ascending: false });
             if (error) throw error;
             return (data || []).map((envio) => {
                 let falha_status: "pendente" | "aprovado" = "pendente";
-                if (envio.ultimo_evento_ordem > falhaEventos.falha_ordem) {
+                if (envio.ultimo_evento_ordem > falhaEventos.falha_ordem!) {
                     falha_status = "aprovado";
                 }
                 return { ...envio, falha_status } as FalhaEntregaEnvio;
             });
         },
-        enabled: !!loja && !!falhaEventos?.falha_ordem,
+        enabled: !!loja && isAtivo && !!falhaEventos?.template_id && !!falhaEventos?.falha_ordem,
     });
 
     const approveMutation = useMutation({
@@ -185,8 +195,8 @@ export default function FalhaEntrega() {
         { label: "Valor Pendente", value: `R$ ${totalValorPendente.toFixed(2)}`, icon: DollarSign, delay: 0.16 },
     ];
 
-    // No falha events configured
-    if (!isLoading && !falhaEventos?.falha_ordem) {
+    // Toggle desativado
+    if (!isLoadingConfig && !isAtivo) {
         return (
             <div className="space-y-6">
                 <div>
@@ -202,9 +212,9 @@ export default function FalhaEntrega() {
                             <div className="h-2 w-2 rounded-full bg-primary/30 animate-pulse-dot" />
                         </div>
                     </div>
-                    <p className="text-foreground font-medium text-lg">Evento não configurado</p>
+                    <p className="text-foreground font-medium text-lg">Falha na Entrega desativada</p>
                     <p className="text-sm text-muted-foreground mt-1 max-w-md">
-                        Configure o evento de "Falha na Entrega" no seu template de postagens para habilitar a gestão de pagamentos.
+                        Ative o switch "Falha na Entrega" no topo da página de Postagens para começar a gerenciar os reenvios.
                     </p>
                 </div>
             </div>
