@@ -296,6 +296,8 @@ export default function AdminWhatsApp() {
                           <TableHead>Usuário</TableHead>
                           <TableHead>Loja</TableHead>
                           <TableHead>Valor Pago</TableHead>
+                          <TableHead>Instâncias</TableHead>
+                          <TableHead>Tempo assinado</TableHead>
                           <TableHead>Criada em</TableHead>
                           <TableHead>Expira em</TableHead>
                           <TableHead>Status</TableHead>
@@ -313,6 +315,13 @@ export default function AdminWhatsApp() {
                             </TableCell>
                             <TableCell className="text-sm">{sub.lojas?.nome || "—"}</TableCell>
                             <TableCell className="text-sm font-medium">{sub.price_paid} moedas</TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex flex-col gap-1">
+                                <span>{sub.total_instances} vinculada{sub.total_instances !== 1 ? "s" : ""}</span>
+                                <span className="text-xs text-muted-foreground">{sub.active_instances} ativa{sub.active_instances !== 1 ? "s" : ""}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{getSignedDays(sub.created_at)} dia{getSignedDays(sub.created_at) !== 1 ? "s" : ""}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">{format(new Date(sub.created_at), "dd/MM/yyyy")}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">{format(new Date(sub.expires_at), "dd/MM/yyyy")}</TableCell>
                             <TableCell>
