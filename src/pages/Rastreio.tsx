@@ -2313,8 +2313,8 @@ const jlStyles = `
 
 .main-nav {
   position: fixed; top: 0; width: 100%; height: 64px;
-  backdrop-filter: blur(16px); background: rgba(248,250,252,0.9);
-  border-bottom: 1px solid rgba(0,0,0,0.06); z-index: 1000;
+  background: #000000;
+  border-bottom: 1px solid #222222; z-index: 1000;
   display: flex; align-items: center;
 }
 .nav-inner {
