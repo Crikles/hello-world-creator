@@ -832,6 +832,31 @@ export default function WhatsApp() {
                             </div>
                         )}
 
+                        {subscriptions.length > 0 && (
+                            <div className="grid gap-2 mb-4 sm:grid-cols-2 xl:grid-cols-3">
+                                {subscriptions.map((sub: any, index: number) => {
+                                    const active = new Date(sub.expires_at) > new Date();
+                                    const days = getDaysRemaining(sub.expires_at);
+                                    return (
+                                        <div key={sub.id} className="glass rounded-xl p-3 border border-primary/15">
+                                            <div className="flex items-center justify-between gap-2 mb-2">
+                                                <p className="text-xs font-semibold text-foreground">Assinatura #{index + 1}</p>
+                                                <Badge variant="secondary" className={active ? "bg-green-500/20 text-green-400 text-[10px]" : "bg-red-500/20 text-red-400 text-[10px]"}>
+                                                    {active ? "Ativa" : "Expirada"}
+                                                </Badge>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                                                <span>Assinada há <b className="text-foreground">{getSignedDays(sub.created_at)} dia{getSignedDays(sub.created_at) !== 1 ? "s" : ""}</b></span>
+                                                <span>Expira em <b className="text-foreground">{formatDateBR(sub.expires_at)}</b></span>
+                                                <span>Restam <b className="text-foreground">{days !== null ? Math.max(0, days) : "—"} dia{days === 1 ? "" : "s"}</b></span>
+                                                <span>{sub.is_free ? "Slot livre" : "Slot em uso"}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
                         {instances.length === 0 ? (
                             /* No instance yet */
                             <div className="flex flex-col items-center py-8 text-center">
