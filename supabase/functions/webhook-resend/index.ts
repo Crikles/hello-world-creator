@@ -57,11 +57,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Update the email log record matching this resend_email_id
+    // Update the email log record matching this resend_id
     const { data, error } = await supabase
       .from("postagem_email_log")
       .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq("resend_email_id", emailId)
+      .eq("resend_id", emailId)
       .select("id");
 
     if (error) {
