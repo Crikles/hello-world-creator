@@ -572,30 +572,46 @@ export default function Postagens() {
           {/* Feature Toggles Grid */}
           {localConfig && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {featureToggles.map((ft, idx) => (
-                <div
-                  key={ft.key}
-                  className={`glass rounded-xl p-4 transition-all duration-300 animate-stagger-in ${ft.checked ? "glow-border" : "border border-border/30"}`}
-                  style={{ animationDelay: `${idx * 0.06}s` }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${ft.checked ? "bg-primary/15" : "bg-muted/50"}`}>
-                        <ft.icon className={`h-4 w-4 ${ft.checked ? "text-primary" : "text-muted-foreground"}`} />
+              {featureToggles.map((ft, idx) => {
+                const locked = (ft as any).locked as boolean | undefined;
+                const lockedReason = (ft as any).lockedReason as string | undefined;
+                return (
+                  <div
+                    key={ft.key}
+                    className={`glass rounded-xl p-4 transition-all duration-300 animate-stagger-in ${ft.checked ? "glow-border" : "border border-border/30"} ${locked ? "opacity-60" : ""}`}
+                    style={{ animationDelay: `${idx * 0.06}s` }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${ft.checked ? "bg-primary/15" : "bg-muted/50"}`}>
+                          <ft.icon className={`h-4 w-4 ${ft.checked ? "text-primary" : "text-muted-foreground"}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{ft.label}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{ft.desc}</p>
+                          <Badge variant="outline" className="mt-1.5 text-[10px] border-border/50">
+                            <Coins className="h-2.5 w-2.5 mr-1" />
+                            {formatMoedas(ft.cost)}{(ft as any).costSuffix || ""}
+                          </Badge>
+                          {locked && lockedReason && (
+                            <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              {lockedReason}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground">{ft.label}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{ft.desc}</p>
-                        <Badge variant="outline" className="mt-1.5 text-[10px] border-border/50">
-                          <Coins className="h-2.5 w-2.5 mr-1" />
-                          {formatMoedas(ft.cost)}{(ft as any).costSuffix || ""}
-                        </Badge>
-                      </div>
+                      <Switch
+                        checked={ft.checked}
+                        onCheckedChange={ft.toggle}
+                        disabled={locked}
+                        title={locked ? lockedReason : undefined}
+                      />
                     </div>
-                    <Switch checked={ft.checked} onCheckedChange={ft.toggle} />
                   </div>
-                </div>
-              ))}
+                );
+              })}
+
             </div>
           )}
 
