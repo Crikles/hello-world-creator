@@ -124,6 +124,16 @@ function getDaysRemaining(expiresAt: string | null): number | null {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function formatDateBR(date: string | null): string {
+    if (!date) return "—";
+    return new Date(date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function getSignedDays(createdAt: string | null): number {
+    if (!createdAt) return 0;
+    return Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)));
+}
+
 function SubscriptionBadge({ expiresAt }: { expiresAt: string | null }) {
     const days = getDaysRemaining(expiresAt);
     if (days === null) return null;
@@ -297,6 +307,7 @@ export default function WhatsApp() {
 
     const totalActiveSubs = subsInfo?.total_active ?? 0;
     const freeSlots = Math.max(0, totalActiveSubs - instances.length);
+    const subscriptions = subsInfo?.subscriptions ?? [];
 
     // Compat: first instance for backwards compat in tabs
     const instance = instances.length > 0 ? instances[0] : null;
@@ -818,6 +829,31 @@ export default function WhatsApp() {
                                         )}
                                     </p>
                                 </div>
+                            </div>
+                        )}
+
+                        {subscriptions.length > 0 && (
+                            <div className="grid gap-2 mb-4 sm:grid-cols-2 xl:grid-cols-3">
+                                {subscriptions.map((sub: any, index: number) => {
+                                    const active = new Date(sub.expires_at) > new Date();
+                                    const days = getDaysRemaining(sub.expires_at);
+                                    return (
+                                        <div key={sub.id} className="glass rounded-xl p-3 border border-primary/15">
+                                            <div className="flex items-center justify-between gap-2 mb-2">
+                                                <p className="text-xs font-semibold text-foreground">Assinatura #{index + 1}</p>
+                                                <Badge variant="secondary" className={active ? "bg-green-500/20 text-green-400 text-[10px]" : "bg-red-500/20 text-red-400 text-[10px]"}>
+                                                    {active ? "Ativa" : "Expirada"}
+                                                </Badge>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                                                <span>Assinada há <b className="text-foreground">{getSignedDays(sub.created_at)} dia{getSignedDays(sub.created_at) !== 1 ? "s" : ""}</b></span>
+                                                <span>Expira em <b className="text-foreground">{formatDateBR(sub.expires_at)}</b></span>
+                                                <span>Restam <b className="text-foreground">{days !== null ? Math.max(0, days) : "—"} dia{days === 1 ? "" : "s"}</b></span>
+                                                <span>{sub.is_free ? "Slot livre" : "Slot em uso"}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
 

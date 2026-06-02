@@ -37,6 +37,8 @@ interface SubscriptionWithLoja {
   loja_id: string;
   lojas: { nome: string } | null;
   profiles?: { full_name: string | null; email: string | null } | null;
+  total_instances: number;
+  active_instances: number;
 }
 
 export default function AdminWhatsApp() {
@@ -76,20 +78,50 @@ export default function AdminWhatsApp() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_subscriptions")
-        .select("id, created_at, expires_at, price_paid, user_id, loja_id, lojas(nome)")
+        .select("id, created_at, expires_at, price_paid, user_id, loja_id")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
       const userIds = [...new Set((data || []).map((s: any) => s.user_id).filter(Boolean))];
+      const lojaIds = [...new Set((data || []).map((s: any) => s.loja_id).filter(Boolean))];
+      const subscriptionIds = [...new Set((data || []).map((s: any) => s.id).filter(Boolean))];
       let profilesMap: Record<string, any> = {};
+      let lojasMap: Record<string, any> = {};
+      let instancesBySub: Record<string, { total: number; active: number }> = {};
+
       if (userIds.length > 0) {
         const { data: profiles } = await supabase.from("profiles").select("id, full_name, email").in("id", userIds);
         if (profiles) profiles.forEach((p) => { profilesMap[p.id] = p; });
       }
 
+      if (lojaIds.length > 0) {
+        const { data: lojas } = await supabase.from("lojas").select("id, nome").in("id", lojaIds);
+        if (lojas) lojas.forEach((l) => { lojasMap[l.id] = l; });
+      }
+
+      if (subscriptionIds.length > 0) {
+        const { data: linkedInstances } = await supabase
+          .from("whatsapp_instances")
+          .select("id, subscription_id, status, ativo, expires_at")
+          .in("subscription_id", subscriptionIds);
+
+        (linkedInstances || []).forEach((inst: any) => {
+          if (!inst.subscription_id) return;
+          const current = instancesBySub[inst.subscription_id] || { total: 0, active: 0 };
+          const isActive = inst.ativo !== false && inst.expires_at && new Date(inst.expires_at) > new Date();
+          instancesBySub[inst.subscription_id] = {
+            total: current.total + 1,
+            active: current.active + (isActive ? 1 : 0),
+          };
+        });
+      }
+
       return (data || []).map((s: any) => ({
         ...s,
+        lojas: lojasMap[s.loja_id] || null,
         profiles: profilesMap[s.user_id] || null,
+        total_instances: instancesBySub[s.id]?.total || 0,
+        active_instances: instancesBySub[s.id]?.active || 0,
       })) as SubscriptionWithLoja[];
     },
   });
@@ -154,6 +186,8 @@ export default function AdminWhatsApp() {
   };
 
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
+
+  const getSignedDays = (createdAt: string) => Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)));
 
   return (
     <AdminLayout>
@@ -262,6 +296,8 @@ export default function AdminWhatsApp() {
                           <TableHead>Usuário</TableHead>
                           <TableHead>Loja</TableHead>
                           <TableHead>Valor Pago</TableHead>
+                          <TableHead>Instâncias</TableHead>
+                          <TableHead>Tempo assinado</TableHead>
                           <TableHead>Criada em</TableHead>
                           <TableHead>Expira em</TableHead>
                           <TableHead>Status</TableHead>
@@ -279,6 +315,13 @@ export default function AdminWhatsApp() {
                             </TableCell>
                             <TableCell className="text-sm">{sub.lojas?.nome || "—"}</TableCell>
                             <TableCell className="text-sm font-medium">{sub.price_paid} moedas</TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex flex-col gap-1">
+                                <span>{sub.total_instances} vinculada{sub.total_instances !== 1 ? "s" : ""}</span>
+                                <span className="text-xs text-muted-foreground">{sub.active_instances} ativa{sub.active_instances !== 1 ? "s" : ""}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{getSignedDays(sub.created_at)} dia{getSignedDays(sub.created_at) !== 1 ? "s" : ""}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">{format(new Date(sub.created_at), "dd/MM/yyyy")}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">{format(new Date(sub.expires_at), "dd/MM/yyyy")}</TableCell>
                             <TableCell>
