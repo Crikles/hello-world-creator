@@ -193,6 +193,10 @@ function PanelRoutes() {
           path="/admin/cashback"
           element={<AdminRoute><AdminCashback /></AdminRoute>}
         />
+        <Route
+          path="/admin/backup"
+          element={<AdminRoute><AdminBackup /></AdminRoute>}
+        />
         <Route path="/r" element={<Rastreio />} />
         <Route path="/r/:codigoParam" element={<Rastreio />} />
         <Route path="/p/:envioId" element={<Pagamento />} />
