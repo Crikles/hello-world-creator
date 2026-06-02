@@ -1917,16 +1917,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      _build_postagem_email_html: {
-        Args: {
-          p_cta_text: string
-          p_cta_url: string
-          p_event: string
-          p_is_final: boolean
-          p_mensagem: string
-        }
-        Returns: string
-      }
       debit_user_credits: {
         Args: { _descricao: string; _quantidade: number; _user_id: string }
         Returns: boolean
