@@ -1,0 +1,4 @@
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.whatsapp_subscriptions TO authenticated;
+GRANT ALL ON public.whatsapp_subscriptions TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.whatsapp_send_queue TO authenticated;
+GRANT ALL ON public.whatsapp_send_queue TO service_role;
