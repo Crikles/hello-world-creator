@@ -1780,6 +1780,7 @@ export type Database = {
           qr_code: string | null
           status: string
           subscription_id: string | null
+          subscription_price: number | null
           updated_at: string
           user_id: string | null
         }
@@ -1798,6 +1799,7 @@ export type Database = {
           qr_code?: string | null
           status?: string
           subscription_id?: string | null
+          subscription_price?: number | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1816,6 +1818,7 @@ export type Database = {
           qr_code?: string | null
           status?: string
           subscription_id?: string | null
+          subscription_price?: number | null
           updated_at?: string
           user_id?: string | null
         }
