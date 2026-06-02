@@ -1308,14 +1308,14 @@ export default function Rastreio() {
                         <div className="jl-about-left">
                             <div className="jl-about-card-dark">
                                 <span className="jl-about-badge">SOBRE NÓS</span>
-                                <h2>Por que escolher a<br />JL Transportes?</h2>
-                                <p>Somos referência em logística e transporte, oferecendo soluções completas de rastreamento e entrega com eficiência e tecnologia de ponta.</p>
+                                <h2>Por que escolher a<br />ATLAS Cargo Express?</h2>
+                                <p>Frota moderna, equipe própria e tecnologia de rastreamento ponta-a-ponta. Levamos sua carga com segurança, agilidade e total transparência em cada quilômetro.</p>
                                 <div className="jl-about-tag">
                                     <Users size={16} />
                                     <span>6+ Transportadoras parceiras</span>
                                 </div>
                             </div>
-                            <img src="/jl-truck.png" alt="Caminhão JL Transportes" className="jl-about-truck" />
+                            <img src={atlasTruck.url} alt="Frota ATLAS Cargo Express" className="jl-about-truck" />
                         </div>
                         <div className="jl-about-right">
                             <div className="jl-about-bullet">
