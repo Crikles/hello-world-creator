@@ -172,22 +172,21 @@ export default function Postagens() {
   });
 
   const { data: systemEventos } = useQuery({
-    queryKey: ["postagem-eventos-system"],
+    queryKey: ["postagem-eventos-system", systemTemplates?.map((t) => t.id).join(",")],
     queryFn: async () => {
+      const ids = (systemTemplates ?? []).map((t) => t.id);
+      if (ids.length === 0) return [] as PostagemEvento[];
       const { data, error } = await supabase
         .from("postagem_eventos")
         .select("*")
-        .in("template_id", [
-          "00000000-0000-0000-0000-000000000001",
-          "00000000-0000-0000-0000-000000000002",
-          "00000000-0000-0000-0000-000000000004",
-          "00000000-0000-0000-0000-000000000005",
-        ])
+        .in("template_id", ids)
         .order("ordem");
       if (error) throw error;
       return data as PostagemEvento[];
     },
+    enabled: !!systemTemplates && systemTemplates.length > 0,
   });
+
 
   const { data: config } = useQuery({
     queryKey: ["postagem-config", loja?.id],
