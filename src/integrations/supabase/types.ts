@@ -452,6 +452,7 @@ export type Database = {
           proximo_avanco_em: string | null
           quantidade: number
           status: Database["public"]["Enums"]["shipment_status"]
+          status_label: string | null
           transportadora: string | null
           ultimo_evento_ordem: number
           unidade: string
@@ -487,6 +488,7 @@ export type Database = {
           proximo_avanco_em?: string | null
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
+          status_label?: string | null
           transportadora?: string | null
           ultimo_evento_ordem?: number
           unidade?: string
@@ -522,6 +524,7 @@ export type Database = {
           proximo_avanco_em?: string | null
           quantidade?: number
           status?: Database["public"]["Enums"]["shipment_status"]
+          status_label?: string | null
           transportadora?: string | null
           ultimo_evento_ordem?: number
           unidade?: string
