@@ -31,6 +31,7 @@ const menuItems = [
   { title: "Emails", url: "/admin/emails", icon: Mail },
   { title: "Saúde Emails", url: "/admin/email-saude", icon: HeartPulse },
   { title: "Cashback", url: "/admin/cashback", icon: Undo2 },
+  { title: "Backup Drive", url: "/admin/backup", icon: Cloud },
   { title: "Suporte", url: "/admin/suporte", icon: HeadphonesIcon },
 ];
 
