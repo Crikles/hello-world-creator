@@ -2307,7 +2307,7 @@ const jlStyles = `
 .rastreio-container {
   min-height: 100vh;
   background: white;
-  color: #0f172a;
+  color: #0a0a0b;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
@@ -2434,7 +2434,7 @@ const jlStyles = `
 @media (max-width: 1024px) { .data-layout { grid-template-columns: 1fr; } }
 
 .package-label-card {
-  background: #0f172a; color: white; border-radius: 24px; padding: 32px;
+  background: #0a0a0b; color: white; border-radius: 24px; padding: 32px;
   position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.1);
 }
 .label-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
@@ -2454,7 +2454,7 @@ const jlStyles = `
 .meta-tile { background: white; padding: 20px; border-radius: 20px; display: flex; align-items: center; gap: 16px; border: 1px solid rgba(0,0,0,0.03); }
 .meta-content { display: flex; flex-direction: column; }
 .meta-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-.meta-value { font-size: 15px; font-weight: 700; color: #1e293b; }
+.meta-value { font-size: 15px; font-weight: 700; color: #0a0a0b; }
 
 .data-main { background: white; border-radius: 24px; padding: 40px; border: 1px solid rgba(0,0,0,0.03); }
 .correios-table-header { background: var(--timeline-header); color: white; display: grid; grid-template-columns: 80px 1fr 150px; padding: 12px 20px; font-weight: 700; font-size: 15px; }
@@ -2494,7 +2494,7 @@ const jlStyles = `
 .error-visual { width: 80px; height: 80px; background: #fef2f2; color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
 .error-state h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
 .error-state p { color: #64748b; margin-bottom: 32px; }
-.retry-btn { padding: 12px 32px; background: #0f172a; color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; }
+.retry-btn { padding: 12px 32px; background: #0a0a0b; color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
 @media (max-width: 768px) {
   .main-nav { height: 52px; } .nav-inner { padding: 0 16px; } .nav-logo { width: 110px; }
@@ -2527,7 +2527,7 @@ const jlStyles = `
 
 /* ── JL Stats Bar ── */
 .jl-stats-bar {
-  background: linear-gradient(135deg, #17181c 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #17181c 0%, #0a0a0b 100%);
   padding: 40px 32px;
 }
 .jl-stats-grid {
@@ -2545,7 +2545,7 @@ const jlStyles = `
 
 /* ── JL Como Funciona ── */
 .jl-howit {
-  background: linear-gradient(135deg, #0f172a 0%, #17181c 100%);
+  background: linear-gradient(135deg, #0a0a0b 0%, #17181c 100%);
   padding: 80px 32px; text-align: center; color: white;
 }
 .jl-howit-inner { max-width: 900px; margin: 0 auto; }
@@ -2581,7 +2581,7 @@ const jlStyles = `
 }
 .jl-about-left { display: flex; flex-direction: column; gap: 24px; }
 .jl-about-card-dark {
-  background: linear-gradient(135deg, #0f172a, #17181c);
+  background: linear-gradient(135deg, #0a0a0b, #17181c);
   border-radius: 20px; padding: 40px; color: white;
 }
 .jl-about-badge {
@@ -2609,7 +2609,7 @@ const jlStyles = `
   color: #e10e1a;
   display: flex; align-items: center; justify-content: center;
 }
-.jl-about-bullet h4 { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+.jl-about-bullet h4 { font-size: 16px; font-weight: 700; color: #0a0a0b; margin-bottom: 6px; }
 .jl-about-bullet p { font-size: 13px; color: #6B7280; line-height: 1.6; }
 
 /* ── JL Recursos ── */
@@ -2622,7 +2622,7 @@ const jlStyles = `
   background: rgba(225,14,26,0.08); color: #e10e1a;
   font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 16px;
 }
-.jl-features-title { font-size: 28px; font-weight: 700; color: #1e293b; margin-bottom: 48px; }
+.jl-features-title { font-size: 28px; font-weight: 700; color: #0a0a0b; margin-bottom: 48px; }
 .jl-features-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
 }
@@ -2643,7 +2643,7 @@ const jlStyles = `
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 20px;
 }
-.jl-feature-card h3 { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 10px; }
+.jl-feature-card h3 { font-size: 16px; font-weight: 700; color: #0a0a0b; margin-bottom: 10px; }
 .jl-feature-card p { font-size: 14px; color: #6B7280; line-height: 1.7; }
 
 /* ── JL Partners Carousel ── */
@@ -2652,7 +2652,7 @@ const jlStyles = `
   100% { transform: translateX(-50%); }
 }
 .jl-partners {
-  padding: 40px 32px 80px; background: #0f172a;
+  padding: 40px 32px 80px; background: #0a0a0b;
   text-align: center;
 }
 .jl-partners-title {
