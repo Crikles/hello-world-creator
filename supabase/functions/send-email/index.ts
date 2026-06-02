@@ -1063,9 +1063,9 @@ Deno.serve(async (req) => {
 
   try {
     console.log("send-email function invoked, method:", req.method);
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    const RESEND_API_KEY = Deno.env.get("RESEND_TRACKING_API_KEY") || Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not configured");
+      throw new Error("RESEND_TRACKING_API_KEY is not configured");
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
