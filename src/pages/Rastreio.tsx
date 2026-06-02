@@ -2325,20 +2325,20 @@ const jlStyles = `
 .nav-logo { height: auto; width: 130px; filter: brightness(1.1); }
 .nav-links { display: flex; gap: 28px; align-items: center; }
 .nav-link {
-  font-size: 13px; font-weight: 600; color: #475569;
+  font-size: 13px; font-weight: 600; color: #ffffff;
   text-decoration: none; transition: color 0.2s;
 }
-.nav-link:hover { color: #0f172a; }
+.nav-link:hover { color: #cccccc; }
 .nav-mobile-toggle {
   display: none; background: none; border: none;
-  cursor: pointer; color: #1e293b; padding: 8px;
+  cursor: pointer; color: #ffffff; padding: 8px;
 }
 .nav-mobile-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1100;
 }
 .nav-mobile-drawer {
   position: fixed; top: 0; right: 0; width: 280px; max-width: 80vw;
-  height: 100vh; background: #f1f5f9; z-index: 1200;
+  height: 100vh; background: #0a0a0b; z-index: 1200;
   display: flex; flex-direction: column;
   box-shadow: -4px 0 30px rgba(0,0,0,0.15);
   animation: slideIn 0.25s ease-out;
@@ -2348,14 +2348,14 @@ const jlStyles = `
   display: flex; justify-content: space-between; align-items: center;
   padding: 16px 20px; border-bottom: 1px solid rgba(0,0,0,0.08);
 }
-.nav-mobile-close { background: none; border: none; cursor: pointer; color: #475569; padding: 4px; }
+.nav-mobile-close { background: none; border: none; cursor: pointer; color: #ffffff; padding: 4px; }
 .nav-mobile-drawer-links { display: flex; flex-direction: column; padding: 8px 0; }
 .nav-mobile-link {
-  font-size: 15px; font-weight: 600; color: #334155;
+  font-size: 15px; font-weight: 600; color: #ffffff;
   text-decoration: none; padding: 14px 24px;
-  border-bottom: 1px solid rgba(0,0,0,0.04); transition: background 0.2s, color 0.2s;
+  border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.2s, color 0.2s;
 }
-.nav-mobile-link:hover { color: #0f172a; background: var(--mobile-link-hover); }
+.nav-mobile-link:hover { color: #cccccc; background: rgba(255,255,255,0.05); }
 
 .hero-section {
   padding: 120px 40px 80px; background: var(--hero-bg, #020617);
