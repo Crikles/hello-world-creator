@@ -46,96 +46,76 @@ export default function Taxacao() {
     const queryClient = useQueryClient();
     const { loja } = useLoja();
 
-    // Fetch tax event orders per template (supports multiple templates across envios)
-    const { data: taxEventosMap, isLoading: isLoadingTax } = useQuery({
-        queryKey: ["tax-eventos-map", loja?.id],
+    // Lê o toggle ativar_taxacao + template ativo (fonte de verdade do switch superior)
+    const { data: taxConfig, isLoading: isLoadingTax } = useQuery({
+        queryKey: ["tax-config", loja?.id],
         queryFn: async () => {
             if (!loja) return null;
-            // Get all envios to find unique template_ids
-            const { data: allEnvios } = await supabase
-                .from("envios")
-                .select("postagem_template_id")
-                .eq("loja_id", loja.id)
-                .is("deleted_at", null);
-
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id")
+                .select("ativar_taxacao, template_ativo_id, taxacao_template_id, taxacao_valor")
                 .eq("loja_id", loja.id)
                 .maybeSingle();
+            if (!config) return { ativo: false, taxacao_ordem: null, pago_ordem: null, template_id: null, valor_taxacao: 0 };
 
-            const templateIds = [...new Set([
-                ...(allEnvios || []).map(e => e.postagem_template_id).filter(Boolean) as string[],
-                ...(config?.template_ativo_id ? [config.template_ativo_id] : []),
-            ])];
-            if (templateIds.length === 0) return null;
+            const ativo = !!config.ativar_taxacao;
+            const templateId = config.taxacao_template_id || config.template_ativo_id || null;
+            if (!templateId) {
+                return { ativo, taxacao_ordem: null, pago_ordem: null, template_id: null, valor_taxacao: Number(config.taxacao_valor) || 0 };
+            }
 
             const { data: eventos } = await supabase
                 .from("postagem_eventos")
-                .select("id, nome, ordem, status_label, template_id, corpo_email")
-                .in("template_id", templateIds)
+                .select("id, nome, ordem, status_label, corpo_email")
+                .eq("template_id", templateId)
                 .in("status_label", ["Taxação", "Pago"])
                 .order("ordem", { ascending: true });
-            if (!eventos || eventos.length === 0) return null;
 
-            const map: Record<string, { taxacao_ordem: number | null; pago_ordem: number | null; valor_taxacao: number }> = {};
-            for (const tid of templateIds) {
-                const tEvents = eventos.filter(e => e.template_id === tid);
-                const taxEvento = tEvents.find(e => e.status_label === "Taxação");
-                const pagoEvento = tEvents.find(e => e.status_label === "Pago");
-                if (taxEvento) {
-                    // Extract {{taxacao_valor:XX.XX}} from corpo_email
-                    let valorTaxacao = 0;
-                    if (taxEvento.corpo_email) {
-                        const match = taxEvento.corpo_email.match(/\{\{taxacao_valor:([\d.,]+)\}\}/);
-                        if (match) valorTaxacao = parseFloat(match[1].replace(',', '.')) || 0;
-                    }
-                    map[tid] = {
-                        taxacao_ordem: taxEvento.ordem,
-                        pago_ordem: pagoEvento?.ordem ?? null,
-                        valor_taxacao: valorTaxacao,
-                    };
-                }
+            const taxEvento = (eventos || []).find(e => e.status_label === "Taxação");
+            const pagoEvento = (eventos || []).find(e => e.status_label === "Pago");
+
+            let valorTaxacao = Number(config.taxacao_valor) || 0;
+            if (!valorTaxacao && taxEvento?.corpo_email) {
+                const match = taxEvento.corpo_email.match(/\{\{taxacao_valor:([\d.,]+)\}\}/);
+                if (match) valorTaxacao = parseFloat(match[1].replace(',', '.')) || 0;
             }
-            return Object.keys(map).length > 0 ? map : null;
+
+            return {
+                ativo,
+                taxacao_ordem: taxEvento?.ordem ?? null,
+                pago_ordem: pagoEvento?.ordem ?? null,
+                template_id: templateId,
+                valor_taxacao: valorTaxacao,
+            };
         },
         enabled: !!loja,
     });
 
-    const hasTaxConfig = !!taxEventosMap && Object.keys(taxEventosMap).length > 0;
-    // Find the minimum taxacao_ordem across all templates for the DB filter
-    const minTaxacaoOrdem = taxEventosMap
-        ? Math.min(...Object.values(taxEventosMap).map(v => v.taxacao_ordem!).filter(Boolean))
-        : null;
+    const isAtivo = !!taxConfig?.ativo;
+    const taxacaoOrdem = taxConfig?.taxacao_ordem ?? null;
+    const pagoOrdem = taxConfig?.pago_ordem ?? null;
+    const templateId = taxConfig?.template_id ?? null;
 
     const { data: envios = [], isLoading } = useQuery({
-        queryKey: ["taxacao-envios", loja?.id, minTaxacaoOrdem],
+        queryKey: ["taxacao-envios", loja?.id, templateId, taxacaoOrdem, pagoOrdem],
         queryFn: async () => {
-            if (!loja || !minTaxacaoOrdem || !taxEventosMap) return [];
+            if (!loja || !isAtivo || !templateId || !taxacaoOrdem) return [];
             const { data, error } = await supabase
                 .from("envios")
                 .select("*")
                 .eq("loja_id", loja.id)
+                .eq("postagem_template_id", templateId)
                 .is("deleted_at", null)
-                .gte("ultimo_evento_ordem", minTaxacaoOrdem)
+                .gte("ultimo_evento_ordem", taxacaoOrdem)
                 .order("updated_at", { ascending: false });
             if (error) throw error;
-            return (data || []).filter((envio) => {
-                // Only include envios whose template has a tax event and they've reached it
-                const tid = envio.postagem_template_id;
-                if (!tid || !taxEventosMap[tid]) return false;
-                return envio.ultimo_evento_ordem >= taxEventosMap[tid].taxacao_ordem!;
-            }).map((envio) => {
-                const tid = envio.postagem_template_id!;
-                const tInfo = taxEventosMap[tid];
+            return (data || []).map((envio) => {
                 let taxacao_status: "pendente" | "aprovado" = "pendente";
-                if (tInfo.pago_ordem && envio.ultimo_evento_ordem >= tInfo.pago_ordem) {
-                    taxacao_status = "aprovado";
-                }
+                if (pagoOrdem && envio.ultimo_evento_ordem >= pagoOrdem) taxacao_status = "aprovado";
                 return { ...envio, taxacao_status } as TaxacaoEnvio;
             });
         },
-        enabled: !!loja && !!minTaxacaoOrdem,
+        enabled: !!loja && isAtivo && !!templateId && !!taxacaoOrdem,
     });
 
     const approveMutation = useMutation({
