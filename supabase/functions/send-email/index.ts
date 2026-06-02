@@ -731,7 +731,7 @@ function buildEmailHtml(
 </html>`;
 }
 
-/** Build a specialized Taxação email — premium design */
+/** Build a specialized Taxação email — layout minimalista (preview style) */
 function buildTaxacaoEmailHtml(
   envio: Record<string, unknown>,
   extras: Record<string, string>,
@@ -742,167 +742,46 @@ function buildTaxacaoEmailHtml(
   const empresaNome = extras.empresa_nome || "Loja";
   const empresaLogoUrl = extras.empresa_logo_url || "";
   const clienteNome = (envio.cliente_nome as string) || "Cliente";
+  const produto = replaceVariables("{{produto}}", envio, extras);
   const valor = parseFloat(tax.valor_exemplo) || 0;
   const valorFormatted = valor.toFixed(2).replace(".", ",");
-  const transportadora = (envio.transportadora as string) || DEFAULT_TRANSPORTADORA;
-  const produto = replaceVariables("{{produto}}", envio, extras);
-  const rastreio = replaceVariables("{{codigo_rastreio}}", envio, extras);
   const mensagem = replaceVariables(tax.mensagem_taxa, envio, extras);
 
-  // Link to the public payment page instead of direct checkout
-  const paymentPageUrl = `${appBaseUrl}?p=${envioId}`;
+  // Botão vai para o Link de Checkout configurado no template (fallback: página de rastreio)
+  const checkoutUrl = (tax.url_pagamento && tax.url_pagamento.trim())
+    ? tax.url_pagamento
+    : `${appBaseUrl}?p=${envioId}`;
 
-  const prazoHtml = tax.mostrar_prazo && tax.prazo_dias
-    ? `<p style="margin:6px 0 0;font-size:11px;color:#78716c;">Prazo: ${tax.prazo_dias} dias para pagamento</p>`
-    : "";
+  const accent = tax.cor_botao || "#2563eb";
+  const accentSoft = "#fffbeb";
+  const accentBorder = "#fde68a";
+  const accentText = "#92400e";
 
-  const logoHtml = empresaLogoUrl
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
-        <tr><td style="width:72px;height:72px;border-radius:50%;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
-          <img src="${empresaLogoUrl}" alt="${empresaNome}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border-radius:50%;display:block;" />
-        </td></tr>
-      </table>`
-    : "";
+  const iconHtml = empresaLogoUrl
+    ? `<img src="${empresaLogoUrl}" alt="${empresaNome}" width="56" height="56" style="width:56px;height:56px;object-fit:cover;border-radius:16px;display:block;" />`
+    : `<div style="width:56px;height:56px;border-radius:16px;background:${accentSoft};border:1px solid ${accentBorder};display:inline-block;text-align:center;line-height:56px;font-size:28px;">📦</div>`;
 
-  const valorHtml = tax.mostrar_valor
-    ? `<p style="margin:0 0 2px;font-size:11px;color:#78716c;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Valor da taxa</p>
-       <p style="margin:0 0 20px;font-size:32px;font-weight:800;color:#0f172a;letter-spacing:-1px;">R$ ${valorFormatted}</p>`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Taxa de Importação</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 16px;">
-    <tr><td align="center">
-
-      <!-- Main Card -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05),0 8px 32px rgba(0,0,0,0.08);">
-
-        <!-- Logo + Brand -->
-        <tr>
-          <td style="padding:36px 40px 24px;text-align:center;">
-            ${logoHtml}
-            <p style="margin:0;color:#64748b;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;">${empresaNome}</p>
-          </td>
-        </tr>
-
-        <!-- Warning accent bar -->
-        <tr>
-          <td style="padding:0 40px;">
-            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height:3px;background:linear-gradient(90deg, ${tax.cor_botao}, ${tax.cor_botao}88);border-radius:3px;"></td></tr></table>
-          </td>
-        </tr>
-
-        <!-- Status Badge + Title -->
-        <tr>
-          <td style="padding:28px 40px 0;text-align:center;">
-            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-              <tr><td style="background-color:#fef3c7;color:#92400e;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:6px 20px;border-radius:20px;">
-                ⚠️ Taxa de Importação
-              </td></tr>
-            </table>
-            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Pagamento Pendente</p>
-          </td>
-        </tr>
-
-        <!-- Greeting -->
-        <tr>
-          <td style="padding:24px 40px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;"><tr><td style="border-top:1px solid #f1f5f9;"></td></tr></table>
-            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155;">Olá <strong>${clienteNome}</strong>,</p>
-            <p style="margin:0 0 0;font-size:14px;line-height:1.7;color:#475569;">${mensagem}</p>
-          </td>
-        </tr>
-
-        <!-- Tax Payment Card -->
-        <tr>
-          <td style="padding:24px 40px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${tax.cor_botao};border-radius:16px;overflow:hidden;">
-              <tr>
-                <td style="background-color:#fffbeb;padding:28px 24px;text-align:center;">
-                  ${valorHtml}
-                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-                    <tr><td style="background-color:${tax.cor_botao};border-radius:50px;box-shadow:0 4px 16px ${tax.cor_botao}44;">
-                      <a href="${paymentPageUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 48px;font-size:15px;font-weight:800;letter-spacing:0.3px;">${tax.texto_botao}</a>
-                    </td></tr>
-                  </table>
-                  ${prazoHtml}
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Order Info -->
-        <tr>
-          <td style="padding:0 40px 8px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td width="50%" style="padding-right:6px;vertical-align:top;">
-                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
-                    <tr><td style="padding:14px 16px;">
-                      <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">📦 Produto</p>
-                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;line-height:1.4;">${produto}</p>
-                    </td></tr>
-                  </table>
-                </td>
-                <td width="50%" style="padding-left:6px;vertical-align:top;">
-                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
-                    <tr><td style="padding:14px 16px;">
-                      <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🚛 Transp.</p>
-                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;">${transportadora}</p>
-                    </td></tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Tracking Code -->
-        <tr>
-          <td style="padding:8px 40px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
-              <tr><td style="padding:14px 16px;text-align:center;">
-                <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🔍 Rastreio</p>
-                <p style="margin:0;font-size:16px;font-weight:800;color:${tax.cor_botao};letter-spacing:1px;font-family:'Courier New',Courier,monospace;">${rastreio}</p>
-              </td></tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- WhatsApp -->
-        <tr><td style="padding:0 40px;text-align:center;">${buildWhatsAppButton(extras.whatsapp_vendedor || "")}</td></tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="padding:32px 40px 28px;">
-            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #f1f5f9;padding-top:20px;">
-              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;text-align:center;">Atenciosamente,<br><strong>${empresaNome}</strong></p>
-            </td></tr></table>
-          </td>
-        </tr>
-      </table>
-
-      <!-- Sub-footer -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-        <tr><td style="padding:16px 0;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#cbd5e1;">Enviado por ${empresaNome} • Rastreio automático</p>
-        </td></tr>
-      </table>
-
-    </td></tr>
-  </table>
-</body>
-</html>`;
+  return buildMinimalActionEmail({
+    title: "Taxa de Importação",
+    subtitle: "Ação Necessária",
+    clienteNome,
+    introTexto: `Identificamos uma taxa de importação para o seu pedido <strong>${produto}</strong>.`,
+    mensagem,
+    boxLabel: "VALOR DA TAXA",
+    boxValor: tax.mostrar_valor ? `R$ ${valorFormatted}` : "",
+    botaoTexto: tax.texto_botao || "PAGAR AGORA",
+    botaoUrl: checkoutUrl,
+    accent,
+    accentSoft,
+    accentBorder,
+    accentText,
+    iconHtml,
+    empresaNome,
+    whatsappVendedor: extras.whatsapp_vendedor || "",
+  });
 }
 
-/** Build a specialized Falha na Entrega email */
+/** Build a specialized Falha na Entrega email — layout minimalista (preview style) */
 function buildFalhaEntregaEmailHtml(
   envio: Record<string, unknown>,
   extras: Record<string, string>,
@@ -912,28 +791,73 @@ function buildFalhaEntregaEmailHtml(
   const empresaNome = extras.empresa_nome || "Loja";
   const empresaLogoUrl = extras.empresa_logo_url || "";
   const clienteNome = (envio.cliente_nome as string) || "Cliente";
+  const produto = replaceVariables("{{produto}}", envio, extras);
   const valor = parseFloat(config.valor_taxa_falha) || 0;
   const valorFormatted = valor.toFixed(2).replace(".", ",");
-  const transportadora = (envio.transportadora as string) || DEFAULT_TRANSPORTADORA;
-  const produto = replaceVariables("{{produto}}", envio, extras);
-  const rastreio = replaceVariables("{{codigo_rastreio}}", envio, extras);
   const mensagem = replaceVariables(config.msg_falha_entrega, envio, extras);
 
-  // Botão customizado vai para o checkout que o lojista definiu
-  const paymentPageUrl = config.checkout_url_falha || appBaseUrl;
-  const color = "#ea580c";
+  // Botão vai para o Link de Checkout configurado (fallback: appBaseUrl)
+  const checkoutUrl = (config.checkout_url_falha && config.checkout_url_falha.trim())
+    ? config.checkout_url_falha
+    : appBaseUrl;
 
-  const logoHtml = empresaLogoUrl
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
-        <tr><td style="width:72px;height:72px;border-radius:50%;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
-          <img src="${empresaLogoUrl}" alt="${empresaNome}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border-radius:50%;display:block;" />
-        </td></tr>
-      </table>`
-    : "";
+  const accent = "#ea580c";
+  const accentSoft = "#fff7ed";
+  const accentBorder = "#fed7aa";
+  const accentText = "#9a3412";
 
-  const valorHtml = valor > 0
-    ? `<p style="margin:0 0 2px;font-size:11px;color:#78716c;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Taxa de Reenvio</p>
-       <p style="margin:0 0 20px;font-size:32px;font-weight:800;color:#0f172a;letter-spacing:-1px;">R$ ${valorFormatted}</p>`
+  const iconHtml = empresaLogoUrl
+    ? `<img src="${empresaLogoUrl}" alt="${empresaNome}" width="56" height="56" style="width:56px;height:56px;object-fit:cover;border-radius:16px;display:block;" />`
+    : `<div style="width:56px;height:56px;border-radius:16px;background:${accentSoft};border:1px solid ${accentBorder};display:inline-block;text-align:center;line-height:56px;font-size:28px;">📦</div>`;
+
+  return buildMinimalActionEmail({
+    title: "Falha na Entrega",
+    subtitle: "Ação Necessária",
+    clienteNome,
+    introTexto: `Tivemos um problema ao entregar o seu pedido <strong>${produto}</strong>.`,
+    mensagem,
+    boxLabel: "TAXA DE REENVIO",
+    boxValor: `R$ ${valorFormatted}`,
+    botaoTexto: "PAGAR REENVIO",
+    botaoUrl: checkoutUrl,
+    accent,
+    accentSoft,
+    accentBorder,
+    accentText,
+    iconHtml,
+    empresaNome,
+    whatsappVendedor: extras.whatsapp_vendedor || "",
+  });
+}
+
+interface MinimalActionEmailParams {
+  title: string;
+  subtitle: string;
+  clienteNome: string;
+  introTexto: string;
+  mensagem: string;
+  boxLabel: string;
+  boxValor: string;
+  botaoTexto: string;
+  botaoUrl: string;
+  accent: string;
+  accentSoft: string;
+  accentBorder: string;
+  accentText: string;
+  iconHtml: string;
+  empresaNome: string;
+  whatsappVendedor: string;
+}
+
+/** Layout compartilhado entre Taxação e Falha na Entrega (estilo do preview do painel) */
+function buildMinimalActionEmail(p: MinimalActionEmailParams): string {
+  const valorLinha = p.boxValor
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;">
+         <tr>
+           <td align="left" style="font-size:11px;font-weight:700;color:${p.accentText};letter-spacing:1px;text-transform:uppercase;">${p.boxLabel}</td>
+           <td align="right" style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">${p.boxValor}</td>
+         </tr>
+       </table>`
     : "";
 
   return `<!DOCTYPE html>
@@ -941,105 +865,70 @@ function buildFalhaEntregaEmailHtml(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Aviso de Falha na Entrega</title>
+  <title>${p.title}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 16px;">
     <tr><td align="center">
 
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05),0 8px 32px rgba(0,0,0,0.08);">
-        <tr>
-          <td style="padding:36px 40px 24px;text-align:center;">
-            ${logoHtml}
-            <p style="margin:0;color:#64748b;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;">${empresaNome}</p>
-          </td>
-        </tr>
 
+        <!-- Header: ícone + título + subtítulo -->
         <tr>
-          <td style="padding:0 40px;">
-            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height:3px;background:linear-gradient(90deg, ${color}, ${color}88);border-radius:3px;"></td></tr></table>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="padding:28px 40px 0;text-align:center;">
-            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-              <tr><td style="background-color:#fff7ed;color:#9a3412;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:6px 20px;border-radius:20px;">
-                ❌ Falha na Entrega
-              </td></tr>
+          <td style="padding:36px 40px 8px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:middle;padding-right:16px;">${p.iconHtml}</td>
+                <td style="vertical-align:middle;">
+                  <p style="margin:0;font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;line-height:1.2;">${p.title}</p>
+                  <p style="margin:4px 0 0;font-size:13px;font-weight:600;color:${p.accent};">${p.subtitle}</p>
+                </td>
+              </tr>
             </table>
-            <p style="margin:16px 0 0;font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Retorno ao Remetente</p>
           </td>
         </tr>
 
+        <!-- Saudação + intro -->
         <tr>
           <td style="padding:24px 40px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;"><tr><td style="border-top:1px solid #f1f5f9;"></td></tr></table>
-            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155;">Olá <strong>${clienteNome}</strong>,</p>
-            <p style="margin:0 0 0;font-size:14px;line-height:1.7;color:#475569;">${mensagem}</p>
+            <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">Olá <strong>${p.clienteNome}</strong>,</p>
+            <p style="margin:0;font-size:14px;line-height:1.7;color:#475569;">${p.introTexto}</p>
           </td>
         </tr>
 
+        <!-- Box destacado: mensagem editável + linha de valor -->
         <tr>
-          <td style="padding:24px 40px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${color};border-radius:16px;overflow:hidden;">
+          <td style="padding:20px 40px 8px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:${p.accentSoft};border:1px solid ${p.accentBorder};border-radius:14px;">
               <tr>
-                <td style="background-color:#fffbeb;padding:28px 24px;text-align:center;">
-                  ${valorHtml}
-                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-                    <tr><td style="background-color:${color};border-radius:50px;box-shadow:0 4px 16px ${color}44;">
-                      <a href="${paymentPageUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 48px;font-size:15px;font-weight:800;letter-spacing:0.3px;">PAGAR REENVIO / FRETE</a>
-                    </td></tr>
-                  </table>
+                <td style="padding:20px 22px;">
+                  <p style="margin:0;font-size:14px;line-height:1.7;color:${p.accentText};">${p.mensagem}</p>
+                  ${valorLinha}
                 </td>
               </tr>
             </table>
           </td>
         </tr>
 
+        <!-- Botão CTA -->
         <tr>
-          <td style="padding:0 40px 8px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td width="50%" style="padding-right:6px;vertical-align:top;">
-                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
-                    <tr><td style="padding:14px 16px;">
-                      <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">📦 Produto</p>
-                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;line-height:1.4;">${produto}</p>
-                    </td></tr>
-                  </table>
-                </td>
-                <td width="50%" style="padding-left:6px;vertical-align:top;">
-                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
-                    <tr><td style="padding:14px 16px;">
-                      <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🚛 Transp.</p>
-                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;">${transportadora}</p>
-                    </td></tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="padding:8px 40px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
-              <tr><td style="padding:14px 16px;text-align:center;">
-                <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🔍 Rastreio</p>
-                <p style="margin:0;font-size:16px;font-weight:800;color:${color};letter-spacing:1px;font-family:'Courier New',Courier,monospace;">${rastreio}</p>
+          <td style="padding:20px 40px 8px;text-align:center;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr><td style="background-color:${p.accent};border-radius:50px;box-shadow:0 4px 16px ${p.accent}44;">
+                <a href="${p.botaoUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 48px;font-size:14px;font-weight:800;letter-spacing:0.5px;">${p.botaoTexto} →</a>
               </td></tr>
             </table>
           </td>
         </tr>
 
         <!-- WhatsApp -->
-        <tr><td style="padding:0 40px;text-align:center;">${buildWhatsAppButton(extras.whatsapp_vendedor || "")}</td></tr>
+        <tr><td style="padding:0 40px;text-align:center;">${buildWhatsAppButton(p.whatsappVendedor)}</td></tr>
 
+        <!-- Footer -->
         <tr>
           <td style="padding:32px 40px 28px;">
             <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #f1f5f9;padding-top:20px;">
-              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;text-align:center;">Atenciosamente,<br><strong>${empresaNome}</strong></p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;text-align:center;">Atenciosamente,<br><strong>${p.empresaNome}</strong></p>
             </td></tr></table>
           </td>
         </tr>
@@ -1048,7 +937,7 @@ function buildFalhaEntregaEmailHtml(
       <!-- Sub-footer -->
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
         <tr><td style="padding:16px 0;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#cbd5e1;">Enviado por ${empresaNome} • Rastreio automático</p>
+          <p style="margin:0;font-size:11px;color:#cbd5e1;">Enviado por ${p.empresaNome} • Rastreio automático</p>
         </td></tr>
       </table>
 
@@ -1057,6 +946,7 @@ function buildFalhaEntregaEmailHtml(
 </body>
 </html>`;
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
