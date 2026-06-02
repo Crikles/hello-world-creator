@@ -175,7 +175,19 @@ async function generateDanfePdfServerSide(empresa: any, envio: any): Promise<Uin
   return await pdfDoc.save();
 }
 
-const DEFAULT_TRANSPORTADORA = "JL Transportadora e Logística LTDA";
+const DEFAULT_TRANSPORTADORA = "ATLAS Transportes";
+
+function resolveTransportadora(envio: Record<string, unknown>): string {
+  const code = ((envio.codigo_rastreio as string) || "").toUpperCase();
+  // Suffix-based resolution (overrides stored value to match active logística)
+  if (code.endsWith("AT")) return "ATLAS Transportes";
+  if (code.endsWith("VT")) return "Vetor Transportes";
+  if (code.endsWith("JD")) return "Jadlog";
+  if (code.endsWith("JL")) return "JL Transportadora e Logística LTDA";
+  const stored = (envio.transportadora as string) || "";
+  if (stored.trim()) return stored;
+  return DEFAULT_TRANSPORTADORA;
+}
 
 // ============ Vizinho (Neighbor) deterministic logic ============
 const VIZINHO_NOMES = [
