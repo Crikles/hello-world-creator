@@ -41,7 +41,7 @@ async function getWhatsAppPrice(supabaseAdmin: any, userId?: string): Promise<nu
         .select("value")
         .eq("key", "custo_whatsapp")
         .maybeSingle();
-    return data?.value ?? 29.99;
+    return data?.value ?? 49;
 }
 
 Deno.serve(async (req) => {

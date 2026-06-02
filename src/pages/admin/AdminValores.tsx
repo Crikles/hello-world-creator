@@ -133,7 +133,8 @@ export default function AdminValores() {
               { title: "Rastreio & NF-e", match: (k) => ["custo_email_rastreio", "custo_sms_rastreio", "custo_nfe_email", "custo_taxacao", "custo_falha_entrega"].includes(k) },
               { title: "Confirmação de Pagamento", match: (k) => k.startsWith("custo_confirmacao_") },
               { title: "Recuperação de Vendas", match: (k) => k.startsWith("custo_recovery_") },
-              { title: "Upsell & WhatsApp", match: (k) => k === "custo_upsell_email" || k === "custo_whatsapp" },
+              { title: "Upsell", match: (k) => k === "custo_upsell_email" },
+              { title: "WhatsApp (assinatura mensal por instância)", match: (k) => k === "custo_whatsapp" },
               { title: "Suporte & Domínio", match: (k) => k === "whatsapp_suporte" || TEXT_KEYS.includes(k) },
             ];
             const used = new Set<string>();
