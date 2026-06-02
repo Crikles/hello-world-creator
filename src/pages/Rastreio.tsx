@@ -2527,7 +2527,7 @@ const jlStyles = `
 
 /* ── JL Stats Bar ── */
 .jl-stats-bar {
-  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #17181c 0%, #0f172a 100%);
   padding: 40px 32px;
 }
 .jl-stats-grid {
@@ -2545,7 +2545,7 @@ const jlStyles = `
 
 /* ── JL Como Funciona ── */
 .jl-howit {
-  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #17181c 100%);
   padding: 80px 32px; text-align: center; color: white;
 }
 .jl-howit-inner { max-width: 900px; margin: 0 auto; }
@@ -2557,15 +2557,15 @@ const jlStyles = `
 }
 .jl-step-num {
   width: 56px; height: 56px; border-radius: 50%;
-  background: linear-gradient(135deg, #818cf8, #6366f1);
+  background: linear-gradient(135deg, #ff5a63, #e10e1a);
   color: white; font-size: 22px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 20px; position: relative; z-index: 2;
-  box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+  box-shadow: 0 4px 16px rgba(225,14,26,0.4);
 }
 .jl-step-line {
   position: absolute; top: 28px; left: calc(50% + 28px); width: calc(100% - 56px);
-  height: 2px; background: rgba(99,102,241,0.4); z-index: 1;
+  height: 2px; background: rgba(225,14,26,0.4); z-index: 1;
 }
 .jl-step:last-child .jl-step-line { display: none; }
 .jl-step h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
@@ -2581,12 +2581,12 @@ const jlStyles = `
 }
 .jl-about-left { display: flex; flex-direction: column; gap: 24px; }
 .jl-about-card-dark {
-  background: linear-gradient(135deg, #0f172a, #1e1b4b);
+  background: linear-gradient(135deg, #0f172a, #17181c);
   border-radius: 20px; padding: 40px; color: white;
 }
 .jl-about-badge {
   display: inline-block; padding: 4px 14px; border-radius: 100px;
-  background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.3);
+  background: rgba(225,14,26,0.2); border: 1px solid rgba(225,14,26,0.3);
   font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 20px;
 }
 .jl-about-card-dark h2 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 16px; }
@@ -2594,7 +2594,7 @@ const jlStyles = `
 .jl-about-tag {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 8px 16px; border-radius: 10px;
-  background: rgba(99,102,241,0.15); font-size: 13px; font-weight: 600;
+  background: rgba(225,14,26,0.15); font-size: 13px; font-weight: 600;
 }
 .jl-about-truck {
   width: 100%; border-radius: 16px; object-fit: cover;
@@ -2605,8 +2605,8 @@ const jlStyles = `
 .jl-about-bullet { display: flex; gap: 18px; align-items: flex-start; }
 .jl-about-bullet-icon {
   width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(129,140,248,0.06));
-  color: #6366f1;
+  background: linear-gradient(135deg, rgba(225,14,26,0.1), rgba(255,90,99,0.06));
+  color: #e10e1a;
   display: flex; align-items: center; justify-content: center;
 }
 .jl-about-bullet h4 { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
@@ -2619,7 +2619,7 @@ const jlStyles = `
 .jl-features-inner { max-width: 1100px; margin: 0 auto; }
 .jl-features-badge {
   display: inline-block; padding: 4px 16px; border-radius: 100px;
-  background: rgba(99,102,241,0.08); color: #6366f1;
+  background: rgba(225,14,26,0.08); color: #e10e1a;
   font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 16px;
 }
 .jl-features-title { font-size: 28px; font-weight: 700; color: #1e293b; margin-bottom: 48px; }
@@ -2632,13 +2632,13 @@ const jlStyles = `
   transition: all 0.3s;
 }
 .jl-feature-card:hover {
-  border-color: rgba(99,102,241,0.2);
-  box-shadow: 0 8px 24px rgba(99,102,241,0.08);
+  border-color: rgba(225,14,26,0.2);
+  box-shadow: 0 8px 24px rgba(225,14,26,0.08);
   transform: translateY(-2px);
 }
 .jl-feature-icon {
   width: 60px; height: 60px; border-radius: 16px;
-  background: linear-gradient(135deg, #6366f1, #818cf8);
+  background: linear-gradient(135deg, #e10e1a, #ff5a63);
   color: white;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 20px;
@@ -2656,7 +2656,7 @@ const jlStyles = `
   text-align: center;
 }
 .jl-partners-title {
-  font-size: 24px; font-weight: 700; color: #818cf8;
+  font-size: 24px; font-weight: 700; color: #ff5a63;
   margin-bottom: 32px;
 }
 .jl-partners-overflow {
@@ -2679,7 +2679,7 @@ const jlStyles = `
 }
 .jl-partner-card:hover {
   transform: scale(1.05);
-  box-shadow: 0 8px 24px rgba(99,102,241,0.25);
+  box-shadow: 0 8px 24px rgba(225,14,26,0.25);
 }
 .jl-partner-logo {
   height: 50px; width: auto; object-fit: contain;
