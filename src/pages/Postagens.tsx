@@ -967,7 +967,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
     },
   });
 
-  const activeLabel = logisticaProvider === "vetor" ? "Vetor Transportes" : "JL Transportes";
+  const activeLabel = "Atlas Transportes";
 
   return (
     <Card>
@@ -976,7 +976,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
           <Truck className="h-4 w-4" />
           Logística de Envios
         </CardTitle>
-        <CardDescription>Escolha a transportadora padrão para os novos pedidos desta loja.</CardDescription>
+        <CardDescription>Transportadora padrão utilizada para os novos pedidos desta loja.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
@@ -985,28 +985,17 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
             Transportadora ativa: <strong className="text-primary">{activeLabel}</strong>
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <button
-            onClick={() => mutation.mutate("jl")}
+            onClick={() => mutation.mutate("atlas")}
             disabled={mutation.isPending}
-            className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "jl"
-                ? "border-primary ring-2 ring-primary/20"
-                : "border-border hover:border-primary/50"
-              }`}
+            className="flex flex-col items-center justify-center p-8 border-2 border-primary ring-2 ring-primary/20 rounded-xl transition-all bg-white"
           >
-            <img src="/logojltransportes.png" alt="JL Transportes" className="h-28 mb-3 object-contain" />
-            <span className={`font-semibold text-sm ${logisticaProvider === "jl" ? "text-primary" : "text-slate-600"}`}>JL Transportes</span>
-          </button>
-          <button
-            onClick={() => mutation.mutate("vetor")}
-            disabled={mutation.isPending}
-            className={`flex flex-col items-center justify-center p-6 border-2 rounded-xl transition-all bg-white ${logisticaProvider === "vetor"
-                ? "border-primary ring-2 ring-primary/20"
-                : "border-border hover:border-primary/50"
-              }`}
-          >
-            <img src="/logovetor.png" alt="Vetor Transportes" className="h-16 mb-3 object-contain" />
-            <span className={`font-semibold text-sm ${logisticaProvider === "vetor" ? "text-primary" : "text-slate-600"}`}>Vetor Transportes</span>
+            <div className="flex items-center gap-3 mb-2">
+              <Truck className="h-10 w-10 text-primary" />
+              <span className="text-3xl font-extrabold tracking-wider text-slate-800">ATLAS</span>
+            </div>
+            <span className="font-semibold text-sm text-primary">Atlas Transportes</span>
           </button>
         </div>
       </CardContent>
