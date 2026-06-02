@@ -39,6 +39,7 @@ import AdminWhatsApp from "./pages/admin/AdminWhatsApp";
 import AdminEmail from "./pages/admin/AdminEmail";
 import AdminEmailSaude from "./pages/admin/AdminEmailSaude";
 import AdminCashback from "./pages/admin/AdminCashback";
+import AdminBackup from "./pages/admin/AdminBackup";
 import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
 import PagamentoFalha from "./pages/PagamentoFalha";
@@ -191,6 +192,10 @@ function PanelRoutes() {
         <Route
           path="/admin/cashback"
           element={<AdminRoute><AdminCashback /></AdminRoute>}
+        />
+        <Route
+          path="/admin/backup"
+          element={<AdminRoute><AdminBackup /></AdminRoute>}
         />
         <Route path="/r" element={<Rastreio />} />
         <Route path="/r/:codigoParam" element={<Rastreio />} />
