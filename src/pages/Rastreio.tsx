@@ -149,7 +149,9 @@ const statusConfig: Record<string, { icon: any; label: string }> = {
 export default function Rastreio() {
     const { codigoParam } = useParams<{ codigoParam: string }>();
     const [searchParams] = useSearchParams();
-    const codigoFromUrl = codigoParam || searchParams.get("codigo") || "";
+    const rawCodigo = codigoParam || searchParams.get("codigo") || "";
+    // Ignore unsubstituted route placeholders (e.g. "/r/:codigoParam")
+    const codigoFromUrl = rawCodigo.startsWith(":") ? "" : rawCodigo;
 
     const [searchInput, setSearchInput] = useState(codigoFromUrl);
     const [loading, setLoading] = useState(false);
