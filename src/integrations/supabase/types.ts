@@ -74,6 +74,75 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_runs: {
+        Row: {
+          details: Json | null
+          drive_folder_id: string | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          status: string
+          tables_processed: number | null
+          total_bytes: number | null
+          total_rows: number | null
+        }
+        Insert: {
+          details?: Json | null
+          drive_folder_id?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          tables_processed?: number | null
+          total_bytes?: number | null
+          total_rows?: number | null
+        }
+        Update: {
+          details?: Json | null
+          drive_folder_id?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          tables_processed?: number | null
+          total_bytes?: number | null
+          total_rows?: number | null
+        }
+        Relationships: []
+      }
+      backup_state: {
+        Row: {
+          last_backup_at: string
+          last_error: string | null
+          last_rows_count: number | null
+          last_run_at: string | null
+          last_status: string | null
+          table_name: string
+          updated_at: string
+        }
+        Insert: {
+          last_backup_at?: string
+          last_error?: string | null
+          last_rows_count?: number | null
+          last_run_at?: string | null
+          last_status?: string | null
+          table_name: string
+          updated_at?: string
+        }
+        Update: {
+          last_backup_at?: string
+          last_error?: string | null
+          last_rows_count?: number | null
+          last_run_at?: string | null
+          last_status?: string | null
+          table_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       batch_progress: {
         Row: {
           cancelled: boolean
