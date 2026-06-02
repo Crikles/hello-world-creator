@@ -2,6 +2,8 @@ import { formatProduto } from "@/lib/format-produto";
 import { useEffect, useState, useCallback, useMemo, Fragment } from "react";
 
 import { useParams, useSearchParams } from "react-router-dom";
+import atlasLogo from "@/assets/atlas-logo.png.asset.json";
+import atlasTruck from "@/assets/atlas-truck.jpg.asset.json";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import {
     Package,
