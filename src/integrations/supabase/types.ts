@@ -1366,50 +1366,77 @@ export type Database = {
       }
       recovery_leads: {
         Row: {
+          checkout_url: string | null
           created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
           email: string | null
           email_sent_at: string | null
           id: string
           loja_id: string
           metadata: Json | null
           nome: string | null
+          pix_code: string | null
+          pix_qrcode_url: string | null
+          products: Json | null
           produto: string | null
+          raw_payload: Json | null
           sms_sent_at: string | null
           status: string
           telefone: string | null
           tipo: string
+          total_value: number | null
           updated_at: string
           valor: number | null
         }
         Insert: {
+          checkout_url?: string | null
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           email?: string | null
           email_sent_at?: string | null
           id?: string
           loja_id: string
           metadata?: Json | null
           nome?: string | null
+          pix_code?: string | null
+          pix_qrcode_url?: string | null
+          products?: Json | null
           produto?: string | null
+          raw_payload?: Json | null
           sms_sent_at?: string | null
           status?: string
           telefone?: string | null
           tipo: string
+          total_value?: number | null
           updated_at?: string
           valor?: number | null
         }
         Update: {
+          checkout_url?: string | null
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           email?: string | null
           email_sent_at?: string | null
           id?: string
           loja_id?: string
           metadata?: Json | null
           nome?: string | null
+          pix_code?: string | null
+          pix_qrcode_url?: string | null
+          products?: Json | null
           produto?: string | null
+          raw_payload?: Json | null
           sms_sent_at?: string | null
           status?: string
           telefone?: string | null
           tipo?: string
+          total_value?: number | null
           updated_at?: string
           valor?: number | null
         }
@@ -2032,6 +2059,18 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      try_create_envio_dedupe: {
+        Args: {
+          _cliente_email: string
+          _envio_data: Json
+          _loja_id: string
+          _valor: number
+        }
+        Returns: {
+          envio_id: string
+          was_duplicate: boolean
+        }[]
       }
       user_owns_loja: {
         Args: { _loja_id: string; _user_id: string }
