@@ -401,10 +401,13 @@ export default function Postagens() {
           template_ativo_id: activeTemplateId,
           enviar_emails: config?.enviar_emails ?? true,
           enviar_nfe_email: config?.enviar_nfe_email ?? true,
+          ativar_taxacao: systemTemplate.tipo === "taxacao",
+          ativar_falha_entrega: systemTemplate.tipo === "falha",
         },
         { onConflict: "loja_id" }
       );
       if (cErr) throw cErr;
+
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["postagem-config"] });
