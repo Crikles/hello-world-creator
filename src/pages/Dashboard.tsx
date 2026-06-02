@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { formatProduto } from "@/lib/format-produto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2 } from "lucide-react";
+import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2, Sparkles, RefreshCw, CreditCard } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -153,6 +153,48 @@ export default function Dashboard() {
         .eq("ativo", true);
       if (error) throw error;
       return data as { checkout_id: string; ativo: boolean }[];
+    },
+    enabled: !!loja,
+  });
+
+  const { data: upsellAtivo = false } = useQuery({
+    queryKey: ["upsell-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return false;
+      const { count } = await supabase
+        .from("upsell_config")
+        .select("id", { count: "exact", head: true })
+        .eq("loja_id", loja.id)
+        .eq("ativo", true);
+      return (count || 0) > 0;
+    },
+    enabled: !!loja,
+  });
+
+  const { data: recoveryAtivo = false } = useQuery({
+    queryKey: ["recovery-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return false;
+      const { count } = await supabase
+        .from("recovery_config")
+        .select("id", { count: "exact", head: true })
+        .eq("loja_id", loja.id)
+        .eq("ativo", true);
+      return (count || 0) > 0;
+    },
+    enabled: !!loja,
+  });
+
+  const { data: confirmacaoAtivo = false } = useQuery({
+    queryKey: ["confirmacao-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return false;
+      const { data } = await supabase
+        .from("confirmacao_pagamento_config")
+        .select("ativo")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      return !!data?.ativo;
     },
     enabled: !!loja,
   });
@@ -337,6 +379,9 @@ export default function Dashboard() {
               { icon: Mail, label: "Email", sub: emailAtivo ? "Notificações ativas" : "Não configurado", active: emailAtivo },
               { icon: MessageSquare, label: "SMS", sub: smsAtivo ? "Notificações ativas" : "Não configurado", active: smsAtivo },
               { icon: Package, label: "Webhook", sub: webhookAtivo ? "Integração ativa" : "Não configurado", active: webhookAtivo },
+              { icon: Sparkles, label: "Upsell", sub: upsellAtivo ? "Ofertas ativas" : "Não configurado", active: upsellAtivo },
+              { icon: RefreshCw, label: "Recuperação", sub: recoveryAtivo ? "Recuperação ativa" : "Não configurado", active: recoveryAtivo },
+              { icon: CreditCard, label: "Confirmação de Pagamento", sub: confirmacaoAtivo ? "Confirmação ativa" : "Não configurado", active: confirmacaoAtivo },
             ].map((ch) => (
               <div
                 key={ch.label}
