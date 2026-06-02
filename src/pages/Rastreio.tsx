@@ -1092,14 +1092,14 @@ export default function Rastreio() {
                     <div className="title-area">
                         <div className="badge">
                             <Zap size={14} className="text-primary" strokeWidth={3} />
-                            <span>GLOBAL TRACKING ENGINE</span>
+                            <span>ATLAS TRACKING ENGINE</span>
                         </div>
                         <h1 className="main-title">
-                            Monitore sua <span className="highlight">entrega</span> <br />
-                            em cada etapa do caminho
+                            Sua carga, <span className="highlight">nosso compromisso</span> <br />
+                            do despacho à porta
                         </h1>
                         <p className="hero-desc">
-                            Parceira oficial Jadlog, Correios, Loggi, LATAM Cargo, Azul Cargo e Total Express — integração logística completa. <br />
+                            Frota própria ATLAS Cargo Express, integrada com Jadlog, Correios, Loggi, LATAM Cargo, Azul Cargo e Total Express. <br />
                             Monitoramento em tempo real com atualizações automáticas em cada etapa do transporte.
                         </p>
                     </div>
