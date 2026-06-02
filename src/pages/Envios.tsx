@@ -1215,11 +1215,28 @@ export default function Envios() {
                         ? 'bg-destructive/10 text-destructive border-destructive/30'
                         : isVetor(envio)
                           ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
-                          : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                          : isAtlas(envio)
+                            ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700'
+                            : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
                     }`}
                   >
-                    {isJadlog(envio) ? 'JADLOG' : isVetor(envio) ? 'VETOR' : 'JL'}
+                    {isJadlog(envio) ? 'JADLOG' : isVetor(envio) ? 'VETOR' : isAtlas(envio) ? 'ATLAS' : 'JL'}
                   </Badge>
+                  {/* Código de rastreio */}
+                  {envio.codigo_rastreio && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(envio.codigo_rastreio);
+                        toast.success("Código copiado!");
+                      }}
+                      className="hidden md:inline-flex items-center text-[10px] font-mono text-muted-foreground/80 hover:text-primary tracking-wider whitespace-nowrap shrink-0 transition-colors"
+                      title="Copiar código de rastreio"
+                    >
+                      {envio.codigo_rastreio}
+                    </button>
+                  )}
                   {/* Origem badge */}
                   <Badge
                     variant="outline"
