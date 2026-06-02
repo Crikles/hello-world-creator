@@ -209,7 +209,18 @@ Deno.serve(async (req) => {
                     updated_at: new Date().toISOString(),
                 });
 
-            if (dbErr) return jsonResp({ error: "DB save failed", details: dbErr.message }, 500);
+            if (dbErr) {
+                // Rollback: delete the UAZAPI instance we just created to avoid orphans
+                try {
+                    await fetch(`${UAZAPI_BASE}/instance`, {
+                        method: "DELETE",
+                        headers: { Accept: "application/json", token },
+                    });
+                } catch (e) {
+                    console.error("Rollback UAZAPI delete failed:", e);
+                }
+                return jsonResp({ error: "DB save failed", details: dbErr.message }, 500);
+            }
 
             return jsonResp({
                 success: true,
