@@ -1053,12 +1053,13 @@ export default function RecuperacaoVendas() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { loja } = useLoja();
+  const { isAdmin, loading: loadingRole } = useIsAdmin();
 
   useEffect(() => {
-    if (user && user.email !== "vdklanca@gmail.com" && user.email !== "backupativado@gmail.com" && user.email !== "andretelees@hotmail.com") {
+    if (user && !loadingRole && !isAdmin) {
       navigate(loja ? `/loja/${loja.id}` : "/lojas", { replace: true });
     }
-  }, [user, loja, navigate]);
+  }, [user, loja, navigate, isAdmin, loadingRole]);
 
   const { data: empresa } = useQuery({
     queryKey: ["empresa-recovery", loja?.id],
