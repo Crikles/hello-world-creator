@@ -1020,31 +1020,31 @@ export default function Rastreio() {
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       JL TRANSPORTES — Keep the original dark/indigo theme
+       ATLAS CARGO EXPRESS — Dark / red / chrome design
        ═══════════════════════════════════════════════════════════════ */
     return (
         <div className="rastreio-container theme-jl">
             <style dangerouslySetInnerHTML={{
                 __html: `
                 .theme-jl {
-                    --primary: 239 84% 67%;
-                    --primary-rgb: 99, 102, 241;
-                    --primary-hover: #4f46e5;
-                    --accent: #8b5cf6;
-                    --hero-bg: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-                    --glow-color: rgba(99, 102, 241, 0.12);
-                    --badge-bg: rgba(99, 102, 241, 0.08);
-                    --badge-border: rgba(99, 102, 241, 0.18);
-                    --badge-text: #818cf8;
-                    --highlight-from: #818cf8;
-                    --highlight-to: #c084fc;
-                    --btn-gradient: linear-gradient(135deg, #6366f1, #7c3aed);
-                    --btn-shadow: rgba(99, 102, 241, 0.3);
-                    --focus-ring: rgba(99, 102, 241, 0.12);
-                    --focus-border: rgba(129, 140, 248, 0.6);
-                    --mobile-link-hover: rgba(99, 102, 241, 0.08);
-                    --timeline-header: #005a96;
-                    --timeline-title: #005a96;
+                    --primary: 355 88% 47%;
+                    --primary-rgb: 225, 14, 26;
+                    --primary-hover: #b80c16;
+                    --accent: #ff2a36;
+                    --hero-bg: linear-gradient(135deg, #0a0a0b 0%, #17181c 55%, #2a0608 100%);
+                    --glow-color: rgba(225, 14, 26, 0.18);
+                    --badge-bg: rgba(225, 14, 26, 0.10);
+                    --badge-border: rgba(225, 14, 26, 0.30);
+                    --badge-text: #ff5a63;
+                    --highlight-from: #ff4d57;
+                    --highlight-to: #ffffff;
+                    --btn-gradient: linear-gradient(135deg, #e10e1a, #8e0911);
+                    --btn-shadow: rgba(225, 14, 26, 0.35);
+                    --focus-ring: rgba(225, 14, 26, 0.15);
+                    --focus-border: rgba(225, 14, 26, 0.6);
+                    --mobile-link-hover: rgba(225, 14, 26, 0.08);
+                    --timeline-header: #0a0a0b;
+                    --timeline-title: #0a0a0b;
                 }
             `}} />
             <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
