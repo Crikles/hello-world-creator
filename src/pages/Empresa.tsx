@@ -96,8 +96,10 @@ export default function Empresa() {
 
   const uploadLogo = async (): Promise<string | null> => {
     if (!logoFile) return empresa?.logo_url || null;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Não autenticado");
     const ext = logoFile.name.split(".").pop();
-    const path = `logo_${Date.now()}.${ext}`;
+    const path = `${user.id}/logo_${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from("logos").upload(path, logoFile, { upsert: true });
     if (error) throw error;
     const { data: urlData } = supabase.storage.from("logos").getPublicUrl(path);
