@@ -649,6 +649,7 @@ export type Database = {
           slug: string
           updated_at: string
           user_id: string
+          webhook_token: string
         }
         Insert: {
           created_at?: string
@@ -658,6 +659,7 @@ export type Database = {
           slug: string
           updated_at?: string
           user_id: string
+          webhook_token?: string
         }
         Update: {
           created_at?: string
@@ -667,6 +669,7 @@ export type Database = {
           slug?: string
           updated_at?: string
           user_id?: string
+          webhook_token?: string
         }
         Relationships: []
       }
