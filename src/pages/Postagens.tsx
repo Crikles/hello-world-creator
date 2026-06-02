@@ -949,7 +949,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
   });
 
   const mutation = useMutation({
-    mutationFn: async (provider: "jl" | "jadlog" | "vetor") => {
+    mutationFn: async (provider: string) => {
       if (!lojaId) return;
       const { error } = await supabase
         .from("lojas")
