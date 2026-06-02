@@ -2475,18 +2475,18 @@ const jlStyles = `
 
 @media (max-width: 600px) { .correios-table-header { display: none; } .hero-section { padding: 90px 20px 60px; } .results-section { padding: 40px 20px; } }
 
-.site-footer { background: #f1f5f9; padding: 80px 40px 40px; color: #1e293b; border-top: 1px solid #e2e8f0; }
+.site-footer { background: #000000; padding: 80px 40px 40px; color: #ffffff; border-top: 1px solid #222222; }
 .footer-content { max-width: 1200px; margin: 0 auto; }
 .footer-top { display: flex; justify-content: space-between; margin-bottom: 60px; }
 .f-brand img { height: auto; width: 220px; margin-bottom: 20px; object-fit: contain; }
-.f-brand p { font-size: 14px; color: #64748b; line-height: 1.6; }
+.f-brand p { font-size: 14px; color: #aaaaaa; line-height: 1.6; }
 .f-links { display: flex; gap: 80px; }
-.f-col h5 { font-size: 12px; font-weight: 800; color: #1e293b; letter-spacing: 1px; margin-bottom: 20px; }
-.f-col a { display: block; font-size: 14px; color: #64748b; text-decoration: none; margin-bottom: 12px; }
-.f-col a:hover { color: hsl(var(--primary)); }
-.footer-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 40px; border-top: 1px solid rgba(0,0,0,0.05); font-size: 13px; color: #334155; }
+.f-col h5 { font-size: 12px; font-weight: 800; color: #ffffff; letter-spacing: 1px; margin-bottom: 20px; }
+.f-col a { display: block; font-size: 14px; color: #aaaaaa; text-decoration: none; margin-bottom: 12px; }
+.f-col a:hover { color: #ff5a63; }
+.footer-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 40px; border-top: 1px solid #222222; font-size: 13px; color: #888888; }
 .security-capsules { display: flex; gap: 12px; }
-.cap { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.03); padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 800; }
+.cap { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.08); padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 800; color: #aaaaaa; }
 .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
