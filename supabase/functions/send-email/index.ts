@@ -523,7 +523,7 @@ function buildEmailHtml(
     rodape = `Obrigado pela preferência!\n{{empresa_nome}}`;
   }
 
-  const transportadora = (envio.transportadora as string) || DEFAULT_TRANSPORTADORA;
+  const transportadora = resolveTransportadora(envio);
   const saudacaoHtml = markdownToHtml(replaceVariables(saudacao, envio, extras));
   const mensagemHtml = markdownToHtml(replaceVariables(mensagem, envio, extras));
   const rodapeHtml = markdownToHtml(replaceVariables(rodape, envio, extras));
