@@ -494,11 +494,13 @@ function buildEmailHtml(
     textoBotaoCta = "PAGAR TAXA";
   }
 
-  if (corpoEmail.includes("<p>") || corpoEmail.includes("<div>")) {
+  if (/<!doctype|<html|<body|<table|<p[\s>]|<div[\s>]|<br/i.test(corpoEmail)) {
     mensagem = corpoEmail
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/p>/gi, "\n")
       .replace(/<[^>]+>/g, "")
+      .replace(/\{\{#[^}]+\}\}|\{\{\/[^}]+\}\}/g, "")
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
   }
 
