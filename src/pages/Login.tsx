@@ -22,11 +22,13 @@ export default function Login() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setLoading(false);
-      // Supabase returns "User is banned" when banned via admin API
-      if (error.message?.toLowerCase().includes("banned")) {
+      const msg = error.message?.toLowerCase() || "";
+      // Banimento (banned_until) — sincronizado via trigger quando profile.blocked = true
+      if (msg.includes("banned") || msg.includes("blocked")) {
         toast.error("Sua conta foi bloqueada. Entre em contato com o suporte.");
       } else {
-        toast.error(error.message);
+        // Mensagem genérica para evitar enumeração de usuários
+        toast.error("Email ou senha inválidos.");
       }
       return;
     }

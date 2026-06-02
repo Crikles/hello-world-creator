@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useLoja } from "@/contexts/LojaContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1053,12 +1054,13 @@ export default function RecuperacaoVendas() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { loja } = useLoja();
+  const { isAdmin, loading: loadingRole } = useIsAdmin();
 
   useEffect(() => {
-    if (user && user.email !== "vdklanca@gmail.com" && user.email !== "backupativado@gmail.com" && user.email !== "andretelees@hotmail.com") {
+    if (user && !loadingRole && !isAdmin) {
       navigate(loja ? `/loja/${loja.id}` : "/lojas", { replace: true });
     }
-  }, [user, loja, navigate]);
+  }, [user, loja, navigate, isAdmin, loadingRole]);
 
   const { data: empresa } = useQuery({
     queryKey: ["empresa-recovery", loja?.id],
