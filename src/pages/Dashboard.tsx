@@ -379,6 +379,9 @@ export default function Dashboard() {
               { icon: Mail, label: "Email", sub: emailAtivo ? "Notificações ativas" : "Não configurado", active: emailAtivo },
               { icon: MessageSquare, label: "SMS", sub: smsAtivo ? "Notificações ativas" : "Não configurado", active: smsAtivo },
               { icon: Package, label: "Webhook", sub: webhookAtivo ? "Integração ativa" : "Não configurado", active: webhookAtivo },
+              { icon: Sparkles, label: "Upsell", sub: upsellAtivo ? "Ofertas ativas" : "Não configurado", active: upsellAtivo },
+              { icon: RefreshCw, label: "Recuperação", sub: recoveryAtivo ? "Recuperação ativa" : "Não configurado", active: recoveryAtivo },
+              { icon: CreditCard, label: "Confirmação de Pagamento", sub: confirmacaoAtivo ? "Confirmação ativa" : "Não configurado", active: confirmacaoAtivo },
             ].map((ch) => (
               <div
                 key={ch.label}
