@@ -240,7 +240,7 @@ export default function WhatsApp() {
 
     // ── WhatsApp price (custom_prices overrides system_config) ──
     const billingUserId = loja?.user_id || user?.id;
-    const { data: whatsappPrice = 29.99 } = useQuery({
+    const { data: whatsappPrice = 49 } = useQuery({
         queryKey: ["whatsapp-price", billingUserId],
         queryFn: async () => {
             // 1. Check user custom price first
@@ -263,7 +263,7 @@ export default function WhatsApp() {
                 .select("value")
                 .eq("key", "custo_whatsapp")
                 .maybeSingle();
-            return data?.value ?? 29.99;
+            return data?.value ?? 49;
         },
         enabled: !!billingUserId,
     });
