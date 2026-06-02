@@ -500,6 +500,8 @@ export default function Postagens() {
       icon: AlertTriangle,
       checked: localConfig.ativar_taxacao,
       cost: systemConfigValues?.custo_taxacao ?? 1,
+      locked: activeTemplate?.tipo !== "taxacao",
+      lockedReason: 'Disponível apenas no template "Envio com Taxação".',
       toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_taxacao: !prev.ativar_taxacao } : prev),
     },
     {
@@ -509,8 +511,11 @@ export default function Postagens() {
       icon: AlertTriangle,
       checked: localConfig.ativar_falha_entrega || false,
       cost: systemConfigValues?.custo_falha_entrega ?? 1,
+      locked: activeTemplate?.tipo !== "falha",
+      lockedReason: 'Disponível apenas no template "Envio com Falha na Entrega".',
       toggle: () => setLocalConfig(prev => prev ? { ...prev, ativar_falha_entrega: !prev.ativar_falha_entrega } : prev),
     },
+
     {
       key: "ativar_vizinho",
       label: "Recebido por Vizinho",
