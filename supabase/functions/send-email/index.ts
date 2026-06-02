@@ -298,7 +298,7 @@ function replaceVariables(
   envio: Record<string, unknown>,
   extras: Record<string, string> = {}
 ): string {
-  const transportadora = (envio.transportadora as string) || DEFAULT_TRANSPORTADORA;
+  const transportadora = resolveTransportadora(envio);
   const produtoRaw = (envio.produto as string) || "";
   const produtoFormatted = formatProdutoName(produtoRaw);
 
