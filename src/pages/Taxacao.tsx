@@ -151,10 +151,7 @@ export default function Taxacao() {
 
     const totalPendentes = pendentes.length;
     const totalAprovados = aprovados.length;
-    // Get valor_taxacao from the first template that has it configured
-    const valorTaxacao = taxEventosMap
-        ? Object.values(taxEventosMap).find(v => v.valor_taxacao > 0)?.valor_taxacao || 0
-        : 0;
+    const valorTaxacao = taxConfig?.valor_taxacao ?? 0;
     const totalValorPendente = totalPendentes * valorTaxacao;
 
     const metrics = [
@@ -163,7 +160,7 @@ export default function Taxacao() {
         { label: "Valor Pendente", value: `R$ ${totalValorPendente.toFixed(2)}`, icon: DollarSign, delay: 0.16 },
     ];
 
-    if (!isLoading && !isLoadingTax && !hasTaxConfig) {
+    if (!isLoadingTax && !isAtivo) {
         return (
             <div className="space-y-6">
                 <div>
@@ -179,9 +176,9 @@ export default function Taxacao() {
                             <div className="h-2 w-2 rounded-full bg-primary/30 animate-pulse-dot" />
                         </div>
                     </div>
-                    <p className="text-foreground font-medium text-lg">Taxação não configurada</p>
+                    <p className="text-foreground font-medium text-lg">Taxação desativada</p>
                     <p className="text-sm text-muted-foreground mt-1 max-w-md">
-                        Configure o evento de "Taxação" no seu template de postagens para habilitar a gestão de pagamentos.
+                        Ative o switch "Taxação" no topo da página de Postagens para começar a gerenciar os pagamentos.
                     </p>
                 </div>
             </div>
