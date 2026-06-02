@@ -27,9 +27,11 @@ async function getConfigValue(supabase: any, key: string): Promise<string | null
 async function setConfig(supabase: any, key: string, textValue: string | null) {
   const { error } = await supabase
     .from("system_config")
-    .update({ text_value: textValue, updated_at: new Date().toISOString() })
-    .eq("key", key);
-  if (error) console.error(`Failed to update ${key}:`, error.message);
+    .upsert(
+      { key, text_value: textValue, updated_at: new Date().toISOString() },
+      { onConflict: "key" },
+    );
+  if (error) console.error(`Failed to upsert ${key}:`, error.message);
 }
 
 Deno.serve(async (req) => {
