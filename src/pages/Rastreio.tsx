@@ -2,6 +2,8 @@ import { formatProduto } from "@/lib/format-produto";
 import { useEffect, useState, useCallback, useMemo, Fragment } from "react";
 
 import { useParams, useSearchParams } from "react-router-dom";
+import atlasLogo from "@/assets/atlas-logo.png.asset.json";
+import atlasTruck from "@/assets/atlas-truck.jpg.asset.json";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import {
     Package,
@@ -274,19 +276,22 @@ export default function Rastreio() {
     }, [codigoFromUrl, envio]);
 
     const isVetor = useMemo(() => {
-        const host = window.location.hostname;
-        if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return true;
-        if (envio?.transportadora?.toUpperCase().includes("VETOR")) return true;
-        const code = envio?.codigo_rastreio || codigoFromUrl || "";
-        return code.toUpperCase().trim().endsWith("VT");
+        // VETOR desligada temporariamente — código preservado para reativar futuramente.
+        // Para religar: descomentar os checks abaixo.
+        // const host = window.location.hostname;
+        // if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return true;
+        // if (envio?.transportadora?.toUpperCase().includes("VETOR")) return true;
+        // const code = envio?.codigo_rastreio || codigoFromUrl || "";
+        // return code.toUpperCase().trim().endsWith("VT");
+        return false;
     }, [codigoFromUrl, envio]);
 
-    const empresaNome = isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
-    const logoUrl = isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
-    const primaryColor = isVetor ? "#1B5E20" : isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
+    const empresaNome = isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : "ATLAS Cargo Express";
+    const logoUrl = isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : atlasLogo.url;
+    const primaryColor = isVetor ? "#1B5E20" : isJadlog ? "#D71920" : (customPrimaryColor || "#E10E1A");
 
     useEffect(() => {
-        const title = isVetor ? "Vetor Transportes - Rastreio" : isJadlog ? "JADLOG - Rastreio" : "JL Transportes - Rastreio";
+        const title = isVetor ? "Vetor Transportes - Rastreio" : isJadlog ? "JADLOG - Rastreio" : "ATLAS Cargo Express - Rastreio";
         document.title = title;
         return () => { document.title = "Rastreio de Encomendas"; };
     }, [isVetor, isJadlog]);
@@ -1015,31 +1020,31 @@ export default function Rastreio() {
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       JL TRANSPORTES — Keep the original dark/indigo theme
+       ATLAS CARGO EXPRESS — Dark / red / chrome design
        ═══════════════════════════════════════════════════════════════ */
     return (
         <div className="rastreio-container theme-jl">
             <style dangerouslySetInnerHTML={{
                 __html: `
                 .theme-jl {
-                    --primary: 239 84% 67%;
-                    --primary-rgb: 99, 102, 241;
-                    --primary-hover: #4f46e5;
-                    --accent: #8b5cf6;
-                    --hero-bg: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-                    --glow-color: rgba(99, 102, 241, 0.12);
-                    --badge-bg: rgba(99, 102, 241, 0.08);
-                    --badge-border: rgba(99, 102, 241, 0.18);
-                    --badge-text: #818cf8;
-                    --highlight-from: #818cf8;
-                    --highlight-to: #c084fc;
-                    --btn-gradient: linear-gradient(135deg, #6366f1, #7c3aed);
-                    --btn-shadow: rgba(99, 102, 241, 0.3);
-                    --focus-ring: rgba(99, 102, 241, 0.12);
-                    --focus-border: rgba(129, 140, 248, 0.6);
-                    --mobile-link-hover: rgba(99, 102, 241, 0.08);
-                    --timeline-header: #005a96;
-                    --timeline-title: #005a96;
+                    --primary: 355 88% 47%;
+                    --primary-rgb: 225, 14, 26;
+                    --primary-hover: #b80c16;
+                    --accent: #ff2a36;
+                    --hero-bg: linear-gradient(135deg, #0a0a0b 0%, #17181c 55%, #2a0608 100%);
+                    --glow-color: rgba(225, 14, 26, 0.18);
+                    --badge-bg: rgba(225, 14, 26, 0.10);
+                    --badge-border: rgba(225, 14, 26, 0.30);
+                    --badge-text: #ff5a63;
+                    --highlight-from: #ff4d57;
+                    --highlight-to: #ffffff;
+                    --btn-gradient: linear-gradient(135deg, #e10e1a, #8e0911);
+                    --btn-shadow: rgba(225, 14, 26, 0.35);
+                    --focus-ring: rgba(225, 14, 26, 0.15);
+                    --focus-border: rgba(225, 14, 26, 0.6);
+                    --mobile-link-hover: rgba(225, 14, 26, 0.08);
+                    --timeline-header: #0a0a0b;
+                    --timeline-title: #0a0a0b;
                 }
             `}} />
             <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -1087,14 +1092,14 @@ export default function Rastreio() {
                     <div className="title-area">
                         <div className="badge">
                             <Zap size={14} className="text-primary" strokeWidth={3} />
-                            <span>GLOBAL TRACKING ENGINE</span>
+                            <span>ATLAS TRACKING ENGINE</span>
                         </div>
                         <h1 className="main-title">
-                            Monitore sua <span className="highlight">entrega</span> <br />
-                            em cada etapa do caminho
+                            Sua carga, <span className="highlight">nosso compromisso</span> <br />
+                            do despacho à porta
                         </h1>
                         <p className="hero-desc">
-                            Parceira oficial Jadlog, Correios, Loggi, LATAM Cargo, Azul Cargo e Total Express — integração logística completa. <br />
+                            Frota própria ATLAS Cargo Express, integrada com Jadlog, Correios, Loggi, LATAM Cargo, Azul Cargo e Total Express. <br />
                             Monitoramento em tempo real com atualizações automáticas em cada etapa do transporte.
                         </p>
                     </div>
@@ -1303,14 +1308,14 @@ export default function Rastreio() {
                         <div className="jl-about-left">
                             <div className="jl-about-card-dark">
                                 <span className="jl-about-badge">SOBRE NÓS</span>
-                                <h2>Por que escolher a<br />JL Transportes?</h2>
-                                <p>Somos referência em logística e transporte, oferecendo soluções completas de rastreamento e entrega com eficiência e tecnologia de ponta.</p>
+                                <h2>Por que escolher a<br />ATLAS Cargo Express?</h2>
+                                <p>Frota moderna, equipe própria e tecnologia de rastreamento ponta-a-ponta. Levamos sua carga com segurança, agilidade e total transparência em cada quilômetro.</p>
                                 <div className="jl-about-tag">
                                     <Users size={16} />
                                     <span>6+ Transportadoras parceiras</span>
                                 </div>
                             </div>
-                            <img src="/jl-truck.png" alt="Caminhão JL Transportes" className="jl-about-truck" />
+                            <img src={atlasTruck.url} alt="Frota ATLAS Cargo Express" className="jl-about-truck" />
                         </div>
                         <div className="jl-about-right">
                             <div className="jl-about-bullet">
@@ -1403,12 +1408,12 @@ export default function Rastreio() {
                     <div className="footer-top">
                         <div className="f-brand">
                             <img src={logoUrl} alt={empresaNome} style={{ width: 220 }} />
-                            <p>Soluções completas em logística e transporte de encomendas.</p>
+                            <p>Sua carga, nosso compromisso. Logística completa com frota própria e rastreamento em tempo real.</p>
                         </div>
                         <div className="f-links">
                             <div className="f-col">
                                 <h5>CONTATO</h5>
-                                <a href="mailto:contato@jltransportelogistica.com">contato@jltransportelogistica.com</a>
+                                <a href="mailto:contato@atlascargoexpressltda.com">contato@atlascargoexpressltda.com</a>
                                 <a href="tel:08006589589">0800 658 9589</a>
                             </div>
                             <div className="f-col">
