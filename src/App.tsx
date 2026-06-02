@@ -39,6 +39,7 @@ import AdminWhatsApp from "./pages/admin/AdminWhatsApp";
 import AdminEmail from "./pages/admin/AdminEmail";
 import AdminEmailSaude from "./pages/admin/AdminEmailSaude";
 import AdminCashback from "./pages/admin/AdminCashback";
+import AdminBackup from "./pages/admin/AdminBackup";
 import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
 import PagamentoFalha from "./pages/PagamentoFalha";
