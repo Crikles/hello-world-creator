@@ -101,7 +101,8 @@ export default function Pagamento() {
     }, []);
 
     useEffect(() => {
-        if (!envioId) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(envioId || "");
+        if (!envioId || !isUuid) {
             setError("Link de pagamento inválido ou expirado");
             setLoading(false);
             return;
