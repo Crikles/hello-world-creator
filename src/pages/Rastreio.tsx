@@ -276,19 +276,22 @@ export default function Rastreio() {
     }, [codigoFromUrl, envio]);
 
     const isVetor = useMemo(() => {
-        const host = window.location.hostname;
-        if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return true;
-        if (envio?.transportadora?.toUpperCase().includes("VETOR")) return true;
-        const code = envio?.codigo_rastreio || codigoFromUrl || "";
-        return code.toUpperCase().trim().endsWith("VT");
+        // VETOR desligada temporariamente — código preservado para reativar futuramente.
+        // Para religar: descomentar os checks abaixo.
+        // const host = window.location.hostname;
+        // if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return true;
+        // if (envio?.transportadora?.toUpperCase().includes("VETOR")) return true;
+        // const code = envio?.codigo_rastreio || codigoFromUrl || "";
+        // return code.toUpperCase().trim().endsWith("VT");
+        return false;
     }, [codigoFromUrl, envio]);
 
-    const empresaNome = isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : (empresa?.nome_fantasia || empresa?.razao_social || "Logística JL Transportes");
-    const logoUrl = isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : "/logojltransportes.png";
-    const primaryColor = isVetor ? "#1B5E20" : isJadlog ? "#D71920" : (customPrimaryColor || "#6366f1");
+    const empresaNome = isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : "ATLAS Cargo Express";
+    const logoUrl = isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : atlasLogo.url;
+    const primaryColor = isVetor ? "#1B5E20" : isJadlog ? "#D71920" : (customPrimaryColor || "#E10E1A");
 
     useEffect(() => {
-        const title = isVetor ? "Vetor Transportes - Rastreio" : isJadlog ? "JADLOG - Rastreio" : "JL Transportes - Rastreio";
+        const title = isVetor ? "Vetor Transportes - Rastreio" : isJadlog ? "JADLOG - Rastreio" : "ATLAS Cargo Express - Rastreio";
         document.title = title;
         return () => { document.title = "Rastreio de Encomendas"; };
     }, [isVetor, isJadlog]);
