@@ -195,8 +195,8 @@ export default function FalhaEntrega() {
         { label: "Valor Pendente", value: `R$ ${totalValorPendente.toFixed(2)}`, icon: DollarSign, delay: 0.16 },
     ];
 
-    // No falha events configured
-    if (!isLoading && !falhaEventos?.falha_ordem) {
+    // Toggle desativado
+    if (!isLoadingConfig && !isAtivo) {
         return (
             <div className="space-y-6">
                 <div>
@@ -212,9 +212,9 @@ export default function FalhaEntrega() {
                             <div className="h-2 w-2 rounded-full bg-primary/30 animate-pulse-dot" />
                         </div>
                     </div>
-                    <p className="text-foreground font-medium text-lg">Evento não configurado</p>
+                    <p className="text-foreground font-medium text-lg">Falha na Entrega desativada</p>
                     <p className="text-sm text-muted-foreground mt-1 max-w-md">
-                        Configure o evento de "Falha na Entrega" no seu template de postagens para habilitar a gestão de pagamentos.
+                        Ative o switch "Falha na Entrega" no topo da página de Postagens para começar a gerenciar os reenvios.
                     </p>
                 </div>
             </div>
