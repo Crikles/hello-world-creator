@@ -59,10 +59,20 @@ export default function AdminPagamentos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pix_payments")
-        .select("id, user_id, amount_cents, moedas, status, created_at, paid_at, transaction_id, profiles(full_name, email, whatsapp)")
+        .select("id, user_id, amount_cents, moedas, status, created_at, paid_at, transaction_id")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as PixPaymentRow[];
+      const rows = (data ?? []) as any[];
+      const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
+      let profilesMap: Record<string, any> = {};
+      if (userIds.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name, email, whatsapp")
+          .in("id", userIds);
+        (profs ?? []).forEach((p: any) => { profilesMap[p.id] = p; });
+      }
+      return rows.map((r) => ({ ...r, profiles: profilesMap[r.user_id] ?? null })) as PixPaymentRow[];
     },
   });
 
