@@ -150,10 +150,18 @@ export default function AdminSuporte() {
   });
 
   const initMutation = useMutation({
-    mutationFn: () => callVerificationFn("init"),
+    mutationFn: async () => {
+      await callVerificationFn("init");
+      await queryClient.invalidateQueries({ queryKey: ["admin-verificacao-config"] });
+      // Auto-connect to get QR code immediately
+      const data = await callVerificationFn("connect");
+      setQrCode(data.qrcode || null);
+      setPairingCode(data.pairingCode || null);
+      setPolling(true);
+      return data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-verificacao-config"] });
-      toast.success("Instância criada! Agora conecte um número.");
+      toast.success("Instância criada! Escaneie o QR Code para conectar.");
     },
     onError: (err: any) => toast.error(err.message || "Erro ao criar instância."),
   });
