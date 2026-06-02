@@ -153,12 +153,25 @@ export default function Envios() {
     return false;
   }, []);
 
+  const isAtlas = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
+    if (envio.transportadora) {
+      return envio.transportadora.toUpperCase().includes('ATLAS');
+    }
+    if (envio.codigo_rastreio) {
+      return envio.codigo_rastreio.toUpperCase().endsWith('AT');
+    }
+    return false;
+  }, []);
+
   const getTrackingDomain = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
     if (isVetor(envio)) {
       return 'vetortransportesltda.com';
     }
+    if (isAtlas(envio)) {
+      return 'rastreio.atlastransportes.com';
+    }
     return 'rastreio.jltransportelogistica.com';
-  }, [isVetor]);
+  }, [isVetor, isAtlas]);
 
   // Batch advance state (global context)
   const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep, checkCancelled } = useBatchProgress();
