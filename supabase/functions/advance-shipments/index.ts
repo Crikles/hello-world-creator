@@ -436,9 +436,10 @@ Deno.serve(async (req) => {
       // Initialize a cache for template events for this cron run
       const templateEventsCache: Record<string, any[]> = {};
 
-      // Filter out disabled events (match client-side logic)
-      const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
-      const taxLabels = ["Taxação", "Taxacao", "Pago"];
+
+      // (filtros de eventos por nome são aplicados dentro de advanceShipment)
+
+
 
       // Fetch global costs
       const { data: costs } = await supabase
