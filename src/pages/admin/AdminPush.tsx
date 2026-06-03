@@ -522,7 +522,7 @@ export default function AdminPush() {
                                     <Badge variant="secondary" className="text-[10px]">Opcional</Badge>
                                 </label>
                                 <Input
-                                    placeholder="https://rastreio.jltransportelogistica.com/r/CODIGO"
+                                    placeholder="https://atlas-cargo.org/r/CODIGO"
                                     value={pushUrl}
                                     onChange={(e) => setPushUrl(e.target.value)}
                                 />
