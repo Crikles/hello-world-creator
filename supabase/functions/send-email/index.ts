@@ -1133,6 +1133,32 @@ Deno.serve(async (req) => {
       .eq("loja_id", loja_id)
       .maybeSingle();
 
+    // ── GUARDA: Lojas sem template configurado em Postagens não devem disparar e-mail ──
+    // Verifica o template do envio (congelado) OU o template_ativo_id da config,
+    // e exige ao menos 1 evento cadastrado no template — caso contrário aborta sem cobrar.
+    {
+      const tplIdGuard = (envio as any).postagem_template_id || config?.template_ativo_id;
+      if (!tplIdGuard) {
+        console.log(`[GUARD] Sem template configurado para loja ${loja_id} — abortando envio.`);
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "no_template_configured" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const { count: tplEventsCount } = await supabase
+        .from("postagem_eventos")
+        .select("id", { count: "exact", head: true })
+        .eq("template_id", tplIdGuard);
+      if (!tplEventsCount || tplEventsCount === 0) {
+        console.log(`[GUARD] Template ${tplIdGuard} sem eventos — abortando envio.`);
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "template_without_events" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+
     if (config?.email_remetente) {
       emailRemetente = config.email_remetente;
     }
