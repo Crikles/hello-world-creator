@@ -381,6 +381,7 @@ export default function Postagens() {
         const { error: eErr } = await supabase.from("postagem_eventos").insert(
           evts.map((e) => ({
             template_id: activeTemplateId,
+            loja_id: loja.id,
             nome: e.nome,
             descricao: e.descricao,
             status_label: e.status_label,
