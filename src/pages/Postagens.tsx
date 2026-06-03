@@ -997,6 +997,15 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
             </div>
             <span className="font-semibold text-sm text-primary">Atlas Transportes</span>
           </button>
+          <a
+            href="https://atlas-cargo.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
+          >
+            Visitar site da transportadora
+            <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
       </CardContent>
     </Card>
