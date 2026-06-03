@@ -855,11 +855,10 @@ function buildFalhaEntregaEmailHtml(
   const envioId = (envio.id as string) || "";
   const checkoutUrl = `https://atlas-cargo.org/f/${envioId}`;
 
-
-  const accent = "#ea580c";
-  const accentSoft = "#fff7ed";
-  const accentBorder = "#fed7aa";
-  const accentText = "#9a3412";
+  const accent = config.cor_botao || config.cor_destaque || "#ea580c";
+  const accentSoft = config.cor_fundo_descricao || "#fff7ed";
+  const accentBorder = config.cor_borda_descricao || "#fed7aa";
+  const accentText = config.cor_descricao || "#9a3412";
 
   const iconHtml = empresaLogoUrl
     ? `<img src="${empresaLogoUrl}" alt="${empresaNome}" width="56" height="56" style="width:56px;height:56px;object-fit:cover;border-radius:16px;display:block;" />`
