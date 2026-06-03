@@ -499,6 +499,11 @@ Deno.serve(async (req) => {
       }
 
       // --- 2. ADVANCE: shipments where delay has expired ---
+      // Só avança automaticamente se auto_envio estiver ATIVO. Caso contrário,
+      // envios já iniciados ficam parados aguardando ação manual do lojista
+      // (botões "Avançar", "Forçar", "Avançar Todos"). Isso garante que o
+      // toggle AUTO controle TODA a automação, não apenas o disparo inicial.
+      if ((config as any).auto_envio !== true) continue;
       if (targetEnvioId) continue;
       if (totalProcessed >= MAX_PER_RUN) break;
 
