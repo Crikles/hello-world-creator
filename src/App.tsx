@@ -88,6 +88,11 @@ function LogisticsRoutes() {
 }
 
 function PanelRoutes() {
+  // Defesa redundante: se por qualquer motivo este componente for renderizado
+  // fora de um domínio Magnus comprovado, NUNCA expor o painel — cair em rastreio.
+  if (!isMagnusDomain()) {
+    return <LogisticsRoutes />;
+  }
   return (
     <AuthProvider>
       <WhatsAppVerificationPopup />
