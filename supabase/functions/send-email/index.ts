@@ -1097,6 +1097,7 @@ Deno.serve(async (req) => {
     if (config?.whatsapp_vendedor) {
       whatsappVendedor = config.whatsapp_vendedor;
     }
+    console.log("[WHATSAPP] config.whatsapp_vendedor=", config?.whatsapp_vendedor, "resolved=", whatsappVendedor);
     if (config?.cor_primaria) {
       corPrimaria = config.cor_primaria;
     }
