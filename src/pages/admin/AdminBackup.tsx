@@ -299,6 +299,47 @@ export default function AdminBackup() {
             </Table>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" /> Histórico de restaurações
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Início</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Pasta</TableHead>
+                  <TableHead className="text-right">Tabelas</TableHead>
+                  <TableHead className="text-right">Linhas</TableHead>
+                  <TableHead>Erro</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(restoreRuns.data ?? []).map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{format(new Date(r.started_at), "dd/MM/yy HH:mm:ss", { locale: ptBR })}</TableCell>
+                    <TableCell>
+                      <Badge variant={r.status === "ok" ? "default" : r.status === "running" ? "secondary" : "destructive"}>
+                        {r.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{r.source_folder ?? "—"}</TableCell>
+                    <TableCell className="text-right">{r.tables_processed ?? 0}</TableCell>
+                    <TableCell className="text-right">{(r.total_rows ?? 0).toLocaleString("pt-BR")}</TableCell>
+                    <TableCell className="text-xs text-destructive max-w-md truncate">{r.error ?? ""}</TableCell>
+                  </TableRow>
+                ))}
+                {restoreRuns.data?.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhuma restauração executada.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     </AdminLayout>
   );
