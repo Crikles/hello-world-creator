@@ -433,7 +433,8 @@ export default function Empresa() {
                     <iframe
                       ref={previewIframeRef}
                       title="DANFE Preview"
-                      onLoad={() => setIframeReady(true)}
+                      srcDoc={debouncedHtml}
+                      sandbox="allow-same-origin"
                       style={{ width: "100%", height: 1300, border: "none", background: "#fff" }}
                     />
                   </div>
