@@ -254,7 +254,14 @@ Deno.serve(async (req) => {
             .from("pix-qrcodes")
             .upload(path, bytes, { contentType: "image/png", upsert: true });
           if (!uploadErr) {
-            pixQrcodeUrl = `${supabaseUrl}/storage/v1/object/public/pix-qrcodes/${path}`;
+            const { data: signed, error: signErr } = await supabase.storage
+              .from("pix-qrcodes")
+              .createSignedUrl(path, 60 * 60 * 24 * 30);
+            if (signed?.signedUrl) {
+              pixQrcodeUrl = signed.signedUrl;
+            } else {
+              console.error("[send-recovery-email] QR sign error:", signErr);
+            }
           } else {
             console.error("[send-recovery-email] QR upload error:", uploadErr);
           }
