@@ -3,14 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="icon" id="dynamic-favicon" type="image/png" href="/favicon.png">
     <link rel="manifest" href="/manifest.json" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="apple-touch-icon" href="/icon-push.png" />
-    <!-- TODO: Set the document title to the name of your application -->
     <title>Sistema de Rastreio</title>
     <meta name="description" content="Sistema de Rastreio para sua operação!">
     <meta name="author" content="Lovable" />
+    <script>
+      // Define identidade visual ANTES do React montar para evitar flash da Magnus
+      // em domínios de logística (atlas, vetor, jl, etc.).
+      (function () {
+        try {
+          var host = (location.hostname || '').toLowerCase().trim();
+          var MAGNUS = ['magnusfrete.net','www.magnusfrete.net'];
+          var isLovablePreview =
+            host === 'localhost' || host === '127.0.0.1' ||
+            host.endsWith('.lovable.app') || host.endsWith('.lovable.dev') ||
+            host.endsWith('.lovableproject.com') || host.endsWith('.lovable.build');
+          var isMagnus = MAGNUS.indexOf(host) !== -1 || isLovablePreview;
+          if (!isMagnus) {
+            var s = document.createElement('style');
+            s.textContent = 'html,body{background:#0b0f17 !important;}#root:empty{min-height:100vh;background:#0b0f17;}';
+            document.head.appendChild(s);
+            var title = 'Rastreamento';
+            if (host.indexOf('atlas') !== -1) title = 'Atlas Cargo — Rastreamento';
+            else if (host.indexOf('vetor') !== -1) title = 'Vetor Transportes — Rastreamento';
+            else if (host.indexOf('jltransporte') !== -1) title = 'JL Transportes — Rastreamento';
+            document.title = title;
+          }
+        } catch (e) {}
+      })();
+    </script>
 
     <!-- TODO: Update og:title to match your application name -->
     
