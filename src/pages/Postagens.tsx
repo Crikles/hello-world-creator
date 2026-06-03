@@ -381,6 +381,7 @@ export default function Postagens() {
         const { error: eErr } = await supabase.from("postagem_eventos").insert(
           evts.map((e) => ({
             template_id: activeTemplateId,
+            loja_id: loja.id,
             nome: e.nome,
             descricao: e.descricao,
             status_label: e.status_label,
@@ -415,8 +416,13 @@ export default function Postagens() {
       queryClient.invalidateQueries({ queryKey: ["postagem-eventos-active"] });
       toast({ title: "Template aplicado com sucesso!" });
     },
-    onError: () => {
-      toast({ title: "Erro ao aplicar template", variant: "destructive" });
+    onError: (err: any) => {
+      console.error("[applyTemplate] erro:", err);
+      toast({
+        title: "Erro ao aplicar template",
+        description: err?.message || "Tente novamente em alguns instantes.",
+        variant: "destructive",
+      });
     },
   });
 
