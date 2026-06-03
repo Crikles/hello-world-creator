@@ -29,6 +29,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { replaceVariables, dadosExemplo } from "./emailTemplates";
 
 /* ─────────────────────── Types ─────────────────────── */
@@ -399,6 +400,11 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
     const hasChanges = useMemo(() => {
         return JSON.stringify(settings) !== JSON.stringify(savedSettings);
     }, [settings, savedSettings]);
+    const emailHtml = useMemo(
+        () => buildTaxacaoPreviewHtml(settings, empresaNome, empresaLogoUrl),
+        [settings, empresaNome, empresaLogoUrl]
+    );
+    const debouncedEmailHtml = useDebouncedValue(emailHtml, 300);
 
     const saveMutation = useMutation({
         mutationFn: async () => {
@@ -492,8 +498,6 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
             </div>
         );
     }
-
-    const emailHtml = buildTaxacaoPreviewHtml(settings, empresaNome, empresaLogoUrl);
 
     return (
         <div className="space-y-6">
@@ -697,7 +701,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                             <TaxacaoTrackingPreview settings={settings} empresaNome={empresaNome} logoUrl={empresaLogoUrl} />
                         ) : (
                             <div className="border border-border/30 rounded-lg overflow-hidden">
-                                <iframe srcDoc={emailHtml} title="Email Preview" style={{ width: "100%", height: 600, border: "none" }} />
+                                <iframe srcDoc={debouncedEmailHtml} title="Email Preview" style={{ width: "100%", height: 600, border: "none" }} />
                             </div>
                         )}
                     </div>
