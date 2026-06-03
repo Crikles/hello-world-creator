@@ -717,7 +717,42 @@ export default function ConfirmacaoPagamento() {
                   <Label htmlFor="ativo-switch" className="text-sm text-muted-foreground">
                     {ativo ? "Ativo" : "Desativado"}
                   </Label>
-                  <Switch id="ativo-switch" checked={ativo} onCheckedChange={setAtivo} />
+                  <Switch
+                    id="ativo-switch"
+                    checked={ativo}
+                    onCheckedChange={async (checked) => {
+                      const previous = ativo;
+                      setAtivo(checked);
+                      try {
+                        if (config) {
+                          const { error } = await supabase
+                            .from("confirmacao_pagamento_config")
+                            .update({ ativo: checked })
+                            .eq("id", config.id);
+                          if (error) throw error;
+                        } else {
+                          const { error } = await supabase
+                            .from("confirmacao_pagamento_config")
+                            .insert({
+                              loja_id: loja!.id,
+                              ativo: checked,
+                              enviar_email: enviarEmail,
+                              enviar_sms: enviarSms,
+                              assunto_email: assuntoEmail,
+                              corpo_email: serializeToCorpo(settings),
+                              sms_template: smsTemplate,
+                              email_remetente_nome: emailRemetenteNome,
+                            } as any);
+                          if (error) throw error;
+                        }
+                        queryClient.invalidateQueries({ queryKey: ["confirmacao-config", loja?.id] });
+                        toast({ title: checked ? "Funcionalidade ativada" : "Funcionalidade desativada" });
+                      } catch (e) {
+                        setAtivo(previous);
+                        toast({ title: "Erro ao salvar status", variant: "destructive" });
+                      }
+                    }}
+                  />
                 </div>
               </CardTitle>
               <CardDescription>
