@@ -693,10 +693,10 @@ export default function Rastreio() {
                                                                 <span className="vt-tl-date">
                                                                     {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                 </span>
-                                                                {ev.status_label === "Taxação" && envio && (
+                                                                {(ev.nome === "Taxação" || ev.nome === "Taxacao") && envio && (
                                                                     <a href={`/p/${envio.id}`} className="vt-action-btn">Pagar taxa</a>
                                                                 )}
-                                                                {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
+                                                                {(ev.nome === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
                                                                     <a href={`/f/${envio.id}`} className="vt-action-btn">Pagar reenvio / frete</a>
                                                                 )}
                                                             </div>
@@ -967,10 +967,10 @@ export default function Rastreio() {
                                                                 <span className="jd-tl-date">
                                                                     {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                 </span>
-                                                                {ev.status_label === "Taxação" && envio && (
+                                                                {(ev.nome === "Taxação" || ev.nome === "Taxacao") && envio && (
                                                                     <a href={`/p/${envio.id}`} className="jd-action-btn">Pagar taxa</a>
                                                                 )}
-                                                                {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
+                                                                {(ev.nome === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
                                                                     <a href={`/f/${envio.id}`} className="jd-action-btn">Pagar reenvio / frete</a>
                                                                 )}
                                                             </div>
@@ -1213,10 +1213,10 @@ export default function Rastreio() {
                                                                         <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Documento: {vizinhoData.cpf}</p>
                                                                     </div>
                                                                 )}
-                                                                {ev.status_label === "Taxação" && envio && (
+                                                                {(ev.nome === "Taxação" || ev.nome === "Taxacao") && envio && (
                                                                     <a href={`/p/${envio.id}`} style={{ display:'inline-block', marginTop:10, padding:'10px 24px', background:'#ef4444', color:'#fff', borderRadius:8, fontSize:13, fontWeight:800, letterSpacing:'0.5px', textDecoration:'none', boxShadow:'0 4px 12px rgba(239,68,68,0.35)' }}>PAGAR TAXA →</a>
                                                                 )}
-                                                                {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
+                                                                {(ev.nome === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
                                                                     <a href={`/f/${envio.id}`} style={{ display:'inline-block', marginTop:10, padding:'10px 24px', background:'#ea580c', color:'#fff', borderRadius:8, fontSize:13, fontWeight:800, letterSpacing:'0.5px', textDecoration:'none', boxShadow:'0 4px 12px rgba(234,88,12,0.35)' }}>PAGAR REENVIO →</a>
                                                                 )}
                                                                 <span className="point-date-correios">
