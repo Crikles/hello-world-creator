@@ -2,8 +2,8 @@ const LOGISTICS_DOMAINS = [
   'rastreio.jltransportelogistica.com',
   'vetortransportesltda.com',
   'www.vetortransportesltda.com',
-  'rastrear.atlascargoexpressltda.com',
-  'www.rastrear.atlascargoexpressltda.com'
+  'atlas-cargo.org',
+  'www.atlas-cargo.org'
 ];
 
 export function isLogisticsDomain(): boolean {
@@ -14,6 +14,6 @@ export function getLogisticsProvider(): string | null {
   const host = window.location.hostname;
   if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return 'vetor';
   if (host === 'rastreio.jltransportelogistica.com') return 'jl';
-  if (host === 'rastrear.atlascargoexpressltda.com' || host === 'www.rastrear.atlascargoexpressltda.com') return 'atlas';
+  if (host === 'atlas-cargo.org' || host === 'www.atlas-cargo.org') return 'atlas';
   return null;
 }
