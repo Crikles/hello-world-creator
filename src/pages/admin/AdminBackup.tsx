@@ -5,10 +5,16 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Cloud, Loader2, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Cloud, Loader2, RefreshCw, CheckCircle2, XCircle, RotateCcw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -23,6 +29,10 @@ function fmtBytes(n: number | null | undefined) {
 
 export default function AdminBackup() {
   const [running, setRunning] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [restoreFolder, setRestoreFolder] = useState("");
 
   const runs = useQuery({
     queryKey: ["backup-runs"],
@@ -51,6 +61,20 @@ export default function AdminBackup() {
     refetchInterval: running ? 3000 : 60000,
   });
 
+  const restoreRuns = useQuery({
+    queryKey: ["restore-runs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("restore_runs")
+        .select("*")
+        .order("started_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+    refetchInterval: restoring ? 3000 : 60000,
+  });
+
   const runBackup = async () => {
     setRunning(true);
     toast.info("Backup iniciado, isso pode levar alguns minutos...");
@@ -70,6 +94,35 @@ export default function AdminBackup() {
     }
   };
 
+  const runRestore = async () => {
+    if (confirmText !== "RESTAURAR") {
+      toast.error('Digite exatamente RESTAURAR para confirmar.');
+      return;
+    }
+    setRestoring(true);
+    setRestoreOpen(false);
+    toast.info("Restauração iniciada, isso pode levar vários minutos...");
+    try {
+      const { data, error } = await supabase.functions.invoke("restore-from-drive", {
+        body: {
+          confirm: "RESTAURAR",
+          folder: restoreFolder.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+      toast.success(
+        `Restauração concluída! ${data?.totalRows ?? 0} linhas em ${data?.tablesProcessed ?? 0} tabelas.`,
+      );
+      setConfirmText("");
+      setRestoreFolder("");
+      restoreRuns.refetch();
+    } catch (e) {
+      toast.error("Erro na restauração: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   const last = runs.data?.[0];
 
   return (
@@ -85,10 +138,73 @@ export default function AdminBackup() {
               Apenas registros novos/atualizados são enviados a cada execução.
             </p>
           </div>
-          <Button onClick={runBackup} disabled={running}>
-            {running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Rodar agora
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={runBackup} disabled={running || restoring}>
+              {running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Rodar backup agora
+            </Button>
+            <Dialog open={restoreOpen} onOpenChange={setRestoreOpen}>
+              <DialogTrigger asChild>
+                <Button variant="destructive" disabled={running || restoring}>
+                  {restoring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                  Restaurar do Drive
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" /> Restauração completa
+                  </DialogTitle>
+                  <DialogDescription>
+                    Esta ação vai ler todos os backups do Google Drive e sobrescrever os
+                    registros existentes no banco (upsert por id). Use somente em caso de
+                    perda de dados ou em um projeto novo/vazio.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>O que NÃO é restaurado</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Chaves do Resend, Cyberpay, Integrax, VAPID, UAZAPI, etc. são <strong>variáveis
+                    de ambiente</strong> da plataforma — não ficam no Drive. Após restaurar, reconfigure
+                    esses segredos em Admin → Secrets. Tudo o que está nas tabelas (contas, envios,
+                    pedidos, templates, integrações de checkout/Shopify com suas api_keys, créditos,
+                    lojas, configurações, etc.) <strong>é restaurado</strong>.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-2">
+                  <Label>Pasta específica (opcional, formato AAAA-MM-DD)</Label>
+                  <Input
+                    placeholder="Em branco = consolida todas as pastas (versão mais recente vence)"
+                    value={restoreFolder}
+                    onChange={(e) => setRestoreFolder(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Digite <strong>RESTAURAR</strong> para confirmar</Label>
+                  <Input
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder="RESTAURAR"
+                  />
+                </div>
+
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setRestoreOpen(false)}>Cancelar</Button>
+                  <Button
+                    variant="destructive"
+                    disabled={confirmText !== "RESTAURAR"}
+                    onClick={runRestore}
+                  >
+                    Executar restauração
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -179,6 +295,47 @@ export default function AdminBackup() {
                     </TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" /> Histórico de restaurações
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Início</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Pasta</TableHead>
+                  <TableHead className="text-right">Tabelas</TableHead>
+                  <TableHead className="text-right">Linhas</TableHead>
+                  <TableHead>Erro</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(restoreRuns.data ?? []).map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{format(new Date(r.started_at), "dd/MM/yy HH:mm:ss", { locale: ptBR })}</TableCell>
+                    <TableCell>
+                      <Badge variant={r.status === "ok" ? "default" : r.status === "running" ? "secondary" : "destructive"}>
+                        {r.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{r.source_folder ?? "—"}</TableCell>
+                    <TableCell className="text-right">{r.tables_processed ?? 0}</TableCell>
+                    <TableCell className="text-right">{(r.total_rows ?? 0).toLocaleString("pt-BR")}</TableCell>
+                    <TableCell className="text-xs text-destructive max-w-md truncate">{r.error ?? ""}</TableCell>
+                  </TableRow>
+                ))}
+                {restoreRuns.data?.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhuma restauração executada.</TableCell></TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

@@ -1544,6 +1544,45 @@ export type Database = {
         }
         Relationships: []
       }
+      restore_runs: {
+        Row: {
+          details: Json | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          mode: string
+          source_folder: string | null
+          started_at: string
+          status: string
+          tables_processed: number | null
+          total_rows: number | null
+        }
+        Insert: {
+          details?: Json | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          source_folder?: string | null
+          started_at?: string
+          status?: string
+          tables_processed?: number | null
+          total_rows?: number | null
+        }
+        Update: {
+          details?: Json | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          source_folder?: string | null
+          started_at?: string
+          status?: string
+          tables_processed?: number | null
+          total_rows?: number | null
+        }
+        Relationships: []
+      }
       retry_execucoes: {
         Row: {
           expires_at: string
