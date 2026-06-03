@@ -478,24 +478,26 @@ function buildEmailHtml(
   postagemConfig?: Record<string, unknown>,
   upsellConfig?: UpsellConfig | null
 ): string {
-  // --- Check for Taxação-specific settings ---
+  // --- Always route Falha/Taxação to specialized layouts (preview-style) ---
   const statusLabel = (evento.status_label as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
-  const taxSettings = (statusLabel === "Taxação") ? parseTaxacaoSettings(corpoEmail) : null;
-  const falhaSettings = (statusLabel === "Falha Entrega") ? parseFalhaEntregaSettings(
-    corpoEmail,
-    (postagemConfig?.checkout_url_falha as string) || "",
-    postagemConfig?.valor_taxa_falha as number | string | undefined
-  ) : null;
   const envioId = (envio.id as string) || "";
 
-  if (taxSettings) {
+  if (statusLabel === "Taxação") {
+    const taxSettings = parseTaxacaoSettings(corpoEmail);
     return buildTaxacaoEmailHtml(envio, extras, taxSettings, envioId, appBaseUrl);
   }
 
-  if (falhaSettings) {
+  if (statusLabel === "Falha Entrega") {
+    const falhaSettings = parseFalhaEntregaSettings(
+      corpoEmail,
+      (postagemConfig?.msg_falha_entrega as string) || "",
+      (postagemConfig?.checkout_url_falha as string) || "",
+      postagemConfig?.valor_taxa_falha as number | string | undefined
+    );
     return buildFalhaEntregaEmailHtml(envio, extras, falhaSettings, appBaseUrl);
   }
+
 
   const enviarNfePdf = (evento.enviar_nfe_pdf as boolean) || false;
   const emoji = emojiMap[statusLabel] || "📬";
