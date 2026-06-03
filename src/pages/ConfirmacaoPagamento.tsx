@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   Settings, History, BookOpen, Mail, MessageSquare, Loader2,
   CheckCircle2, XCircle, Coins, Type, Eye, Save, Sparkles,
@@ -559,7 +560,6 @@ export default function ConfirmacaoPagamento() {
   const { user } = useAuth();
   const { loja } = useLoja();
   const queryClient = useQueryClient();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [activeTab, setActiveTab] = useState("config");
 
   // Config query
@@ -638,13 +638,7 @@ export default function ConfirmacaoPagamento() {
 
   // Preview HTML
   const previewHtml = useMemo(() => buildPreviewHtml(settings, empresaNome, logoUrl), [settings, empresaNome, logoUrl]);
-
-  useEffect(() => {
-    if (iframeRef.current) {
-      const doc = iframeRef.current.contentDocument;
-      if (doc) { doc.open(); doc.write(previewHtml); doc.close(); }
-    }
-  }, [previewHtml]);
+  const debouncedPreviewHtml = useDebouncedValue(previewHtml, 300);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -901,8 +895,8 @@ export default function ConfirmacaoPagamento() {
                     <span className="text-[10px] text-muted-foreground ml-2">Email Preview</span>
                   </div>
                   <iframe
-                    ref={iframeRef}
                     title="Email Preview"
+                    srcDoc={debouncedPreviewHtml}
                     className="w-full border-0"
                     sandbox="allow-same-origin"
                     style={{ minHeight: 470 }}

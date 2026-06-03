@@ -1,4 +1,5 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { replaceVariables, dadosExemplo, buildEmailHtml, type EmailSections } from "./emailTemplates";
 import { Mail, Paperclip } from "lucide-react";
 
@@ -11,8 +12,6 @@ interface EmailPreviewProps {
 }
 
 export function EmailPreview({ assunto, sections, empresaNome, eventName, whatsappVendedor }: EmailPreviewProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
   const data = useMemo(() => ({
     ...dadosExemplo,
     empresa_nome: empresaNome || dadosExemplo.empresa_nome,
@@ -23,6 +22,7 @@ export function EmailPreview({ assunto, sections, empresaNome, eventName, whatsa
     const raw = buildEmailHtml(sections, "#6366f1", eventName, whatsappVendedor);
     return replaceVariables(raw, data);
   }, [sections, data, eventName]);
+  const debouncedHtml = useDebouncedValue(fullHtml, 300);
 
   // Extract a text snippet for inbox preview
   const previewText = useMemo(() => {
@@ -32,17 +32,6 @@ export function EmailPreview({ assunto, sections, empresaNome, eventName, whatsa
       .substring(0, 90);
     return text + (text.length >= 90 ? "..." : "");
   }, [sections.mensagem, data]);
-
-  useEffect(() => {
-    if (iframeRef.current) {
-      const doc = iframeRef.current.contentDocument;
-      if (doc) {
-        doc.open();
-        doc.write(fullHtml);
-        doc.close();
-      }
-    }
-  }, [fullHtml]);
 
   return (
     <div className="flex flex-col h-full">
@@ -72,8 +61,8 @@ export function EmailPreview({ assunto, sections, empresaNome, eventName, whatsa
       {/* Email body preview */}
       <div className="flex-1 rounded-xl border bg-muted/30 overflow-hidden min-h-[400px]">
         <iframe
-          ref={iframeRef}
           title="Email Preview"
+          srcDoc={debouncedHtml}
           className="w-full h-full border-0"
           sandbox="allow-same-origin"
           style={{ minHeight: 400 }}

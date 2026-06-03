@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLoja } from "@/contexts/LojaContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Sparkles, Save, Eye, FileText, Package, AlertTriangle } from "lucide-react";
 import { buildEmailHtml, replaceVariables, dadosExemplo, defaultSectionsByEvent } from "@/components/postagens/emailTemplates";
 
@@ -83,18 +84,9 @@ function buildUpsellBlockHtml(data: UpsellData): string {
 }
 
 function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: UpsellData; tipo: string; empresaNome: string; empresaLogo: string }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const eventName = tipo === "nfe" ? "Postado" : "Coletado";
   const sections = defaultSectionsByEvent[eventName];
-
-  // Debounce data to avoid rewriting iframe on every color drag tick
-  const [debouncedData, setDebouncedData] = useState(data);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
-
-  useEffect(() => {
-    timerRef.current = setTimeout(() => setDebouncedData(data), 150);
-    return () => clearTimeout(timerRef.current);
-  }, [data]);
+  const debouncedData = useDebouncedValue(data, 300);
 
   const fullHtml = useMemo(() => {
     const upsellBlock = debouncedData.ativo ? buildUpsellBlockHtml(debouncedData) : undefined;
@@ -103,28 +95,10 @@ function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: Upse
     return replaceVariables(raw, previewData);
   }, [debouncedData, sections, eventName, empresaNome, empresaLogo]);
 
-  useEffect(() => {
-    if (iframeRef.current) {
-      const doc = iframeRef.current.contentDocument;
-      if (doc) {
-        doc.open();
-        doc.write(fullHtml);
-        doc.close();
-        const resize = () => {
-          if (iframeRef.current && doc.body) {
-            iframeRef.current.style.height = doc.body.scrollHeight + "px";
-          }
-        };
-        setTimeout(resize, 100);
-        setTimeout(resize, 500);
-      }
-    }
-  }, [fullHtml]);
-
   return (
     <iframe
-      ref={iframeRef}
       title="Email Preview"
+      srcDoc={fullHtml}
       className="w-full border-0 rounded-xl"
       sandbox="allow-same-origin"
       style={{ minHeight: 400, overflow: "hidden" }}

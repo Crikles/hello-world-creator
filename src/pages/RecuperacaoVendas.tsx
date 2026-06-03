@@ -22,6 +22,7 @@ import {
   BookOpen, Zap, Shield, Timer, Hash, ExternalLink, Info, Trash2,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { format } from "date-fns";
 
 /* ─── Color Picker ─── */
@@ -479,10 +480,12 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
     sem_credito: "bg-red-500/10 text-red-600",
   };
 
+  const debouncedSettings = useDebouncedValue(settings, 300);
   const previewHtml = useMemo(() => {
-    const raw = buildEmailHtml(settings, empresaNome, logoUrl, tipo);
+    const raw = buildEmailHtml(debouncedSettings, empresaNome, logoUrl, tipo);
     return replacePreviewVars(raw);
-  }, [settings, empresaNome, logoUrl]);
+  }, [debouncedSettings, empresaNome, logoUrl, tipo]);
+  const sanitizedPreviewHtml = useMemo(() => DOMPurify.sanitize(previewHtml), [previewHtml]);
 
   const tipoLabel = tipo === "pix_pendente" ? "PIX Pendente" : "Carrinho Abandonado";
 
@@ -691,7 +694,7 @@ function RecoveryEditor({ tipo, loja, empresaNome, logoUrl }: {
                   <div className="flex-1 overflow-auto bg-[#f1f5f9]">
                     <div className="p-3">
                       <div className="max-w-[560px] mx-auto transform scale-[0.85] origin-top">
-                        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewHtml) }} />
+                        <div dangerouslySetInnerHTML={{ __html: sanitizedPreviewHtml }} />
                       </div>
                     </div>
                   </div>
