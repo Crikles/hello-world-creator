@@ -28,6 +28,7 @@ import {
   MessageSquare,
   Globe,
   BarChart3,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { TaxacaoConfig } from "@/components/postagens/TaxacaoConfig";
