@@ -17,7 +17,12 @@ export function isMagnusDomain(): boolean {
   if (MAGNUS_DOMAINS.includes(host)) return true;
   // Ambientes internos de desenvolvimento/preview do Lovable
   if (host === 'localhost' || host === '127.0.0.1') return true;
-  if (host.endsWith('.lovable.app') || host.endsWith('.lovable.dev')) return true;
+  if (
+    host.endsWith('.lovable.app') ||
+    host.endsWith('.lovable.dev') ||
+    host.endsWith('.lovableproject.com') ||
+    host.endsWith('.lovable.build')
+  ) return true;
   return false;
 }
 
