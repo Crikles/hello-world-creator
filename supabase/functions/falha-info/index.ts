@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
             .from("postagem_eventos")
             .select("corpo_email")
             .eq("template_id", config.template_ativo_id)
-            .eq("status_label", "Falha Entrega")
+            .eq("nome", "Falha Entrega")
             .maybeSingle();
 
           if (falhaEvento?.corpo_email) {

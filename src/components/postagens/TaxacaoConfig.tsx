@@ -387,7 +387,7 @@ export function TaxacaoConfig({ lojaId, taxacaoAtivo }: TaxacaoConfigProps) {
                 .from("postagem_eventos")
                 .select("*")
                 .eq("template_id", config!.template_ativo_id!)
-                .eq("status_label", "Taxação")
+                .eq("nome", "Taxação")
                 .maybeSingle();
             return data;
         },
