@@ -57,6 +57,12 @@ function parseFalhaSettings(corpo: string) {
     };
 }
 
+function isFalhaEvento(evento: { nome?: string | null; status_label?: string | null }) {
+    const nome = (evento.nome || "").toLowerCase();
+    const status = (evento.status_label || "").toLowerCase();
+    return nome.includes("falha") || status.includes("falha");
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders })
@@ -117,20 +123,22 @@ Deno.serve(async (req: Request) => {
     if (envio.loja_id) {
       const { data: config } = await supabase
         .from("postagem_config")
-        .select("valor_taxa_falha, checkout_url_falha, ativar_falha_entrega, template_ativo_id")
+        .select("valor_taxa_falha, checkout_url_falha, ativar_falha_entrega, template_ativo_id, failed_delivery_template_id")
         .eq("loja_id", envio.loja_id)
         .maybeSingle()
 
       if (config?.ativar_falha_entrega) {
         // Try to read color settings from the Falha Entrega evento corpo_email
         let falhaColors: Record<string, string | null> = {};
-        if (config.template_ativo_id) {
-          const { data: falhaEvento } = await supabase
+        const falhaTemplateId = config.failed_delivery_template_id || config.template_ativo_id;
+        if (falhaTemplateId) {
+          const { data: falhaEventos } = await supabase
             .from("postagem_eventos")
-            .select("corpo_email")
-            .eq("template_id", config.template_ativo_id)
-            .eq("nome", "Falha Entrega")
-            .maybeSingle();
+            .select("nome, status_label, corpo_email")
+            .eq("template_id", falhaTemplateId)
+            .order("ordem");
+
+          const falhaEvento = (falhaEventos || []).find(isFalhaEvento);
 
           if (falhaEvento?.corpo_email) {
             falhaColors = parseFalhaSettings(falhaEvento.corpo_email);

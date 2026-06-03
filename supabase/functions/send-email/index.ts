@@ -379,6 +379,28 @@ interface FalhaEntregaSettings {
   msg_falha_entrega: string;
   checkout_url_falha: string;
   valor_taxa_falha: string;
+  cor_botao: string;
+  cor_destaque: string;
+  cor_titulo_resumo: string;
+  cor_label_taxa: string;
+  cor_descricao: string;
+  cor_fundo_descricao: string;
+  cor_borda_descricao: string;
+  mensagem_site: string;
+}
+
+function getTaggedValue(corpo: string, tag: string): string | null {
+  return corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1] || null;
+}
+
+function isFalhaEntregaLabel(label?: string, nome?: string): boolean {
+  const value = `${label || ""} ${nome || ""}`.toLowerCase();
+  return value.includes("falha");
+}
+
+function isTaxacaoLabel(label?: string, nome?: string): boolean {
+  const value = `${label || ""} ${nome || ""}`.toLowerCase();
+  return value.includes("taxação") || value.includes("taxacao");
 }
 
 function parseFalhaEntregaSettings(
@@ -402,6 +424,14 @@ function parseFalhaEntregaSettings(
     msg_falha_entrega: plainMessage,
     checkout_url_falha: configCheckoutUrl || "",
     valor_taxa_falha: String(configValorTaxa ?? "0.00"),
+    cor_botao: getTaggedValue(corpo, "falha_cor_botao") || "#ea580c",
+    cor_destaque: getTaggedValue(corpo, "falha_cor_destaque") || "#ea580c",
+    cor_titulo_resumo: getTaggedValue(corpo, "falha_cor_titulo_resumo") || "#020617",
+    cor_label_taxa: getTaggedValue(corpo, "falha_cor_label_taxa") || "#020617",
+    cor_descricao: getTaggedValue(corpo, "falha_cor_descricao") || "#9a3412",
+    cor_fundo_descricao: getTaggedValue(corpo, "falha_cor_fundo_descricao") || "#fff7ed",
+    cor_borda_descricao: getTaggedValue(corpo, "falha_cor_borda_descricao") || "#fed7aa",
+    mensagem_site: getTaggedValue(corpo, "falha_mensagem_site") || "",
   };
 }
 
@@ -480,15 +510,16 @@ function buildEmailHtml(
 ): string {
   // --- Always route Falha/Taxação to specialized layouts (preview-style) ---
   const statusLabel = (evento.status_label as string) || "";
+  const eventName = (evento.nome as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const envioId = (envio.id as string) || "";
 
-  if (statusLabel === "Taxação") {
+  if (isTaxacaoLabel(statusLabel, eventName)) {
     const taxSettings = parseTaxacaoSettings(corpoEmail);
     return buildTaxacaoEmailHtml(envio, extras, taxSettings, envioId, appBaseUrl);
   }
 
-  if (statusLabel === "Falha Entrega") {
+  if (isFalhaEntregaLabel(statusLabel, eventName)) {
     const falhaSettings = parseFalhaEntregaSettings(
       corpoEmail,
       (postagemConfig?.msg_falha_entrega as string) || "",
@@ -824,11 +855,10 @@ function buildFalhaEntregaEmailHtml(
   const envioId = (envio.id as string) || "";
   const checkoutUrl = `https://atlas-cargo.org/f/${envioId}`;
 
-
-  const accent = "#ea580c";
-  const accentSoft = "#fff7ed";
-  const accentBorder = "#fed7aa";
-  const accentText = "#9a3412";
+  const accent = config.cor_botao || config.cor_destaque || "#ea580c";
+  const accentSoft = config.cor_fundo_descricao || "#fff7ed";
+  const accentBorder = config.cor_borda_descricao || "#fed7aa";
+  const accentText = config.cor_descricao || "#9a3412";
 
   const iconHtml = empresaLogoUrl
     ? `<img src="${empresaLogoUrl}" alt="${empresaNome}" width="56" height="56" style="width:56px;height:56px;object-fit:cover;border-radius:16px;display:block;" />`
@@ -1099,7 +1129,7 @@ Deno.serve(async (req) => {
 
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho, msg_falha_entrega, template_ativo_id")
+      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho, msg_falha_entrega, template_ativo_id, failed_delivery_template_id")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
@@ -1168,18 +1198,27 @@ Deno.serve(async (req) => {
     // Para Falha Entrega / Taxação, busca o corpo_email mais recente no template ATIVO da loja
     // (não no template congelado do envio) para que edições na aba Postagens sejam refletidas
     // imediatamente nos próximos emails.
-    if ((statusLabel === "Falha Entrega" || statusLabel === "Taxação") && config?.template_ativo_id) {
+    if ((isFalhaEntregaLabel(statusLabel, evento.nome as string) || isTaxacaoLabel(statusLabel, evento.nome as string)) && config?.template_ativo_id) {
+      const templateIdForEvent = isFalhaEntregaLabel(statusLabel, evento.nome as string)
+        ? ((config.failed_delivery_template_id as string) || config.template_ativo_id)
+        : config.template_ativo_id;
       const { data: latestEvento } = await supabase
         .from("postagem_eventos")
-        .select("corpo_email, assunto_email")
-        .eq("template_id", config.template_ativo_id)
-        .eq("status_label", statusLabel)
-        .maybeSingle();
-      if (latestEvento?.corpo_email) {
-        (evento as Record<string, unknown>).corpo_email = latestEvento.corpo_email;
+        .select("nome, status_label, corpo_email, assunto_email")
+        .eq("template_id", templateIdForEvent)
+        .order("ordem");
+      const latestMatchingEvento = (latestEvento || []).find((event: Record<string, unknown>) => {
+        const latestStatus = (event.status_label as string) || "";
+        const latestName = (event.nome as string) || "";
+        return isFalhaEntregaLabel(statusLabel, evento.nome as string)
+          ? isFalhaEntregaLabel(latestStatus, latestName)
+          : isTaxacaoLabel(latestStatus, latestName);
+      });
+      if (latestMatchingEvento?.corpo_email) {
+        (evento as Record<string, unknown>).corpo_email = latestMatchingEvento.corpo_email;
       }
-      if (latestEvento?.assunto_email) {
-        (evento as Record<string, unknown>).assunto_email = latestEvento.assunto_email;
+      if (latestMatchingEvento?.assunto_email) {
+        (evento as Record<string, unknown>).assunto_email = latestMatchingEvento.assunto_email;
       }
     }
 
