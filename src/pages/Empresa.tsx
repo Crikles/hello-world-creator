@@ -41,7 +41,7 @@ export default function Empresa() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewIframeRef = useRef<HTMLIFrameElement>(null);
   const [danfeOpen, setDanfeOpen] = useState(false);
-  const [iframeReady, setIframeReady] = useState(false);
+  const [danfeOpen, setDanfeOpen] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [buscandoCep, setBuscandoCep] = useState(false);
