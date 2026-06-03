@@ -52,27 +52,27 @@ Deno.serve(async (req) => {
     try {
         const url = new URL(req.url);
         const envioId = url.searchParams.get("envio_id");
+        const codigo = url.searchParams.get("codigo");
+        const key = (envioId || codigo || "").trim();
 
-        if (!envioId) {
+        if (!key) {
             return new Response(
-                JSON.stringify({ error: "envio_id is required" }),
+                JSON.stringify({ error: "envio_id or codigo is required" }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
         const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-        // Use service role to bypass RLS — this is safe because we only return
-        // limited, non-sensitive data needed for the payment page.
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // 1. Fetch envio (only needed fields)
-        const { data: envio, error: envioError } = await supabase
-            .from("envios")
-            .select("id, produto, codigo_rastreio, cliente_nome, cliente_cpf, cliente_endereco, cliente_numero, cliente_bairro, cliente_cidade, cliente_estado, cliente_cep, transportadora, valor, empresa_id, loja_id")
-            .eq("id", envioId)
-            .maybeSingle();
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const isUuid = UUID_RE.test(key);
+        const baseSelect = "id, produto, codigo_rastreio, cliente_nome, cliente_cpf, cliente_endereco, cliente_numero, cliente_bairro, cliente_cidade, cliente_estado, cliente_cep, transportadora, valor, empresa_id, loja_id";
+
+        const { data: envio, error: envioError } = isUuid
+            ? await supabase.from("envios").select(baseSelect).eq("id", key).maybeSingle()
+            : await supabase.from("envios").select(baseSelect).eq("codigo_rastreio", key.toUpperCase()).maybeSingle();
 
         if (envioError || !envio) {
             return new Response(
