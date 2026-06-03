@@ -100,12 +100,12 @@ function cleanBase64(raw: string): string {
   return cleaned;
 }
 
-/** Upload base64 QR code image to storage, return public URL */
+/** Upload base64 QR code image to storage, return signed URL (30 days) */
 async function uploadQrToStorage(
   supabase: any,
   base64Raw: string,
   leadId: string,
-  supabaseUrl: string
+  _supabaseUrl: string
 ): Promise<string> {
   const cleaned = cleanBase64(base64Raw);
   if (!cleaned) return "";
@@ -122,12 +122,20 @@ async function uploadQrToStorage(
       console.error("[qr-upload] error:", error);
       return "";
     }
-    return `${supabaseUrl}/storage/v1/object/public/pix-qrcodes/${path}`;
+    const { data: signed, error: signErr } = await supabase.storage
+      .from("pix-qrcodes")
+      .createSignedUrl(path, 60 * 60 * 24 * 30);
+    if (signErr || !signed?.signedUrl) {
+      console.error("[qr-upload] sign error:", signErr);
+      return "";
+    }
+    return signed.signedUrl;
   } catch (e) {
     console.error("[qr-upload] exception:", e);
     return "";
   }
 }
+
 
 /* ── Main Handler ── */
 
