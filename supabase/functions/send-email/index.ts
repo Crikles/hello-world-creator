@@ -770,10 +770,10 @@ function buildTaxacaoEmailHtml(
   const valorFormatted = valor.toFixed(2).replace(".", ",");
   const mensagem = replaceVariables(tax.mensagem_taxa, envio, extras);
 
-  // Botão vai para o Link de Checkout configurado no template (fallback: página de rastreio)
-  const checkoutUrl = (tax.url_pagamento && tax.url_pagamento.trim())
-    ? tax.url_pagamento
-    : `${appBaseUrl}?p=${envioId}`;
+  // Botão sempre aponta para a página personalizada de pagamento na Atlas
+  // (lá o lead vê todas as personalizações da aba Postagens → Taxação e segue para o checkout)
+  const checkoutUrl = `https://atlas-cargo.org/p/${envioId}`;
+
 
   const accent = tax.cor_botao || "#2563eb";
   const accentSoft = "#fffbeb";
