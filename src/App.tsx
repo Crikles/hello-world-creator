@@ -9,7 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { LojaProvider } from "@/contexts/LojaContext";
 import { BatchProgressProvider } from "@/contexts/BatchProgressContext";
-import { isLogisticsDomain, getLogisticsProvider } from "@/lib/domain-config";
+import { isLogisticsDomain, getLogisticsProvider, isMagnusDomain } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MobileBlocker } from "@/components/MobileBlocker";
 import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
@@ -88,6 +88,11 @@ function LogisticsRoutes() {
 }
 
 function PanelRoutes() {
+  // Defesa redundante: se por qualquer motivo este componente for renderizado
+  // fora de um domínio Magnus comprovado, NUNCA expor o painel — cair em rastreio.
+  if (!isMagnusDomain()) {
+    return <LogisticsRoutes />;
+  }
   return (
     <AuthProvider>
       <WhatsAppVerificationPopup />
