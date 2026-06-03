@@ -158,6 +158,9 @@ Deno.serve(async (req) => {
           config = cfg;
         }
         if (!config?.enviar_emails) { skipped++; return; }
+        // Backfill só reenvia se o lojista tiver AUTO ativo. Sem AUTO, a automação
+        // está desligada e não devemos disparar e-mails em nome dele.
+        if (config?.auto_envio !== true) { skipped++; return; }
 
         const tplId = env.postagem_template_id || config.template_ativo_id;
         if (!tplId) { skipped++; return; }
