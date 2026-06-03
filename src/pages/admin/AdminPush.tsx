@@ -410,7 +410,7 @@ export default function AdminPush() {
                                     URL de Direcionamento Padrão
                                 </label>
                                 <Input
-                                    placeholder="https://rastreio.jltransportelogistica.com/"
+                                    placeholder="https://atlas-cargo.org/"
                                     value={defaultUrl}
                                     onChange={(e) => setDefaultUrl(e.target.value)}
                                 />
