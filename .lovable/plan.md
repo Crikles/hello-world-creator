@@ -1,50 +1,37 @@
-## Análise
+## Problema
 
-Verifiquei os usos no frontend:
-- `postagem_eventos`, `push_templates`, `sms_templates` são lidos apenas em páginas autenticadas (admin, lojista). Nenhum uso na página pública `Rastreio`.
-- `user_roles` é lido por `useIsAdmin` e `AdminUsuarios`, e escrito apenas pela trigger `assign_default_role` (SECURITY DEFINER) e por admins.
+Na página **Confirmação de Pagamento** existem dois toggles que parecem ativar a funcionalidade:
 
-Restringir ao papel `authenticated` não quebra nada.
+1. **Status da Funcionalidade** (topo) — toggle MASTER, persiste `ativo` no banco. Quando `false`, a edge function `send-payment-confirmation` bloqueia todo envio.
+2. **Enviar email de confirmação** (no card de edição do email) — toggle redundante que persiste `enviar_email`. Confunde o lojista porque parece "ligar a função" mesmo quando o master está Desativado.
 
-## Migration única
+Além disso, o lojista diz que todas as contas devem vir **DESATIVADAS** por padrão. O default da coluna `ativo` já é `false`, mas há contas com `ativo=true` herdadas de configurações antigas que precisam ser zeradas.
 
+## Mudanças
+
+### 1. Remover o segundo toggle (frontend)
+Em `src/pages/ConfirmacaoPagamento.tsx`:
+- Remover o `Switch` "Enviar email de confirmação" (linha ~776) e exibir o card de Nome do Remetente / Assunto / Saudação / etc. sempre que o master `ativo` estiver ligado.
+- Manter `enviar_email` sempre `true` no payload salvo (o gate real passa a ser apenas o master `ativo`).
+- Remover o `useState` `enviarEmail` e o `setEnviarEmail` correspondente.
+- O toggle de **SMS** continua existindo (é uma escolha de canal separada, não duplica o master).
+
+### 2. Reset de todas as contas para Desativado (migração)
+Migração SQL única:
 ```sql
--- 1) postagem_eventos: SELECT só para authenticated
-DROP POLICY IF EXISTS "Users read system or own postagem_eventos" ON public.postagem_eventos;
-CREATE POLICY "Authenticated read system or own postagem_eventos"
-  ON public.postagem_eventos FOR SELECT
-  TO authenticated
-  USING (loja_id IS NULL OR public.user_owns_loja(auth.uid(), loja_id));
-REVOKE SELECT ON public.postagem_eventos FROM anon;
-
--- 2) push_templates: SELECT só para authenticated
-DROP POLICY IF EXISTS "Authenticated read push_templates" ON public.push_templates;
-CREATE POLICY "Authenticated read push_templates"
-  ON public.push_templates FOR SELECT
-  TO authenticated
-  USING (true);
-REVOKE SELECT ON public.push_templates FROM anon;
-
--- 3) sms_templates: SELECT só para authenticated
-DROP POLICY IF EXISTS "Authenticated read sms_templates" ON public.sms_templates;
-CREATE POLICY "Authenticated read sms_templates"
-  ON public.sms_templates FOR SELECT
-  TO authenticated
-  USING (true);
-REVOKE SELECT ON public.sms_templates FROM anon;
-
--- 4) user_roles: bloquear writes de não-admin com RESTRICTIVE policy + revogar grants
-REVOKE INSERT, UPDATE, DELETE ON public.user_roles FROM anon, authenticated;
-
-CREATE POLICY "Only admins can write user_roles"
-  ON public.user_roles
-  AS RESTRICTIVE
-  FOR ALL
-  TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'::app_role))
-  WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
+UPDATE public.confirmacao_pagamento_config SET ativo = false;
 ```
+O default da coluna já é `false`, então novas contas continuam nascendo desativadas. Quem quiser usar precisa ligar o master manualmente.
 
-A trigger `assign_default_role` é SECURITY DEFINER → continua inserindo o papel `user` no signup sem precisar de grant para o usuário. `has_role` também é SECURITY DEFINER → leitura do próprio role continua funcionando para o check de admin.
+## Comportamento final
 
-Nenhuma mudança em código de aplicação.
+- Único botão de liga/desliga: **Status da Funcionalidade** no topo.
+- Quando desligado: nenhum email nem SMS de confirmação sai, independente do que esteja preenchido abaixo.
+- Quando ligado: envia email automaticamente; SMS só sai se o toggle de SMS estiver ligado.
+- Todas as contas existentes ficam desativadas após o deploy; o lojista precisa entrar e ligar manualmente.
+
+## Detalhes técnicos
+
+- Arquivos tocados: `src/pages/ConfirmacaoPagamento.tsx` (remoção do toggle + ajustes de state) e uma nova migração `supabase/migrations/...sql`.
+- Edge function `send-payment-confirmation` **não muda** — ela já gate por `config.ativo` corretamente.
+- Não há impacto em histórico, custos, créditos ou outras telas.

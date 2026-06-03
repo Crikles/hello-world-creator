@@ -769,46 +769,40 @@ export default function ConfirmacaoPagamento() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* LEFT: Editor */}
             <div className="space-y-4">
-              {/* Email toggle + remetente */}
+              {/* Remetente + Assunto (sempre visível; gate real é o Status no topo) */}
               <Card>
                 <CardContent className="pt-6 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Switch checked={enviarEmail} onCheckedChange={setEnviarEmail} />
-                    <Label className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-primary" /> Enviar email de confirmação
-                    </Label>
-                  </div>
+                  <Label className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-primary" /> Email de confirmação
+                  </Label>
 
-                  {enviarEmail && (
-                    <>
-                      <div>
-                        <Label className="text-xs">Nome do Remetente (FROM)</Label>
-                        <Input
-                          value={emailRemetenteNome}
-                          onChange={(e) => setEmailRemetenteNome(e.target.value)}
-                          placeholder={empresaNome}
-                          className="mt-1"
-                        />
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Aparecerá como: <strong>{emailRemetenteNome || empresaNome}</strong> &lt;contato@recuperacaodenegocios.com&gt;
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Assunto do Email</Label>
-                        <Input
-                          value={assuntoEmail}
-                          onChange={(e) => setAssuntoEmail(e.target.value)}
-                          placeholder="Pagamento Confirmado! ✅"
-                          className="mt-1"
-                        />
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Variáveis: {"{{nome}}"}, {"{{produto}}"}, {"{{valor}}"}, {"{{empresa}}"}
-                        </p>
-                      </div>
-                    </>
-                  )}
+                  <div>
+                    <Label className="text-xs">Nome do Remetente (FROM)</Label>
+                    <Input
+                      value={emailRemetenteNome}
+                      onChange={(e) => setEmailRemetenteNome(e.target.value)}
+                      placeholder={empresaNome}
+                      className="mt-1"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Aparecerá como: <strong>{emailRemetenteNome || empresaNome}</strong> &lt;contato@recuperacaodenegocios.com&gt;
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Assunto do Email</Label>
+                    <Input
+                      value={assuntoEmail}
+                      onChange={(e) => setAssuntoEmail(e.target.value)}
+                      placeholder="Pagamento Confirmado! ✅"
+                      className="mt-1"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Variáveis: {"{{nome}}"}, {"{{produto}}"}, {"{{valor}}"}, {"{{empresa}}"}
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
+
 
               {/* Visual Sections */}
               {enviarEmail && (
