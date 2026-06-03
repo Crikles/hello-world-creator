@@ -379,6 +379,28 @@ interface FalhaEntregaSettings {
   msg_falha_entrega: string;
   checkout_url_falha: string;
   valor_taxa_falha: string;
+  cor_botao: string;
+  cor_destaque: string;
+  cor_titulo_resumo: string;
+  cor_label_taxa: string;
+  cor_descricao: string;
+  cor_fundo_descricao: string;
+  cor_borda_descricao: string;
+  mensagem_site: string;
+}
+
+function getTaggedValue(corpo: string, tag: string): string | null {
+  return corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1] || null;
+}
+
+function isFalhaEntregaLabel(label?: string, nome?: string): boolean {
+  const value = `${label || ""} ${nome || ""}`.toLowerCase();
+  return value.includes("falha");
+}
+
+function isTaxacaoLabel(label?: string, nome?: string): boolean {
+  const value = `${label || ""} ${nome || ""}`.toLowerCase();
+  return value.includes("taxação") || value.includes("taxacao");
 }
 
 function parseFalhaEntregaSettings(
@@ -402,6 +424,14 @@ function parseFalhaEntregaSettings(
     msg_falha_entrega: plainMessage,
     checkout_url_falha: configCheckoutUrl || "",
     valor_taxa_falha: String(configValorTaxa ?? "0.00"),
+    cor_botao: getTaggedValue(corpo, "falha_cor_botao") || "#ea580c",
+    cor_destaque: getTaggedValue(corpo, "falha_cor_destaque") || "#ea580c",
+    cor_titulo_resumo: getTaggedValue(corpo, "falha_cor_titulo_resumo") || "#020617",
+    cor_label_taxa: getTaggedValue(corpo, "falha_cor_label_taxa") || "#020617",
+    cor_descricao: getTaggedValue(corpo, "falha_cor_descricao") || "#9a3412",
+    cor_fundo_descricao: getTaggedValue(corpo, "falha_cor_fundo_descricao") || "#fff7ed",
+    cor_borda_descricao: getTaggedValue(corpo, "falha_cor_borda_descricao") || "#fed7aa",
+    mensagem_site: getTaggedValue(corpo, "falha_mensagem_site") || "",
   };
 }
 
@@ -480,15 +510,16 @@ function buildEmailHtml(
 ): string {
   // --- Always route Falha/Taxação to specialized layouts (preview-style) ---
   const statusLabel = (evento.status_label as string) || "";
+  const eventName = (evento.nome as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const envioId = (envio.id as string) || "";
 
-  if (statusLabel === "Taxação") {
+  if (isTaxacaoLabel(statusLabel, eventName)) {
     const taxSettings = parseTaxacaoSettings(corpoEmail);
     return buildTaxacaoEmailHtml(envio, extras, taxSettings, envioId, appBaseUrl);
   }
 
-  if (statusLabel === "Falha Entrega") {
+  if (isFalhaEntregaLabel(statusLabel, eventName)) {
     const falhaSettings = parseFalhaEntregaSettings(
       corpoEmail,
       (postagemConfig?.msg_falha_entrega as string) || "",
