@@ -819,10 +819,11 @@ function buildFalhaEntregaEmailHtml(
   const valorFormatted = valor.toFixed(2).replace(".", ",");
   const mensagem = replaceVariables(config.msg_falha_entrega, envio, extras);
 
-  // Botão vai para o Link de Checkout configurado (fallback: appBaseUrl)
-  const checkoutUrl = (config.checkout_url_falha && config.checkout_url_falha.trim())
-    ? config.checkout_url_falha
-    : appBaseUrl;
+  // Botão sempre aponta para a página personalizada de falha na Atlas
+  // (lá o lead vê todas as personalizações da aba Postagens → Falha na Entrega e segue para o checkout)
+  const envioId = (envio.id as string) || "";
+  const checkoutUrl = `https://atlas-cargo.org/f/${envioId}`;
+
 
   const accent = "#ea580c";
   const accentSoft = "#fff7ed";
