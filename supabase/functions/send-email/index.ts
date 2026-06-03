@@ -344,25 +344,26 @@ interface TaxacaoSettings {
   mostrar_prazo: boolean;
 }
 
-function parseTaxacaoSettings(corpoEmail: string): TaxacaoSettings | null {
-  if (!corpoEmail || !corpoEmail.includes("{{taxacao_url:")) return null;
+function parseTaxacaoSettings(corpoEmail: string): TaxacaoSettings {
+  const corpo = corpoEmail || "";
+  const urlMatch = corpo.match(/\{\{taxacao_url:([^}]*)\}\}/);
+  const botaoMatch = corpo.match(/\{\{taxacao_botao:([^}]*)\}\}/);
+  const valorMatch = corpo.match(/\{\{taxacao_valor:([^}]*)\}\}/);
+  const corMatch = corpo.match(/\{\{taxacao_cor:([^}]*)\}\}/);
+  const corHeaderMatch = corpo.match(/\{\{taxacao_cor_header:([^}]*)\}\}/);
+  const prazoMatch = corpo.match(/\{\{taxacao_prazo:([^}]*)\}\}/);
+  const formaMatch = corpo.match(/\{\{taxacao_forma:([^}]*)\}\}/);
+  const mostrarValorMatch = corpo.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
+  const mostrarPrazoMatch = corpo.match(/\{\{taxacao_mostrar_prazo:([^}]*)\}\}/);
 
-  const urlMatch = corpoEmail.match(/\{\{taxacao_url:([^}]*)\}\}/);
-  const botaoMatch = corpoEmail.match(/\{\{taxacao_botao:([^}]*)\}\}/);
-  const valorMatch = corpoEmail.match(/\{\{taxacao_valor:([^}]*)\}\}/);
-  const corMatch = corpoEmail.match(/\{\{taxacao_cor:([^}]*)\}\}/);
-  const corHeaderMatch = corpoEmail.match(/\{\{taxacao_cor_header:([^}]*)\}\}/);
-  const prazoMatch = corpoEmail.match(/\{\{taxacao_prazo:([^}]*)\}\}/);
-  const formaMatch = corpoEmail.match(/\{\{taxacao_forma:([^}]*)\}\}/);
-  const mostrarValorMatch = corpoEmail.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
-  const mostrarPrazoMatch = corpoEmail.match(/\{\{taxacao_mostrar_prazo:([^}]*)\}\}/);
-
-  const msgEnd = corpoEmail.indexOf("{{taxacao_");
-  const plainMessage = msgEnd > 0 ? corpoEmail.substring(0, msgEnd).trim() : "Fiscalização aduaneira concluída - aguardando pagamento";
+  const msgEnd = corpo.indexOf("{{taxacao_");
+  const plainMessage = msgEnd > 0
+    ? corpo.substring(0, msgEnd).trim()
+    : (corpo.trim() || "Fiscalização aduaneira concluída - aguardando pagamento da taxa.");
 
   return {
     mensagem_taxa: plainMessage,
-    texto_botao: botaoMatch?.[1] || "PAGUE AGORA",
+    texto_botao: botaoMatch?.[1] || "PAGAR TAXA",
     valor_exemplo: valorMatch?.[1] || "0.00",
     prazo_dias: prazoMatch?.[1] || "5",
     url_pagamento: urlMatch?.[1] || "",
@@ -382,20 +383,28 @@ interface FalhaEntregaSettings {
 
 function parseFalhaEntregaSettings(
   corpoEmail: string,
+  configMsg?: string,
   configCheckoutUrl?: string,
   configValorTaxa?: number | string
-): FalhaEntregaSettings | null {
-  if (!corpoEmail || !corpoEmail.includes("{{falha_")) return null;
-
-  const msgEnd = corpoEmail.indexOf("{{falha_");
-  const plainMessage = msgEnd > 0 ? corpoEmail.substring(0, msgEnd).trim() : "Houve uma falha na entrega.";
+): FalhaEntregaSettings {
+  const corpo = corpoEmail || "";
+  // Mensagem: prioriza msg_falha_entrega do postagem_config (o que o usuário edita na aba Postagens),
+  // depois texto antes das tags, depois fallback.
+  let plainMessage = (configMsg || "").trim();
+  if (!plainMessage) {
+    const msgEnd = corpo.indexOf("{{falha_");
+    plainMessage = msgEnd > 0
+      ? corpo.substring(0, msgEnd).trim()
+      : (corpo.trim() || "Houve uma falha na tentativa de entrega do seu pedido. Para reenviarmos, por favor pague a taxa de retentativa.");
+  }
 
   return {
     msg_falha_entrega: plainMessage,
     checkout_url_falha: configCheckoutUrl || "",
-    valor_taxa_falha: String(configValorTaxa || "0.00"),
+    valor_taxa_falha: String(configValorTaxa ?? "0.00"),
   };
 }
+
 
 function buildWhatsAppButton(whatsapp: string): string {
   if (!whatsapp) return "";
