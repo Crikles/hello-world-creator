@@ -68,11 +68,11 @@ export default function Taxacao() {
                 .from("postagem_eventos")
                 .select("id, nome, ordem, status_label, corpo_email")
                 .eq("template_id", templateId)
-                .in("status_label", ["Taxação", "Pago"])
+                .in("nome", ["Taxação", "Pago"])
                 .order("ordem", { ascending: true });
 
-            const taxEvento = (eventos || []).find(e => e.status_label === "Taxação");
-            const pagoEvento = (eventos || []).find(e => e.status_label === "Pago");
+            const taxEvento = (eventos || []).find(e => e.nome === "Taxação");
+            const pagoEvento = (eventos || []).find(e => e.nome === "Pago");
 
             let valorTaxacao = Number(config.taxacao_valor) || 0;
             if (!valorTaxacao && taxEvento?.corpo_email) {

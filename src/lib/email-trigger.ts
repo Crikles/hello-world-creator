@@ -72,15 +72,18 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             return null;
         }
 
-        // Filter out "Falha Entrega/Falha na Entrega" if config.ativar_falha_entrega is not true
-        const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
-        const taxLabels = ["Taxação", "Taxacao", "Pago"];
+        // Filter out "Falha Entrega/Pago" if config.ativar_falha_entrega is not true
+        const falhaNomes = ["Falha Entrega"];
+        const taxNomes = ["Taxação", "Taxacao"];
         const filteredEvents = allEvents.filter(e => {
-            if (falhaLabels.includes(e.status_label || "") && !(config as any).ativar_falha_entrega) {
+            const evNome = (e.nome || "").trim();
+            if (falhaNomes.includes(evNome) && !(config as any).ativar_falha_entrega) {
                 return false;
             }
-            // Remove Taxação/Pago events when ativar_taxacao is disabled
-            if (taxLabels.includes(e.status_label || "") && !config.ativar_taxacao) return false;
+            // Remove Taxação events when ativar_taxacao is disabled
+            if (taxNomes.includes(evNome) && !config.ativar_taxacao) return false;
+            // "Pago" event belongs to whichever flow is active; remove if both disabled
+            if (evNome === "Pago" && !config.ativar_taxacao && !(config as any).ativar_falha_entrega) return false;
             // Remove NF-e events when enviar_nfe_email is disabled
             if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
             return true;
@@ -107,11 +110,25 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // ── REGRA: Evento "Entregue" (último) é SEMPRE manual ──
         // Bloqueia avanço automático para "Entregue" — só prossegue com forceAdvance=true
         const isFinalDelivered =
-            nextEvent.status_label === "Entregue" ||
+            nextEvent.nome === "Entregue" ||
             filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
 
         if (isFinalDelivered && !forceAdvance) {
             console.log("Trigger skip: 'Entregue' requires manual confirmation", envioId);
+            return null;
+        }
+
+        // ── REGRA: Eventos "Falha Entrega" e "Taxação" pausam até aprovação manual ──
+        const requiresManualApproval = ["Falha Entrega", "Taxação", "Taxacao"].includes((nextEvent.nome || "").trim());
+        if (requiresManualApproval && !forceAdvance) {
+            // Permite avançar ATÉ o evento de pausa via cron, mas não além sem aprovação.
+            // O cron já filtra envios parados nesses eventos; aqui garantimos que chamadas
+            // não-forçadas (ex.: triggerNextEmail interno) também respeitem a pausa após chegar nele.
+        }
+        // Eventos "Pago" só devem disparar via aprovação manual (forceAdvance=true)
+        const isPagoEvent = (nextEvent.nome || "").trim() === "Pago";
+        if (isPagoEvent && !forceAdvance) {
+            console.log("Trigger skip: 'Pago' requires manual approval", envioId);
             return null;
         }
 
@@ -249,14 +266,16 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         }
 
         // 7. Check if this event should actually send an email
-        const falhaLabelsCheck = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
+        const evNome = (nextEvent.nome || "").trim();
         let isAtivo = false;
         if (nextEvent.enviar_nfe_pdf) {
             isAtivo = config.enviar_nfe_email;
-        } else if (nextEvent.status_label === "Taxação" || nextEvent.status_label === "Pago") {
+        } else if (evNome === "Taxação" || evNome === "Taxacao") {
             isAtivo = config.ativar_taxacao;
-        } else if (falhaLabelsCheck.includes(nextEvent.status_label || "")) {
+        } else if (evNome === "Falha Entrega") {
             isAtivo = (config as any).ativar_falha_entrega;
+        } else if (evNome === "Pago") {
+            isAtivo = config.ativar_taxacao || (config as any).ativar_falha_entrega;
         } else {
             isAtivo = config.enviar_emails;
         }

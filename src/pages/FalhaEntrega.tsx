@@ -70,9 +70,9 @@ export default function FalhaEntrega() {
                 .from("postagem_eventos")
                 .select("id, nome, ordem, status_label")
                 .eq("template_id", templateId)
-                .in("status_label", ["Falha Entrega"])
+                .in("nome", ["Falha Entrega"])
                 .order("ordem", { ascending: true });
-            const falhaEvento = (eventos || []).find((e) => e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega");
+            const falhaEvento = (eventos || []).find((e) => e.nome === "Falha Entrega");
             return {
                 ativo,
                 falha_ordem: falhaEvento?.ordem ?? null,
