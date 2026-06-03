@@ -943,14 +943,14 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
   const { data: logisticaProvider = "jl" } = useQuery({
     queryKey: ["loja-logistica", lojaId],
     queryFn: async () => {
-      if (!lojaId) return "jl";
+      if (!lojaId) return "atlas";
       const { data, error } = await supabase
         .from("lojas")
         .select("logistica_provider")
         .eq("id", lojaId)
         .single();
       if (error) throw error;
-      return data?.logistica_provider || "jl";
+      return data?.logistica_provider || "atlas";
     },
     enabled: !!lojaId,
   });
