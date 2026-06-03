@@ -9,7 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { LojaProvider } from "@/contexts/LojaContext";
 import { BatchProgressProvider } from "@/contexts/BatchProgressContext";
-import { isLogisticsDomain, getLogisticsProvider } from "@/lib/domain-config";
+import { isLogisticsDomain, getLogisticsProvider, isMagnusDomain } from "@/lib/domain-config";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MobileBlocker } from "@/components/MobileBlocker";
 import { WhatsAppVerificationPopup } from "@/components/WhatsAppVerificationPopup";
