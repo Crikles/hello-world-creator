@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,13 +18,29 @@ const UF_OPTIONS = [
   "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
+const FAKE_ENVIO = {
+  cliente_nome: "Cliente Exemplo",
+  cliente_cpf: "000.000.000-00",
+  cliente_endereco: "Rua Exemplo",
+  cliente_numero: "123",
+  cliente_bairro: "Centro",
+  cliente_cidade: "São Paulo",
+  cliente_estado: "SP",
+  cliente_cep: "00000-000",
+  produto: "Produto Exemplo",
+  quantidade: 1,
+  valor: 0,
+  cfop: "5102",
+  ncm_sh: "00000000",
+  unidade: "UN",
+} as const;
+
 export default function Empresa() {
   const queryClient = useQueryClient();
   const { loja } = useLoja();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewIframeRef = useRef<HTMLIFrameElement>(null);
   const [danfeOpen, setDanfeOpen] = useState(false);
-  const [iframeReady, setIframeReady] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [buscandoCep, setBuscandoCep] = useState(false);
@@ -215,42 +231,22 @@ export default function Empresa() {
     document.body.removeChild(container);
   };
 
-  const danfeHtml = buildDanfeHtml(form, {
-    cliente_nome: "Cliente Exemplo",
-    cliente_cpf: "000.000.000-00",
-    cliente_endereco: "Rua Exemplo",
-    cliente_numero: "123",
-    cliente_bairro: "Centro",
-    cliente_cidade: "São Paulo",
-    cliente_estado: "SP",
-    cliente_cep: "00000-000",
-    produto: "Produto Exemplo",
-    quantidade: 1,
-    valor: 0,
-    cfop: "5102",
-    ncm_sh: "00000000",
-    unidade: "UN",
-  });
+  const danfeHtml = useMemo(() => buildDanfeHtml(form, FAKE_ENVIO), [form]);
 
   const [debouncedHtml, setDebouncedHtml] = useState(danfeHtml);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedHtml(danfeHtml), 300);
+    const timer = setTimeout(() => {
+      const apply = () => setDebouncedHtml(danfeHtml);
+      const ric = (window as any).requestIdleCallback;
+      if (typeof ric === "function") {
+        ric(apply, { timeout: 1000 });
+      } else {
+        apply();
+      }
+    }, 500);
     return () => clearTimeout(timer);
   }, [danfeHtml]);
-
-  useEffect(() => {
-    const iframe = previewIframeRef.current;
-    if (!iframe?.contentWindow) return;
-    try {
-      const doc = iframe.contentWindow.document;
-      doc.open();
-      doc.write(debouncedHtml);
-      doc.close();
-    } catch (e) {
-      // fallback
-    }
-  }, [debouncedHtml, iframeReady]);
 
   return (
     <>
@@ -437,7 +433,8 @@ export default function Empresa() {
                     <iframe
                       ref={previewIframeRef}
                       title="DANFE Preview"
-                      onLoad={() => setIframeReady(true)}
+                      srcDoc={debouncedHtml}
+                      sandbox="allow-same-origin"
                       style={{ width: "100%", height: 1300, border: "none", background: "#fff" }}
                     />
                   </div>
