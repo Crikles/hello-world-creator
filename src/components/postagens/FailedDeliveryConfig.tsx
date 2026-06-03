@@ -29,6 +29,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 /* ─────────────────────── Types ─────────────────────── */
 
@@ -173,7 +174,7 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
     const valor = parseFloat(settings.valor_taxa_falha) || 0;
     const valorFormatted = valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    const htmlContent = `
+    const htmlContent = useMemo(() => `
 <!DOCTYPE html>
 <html>
 <body style="margin:0;padding:20px;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
@@ -227,7 +228,9 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
     </td></tr>
   </table>
 </body>
-</html>`;
+</html>`, [empresaNome, settings, valorFormatted]);
+    const debouncedHtmlContent = useDebouncedValue(htmlContent, 300);
+    const sanitizedHtml = useMemo(() => DOMPurify.sanitize(debouncedHtmlContent), [debouncedHtmlContent]);
 
     return (
         <div className="bg-[#f1f5f9] rounded-2xl border-2 border-border/50 shadow-xl overflow-hidden w-full h-[500px] flex flex-col">
@@ -250,7 +253,7 @@ function FalhaEntregaEmailPreview({ settings, empresaNome }: { settings: FalhaEn
             <div className="flex-1 relative overflow-auto custom-scrollbar bg-slate-100/50 flex">
                 <div className="absolute inset-0 origin-top flex items-start justify-center p-4">
                     <div className="w-full max-w-[600px] shadow-sm transform scale-90 sm:scale-100 origin-top">
-                        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent) }} />
+                        <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
                     </div>
                 </div>
             </div>
