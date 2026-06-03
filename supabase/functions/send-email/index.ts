@@ -1129,7 +1129,7 @@ Deno.serve(async (req) => {
 
     const { data: config } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho, msg_falha_entrega, template_ativo_id")
+      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho, msg_falha_entrega, template_ativo_id, failed_delivery_template_id")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
@@ -1198,18 +1198,27 @@ Deno.serve(async (req) => {
     // Para Falha Entrega / Taxação, busca o corpo_email mais recente no template ATIVO da loja
     // (não no template congelado do envio) para que edições na aba Postagens sejam refletidas
     // imediatamente nos próximos emails.
-    if ((statusLabel === "Falha Entrega" || statusLabel === "Taxação") && config?.template_ativo_id) {
+    if ((isFalhaEntregaLabel(statusLabel, evento.nome as string) || isTaxacaoLabel(statusLabel, evento.nome as string)) && config?.template_ativo_id) {
+      const templateIdForEvent = isFalhaEntregaLabel(statusLabel, evento.nome as string)
+        ? ((config.failed_delivery_template_id as string) || config.template_ativo_id)
+        : config.template_ativo_id;
       const { data: latestEvento } = await supabase
         .from("postagem_eventos")
-        .select("corpo_email, assunto_email")
-        .eq("template_id", config.template_ativo_id)
-        .eq("status_label", statusLabel)
-        .maybeSingle();
-      if (latestEvento?.corpo_email) {
-        (evento as Record<string, unknown>).corpo_email = latestEvento.corpo_email;
+        .select("nome, status_label, corpo_email, assunto_email")
+        .eq("template_id", templateIdForEvent)
+        .order("ordem");
+      const latestMatchingEvento = (latestEvento || []).find((event: Record<string, unknown>) => {
+        const latestStatus = (event.status_label as string) || "";
+        const latestName = (event.nome as string) || "";
+        return isFalhaEntregaLabel(statusLabel, evento.nome as string)
+          ? isFalhaEntregaLabel(latestStatus, latestName)
+          : isTaxacaoLabel(latestStatus, latestName);
+      });
+      if (latestMatchingEvento?.corpo_email) {
+        (evento as Record<string, unknown>).corpo_email = latestMatchingEvento.corpo_email;
       }
-      if (latestEvento?.assunto_email) {
-        (evento as Record<string, unknown>).assunto_email = latestEvento.assunto_email;
+      if (latestMatchingEvento?.assunto_email) {
+        (evento as Record<string, unknown>).assunto_email = latestMatchingEvento.assunto_email;
       }
     }
 
