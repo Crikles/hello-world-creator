@@ -18,6 +18,23 @@ const UF_OPTIONS = [
   "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
+const FAKE_ENVIO = {
+  cliente_nome: "Cliente Exemplo",
+  cliente_cpf: "000.000.000-00",
+  cliente_endereco: "Rua Exemplo",
+  cliente_numero: "123",
+  cliente_bairro: "Centro",
+  cliente_cidade: "São Paulo",
+  cliente_estado: "SP",
+  cliente_cep: "00000-000",
+  produto: "Produto Exemplo",
+  quantidade: 1,
+  valor: 0,
+  cfop: "5102",
+  ncm_sh: "00000000",
+  unidade: "UN",
+} as const;
+
 export default function Empresa() {
   const queryClient = useQueryClient();
   const { loja } = useLoja();
