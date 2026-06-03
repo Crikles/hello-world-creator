@@ -1,65 +1,88 @@
-## Problema
+# Plano: corrigir findings de segurança
 
-A cobrança por pedido está incorreta. O esperado é **1,50 moedas** quando NF-E (0,50) + Email Rastreio (1,00) estão ativos, mas o sistema está debitando **2,00 moedas** (arredondado para cima).
+## 1. Bucket `pix-qrcodes` (Error) — restringir leitura pública
 
-**Causa raiz:** as colunas `creditos.saldo` e `creditos_transacoes.quantidade` são do tipo `INTEGER`. A função `debit_user_credits` recebe `numeric` (1.5), mas:
-- O `UPDATE` do saldo subtrai 1.5 de um campo integer → Postgres arredonda para 2.
-- O `INSERT` na transação faz cast explícito `_quantidade::integer` → também vira 2.
+**Contexto:** o bucket é privado mas existe a política `Public read pix-qrcodes` que libera leitura para qualquer um. O QR code é enviado dentro do email de recuperação (`send-recovery-email`) usando URL pública direta.
 
-Resultado: cada envio cobra 2 moedas em vez de 1,50. Verifiquei no banco — todas as transações recentes "Envio processado (NF-e, E-mail)" estão registradas com `quantidade=2`.
+**Solução:** trocar para URLs assinadas (signed URLs com validade longa, ex.: 30 dias) e remover a política pública.
 
-A lógica de quando cobrar já está correta:
-- O débito acontece em `advance-shipments` no primeiro avanço (currentOrdem === 0), ou seja, quando a NF-E inicia o fluxo.
-- O total soma todos os serviços ativos da loja (NF-E + Email + Taxação + Falha).
-- SMS é cobrado separadamente por etapa (mantido como está).
+- Migration: `DROP POLICY "Public read pix-qrcodes" ON storage.objects` — manter apenas a política do `service_role`.
+- Editar `supabase/functions/send-recovery-email/index.ts` e `supabase/functions/webhook-vega/index.ts`: substituir a construção manual da URL pública por `supabase.storage.from('pix-qrcodes').createSignedUrl(path, 60*60*24*30)`.
 
-## Plano
+## 2. `postagem_eventos` com `loja_id IS NULL` (Warning)
 
-### 1. Migration: suportar valores fracionados em moedas
+**Contexto:** a política `Users own loja postagem_eventos` permite ALL quando `loja_id IS NULL`, deixando qualquer usuário autenticado alterar/deletar eventos de sistema.
 
-- Alterar `public.creditos.saldo` de `INTEGER` para `NUMERIC(10,2)`.
-- Alterar `public.creditos_transacoes.quantidade` de `INTEGER` para `NUMERIC(10,2)`.
-- Reescrever `debit_user_credits` removendo o cast `::integer` no insert.
-- Garantir que `add_user_credits` / fluxos de adição (admin, PIX, etc.) também usem `numeric` — verificar e ajustar se existirem outras funções/inserts diretos.
-
-### 2. Backend / Edge Functions
-
-- Conferir todos os `supabase.rpc("debit_user_credits", ...)` e `INSERT INTO creditos_transacoes` em `advance-shipments`, `send-sms`, `send-email`, `send-recovery-email`, `send-payment-confirmation`, `create-pix-payment`, `admin-manage-user`, `cron-check-pending-pix`, `webhook-*`, `low-balance-alert`, `api-external` — garantir que enviam o valor decimal corretamente (a maioria já lê `costMap` do `system_config` que é numeric, então provavelmente só precisa do schema corrigido).
-
-### 3. Frontend
-
-- Verificar componentes que exibem saldo / histórico (Dashboard, Moedas, header da loja com "46,00 moedas") para garantir que renderizam decimais com 2 casas (`toFixed(2)` ou formatação BRL).
-- Confirmar que filtros / somatórios em relatórios suportam `numeric`.
-
-### 4. Validação
-
-- Após migration, criar um envio de teste com NF-E + Email ativos e validar que:
-  - Saldo cai exatamente 1,50.
-  - Transação aparece como `quantidade = 1.50` em `creditos_transacoes`.
-  - SMS continua sendo cobrado 0,20 por etapa de forma independente.
-
-## Detalhes técnicos
+**Solução:** migration que recria a política removendo o branch NULL no `WITH CHECK`. Leitura de templates de sistema continua, mas escritas em linhas com `loja_id IS NULL` ficam restritas ao `service_role` / admin.
 
 ```sql
-ALTER TABLE public.creditos
-  ALTER COLUMN saldo TYPE NUMERIC(10,2) USING saldo::numeric;
+DROP POLICY "Users own loja postagem_eventos" ON public.postagem_eventos;
 
-ALTER TABLE public.creditos_transacoes
-  ALTER COLUMN quantidade TYPE NUMERIC(10,2) USING quantidade::numeric;
+CREATE POLICY "Users read system or own postagem_eventos"
+  ON public.postagem_eventos FOR SELECT
+  USING (loja_id IS NULL OR user_owns_loja(auth.uid(), loja_id));
 
-CREATE OR REPLACE FUNCTION public.debit_user_credits(
-  _user_id uuid, _quantidade numeric, _descricao text
-) RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE current_saldo numeric;
-BEGIN
-  SELECT saldo INTO current_saldo FROM creditos WHERE user_id = _user_id FOR UPDATE;
-  IF current_saldo IS NULL OR current_saldo < _quantidade THEN RETURN FALSE; END IF;
-  UPDATE creditos SET saldo = saldo - _quantidade, updated_at = now() WHERE user_id = _user_id;
-  INSERT INTO creditos_transacoes (user_id, tipo, quantidade, descricao)
-  VALUES (_user_id, 'consumo', _quantidade, _descricao);
-  RETURN TRUE;
-END $$;
+CREATE POLICY "Users write own postagem_eventos"
+  ON public.postagem_eventos FOR INSERT
+  WITH CHECK (loja_id IS NOT NULL AND user_owns_loja(auth.uid(), loja_id));
+
+CREATE POLICY "Users update own postagem_eventos"
+  ON public.postagem_eventos FOR UPDATE
+  USING (loja_id IS NOT NULL AND user_owns_loja(auth.uid(), loja_id))
+  WITH CHECK (loja_id IS NOT NULL AND user_owns_loja(auth.uid(), loja_id));
+
+CREATE POLICY "Users delete own postagem_eventos"
+  ON public.postagem_eventos FOR DELETE
+  USING (loja_id IS NOT NULL AND user_owns_loja(auth.uid(), loja_id));
+
+CREATE POLICY "Admins manage all postagem_eventos"
+  ON public.postagem_eventos FOR ALL
+  USING (has_role(auth.uid(), 'admin'))
+  WITH CHECK (has_role(auth.uid(), 'admin'));
 ```
 
-**Observação:** transações antigas registradas com `quantidade=2` ficarão como estão (histórico). O ajuste vale apenas para novos débitos. Se quiser, posso também adicionar um script de estorno para devolver a diferença (0,50 por envio cobrado a mais hoje) aos usuários afetados — me avise.
+## 3. Tabela `leads` (Warning) — PII exposta + insert anônimo
+
+**Contexto:** `leads` é preenchida pelo trigger `envio_to_lead` (security definer) e por `admin-manage-user`. A policy `Anyone insert leads` permite qualquer um (até anon) inserir. Donos de loja não têm SELECT.
+
+**Solução:**
+
+```sql
+DROP POLICY "Anyone insert leads" ON public.leads;
+
+-- Sem grant para anon
+REVOKE INSERT ON public.leads FROM anon;
+
+CREATE POLICY "Users view own loja leads"
+  ON public.leads FOR SELECT
+  USING (user_owns_loja(auth.uid(), loja_id));
+
+CREATE POLICY "Service role manage leads"
+  ON public.leads FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+```
+
+Inserts continuam funcionando via trigger `SECURITY DEFINER` e via `admin-manage-user` (que usa service role).
+
+## 4. Extensão `pg_net` em `public` (Warning)
+
+**Solução:** mover para o schema `extensions`:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS extensions;
+ALTER EXTENSION pg_net SET SCHEMA extensions;
+GRANT USAGE ON SCHEMA extensions TO postgres, anon, authenticated, service_role;
+```
+
+Se algum código chama `net.http_post(...)` de forma qualificada, ajustar para `extensions.http_post(...)` — vou verificar nas migrations/funções após aprovação.
+
+## Ordem de execução
+
+1. Migration única consolidando #2, #3 e #4.
+2. Migration separada para #1 (DROP policy) + edição das 2 edge functions para gerar signed URLs.
+3. Rodar scan novamente para confirmar.
+
+## Observações
+
+- Nenhuma quebra funcional esperada: o QR PIX continuará carregando nos emails via signed URL; donos de loja ganham leitura de leads (hoje só admin lê); eventos de sistema continuam visíveis para todos, mas só admins/service role escrevem.
