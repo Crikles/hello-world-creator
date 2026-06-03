@@ -318,7 +318,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
         enabled: !!lojaId,
     });
 
-    const falhaTemplateId = (config as any)?.failed_delivery_template_id || config?.template_ativo_id;
+    const falhaTemplateId = config?.failed_delivery_template_id || config?.template_ativo_id;
 
     const { data: falhaEvento } = useQuery({
         queryKey: ["falha-evento", falhaTemplateId],
@@ -334,7 +334,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
         enabled: !!falhaTemplateId,
     });
 
-    const set = (key: keyof FalhaEntregaSettings, val: any) =>
+    const set = (key: keyof FalhaEntregaSettings, val: FalhaEntregaSettings[keyof FalhaEntregaSettings]) =>
         setSettings((prev) => ({ ...prev, [key]: val }));
 
     const hasChanges = useMemo(() => {
@@ -426,9 +426,9 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
             }
             const localStored = loadSettings(lojaId);
             const loaded: FalhaEntregaSettings = {
-                msg_falha_entrega: (config as any).msg_falha_entrega || DEFAULT_SETTINGS.msg_falha_entrega,
-                checkout_url_falha: (config as any).checkout_url_falha || "",
-                valor_taxa_falha: ((config as any).valor_taxa_falha || 0).toString(),
+                msg_falha_entrega: config.msg_falha_entrega || DEFAULT_SETTINGS.msg_falha_entrega,
+                checkout_url_falha: config.checkout_url_falha || "",
+                valor_taxa_falha: (config.valor_taxa_falha || 0).toString(),
                 cor_botao: colorSettings.cor_botao || localStored.cor_botao || DEFAULT_SETTINGS.cor_botao,
                 cor_destaque: colorSettings.cor_destaque || localStored.cor_destaque || DEFAULT_SETTINGS.cor_destaque,
                 cor_titulo_resumo: colorSettings.cor_titulo_resumo || localStored.cor_titulo_resumo || DEFAULT_SETTINGS.cor_titulo_resumo,
