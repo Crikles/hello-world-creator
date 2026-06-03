@@ -1165,6 +1165,25 @@ Deno.serve(async (req) => {
       Object.assign(extras, vizinhoExtras);
     }
 
+    // Para Falha Entrega / Taxação, busca o corpo_email mais recente no template ATIVO da loja
+    // (não no template congelado do envio) para que edições na aba Postagens sejam refletidas
+    // imediatamente nos próximos emails.
+    if ((statusLabel === "Falha Entrega" || statusLabel === "Taxação") && config?.template_ativo_id) {
+      const { data: latestEvento } = await supabase
+        .from("postagem_eventos")
+        .select("corpo_email, assunto_email")
+        .eq("template_id", config.template_ativo_id)
+        .eq("status_label", statusLabel)
+        .maybeSingle();
+      if (latestEvento?.corpo_email) {
+        (evento as Record<string, unknown>).corpo_email = latestEvento.corpo_email;
+      }
+      if (latestEvento?.assunto_email) {
+        (evento as Record<string, unknown>).assunto_email = latestEvento.assunto_email;
+      }
+    }
+
+
     // Build beautiful HTML email
     const subject = replaceVariables(
       evento.assunto_email || "Atualização do seu pedido",
