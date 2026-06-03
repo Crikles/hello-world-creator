@@ -123,8 +123,10 @@ export default function AdminSuporte() {
     mutationFn: async (value: number) => {
       const { error } = await supabase
         .from("system_config")
-        .update({ value, updated_at: new Date().toISOString() })
-        .eq("key", "whatsapp_suporte");
+        .upsert(
+          { key: "whatsapp_suporte", value, updated_at: new Date().toISOString() },
+          { onConflict: "key" }
+        );
       if (error) throw error;
     },
     onSuccess: () => {
