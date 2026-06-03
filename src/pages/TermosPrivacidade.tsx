@@ -6,16 +6,39 @@ interface Props {
 
 export default function TermosPrivacidade({ tipo }: Props) {
   const provider = getLogisticsProvider();
-  const isVetor = provider === "vetor";
 
-  const empresa = isVetor ? "Vetor Transportes Ltda" : "JL Transporte e Logística";
-  const empresaCurta = isVetor ? "Vetor Transportes" : "JL Transportes";
-  const site = isVetor ? "vetortransportesltda.com" : "rastreio.jltransportelogistica.com";
-  const email = isVetor ? "contato@vetortransportesltda.com" : "contato@jltransportelogistica.com";
+  const brand =
+    provider === "atlas"
+      ? {
+          empresa: "Atlas Cargo Transportes Ltda",
+          empresaCurta: "Atlas Cargo",
+          site: "atlas-cargo.org",
+          email: "contato@atlas-cargo.org",
+          accent: "#f59e0b",
+          accentDark: "#d97706",
+          bgBody: "#fffbeb",
+        }
+      : provider === "vetor"
+      ? {
+          empresa: "Vetor Transportes Ltda",
+          empresaCurta: "Vetor Transportes",
+          site: "vetortransportesltda.com",
+          email: "contato@vetortransportesltda.com",
+          accent: "#22c55e",
+          accentDark: "#16a34a",
+          bgBody: "#f0fdf4",
+        }
+      : {
+          empresa: "JL Transporte e Logística",
+          empresaCurta: "JL Transportes",
+          site: "rastreio.jltransportelogistica.com",
+          email: "contato@jltransportelogistica.com",
+          accent: "#6366f1",
+          accentDark: "#4f46e5",
+          bgBody: "#eef2ff",
+        };
 
-  const accent = isVetor ? "#22c55e" : "#6366f1";
-  const accentDark = isVetor ? "#16a34a" : "#4f46e5";
-  const bgBody = isVetor ? "#f0fdf4" : "#eef2ff";
+  const { empresa, empresaCurta, site, email, accent, accentDark, bgBody } = brand;
 
   const styles = `
     .tp-page { font-family: 'Inter', system-ui, sans-serif; background: ${bgBody}; min-height: 100vh; color: #1e293b; }
