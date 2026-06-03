@@ -231,42 +231,22 @@ export default function Empresa() {
     document.body.removeChild(container);
   };
 
-  const danfeHtml = buildDanfeHtml(form, {
-    cliente_nome: "Cliente Exemplo",
-    cliente_cpf: "000.000.000-00",
-    cliente_endereco: "Rua Exemplo",
-    cliente_numero: "123",
-    cliente_bairro: "Centro",
-    cliente_cidade: "São Paulo",
-    cliente_estado: "SP",
-    cliente_cep: "00000-000",
-    produto: "Produto Exemplo",
-    quantidade: 1,
-    valor: 0,
-    cfop: "5102",
-    ncm_sh: "00000000",
-    unidade: "UN",
-  });
+  const danfeHtml = useMemo(() => buildDanfeHtml(form, FAKE_ENVIO), [form]);
 
   const [debouncedHtml, setDebouncedHtml] = useState(danfeHtml);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedHtml(danfeHtml), 300);
+    const timer = setTimeout(() => {
+      const apply = () => setDebouncedHtml(danfeHtml);
+      const ric = (window as any).requestIdleCallback;
+      if (typeof ric === "function") {
+        ric(apply, { timeout: 1000 });
+      } else {
+        apply();
+      }
+    }, 500);
     return () => clearTimeout(timer);
   }, [danfeHtml]);
-
-  useEffect(() => {
-    const iframe = previewIframeRef.current;
-    if (!iframe?.contentWindow) return;
-    try {
-      const doc = iframe.contentWindow.document;
-      doc.open();
-      doc.write(debouncedHtml);
-      doc.close();
-    } catch (e) {
-      // fallback
-    }
-  }, [debouncedHtml, iframeReady]);
 
   return (
     <>
