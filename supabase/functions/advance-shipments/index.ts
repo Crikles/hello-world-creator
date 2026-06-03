@@ -815,11 +815,13 @@ async function advanceShipment(
     if (allEvents.length === 0) return false;
 
     // Filter events based on config
-    const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
-    const taxLabels = ["Taxação", "Taxacao", "Pago"];
+    const falhaNomes = ["Falha Entrega"];
+    const taxNomes = ["Taxação", "Taxacao"];
     const filteredEvents = allEvents.filter((e: any) => {
-      if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
-      if (!config.ativar_taxacao && taxLabels.includes(e.status_label || "")) return false;
+      const en = (e.nome || "").trim();
+      if (!config.ativar_falha_entrega && falhaNomes.includes(en)) return false;
+      if (!config.ativar_taxacao && taxNomes.includes(en)) return false;
+      if (en === "Pago" && !config.ativar_taxacao && !config.ativar_falha_entrega) return false;
       if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
       return true;
     });
@@ -833,20 +835,29 @@ async function advanceShipment(
 
     const currentOrdem = shipment.ultimo_evento_ordem ?? 0;
 
-    // Pause labels already filtered at SQL level (.not("status_label", "in", ...))
-    // No redundant check needed here
-
     // deno-lint-ignore no-explicit-any
     const nextEvent = filteredEvents.find((e: any) => e.ordem > currentOrdem);
     if (!nextEvent) return false;
 
+    const nextNome = (nextEvent.nome || "").trim();
+
+    // ── REGRA: cron NUNCA avança automaticamente para eventos de aprovação manual ──
+    // (Falha Entrega, Taxação, Pago, Entregue)
+    const manualOnlyNomes = ["Pago", "Entregue"];
+    if (manualOnlyNomes.includes(nextNome)) {
+      // Lead permanece parado no evento atual (Falha Entrega / Taxação) aguardando aprovação manual
+      await supabase
+        .from("envios")
+        .update({ proximo_avanco_em: null })
+        .eq("id", envioId);
+      return false;
+    }
+
     // ── REGRA: cron NUNCA avança para "Entregue" — confirmação manual obrigatória ──
     const isFinalDelivered =
-      nextEvent.status_label === "Entregue" ||
+      nextNome === "Entregue" ||
       filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
     if (isFinalDelivered) {
-      // Marca como aguardando confirmação manual e remove da fila do cron
-      // (caso contrário entraria em loop infinito a cada execução, saturando o batch)
       await supabase
         .from("envios")
         .update({ status: "saiu_para_entrega", proximo_avanco_em: null })
