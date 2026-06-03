@@ -168,7 +168,7 @@ export default function Envios() {
       return 'vetortransportesltda.com';
     }
     if (isAtlas(envio)) {
-      return 'rastreio.atlastransportes.com';
+      return 'atlas-cargo.org';
     }
     return 'rastreio.jltransportelogistica.com';
   }, [isVetor, isAtlas]);
