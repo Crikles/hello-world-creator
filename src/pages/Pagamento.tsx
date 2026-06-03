@@ -102,7 +102,7 @@ export default function Pagamento() {
 
     useEffect(() => {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(envioId || "");
-        if (!envioId || !isUuid) {
+        if (!envioId) {
             setError("Link de pagamento inválido ou expirado");
             setLoading(false);
             return;
@@ -112,8 +112,11 @@ export default function Pagamento() {
             try {
                 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
                 const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                const param = isUuid
+                    ? `envio_id=${encodeURIComponent(envioId)}`
+                    : `codigo=${encodeURIComponent(envioId)}`;
                 const response = await fetch(
-                    `${supabaseUrl}/functions/v1/pagamento-info?envio_id=${envioId}`,
+                    `${supabaseUrl}/functions/v1/pagamento-info?${param}`,
                     {
                         method: "GET",
                         headers: { "Authorization": `Bearer ${anonKey}`, "apikey": anonKey },
