@@ -511,7 +511,7 @@ Deno.serve(async (req) => {
         .neq("status", "saiu_para_entrega") // evento "Entregue" requer confirmação manual
         .gt("ultimo_evento_ordem", 0)
         .is("deleted_at", null)
-        .not("nome", "in", '("Falha Entrega","Taxação","Taxacao","Pago","Entregue")')
+        // Pause é decidida em advanceShipment() via nome do próximo evento
         .or(`proximo_avanco_em.is.null,proximo_avanco_em.lte.${now}`)
         .order("created_at", { ascending: true })
         .limit(lojaLimit);
