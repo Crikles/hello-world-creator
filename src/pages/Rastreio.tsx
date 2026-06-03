@@ -1214,10 +1214,10 @@ export default function Rastreio() {
                                                                     </div>
                                                                 )}
                                                                 {ev.status_label === "Taxação" && envio && (
-                                                                    <a href={`/p/${envio.id}`} style={{ display:'inline-block', marginTop:8, padding:'8px 20px', background:'#ef4444', color:'#fff', borderRadius:8, fontSize:13, fontWeight:700, textDecoration:'none' }}>Pagar taxa</a>
+                                                                    <a href={`/p/${envio.id}`} style={{ display:'inline-block', marginTop:10, padding:'10px 24px', background:'#ef4444', color:'#fff', borderRadius:8, fontSize:13, fontWeight:800, letterSpacing:'0.5px', textDecoration:'none', boxShadow:'0 4px 12px rgba(239,68,68,0.35)' }}>PAGAR TAXA →</a>
                                                                 )}
                                                                 {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
-                                                                    <a href={`/f/${envio.id}`} style={{ display:'inline-block', marginTop:8, padding:'8px 20px', background:'#ea580c', color:'#fff', borderRadius:8, fontSize:13, fontWeight:700, textDecoration:'none' }}>Pagar reenvio / frete</a>
+                                                                    <a href={`/f/${envio.id}`} style={{ display:'inline-block', marginTop:10, padding:'10px 24px', background:'#ea580c', color:'#fff', borderRadius:8, fontSize:13, fontWeight:800, letterSpacing:'0.5px', textDecoration:'none', boxShadow:'0 4px 12px rgba(234,88,12,0.35)' }}>PAGAR REENVIO →</a>
                                                                 )}
                                                                 <span className="point-date-correios">
                                                                     {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
