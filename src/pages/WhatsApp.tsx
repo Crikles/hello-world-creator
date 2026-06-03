@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import DOMPurify from "dompurify";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -377,6 +378,34 @@ export default function WhatsApp() {
     const [btn2Url, setBtn2Url] = useState("");
     const [autoSend, setAutoSend] = useState(false);
     const [delayMinutes, setDelayMinutes] = useState(5);
+
+    // Debounce preview-heavy inputs to keep typing smooth
+    const debouncedMsgTemplate = useDebouncedValue(msgTemplate, 250);
+    const sanitizedPreviewMsg = useMemo(() => {
+        const fallback = {
+            cliente_nome: "João Silva",
+            produto: "Tênis Nike Air Max",
+            valor: 299.90,
+            codigo_rastreio: "BR123456789XX",
+            cliente_endereco: "Rua das Flores",
+            cliente_numero: "123",
+            cliente_bairro: "Centro",
+            cliente_cidade: "São Paulo",
+            cliente_estado: "SP",
+            cliente_cep: "01000-000",
+            cliente_cpf: "123.456.789-00",
+            cliente_email: "joao@email.com",
+            cliente_telefone: "11999999999",
+        };
+        try {
+            const raw = previewEnvio
+                ? replaceVars(debouncedMsgTemplate, previewEnvio)
+                : replaceVars(debouncedMsgTemplate, fallback);
+            return DOMPurify.sanitize(formatWhatsAppText(raw));
+        } catch {
+            return "";
+        }
+    }, [debouncedMsgTemplate, previewEnvio]);
 
     useEffect(() => {
         if (config) {
@@ -1231,25 +1260,7 @@ export default function WhatsApp() {
                                             <div className="p-3">
                                                 <p className="text-sm text-white whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{
-                                                        __html: DOMPurify.sanitize(formatWhatsAppText(
-                                                            previewEnvio
-                                                                ? replaceVars(msgTemplate, previewEnvio)
-                                                                : replaceVars(msgTemplate, {
-                                                                    cliente_nome: "João Silva",
-                                                                    produto: "Tênis Nike Air Max",
-                                                                    valor: 299.90,
-                                                                    codigo_rastreio: "BR123456789XX",
-                                                                    cliente_endereco: "Rua das Flores",
-                                                                    cliente_numero: "123",
-                                                                    cliente_bairro: "Centro",
-                                                                    cliente_cidade: "São Paulo",
-                                                                    cliente_estado: "SP",
-                                                                    cliente_cep: "01000-000",
-                                                                    cliente_cpf: "123.456.789-00",
-                                                                    cliente_email: "joao@email.com",
-                                                                    cliente_telefone: "11999999999",
-                                                                })
-                                                        )),
+                                                        __html: sanitizedPreviewMsg,
                                                     }}
                                                 />
                                                 {footerText && <p className="text-[10px] text-white/40 mt-2">{footerText}</p>}
