@@ -138,10 +138,73 @@ export default function AdminBackup() {
               Apenas registros novos/atualizados são enviados a cada execução.
             </p>
           </div>
-          <Button onClick={runBackup} disabled={running}>
-            {running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Rodar agora
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={runBackup} disabled={running || restoring}>
+              {running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Rodar backup agora
+            </Button>
+            <Dialog open={restoreOpen} onOpenChange={setRestoreOpen}>
+              <DialogTrigger asChild>
+                <Button variant="destructive" disabled={running || restoring}>
+                  {restoring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                  Restaurar do Drive
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" /> Restauração completa
+                  </DialogTitle>
+                  <DialogDescription>
+                    Esta ação vai ler todos os backups do Google Drive e sobrescrever os
+                    registros existentes no banco (upsert por id). Use somente em caso de
+                    perda de dados ou em um projeto novo/vazio.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>O que NÃO é restaurado</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Chaves do Resend, Cyberpay, Integrax, VAPID, UAZAPI, etc. são <strong>variáveis
+                    de ambiente</strong> da plataforma — não ficam no Drive. Após restaurar, reconfigure
+                    esses segredos em Admin → Secrets. Tudo o que está nas tabelas (contas, envios,
+                    pedidos, templates, integrações de checkout/Shopify com suas api_keys, créditos,
+                    lojas, configurações, etc.) <strong>é restaurado</strong>.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-2">
+                  <Label>Pasta específica (opcional, formato AAAA-MM-DD)</Label>
+                  <Input
+                    placeholder="Em branco = consolida todas as pastas (versão mais recente vence)"
+                    value={restoreFolder}
+                    onChange={(e) => setRestoreFolder(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Digite <strong>RESTAURAR</strong> para confirmar</Label>
+                  <Input
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder="RESTAURAR"
+                  />
+                </div>
+
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setRestoreOpen(false)}>Cancelar</Button>
+                  <Button
+                    variant="destructive"
+                    disabled={confirmText !== "RESTAURAR"}
+                    onClick={runRestore}
+                  >
+                    Executar restauração
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
