@@ -1170,6 +1170,9 @@ Deno.serve(async (req) => {
     const upsellTipoMap: Record<string, string> = {
       "Postado": "nfe",
       "Nota Fiscal Emitida": "nfe",
+      "NF-e": "nfe",
+      "NF-E": "nfe",
+      "Nota Fiscal": "nfe",
       "Coletado": "coletado",
     };
     const upsellTipo = upsellTipoMap[statusLabel] || null;
