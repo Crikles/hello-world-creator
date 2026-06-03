@@ -61,6 +61,20 @@ export default function AdminBackup() {
     refetchInterval: running ? 3000 : 60000,
   });
 
+  const restoreRuns = useQuery({
+    queryKey: ["restore-runs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("restore_runs")
+        .select("*")
+        .order("started_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+    refetchInterval: restoring ? 3000 : 60000,
+  });
+
   const runBackup = async () => {
     setRunning(true);
     toast.info("Backup iniciado, isso pode levar alguns minutos...");
@@ -77,6 +91,35 @@ export default function AdminBackup() {
       toast.error("Erro no backup: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setRunning(false);
+    }
+  };
+
+  const runRestore = async () => {
+    if (confirmText !== "RESTAURAR") {
+      toast.error('Digite exatamente RESTAURAR para confirmar.');
+      return;
+    }
+    setRestoring(true);
+    setRestoreOpen(false);
+    toast.info("Restauração iniciada, isso pode levar vários minutos...");
+    try {
+      const { data, error } = await supabase.functions.invoke("restore-from-drive", {
+        body: {
+          confirm: "RESTAURAR",
+          folder: restoreFolder.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+      toast.success(
+        `Restauração concluída! ${data?.totalRows ?? 0} linhas em ${data?.tablesProcessed ?? 0} tabelas.`,
+      );
+      setConfirmText("");
+      setRestoreFolder("");
+      restoreRuns.refetch();
+    } catch (e) {
+      toast.error("Erro na restauração: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setRestoring(false);
     }
   };
 
