@@ -315,7 +315,7 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                 .from("postagem_eventos")
                 .select("*")
                 .eq("template_id", config!.template_ativo_id!)
-                .eq("status_label", "Falha Entrega")
+                .eq("nome", "Falha Entrega")
                 .maybeSingle();
             return data;
         },
