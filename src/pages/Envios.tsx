@@ -163,15 +163,10 @@ export default function Envios() {
     return false;
   }, []);
 
-  const getTrackingDomain = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
-    if (isVetor(envio)) {
-      return 'vetortransportesltda.com';
-    }
-    if (isAtlas(envio)) {
-      return 'atlas-cargo.org';
-    }
-    return 'rastreio.jltransportelogistica.com';
-  }, [isVetor, isAtlas]);
+  const getTrackingDomain = useCallback((_envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
+    // JL e Vetor descontinuados — sempre Atlas.
+    return 'atlas-cargo.org';
+  }, []);
 
   // Batch advance state (global context)
   const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep, checkCancelled } = useBatchProgress();

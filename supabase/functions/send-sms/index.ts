@@ -98,35 +98,8 @@ Deno.serve(async (req) => {
     const firstName = (envio.cliente_nome || "").split(" ")[0];
     const code = envio.codigo_rastreio || "";
 
-    // Resolve provider: loja.logistica_provider > sufixo do código > transportadora > atlas
-    const PROVIDER_BASE_URLS: Record<string, string> = {
-      vetor: "https://vetortransportesltda.com",
-      atlas: "https://atlas-cargo.org",
-      jl: "https://rastreio.jltransportelogistica.com",
-    };
-    let provider: string | null = null;
-    const lojaId = envio.loja_id || (loja_id as string | undefined) || null;
-    if (lojaId) {
-      const { data: loja } = await supabase
-        .from("lojas")
-        .select("logistica_provider")
-        .eq("id", lojaId)
-        .maybeSingle();
-      if (loja?.logistica_provider) provider = loja.logistica_provider;
-    }
-    if (!provider) {
-      const upper = code.toUpperCase();
-      if (upper.endsWith("VT")) provider = "vetor";
-      else if (upper.endsWith("AT")) provider = "atlas";
-      else if (upper.endsWith("JL")) provider = "jl";
-    }
-    if (!provider) {
-      const t = (envio.transportadora || "").toUpperCase();
-      if (t.includes("VETOR")) provider = "vetor";
-      else if (t.includes("ATLAS")) provider = "atlas";
-      else if (t.includes("JL")) provider = "jl";
-    }
-    const baseUrl = (provider && PROVIDER_BASE_URLS[provider]) || PROVIDER_BASE_URLS.atlas;
+    // JL e Vetor descontinuados — todo link aponta para Atlas.
+    const baseUrl = "https://atlas-cargo.org";
     const link = `${baseUrl}/r/${code}`;
 
     const message = removeAccents(
