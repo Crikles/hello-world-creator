@@ -29,6 +29,10 @@ function fmtBytes(n: number | null | undefined) {
 
 export default function AdminBackup() {
   const [running, setRunning] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [restoreFolder, setRestoreFolder] = useState("");
 
   const runs = useQuery({
     queryKey: ["backup-runs"],
