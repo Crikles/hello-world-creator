@@ -693,10 +693,10 @@ export default function Rastreio() {
                                                                 <span className="vt-tl-date">
                                                                     {eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                 </span>
-                                                                {ev.status_label === "Taxação" && envio && (
+                                                                {(ev.nome === "Taxação" || ev.nome === "Taxacao") && envio && (
                                                                     <a href={`/p/${envio.id}`} className="vt-action-btn">Pagar taxa</a>
                                                                 )}
-                                                                {(ev.status_label === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
+                                                                {(ev.nome === "Falha Entrega" || ev.nome === "Falha na Entrega") && envio && (
                                                                     <a href={`/f/${envio.id}`} className="vt-action-btn">Pagar reenvio / frete</a>
                                                                 )}
                                                             </div>
