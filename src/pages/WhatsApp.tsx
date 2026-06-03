@@ -379,6 +379,34 @@ export default function WhatsApp() {
     const [autoSend, setAutoSend] = useState(false);
     const [delayMinutes, setDelayMinutes] = useState(5);
 
+    // Debounce preview-heavy inputs to keep typing smooth
+    const debouncedMsgTemplate = useDebouncedValue(msgTemplate, 250);
+    const sanitizedPreviewMsg = useMemo(() => {
+        const fallback = {
+            cliente_nome: "João Silva",
+            produto: "Tênis Nike Air Max",
+            valor: 299.90,
+            codigo_rastreio: "BR123456789XX",
+            cliente_endereco: "Rua das Flores",
+            cliente_numero: "123",
+            cliente_bairro: "Centro",
+            cliente_cidade: "São Paulo",
+            cliente_estado: "SP",
+            cliente_cep: "01000-000",
+            cliente_cpf: "123.456.789-00",
+            cliente_email: "joao@email.com",
+            cliente_telefone: "11999999999",
+        };
+        try {
+            const raw = previewEnvio
+                ? replaceVars(debouncedMsgTemplate, previewEnvio)
+                : replaceVars(debouncedMsgTemplate, fallback);
+            return DOMPurify.sanitize(formatWhatsAppText(raw));
+        } catch {
+            return "";
+        }
+    }, [debouncedMsgTemplate, previewEnvio]);
+
     useEffect(() => {
         if (config) {
             setMsgTemplate(config.whatsapp_msg_template || DEFAULT_TEMPLATE);
