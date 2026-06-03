@@ -72,15 +72,18 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             return null;
         }
 
-        // Filter out "Falha Entrega/Falha na Entrega" if config.ativar_falha_entrega is not true
-        const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
-        const taxLabels = ["Taxação", "Taxacao", "Pago"];
+        // Filter out "Falha Entrega/Pago" if config.ativar_falha_entrega is not true
+        const falhaNomes = ["Falha Entrega"];
+        const taxNomes = ["Taxação", "Taxacao"];
         const filteredEvents = allEvents.filter(e => {
-            if (falhaLabels.includes(e.status_label || "") && !(config as any).ativar_falha_entrega) {
+            const evNome = (e.nome || "").trim();
+            if (falhaNomes.includes(evNome) && !(config as any).ativar_falha_entrega) {
                 return false;
             }
-            // Remove Taxação/Pago events when ativar_taxacao is disabled
-            if (taxLabels.includes(e.status_label || "") && !config.ativar_taxacao) return false;
+            // Remove Taxação events when ativar_taxacao is disabled
+            if (taxNomes.includes(evNome) && !config.ativar_taxacao) return false;
+            // "Pago" event belongs to whichever flow is active; remove if both disabled
+            if (evNome === "Pago" && !config.ativar_taxacao && !(config as any).ativar_falha_entrega) return false;
             // Remove NF-e events when enviar_nfe_email is disabled
             if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
             return true;
