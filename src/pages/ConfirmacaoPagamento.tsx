@@ -624,7 +624,7 @@ export default function ConfirmacaoPagamento() {
   useEffect(() => {
     if (config) {
       setAtivo(config.ativo);
-      setEnviarEmail(config.enviar_email);
+      // enviar_email é sempre true; o gate real é o master `ativo`
       setEnviarSms(config.enviar_sms);
       setAssuntoEmail(config.assunto_email);
       setSmsTemplate(config.sms_template);
