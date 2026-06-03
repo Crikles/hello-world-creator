@@ -608,7 +608,7 @@ export default function ConfirmacaoPagamento() {
 
   // Local state
   const [ativo, setAtivo] = useState(false);
-  const [enviarEmail, setEnviarEmail] = useState(true);
+  const enviarEmail = true;
   const [enviarSms, setEnviarSms] = useState(true);
   const [assuntoEmail, setAssuntoEmail] = useState("Pagamento Confirmado! ✅ Seu pedido {{produto}} foi aprovado");
   const [smsTemplate, setSmsTemplate] = useState("Ola {{nome}}! Seu pagamento de R${{valor}} foi confirmado. Obrigado pela compra!");
