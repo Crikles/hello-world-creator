@@ -16,6 +16,18 @@
       (function () {
         try {
           var host = (location.hostname || '').toLowerCase().trim();
+
+          // JL e Vetor foram descontinuados — JL virou Atlas. Redirect imediato preservando path.
+          if (
+            host === 'jltransportelogistica.com' ||
+            host.endsWith('.jltransportelogistica.com') ||
+            host === 'vetortransportesltda.com' ||
+            host === 'www.vetortransportesltda.com'
+          ) {
+            location.replace('https://atlas-cargo.org' + location.pathname + location.search + location.hash);
+            return;
+          }
+
           var MAGNUS = ['magnusfrete.net','www.magnusfrete.net'];
           var isLovablePreview =
             host === 'localhost' || host === '127.0.0.1' ||
@@ -26,11 +38,7 @@
             var s = document.createElement('style');
             s.textContent = 'html,body{background:#0b0f17 !important;}#root:empty{min-height:100vh;background:#0b0f17;}';
             document.head.appendChild(s);
-            var title = 'Rastreamento';
-            if (host.indexOf('atlas') !== -1) title = 'Atlas Cargo — Rastreamento';
-            else if (host.indexOf('vetor') !== -1) title = 'Vetor Transportes — Rastreamento';
-            else if (host.indexOf('jltransporte') !== -1) title = 'JL Transportes — Rastreamento';
-            document.title = title;
+            document.title = 'Atlas Cargo — Rastreamento';
           }
         } catch (e) {}
       })();
