@@ -75,6 +75,16 @@ function saveSettings(lojaId: string, settings: FalhaEntregaSettings) {
     localStorage.setItem(STORAGE_KEY + lojaId, JSON.stringify(settings));
 }
 
+function buildFalhaCorpoEmail(settings: FalhaEntregaSettings) {
+    return `${settings.msg_falha_entrega}\n\n{{falha_cor_botao:${settings.cor_botao}}}{{falha_cor_destaque:${settings.cor_destaque}}}{{falha_cor_titulo_resumo:${settings.cor_titulo_resumo}}}{{falha_cor_label_taxa:${settings.cor_label_taxa}}}{{falha_cor_descricao:${settings.cor_descricao}}}{{falha_cor_fundo_descricao:${settings.cor_fundo_descricao}}}{{falha_cor_borda_descricao:${settings.cor_borda_descricao}}}{{falha_mensagem_site:${settings.mensagem_site}}}`;
+}
+
+function isFalhaEntregaEvento(evento: { nome?: string | null; status_label?: string | null }) {
+    const nome = (evento.nome || "").toLowerCase();
+    const status = (evento.status_label || "").toLowerCase();
+    return nome.includes("falha") || status.includes("falha");
+}
+
 /* ─────────────────────── Color Picker Helper ─────────────────────── */
 
 function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -308,18 +318,20 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
         enabled: !!lojaId,
     });
 
+    const falhaTemplateId = (config as any)?.failed_delivery_template_id || config?.template_ativo_id;
+
     const { data: falhaEvento } = useQuery({
-        queryKey: ["falha-evento", config?.template_ativo_id],
+        queryKey: ["falha-evento", falhaTemplateId],
         queryFn: async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from("postagem_eventos")
                 .select("*")
-                .eq("template_id", config!.template_ativo_id!)
-                .eq("nome", "Falha Entrega")
-                .maybeSingle();
-            return data;
+                .eq("template_id", falhaTemplateId!)
+                .order("ordem");
+            if (error) throw error;
+            return (data || []).find(isFalhaEntregaEvento) || null;
         },
-        enabled: !!config?.template_ativo_id,
+        enabled: !!falhaTemplateId,
     });
 
     const set = (key: keyof FalhaEntregaSettings, val: any) =>
@@ -342,13 +354,45 @@ export function FalhaEntregaConfig({ lojaId, falhaEntregaAtivo }: FalhaEntregaCo
                 .eq("loja_id", lojaId);
             if (error) throw error;
 
-            // Also persist color settings to the Falha Entrega evento corpo_email
-            if (falhaEvento) {
-                const corpoEmail = `${settings.msg_falha_entrega}\n\n{{falha_cor_botao:${settings.cor_botao}}}{{falha_cor_destaque:${settings.cor_destaque}}}{{falha_cor_titulo_resumo:${settings.cor_titulo_resumo}}}{{falha_cor_label_taxa:${settings.cor_label_taxa}}}{{falha_cor_descricao:${settings.cor_descricao}}}{{falha_cor_fundo_descricao:${settings.cor_fundo_descricao}}}{{falha_cor_borda_descricao:${settings.cor_borda_descricao}}}{{falha_mensagem_site:${settings.mensagem_site}}}`;
-                await supabase
+            if (!falhaTemplateId) throw new Error("Template ativo não encontrado para salvar a Falha na Entrega.");
+
+            const corpoEmail = buildFalhaCorpoEmail(settings);
+            let eventoId = falhaEvento?.id;
+
+            if (!eventoId) {
+                const { data: eventos, error: eventosError } = await supabase
                     .from("postagem_eventos")
-                    .update({ corpo_email: corpoEmail })
-                    .eq("id", falhaEvento.id);
+                    .select("id, nome, status_label, ordem")
+                    .eq("template_id", falhaTemplateId)
+                    .order("ordem");
+                if (eventosError) throw eventosError;
+                eventoId = (eventos || []).find(isFalhaEntregaEvento)?.id;
+            }
+
+            if (eventoId) {
+                const { error: eventoError } = await supabase
+                    .from("postagem_eventos")
+                    .update({ corpo_email: corpoEmail, nome: "Falha Entrega" })
+                    .eq("id", eventoId);
+                if (eventoError) throw eventoError;
+            } else {
+                const { error: insertError } = await supabase
+                    .from("postagem_eventos")
+                    .insert({
+                        template_id: falhaTemplateId,
+                        loja_id: lojaId,
+                        nome: "Falha Entrega",
+                        status_label: "Falha Entrega",
+                        descricao: "Falha na entrega — pagar reenvio",
+                        ordem: 5,
+                        delay_horas: 0,
+                        enviar_email: true,
+                        enviar_nfe_pdf: false,
+                        is_final: false,
+                        corpo_email: corpoEmail,
+                        assunto_email: "Falha na entrega do seu pedido",
+                    });
+                if (insertError) throw insertError;
             }
         },
         onSuccess: () => {
