@@ -1,40 +1,52 @@
-## Problema
+## Problemas identificados
 
-`src/lib/domain-config.ts` usa uma **allowlist de domínios de logística**. Qualquer host fora dessa lista (incluindo variações como subdomínio errado, host inesperado, ou um match que falhe por capitalização/whitespace) cai no fallback **PanelRoutes** (painel Magnus). Isso é arriscado: basta um host de logística não previsto para o lead ver a Magnus.
+1. **A edge function `redirect`** (usada nos links curtos do Resend/SMS — `…supabase.co/functions/v1/redirect?c=…`) só conhece dois caminhos:
+   - Se código termina em `VT` → vetortransportesltda.com
+   - Senão → lê `system_config.tracking_base_url` (hoje aponta para `rastreio.jltransportelogistica.com`).
+   - **Nunca consulta `lojas.logistica_provider`**, então mesmo com a loja setada como `atlas`, o link cai na JL.
 
-## Solução: inverter a lógica para allowlist da Magnus
+2. **`supabase/functions/send-sms/index.ts`** monta o link com a mesma lógica binária (Vetor vs JL). Ignora Atlas.
 
-A Magnus só deve aparecer em domínios explicitamente conhecidos. Tudo o mais é tratado como rota pública de rastreio.
+3. **`src/pages/Envios.tsx` (getTrackingDomain)** usa `rastreio.atlastransportes.com` para Atlas — domínio inexistente. O correto é `atlas-cargo.org`.
 
-### Mudanças em `src/lib/domain-config.ts`
+4. **`src/pages/Postagens.tsx`** usa `"jl"` como fallback do provider quando a loja não tem valor. O padrão pedido é `atlas`.
 
-1. Adicionar `MAGNUS_DOMAINS` (allowlist restrita):
-   - `magnusfrete.net`, `www.magnusfrete.net`
-   - hosts internos do Lovable: qualquer host terminando em `.lovable.app` e `localhost` / `127.0.0.1` (para preview/dev)
-2. Adicionar `isMagnusDomain()` baseado nessa allowlist (normaliza com `toLowerCase().trim()` e checa `endsWith` para `.lovable.app`).
-3. Atualizar `isLogisticsDomain()` para retornar `!isMagnusDomain()` — ou seja, **qualquer domínio que não seja Magnus comprovada vira logística**.
-4. Manter `getLogisticsProvider()` com mapeamento explícito por host (atlas/vetor/jl); adicionar fallback `'atlas'` quando o host contém `atlas` mas não bate exatamente (proteção extra para `www.` futuros, subdomínios, etc. específicos de atlas-cargo.org).
+5. Confirmado no banco: as 2 lojas existentes já estão com `logistica_provider = 'atlas'`. O bug é puramente de roteamento dos links.
 
-### Mudança em `src/App.tsx`
+## Mudanças
 
-Nenhuma mudança estrutural — apenas se beneficia da nova lógica invertida. `logistics ? <LogisticsRoutes /> : <PanelRoutes />` continua igual, mas agora o "default seguro" é logística, não painel.
+### A. `supabase/functions/redirect/index.ts` — roteamento por provider da loja
+Resolver `loja_id` a partir do envio (via `c=` código ou `p=`/`f=` id) e ler `lojas.logistica_provider`. Mapear:
 
-### Defesa extra no `PanelRoutes`
+- `vetor` → `https://vetortransportesltda.com`
+- `atlas` → `https://atlas-cargo.org`
+- `jl` → `https://rastreio.jltransportelogistica.com`
+- sem provider / fallback → `atlas-cargo.org` (novo default seguro, em vez de JL)
 
-Adicionar um guard no topo de `PanelRoutes()` que, se por qualquer motivo `isMagnusDomain()` for `false`, renderiza `<Rastreio />` em vez do painel. Camada redundante caso a checagem em `App` falhe.
+Manter o atalho de sufixo `VT` apenas como detecção rápida, mas sempre validar com a loja quando possível. Sufixo `AT` também passa a forçar Atlas.
+
+### B. `supabase/functions/send-sms/index.ts`
+Mesma lógica: buscar `loja_id` do envio, ler `logistica_provider`, montar `baseUrl` por provider (atlas/vetor/jl) com mesmo mapa acima e fallback Atlas.
+
+### C. `src/pages/Envios.tsx`
+Em `getTrackingDomain`, trocar `'rastreio.atlastransportes.com'` por `'atlas-cargo.org'` para os envios identificados como Atlas (sufixo `AT`).
+
+### D. `src/pages/Postagens.tsx`
+Trocar o fallback `return data?.logistica_provider || "jl"` por `"atlas"`. Não muda nenhuma loja existente (todas já são atlas); só corrige o default para futuras lojas / casos `null`.
+
+### E. Não mexer
+- `domain-config.ts` (já está correto — Atlas como default no frontend).
+- `system_config.tracking_base_url` (continua existindo para retrocompatibilidade, mas redirect só usa quando provider é `jl` ou ausente e código for sufixo JL).
+- WhatsApp / Push templates exibidos no admin (placeholders cosméticos) — fora de escopo.
 
 ## Resultado
 
-- atlas-cargo.org / www.atlas-cargo.org → sempre `LogisticsRoutes` com provider `atlas`.
-- Qualquer host desconhecido → também cai em logística (nunca expõe a Magnus).
-- Magnus continua acessível apenas em `magnusfrete.net`, `www.magnusfrete.net`, previews `.lovable.app` e localhost.
+- Email/SMS que hoje gera link `…/functions/v1/redirect?c=BR63919563E1JL` → passa a redirecionar para `https://atlas-cargo.org/r/BR63919563E1JL` (provider da loja = atlas), em vez de cair na JL.
+- Atlas vira o padrão real em todos os lugares onde havia fallback `jl`.
+- JL continua funcionando para lojas explicitamente marcadas como `jl`; Vetor continua igual.
 
 ## Validação
 
-- Confirmar via `window.location.hostname` (console) que atlas-cargo.org rota `/` carrega `Rastreio`.
-- Confirmar que `magnusfrete.net/lojas` continua acessando o painel normalmente.
-- Confirmar que preview `id-preview--*.lovable.app` continua mostrando o painel para desenvolvimento.
-
-## Escopo
-
-Apenas frontend: `src/lib/domain-config.ts` e um pequeno guard em `src/App.tsx`. Sem mudanças em backend, schema, edge functions ou rotas existentes.
+- `curl -I "https://wzxfbejykayahnfdkdbl.supabase.co/functions/v1/redirect?c=BR63919563E1JL"` → deve responder 302 com `Location: https://atlas-cargo.org/r/BR63919563E1JL`.
+- Reenviar 1 email/SMS de teste e clicar no link.
+- Trocar manualmente `lojas.logistica_provider` de uma loja para `jl` e validar que volta a apontar para JL.

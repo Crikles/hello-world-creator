@@ -1,5 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const PROVIDER_BASE_URLS: Record<string, string> = {
+  vetor: "https://vetortransportesltda.com",
+  atlas: "https://atlas-cargo.org",
+  jl: "https://rastreio.jltransportelogistica.com",
+};
+
+const DEFAULT_BASE_URL = PROVIDER_BASE_URLS.atlas;
+
+function providerFromSuffix(code: string | null): string | null {
+  if (!code) return null;
+  const c = code.toUpperCase().trim();
+  if (c.endsWith("VT")) return "vetor";
+  if (c.endsWith("AT")) return "atlas";
+  if (c.endsWith("JL")) return "jl";
+  return null;
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const code = url.searchParams.get("c");
@@ -10,76 +27,79 @@ Deno.serve(async (req) => {
     return new Response("Missing parameter", { status: 400 });
   }
 
+  let baseUrl = DEFAULT_BASE_URL;
+
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Detect if this envio belongs to VETOR
-    let isVetor = false;
+    let provider: string | null = providerFromSuffix(code);
+    let lojaId: string | null = null;
+    let transportadora: string | null = null;
 
     if (code) {
-      // Check suffix first (fast)
-      isVetor = code.toUpperCase().trim().endsWith("VT");
-      if (!isVetor) {
-        // Fallback: check transportadora field
-        const { data: envio } = await supabase
-          .from("envios")
-          .select("transportadora")
-          .eq("codigo_rastreio", code.trim().toUpperCase())
-          .maybeSingle();
-        if (envio?.transportadora?.toUpperCase().includes("VETOR")) {
-          isVetor = true;
-        }
+      const { data: envio } = await supabase
+        .from("envios")
+        .select("loja_id, transportadora")
+        .eq("codigo_rastreio", code.trim().toUpperCase())
+        .maybeSingle();
+      if (envio) {
+        lojaId = envio.loja_id ?? null;
+        transportadora = envio.transportadora ?? null;
       }
     } else {
-      // paymentId or falhaId — lookup envio by id
       const envioId = paymentId || falhaId;
       const { data: envio } = await supabase
         .from("envios")
-        .select("transportadora, codigo_rastreio")
+        .select("loja_id, transportadora, codigo_rastreio")
         .eq("id", envioId!)
         .maybeSingle();
       if (envio) {
-        isVetor = envio.transportadora?.toUpperCase().includes("VETOR") ||
-          (envio.codigo_rastreio?.toUpperCase().trim().endsWith("VT") ?? false);
+        lojaId = envio.loja_id ?? null;
+        transportadora = envio.transportadora ?? null;
+        provider = provider || providerFromSuffix(envio.codigo_rastreio);
       }
     }
 
-    let baseUrl: string;
-    if (isVetor) {
-      baseUrl = "https://vetortransportesltda.com";
-    } else {
-      // Fetch the current tracking base URL from system_config
-      const { data: config } = await supabase
-        .from("system_config")
-        .select("label")
-        .eq("key", "tracking_base_url")
-        .single();
-      baseUrl = config?.label || "https://rastreio.jltransportelogistica.com";
+    // Provider definitivo vem da loja, quando disponível
+    if (lojaId) {
+      const { data: loja } = await supabase
+        .from("lojas")
+        .select("logistica_provider")
+        .eq("id", lojaId)
+        .maybeSingle();
+      if (loja?.logistica_provider) {
+        provider = loja.logistica_provider;
+      }
     }
 
-    let destination: string;
-    if (code) {
-      destination = `${baseUrl}/r/${code}`;
-    } else if (falhaId) {
-      destination = `${baseUrl}/f/${falhaId}`;
-    } else {
-      destination = `${baseUrl}/p/${paymentId}`;
+    // Fallback adicional pela transportadora textual
+    if (!provider && transportadora) {
+      const t = transportadora.toUpperCase();
+      if (t.includes("VETOR")) provider = "vetor";
+      else if (t.includes("ATLAS")) provider = "atlas";
+      else if (t.includes("JL")) provider = "jl";
     }
 
-    return new Response(null, {
-      status: 302,
-      headers: { Location: destination },
-    });
+    baseUrl = (provider && PROVIDER_BASE_URLS[provider]) || DEFAULT_BASE_URL;
   } catch (error) {
-    console.error("Redirect error:", error);
-    const fallback = "https://rastreio.jltransportelogistica.com";
-    const dest = code ? `${fallback}/r/${code}` : paymentId ? `${fallback}/p/${paymentId}` : `${fallback}/f/${falhaId}`;
-    return new Response(null, {
-      status: 302,
-      headers: { Location: dest },
-    });
+    console.error("Redirect lookup error:", error);
+    baseUrl = DEFAULT_BASE_URL;
   }
+
+  let destination: string;
+  if (code) {
+    destination = `${baseUrl}/r/${code}`;
+  } else if (falhaId) {
+    destination = `${baseUrl}/f/${falhaId}`;
+  } else {
+    destination = `${baseUrl}/p/${paymentId}`;
+  }
+
+  return new Response(null, {
+    status: 302,
+    headers: { Location: destination },
+  });
 });
