@@ -1,44 +1,44 @@
-## Objetivo
+## Mudanças solicitadas
 
-JL e Vetor estão sendo descontinuados. Qualquer acesso aos domínios `rastreio.jltransportelogistica.com` (e qualquer `*.jltransportelogistica.com`) e `vetortransportesltda.com` (e `www.`) deve redirecionar para `atlas-cargo.org`, **preservando o path** (`/r/CODIGO`, `/p/ID`, `/f/ID`, etc.). Links já enviados também passam a cair na Atlas.
+### 1) E-mail "Saiu para Entrega" — remover "1ª tentativa"
 
-## Mudanças
+Atualmente o corpo do e-mail vem da seed `postagem_eventos.corpo_email` e contém textos como "Seu pedido **{{produto}}** saiu para a 1ª tentativa de entrega hoje. Fique atento!". Trocaremos para o texto simples solicitado:
 
-### 1. `index.html` — redirect imediato no `<head>`
-Adicionar no script inline que já existe (que aplica title/fundo para domínios de logística) um bloco que, **antes** de qualquer outra coisa, faz:
+- **Novo texto padrão:** `Seu pedido **{{produto}}** saiu para entrega hoje.`
+- Atualizar a seed em `src/components/postagens/emailTemplates.ts` (template "Saiu para Entrega").
+- Atualizar via migration todas as linhas existentes em `postagem_eventos` cujo `status_label = 'Saiu para Entrega'` substituindo trechos com "1ª tentativa".
 
-```js
-var h = location.hostname.toLowerCase();
-if (h.endsWith('jltransportelogistica.com') ||
-    h === 'vetortransportesltda.com' || h === 'www.vetortransportesltda.com') {
-  location.replace('https://atlas-cargo.org' + location.pathname + location.search + location.hash);
-}
-```
+### 2) E-mail de "Falha na Entrega" e "Taxação" — passar a usar o template configurado em Postagens
 
-Isso garante zero flash visual: o navegador troca de domínio antes do React montar.
+Hoje em `send-email/index.ts` o layout especializado (`buildFalhaEntregaEmailHtml` / `buildTaxacaoEmailHtml`) só é acionado quando o `corpo_email` contém marcadores `{{falha_*}}` / `{{taxacao_*}}`. Como a maioria dos eventos não tem esses marcadores, o cliente recebe um e-mail genérico (foto do print).
 
-### 2. `supabase/functions/redirect/index.ts` — força Atlas
-Hoje a função respeita `lojas.logistica_provider` (`jl` → JL, `vetor` → Vetor, `atlas` → Atlas). Como JL virou Atlas e Vetor está OFF, simplificar: **sempre usar `https://atlas-cargo.org`** como base, independente de provider/sufixo. Remover o mapa de bases por provider.
+Vamos alterar `buildEmailHtml` para que, sempre que `status_label === 'Falha Entrega'` ou `status_label === 'Taxação'`, o e-mail seja construído com `buildFalhaEntregaEmailHtml` / `buildTaxacaoEmailHtml` usando os dados configurados em **Postagens → Falha na Entrega** e **Postagens → Taxação** (`postagem_config.msg_falha_entrega`, `valor_taxa_falha`, `checkout_url_falha`, cores, etc.) e os campos correspondentes para taxação (`postagem_falha_config` / `postagem_taxacao_config`, conforme a tabela já lida pelas funções `falha-info` e `taxacao-info`).
 
-### 3. `supabase/functions/send-sms/index.ts` — força Atlas
-Mesmo ajuste: `baseUrl` fixo em `https://atlas-cargo.org`, sem consultar `logistica_provider` nem inspecionar transportadora/sufixo.
+- O parser de marcadores continua existindo como fallback (caso a loja tenha customizado o corpo com `{{falha_*}}`).
+- O texto do corpo (`p.mensagem`) passa a vir de `postagem_config.msg_falha_entrega` (ou do equivalente para taxação) — exatamente o que o usuário edita na aba.
+- O botão `botaoTexto` usa `tax.texto_botao` (Taxação) e um novo campo `texto_botao_falha` para falha (default "PAGAR REENVIO"), e o `botaoUrl` usa `https://atlas-cargo.org/f/<envio_id>` para falha e `https://atlas-cargo.org/p/<envio_id>` para taxação — assim o lead cai na página `PagamentoFalha`/`PagamentoTaxa` que já renderiza todas as personalizações configuradas.
 
-### 4. `src/pages/Envios.tsx` (`getTrackingDomain`)
-Retornar sempre `'atlas-cargo.org'`, eliminando os branches `vetor` e `jl`.
+### 3) Site de rastreio (Atlas) — botão "PAGAR REENVIO" clicável
 
-### 5. `src/pages/admin/AdminSMS.tsx` e `src/pages/admin/AdminPush.tsx`
-Trocar os placeholders/exemplos `https://rastreio.jltransportelogistica.com/...` por `https://atlas-cargo.org/...` (cosmético, mas evita confundir admin).
+No `src/pages/Rastreio.tsx`, os três layouts (Vetor, Jadlog, Atlas) já têm um `<a>` para `/f/<id>` e `/p/<id>` dentro do evento. Vamos garantir que:
 
-### 6. NÃO mexer agora
-- Lógica de provider em `lojas.logistica_provider` continua existindo no banco (admin ainda pode escolher), mas a saída para o cliente final é sempre Atlas.
-- Trigger `generate_tracking_code` continua gerando sufixos `JL`/`VT`/`AT` (mantém compatibilidade dos códigos antigos).
-- DNS dos domínios `jltransportelogistica.com` / `vetortransportesltda.com` continuam apontando para o app — o redirect acontece dentro do app.
-- `system_config.tracking_base_url` deixa de ser usado pelo redirect (fica órfão, mas inofensivo).
-- Logos JL/Vetor exibidos hoje (sidebar, login, pagamento) — fora do escopo dessa etapa.
+- O botão sempre apareça abaixo da descrição do evento "Falha Entrega" / "Taxação" no layout Atlas (o atual usa estilo inline pequeno; vamos transformá-lo em um botão mais visível com cor de destaque do tema).
+- O texto do botão será **PAGAR REENVIO** (falha) e **PAGAR TAXA** (taxação), com seta `→`.
+- O destino continua sendo `/f/<envio.id>` e `/p/<envio.id>` (mesma origem, sem cross-domain), garantindo que a página `PagamentoFalha`/`PagamentoTaxa` mostre as personalizações da aba Postagens.
 
-## Validação
+### Resultado esperado
 
-- `curl -I "https://wzxfbejykayahnfdkdbl.supabase.co/functions/v1/redirect?c=BR63919563E1JL"` → `Location: https://atlas-cargo.org/r/BR63919563E1JL`.
-- `curl -I "https://wzxfbejykayahnfdkdbl.supabase.co/functions/v1/redirect?c=BR12345678VT"` → também Atlas.
-- Acessar `https://rastreio.jltransportelogistica.com/r/BR123JL` no browser → barra de endereço troca para `https://atlas-cargo.org/r/BR123JL` sem flash.
-- Enviar 1 SMS de teste e confirmar que o link gerado já começa com `atlas-cargo.org`.
+- E-mails de "Saiu para Entrega" sem menção a "1ª tentativa".
+- E-mails de "Falha na Entrega" e "Taxação" idênticos ao preview exibido na aba Postagens (mensagem, valor, cor, botão configurado).
+- Clique no botão do site de rastreio leva direto para a página de pagamento personalizada.
+
+### Arquivos afetados
+
+- `src/components/postagens/emailTemplates.ts` — atualizar seed do "Saiu para Entrega".
+- Migration SQL — atualizar `postagem_eventos` existentes (remover "1ª tentativa").
+- `supabase/functions/send-email/index.ts` — forçar uso de `buildFalhaEntregaEmailHtml` / `buildTaxacaoEmailHtml` quando `status_label` casar; alimentar com `postagem_config`/`postagem_falha_config`/`postagem_taxacao_config`; gerar URLs absolutas `atlas-cargo.org/f|p/<id>`.
+- `src/pages/Rastreio.tsx` — botão "PAGAR REENVIO" / "PAGAR TAXA" estilizado e visível no layout Atlas.
+
+### Pendência de confirmação
+
+Antes de implementar, preciso confirmar um ponto: para o item 2, devo manter compatibilidade quando a loja já tenha um corpo de e-mail customizado com texto livre (sem marcadores `{{falha_*}}`)? Minha proposta é **ignorar** o corpo_email do evento para Falha/Taxação e usar sempre o que está na aba Postagens — assim o e-mail bate com o preview que o usuário vê. Confirmar antes de prosseguir.
