@@ -608,7 +608,7 @@ export default function ConfirmacaoPagamento() {
 
   // Local state
   const [ativo, setAtivo] = useState(false);
-  const [enviarEmail, setEnviarEmail] = useState(true);
+  const enviarEmail = true;
   const [enviarSms, setEnviarSms] = useState(true);
   const [assuntoEmail, setAssuntoEmail] = useState("Pagamento Confirmado! ✅ Seu pedido {{produto}} foi aprovado");
   const [smsTemplate, setSmsTemplate] = useState("Ola {{nome}}! Seu pagamento de R${{valor}} foi confirmado. Obrigado pela compra!");
@@ -624,7 +624,7 @@ export default function ConfirmacaoPagamento() {
   useEffect(() => {
     if (config) {
       setAtivo(config.ativo);
-      setEnviarEmail(config.enviar_email);
+      // enviar_email é sempre true; o gate real é o master `ativo`
       setEnviarSms(config.enviar_sms);
       setAssuntoEmail(config.assunto_email);
       setSmsTemplate(config.sms_template);
@@ -769,96 +769,89 @@ export default function ConfirmacaoPagamento() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* LEFT: Editor */}
             <div className="space-y-4">
-              {/* Email toggle + remetente */}
+              {/* Remetente + Assunto (sempre visível; gate real é o Status no topo) */}
               <Card>
                 <CardContent className="pt-6 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Switch checked={enviarEmail} onCheckedChange={setEnviarEmail} />
-                    <Label className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-primary" /> Enviar email de confirmação
-                    </Label>
-                  </div>
+                  <Label className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-primary" /> Email de confirmação
+                  </Label>
 
-                  {enviarEmail && (
-                    <>
-                      <div>
-                        <Label className="text-xs">Nome do Remetente (FROM)</Label>
-                        <Input
-                          value={emailRemetenteNome}
-                          onChange={(e) => setEmailRemetenteNome(e.target.value)}
-                          placeholder={empresaNome}
-                          className="mt-1"
-                        />
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Aparecerá como: <strong>{emailRemetenteNome || empresaNome}</strong> &lt;contato@recuperacaodenegocios.com&gt;
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Assunto do Email</Label>
-                        <Input
-                          value={assuntoEmail}
-                          onChange={(e) => setAssuntoEmail(e.target.value)}
-                          placeholder="Pagamento Confirmado! ✅"
-                          className="mt-1"
-                        />
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Variáveis: {"{{nome}}"}, {"{{produto}}"}, {"{{valor}}"}, {"{{empresa}}"}
-                        </p>
-                      </div>
-                    </>
-                  )}
+                  <div>
+                    <Label className="text-xs">Nome do Remetente (FROM)</Label>
+                    <Input
+                      value={emailRemetenteNome}
+                      onChange={(e) => setEmailRemetenteNome(e.target.value)}
+                      placeholder={empresaNome}
+                      className="mt-1"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Aparecerá como: <strong>{emailRemetenteNome || empresaNome}</strong> &lt;contato@recuperacaodenegocios.com&gt;
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Assunto do Email</Label>
+                    <Input
+                      value={assuntoEmail}
+                      onChange={(e) => setAssuntoEmail(e.target.value)}
+                      placeholder="Pagamento Confirmado! ✅"
+                      className="mt-1"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Variáveis: {"{{nome}}"}, {"{{produto}}"}, {"{{valor}}"}, {"{{empresa}}"}
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Visual Sections */}
-              {enviarEmail && (
-                <div className="space-y-3">
-                  <SectionToggle label="Saudação" icon={Type} checked={settings.mostrar_saudacao} onChange={(v) => set("mostrar_saudacao", v)}>
-                    <Textarea
-                      value={settings.saudacao}
-                      onChange={(e) => set("saudacao", e.target.value)}
-                      className="text-sm min-h-[60px]"
-                      placeholder="Olá {{nome}}, seu pagamento foi confirmado!"
-                    />
-                  </SectionToggle>
 
-                  <SectionToggle label="Resumo do Pedido" icon={ShoppingCart} checked={settings.mostrar_resumo} onChange={(v) => set("mostrar_resumo", v)}>
-                    <p className="text-xs text-muted-foreground">Mostra automaticamente o produto e valor do pedido</p>
-                  </SectionToggle>
+              {/* Visual Sections (sempre visíveis; gate real é o Status no topo) */}
+              <div className="space-y-3">
+                <SectionToggle label="Saudação" icon={Type} checked={settings.mostrar_saudacao} onChange={(v) => set("mostrar_saudacao", v)}>
+                  <Textarea
+                    value={settings.saudacao}
+                    onChange={(e) => set("saudacao", e.target.value)}
+                    className="text-sm min-h-[60px]"
+                    placeholder="Olá {{nome}}, seu pagamento foi confirmado!"
+                  />
+                </SectionToggle>
 
-                  <SectionToggle label="Mensagem Principal" icon={Sparkles} checked={settings.mostrar_mensagem} onChange={(v) => set("mostrar_mensagem", v)}>
-                    <Textarea
-                      value={settings.mensagem}
-                      onChange={(e) => set("mensagem", e.target.value)}
-                      className="text-sm min-h-[60px]"
-                      placeholder="Seu pedido está sendo processado..."
-                    />
-                  </SectionToggle>
+                <SectionToggle label="Resumo do Pedido" icon={ShoppingCart} checked={settings.mostrar_resumo} onChange={(v) => set("mostrar_resumo", v)}>
+                  <p className="text-xs text-muted-foreground">Mostra automaticamente o produto e valor do pedido</p>
+                </SectionToggle>
 
-                  <SectionToggle label="Botão CTA" icon={ArrowRight} checked={settings.mostrar_cta} onChange={(v) => set("mostrar_cta", v)}>
-                    <Input value={settings.texto_botao} onChange={(e) => set("texto_botao", e.target.value)} placeholder="Acompanhar Pedido" className="text-sm" />
-                    <Input value={settings.url_cta} onChange={(e) => set("url_cta", e.target.value)} placeholder="https://sualoja.com/rastreio" className="text-sm" />
-                  </SectionToggle>
+                <SectionToggle label="Mensagem Principal" icon={Sparkles} checked={settings.mostrar_mensagem} onChange={(v) => set("mostrar_mensagem", v)}>
+                  <Textarea
+                    value={settings.mensagem}
+                    onChange={(e) => set("mensagem", e.target.value)}
+                    className="text-sm min-h-[60px]"
+                    placeholder="Seu pedido está sendo processado..."
+                  />
+                </SectionToggle>
 
-                  <SectionToggle label="Rodapé" icon={Globe} checked={settings.mostrar_rodape} onChange={(v) => set("mostrar_rodape", v)}>
-                    <Input value={settings.rodape} onChange={(e) => set("rodape", e.target.value)} placeholder="Obrigado pela sua compra!" className="text-sm" />
-                  </SectionToggle>
+                <SectionToggle label="Botão CTA" icon={ArrowRight} checked={settings.mostrar_cta} onChange={(v) => set("mostrar_cta", v)}>
+                  <Input value={settings.texto_botao} onChange={(e) => set("texto_botao", e.target.value)} placeholder="Acompanhar Pedido" className="text-sm" />
+                  <Input value={settings.url_cta} onChange={(e) => set("url_cta", e.target.value)} placeholder="https://sualoja.com/rastreio" className="text-sm" />
+                </SectionToggle>
 
-                  {/* Cores */}
-                  <div className="glass glow-border rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Eye className="h-3.5 w-3.5 text-primary" />
-                      </div>
-                      <span className="text-sm font-semibold text-foreground">Cores</span>
+                <SectionToggle label="Rodapé" icon={Globe} checked={settings.mostrar_rodape} onChange={(v) => set("mostrar_rodape", v)}>
+                  <Input value={settings.rodape} onChange={(e) => set("rodape", e.target.value)} placeholder="Obrigado pela sua compra!" className="text-sm" />
+                </SectionToggle>
+
+                {/* Cores */}
+                <div className="glass glow-border rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Eye className="h-3.5 w-3.5 text-primary" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <ColorPicker label="Cor Principal" value={settings.cor_primaria} onChange={(v) => set("cor_primaria", v)} />
-                      <ColorPicker label="Texto" value={settings.cor_texto} onChange={(v) => set("cor_texto", v)} />
-                    </div>
+                    <span className="text-sm font-semibold text-foreground">Cores</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <ColorPicker label="Cor Principal" value={settings.cor_primaria} onChange={(v) => set("cor_primaria", v)} />
+                    <ColorPicker label="Texto" value={settings.cor_texto} onChange={(v) => set("cor_texto", v)} />
                   </div>
                 </div>
-              )}
+              </div>
+
 
               {/* SMS */}
               <Card>
