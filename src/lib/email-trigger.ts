@@ -110,11 +110,25 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // ── REGRA: Evento "Entregue" (último) é SEMPRE manual ──
         // Bloqueia avanço automático para "Entregue" — só prossegue com forceAdvance=true
         const isFinalDelivered =
-            nextEvent.status_label === "Entregue" ||
+            nextEvent.nome === "Entregue" ||
             filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
 
         if (isFinalDelivered && !forceAdvance) {
             console.log("Trigger skip: 'Entregue' requires manual confirmation", envioId);
+            return null;
+        }
+
+        // ── REGRA: Eventos "Falha Entrega" e "Taxação" pausam até aprovação manual ──
+        const requiresManualApproval = ["Falha Entrega", "Taxação", "Taxacao"].includes((nextEvent.nome || "").trim());
+        if (requiresManualApproval && !forceAdvance) {
+            // Permite avançar ATÉ o evento de pausa via cron, mas não além sem aprovação.
+            // O cron já filtra envios parados nesses eventos; aqui garantimos que chamadas
+            // não-forçadas (ex.: triggerNextEmail interno) também respeitem a pausa após chegar nele.
+        }
+        // Eventos "Pago" só devem disparar via aprovação manual (forceAdvance=true)
+        const isPagoEvent = (nextEvent.nome || "").trim() === "Pago";
+        if (isPagoEvent && !forceAdvance) {
+            console.log("Trigger skip: 'Pago' requires manual approval", envioId);
             return null;
         }
 
