@@ -1,0 +1,1 @@
+CREATE POLICY "Admins manage all confirmacao_config" ON public.confirmacao_pagamento_config FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin')) WITH CHECK (public.has_role(auth.uid(), 'admin'));
