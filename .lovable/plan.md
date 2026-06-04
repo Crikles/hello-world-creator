@@ -1,37 +1,42 @@
-## Problema
+## Diagnóstico
 
-Na página **Confirmação de Pagamento** existem dois toggles que parecem ativar a funcionalidade:
+Não é bug de save dos usuários — é limitação de RLS para o admin.
 
-1. **Status da Funcionalidade** (topo) — toggle MASTER, persiste `ativo` no banco. Quando `false`, a edge function `send-payment-confirmation` bloqueia todo envio.
-2. **Enviar email de confirmação** (no card de edição do email) — toggle redundante que persiste `enviar_email`. Confunde o lojista porque parece "ligar a função" mesmo quando o master está Desativado.
+Quando você usa **"Login As"**, o frontend troca o `user` exibido, mas o **JWT continua sendo o seu (admin)**. Logo, `auth.uid()` no banco é sempre o seu id. As políticas RLS das tabelas de configuração da loja exigem `user_owns_loja(auth.uid(), loja_id)` — como você não é dono da loja do cliente, o banco retorna **0 linhas** (parece "desconfigurado") e bloqueia o save.
 
-Além disso, o lojista diz que todas as contas devem vir **DESATIVADAS** por padrão. O default da coluna `ativo` já é `false`, mas há contas com `ativo=true` herdadas de configurações antigas que precisam ser zeradas.
+Já existe esse padrão de exceção para admin em `confirmacao_pagamento_config`, `envios`, `lojas` e `leads`. Falta replicar nas demais tabelas de configuração/dados da loja.
 
-## Mudanças
+## Tabelas sem policy de admin (causa do problema)
 
-### 1. Remover o segundo toggle (frontend)
-Em `src/pages/ConfirmacaoPagamento.tsx`:
-- Remover o `Switch` "Enviar email de confirmação" (linha ~776) e exibir o card de Nome do Remetente / Assunto / Saudação / etc. sempre que o master `ativo` estiver ligado.
-- Manter `enviar_email` sempre `true` no payload salvo (o gate real passa a ser apenas o master `ativo`).
-- Remover o `useState` `enviarEmail` e o `setEnviarEmail` correspondente.
-- O toggle de **SMS** continua existindo (é uma escolha de canal separada, não duplica o master).
+| Tabela | Sintoma para o admin |
+|---|---|
+| `empresas` | Dados da Empresa aparecem vazios e não salvam |
+| `postagem_config` | Config de Postagens aparece padrão e não salva |
+| `postagem_templates` (loja_id NOT NULL) | Templates customizados da loja invisíveis |
+| `postagem_eventos` (loja_id NOT NULL) | Eventos customizados da loja invisíveis (SELECT só permite system ou owner) |
+| `checkout_integrations` | Integrações de checkout vazias |
+| `recovery_config` | Config de Recuperação vazia |
+| `upsell_config` | Config de Upsell vazia |
+| `pedidos` | Lista de pedidos vazia |
 
-### 2. Reset de todas as contas para Desativado (migração)
-Migração SQL única:
-```sql
-UPDATE public.confirmacao_pagamento_config SET ativo = false;
-```
-O default da coluna já é `false`, então novas contas continuam nascendo desativadas. Quem quiser usar precisa ligar o master manualmente.
+## Plano
 
-## Comportamento final
+Criar **uma migration** adicionando policy `FOR ALL TO authenticated USING (has_role(auth.uid(),'admin')) WITH CHECK (...)` em cada tabela acima — mesmo padrão já aprovado em `confirmacao_pagamento_config`.
 
-- Único botão de liga/desliga: **Status da Funcionalidade** no topo.
-- Quando desligado: nenhum email nem SMS de confirmação sai, independente do que esteja preenchido abaixo.
-- Quando ligado: envia email automaticamente; SMS só sai se o toggle de SMS estiver ligado.
-- Todas as contas existentes ficam desativadas após o deploy; o lojista precisa entrar e ligar manualmente.
+Para `postagem_eventos`, ajustar também o SELECT existente para incluir admin (`loja_id IS NULL OR user_owns_loja(...) OR has_role(...,'admin')`).
+
+Nada muda no frontend e nada muda para usuários finais — apenas admins ganham leitura/escrita global nessas tabelas, igual já têm em `lojas`, `envios`, `leads` e `confirmacao_pagamento_config`.
 
 ## Detalhes técnicos
 
-- Arquivos tocados: `src/pages/ConfirmacaoPagamento.tsx` (remoção do toggle + ajustes de state) e uma nova migração `supabase/migrations/...sql`.
-- Edge function `send-payment-confirmation` **não muda** — ela já gate por `config.ativo` corretamente.
-- Não há impacto em histórico, custos, créditos ou outras telas.
+```sql
+-- exemplo (repetido para cada tabela)
+CREATE POLICY "Admins manage all empresas"
+  ON public.empresas FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(),'admin'))
+  WITH CHECK (public.has_role(auth.uid(),'admin'));
+```
+
+Tabelas afetadas: `empresas`, `postagem_config`, `postagem_templates`, `checkout_integrations`, `recovery_config`, `upsell_config`, `pedidos` + ajuste de SELECT em `postagem_eventos`.
+
+Sem alterações de schema, sem alterações de dados, sem alterações de código frontend/edge functions.
