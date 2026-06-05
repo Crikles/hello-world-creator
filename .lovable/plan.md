@@ -1,42 +1,31 @@
-## Diagnóstico
+## Objetivo
+Forçar todos os 291 envios da loja "use one fit" (useonefit2026@gmail.com) para a etapa **"Centro Local — Chegou perto de você"** (ordem 7) sem disparar nenhum e-mail ou SMS.
 
-Não é bug de save dos usuários — é limitação de RLS para o admin.
+## Como o rastreio público decide a etapa
+A página de rastreio lê de `envios`:
+- `ultimo_evento_ordem` — define até qual passo da timeline está aceso
+- `status_label` — texto mostrado no topo
+- `postagem_template_id` — template de eventos usado
 
-Quando você usa **"Login As"**, o frontend troca o `user` exibido, mas o **JWT continua sendo o seu (admin)**. Logo, `auth.uid()` no banco é sempre o seu id. As políticas RLS das tabelas de configuração da loja exigem `user_owns_loja(auth.uid(), loja_id)` — como você não é dono da loja do cliente, o banco retorna **0 linhas** (parece "desconfigurado") e bloqueia o save.
+Encontrei o evento alvo já configurado para essa loja:
+- `loja_id`: 86829180-1015-402d-ba18-b772cf50694e
+- `template_id`: 5836c44c-0490-4f5d-8a9d-a67956c42a24
+- `ordem`: 7, `status_label`: "Chegou perto de você"
 
-Já existe esse padrão de exceção para admin em `confirmacao_pagamento_config`, `envios`, `lojas` e `leads`. Falta replicar nas demais tabelas de configuração/dados da loja.
+## Atualização a aplicar (1 UPDATE)
+Em `public.envios`, para `loja_id = 86829180-1015-402d-ba18-b772cf50694e` e `deleted_at IS NULL`:
+- `ultimo_evento_ordem = 7`
+- `status_label = 'Chegou perto de você'`
+- `postagem_template_id = 5836c44c-0490-4f5d-8a9d-a67956c42a24`
+- `proximo_avanco_em = NULL` — impede que o cron `advance-shipments` avance ou dispare e-mails/SMS depois
+- `status = 'em_transito'` — mantém o envio ativo na timeline (não final)
 
-## Tabelas sem policy de admin (causa do problema)
+## Garantias contra disparo de e-mail/SMS
+- Não vou inserir nada em `postagem_email_log`, `confirmacao_pagamento_log`, `whatsapp_send_queue` ou `sms_*`.
+- Só faço UPDATE direto na linha do envio; nenhum trigger nessa tabela enfileira e-mail (verifiquei: não há triggers em `public`).
+- Ao zerar `proximo_avanco_em`, o worker que avança status + dispara comunicações ignora esses envios.
 
-| Tabela | Sintoma para o admin |
-|---|---|
-| `empresas` | Dados da Empresa aparecem vazios e não salvam |
-| `postagem_config` | Config de Postagens aparece padrão e não salva |
-| `postagem_templates` (loja_id NOT NULL) | Templates customizados da loja invisíveis |
-| `postagem_eventos` (loja_id NOT NULL) | Eventos customizados da loja invisíveis (SELECT só permite system ou owner) |
-| `checkout_integrations` | Integrações de checkout vazias |
-| `recovery_config` | Config de Recuperação vazia |
-| `upsell_config` | Config de Upsell vazia |
-| `pedidos` | Lista de pedidos vazia |
+## Reversão (se precisar depois)
+Basta rodar outro UPDATE restaurando `ultimo_evento_ordem` e `status_label` originais — posso salvar um snapshot antes se você quiser.
 
-## Plano
-
-Criar **uma migration** adicionando policy `FOR ALL TO authenticated USING (has_role(auth.uid(),'admin')) WITH CHECK (...)` em cada tabela acima — mesmo padrão já aprovado em `confirmacao_pagamento_config`.
-
-Para `postagem_eventos`, ajustar também o SELECT existente para incluir admin (`loja_id IS NULL OR user_owns_loja(...) OR has_role(...,'admin')`).
-
-Nada muda no frontend e nada muda para usuários finais — apenas admins ganham leitura/escrita global nessas tabelas, igual já têm em `lojas`, `envios`, `leads` e `confirmacao_pagamento_config`.
-
-## Detalhes técnicos
-
-```sql
--- exemplo (repetido para cada tabela)
-CREATE POLICY "Admins manage all empresas"
-  ON public.empresas FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin'))
-  WITH CHECK (public.has_role(auth.uid(),'admin'));
-```
-
-Tabelas afetadas: `empresas`, `postagem_config`, `postagem_templates`, `checkout_integrations`, `recovery_config`, `upsell_config`, `pedidos` + ajuste de SELECT em `postagem_eventos`.
-
-Sem alterações de schema, sem alterações de dados, sem alterações de código frontend/edge functions.
+Confirma que posso executar?
