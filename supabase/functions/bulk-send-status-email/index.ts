@@ -19,15 +19,32 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    // ── Auth: only service-role can invoke ──
+    // ── Auth: service-role OR authenticated owner of the loja ──
     const auth = req.headers.get("authorization") || "";
     const token = auth.replace(/^Bearer\s+/i, "").trim();
-    if (token !== SERVICE_ROLE) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const isServiceRole = token === SERVICE_ROLE;
+
+    let authedUserId: string | null = null;
+    if (!isServiceRole) {
+      if (!token) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
       });
+      const { data: userData } = await userClient.auth.getUser();
+      if (!userData?.user?.id) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      authedUserId = userData.user.id;
     }
+
 
     const body = (await req.json()) as Body;
     const { loja_id, evento_id, status_label, ultimo_evento_ordem } = body;
