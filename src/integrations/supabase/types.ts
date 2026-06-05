@@ -520,6 +520,7 @@ export type Database = {
           produto: string
           proximo_avanco_em: string | null
           quantidade: number
+          sem_cobranca: boolean
           status: Database["public"]["Enums"]["shipment_status"]
           status_label: string | null
           transportadora: string | null
@@ -556,6 +557,7 @@ export type Database = {
           produto: string
           proximo_avanco_em?: string | null
           quantidade?: number
+          sem_cobranca?: boolean
           status?: Database["public"]["Enums"]["shipment_status"]
           status_label?: string | null
           transportadora?: string | null
@@ -592,6 +594,7 @@ export type Database = {
           produto?: string
           proximo_avanco_em?: string | null
           quantidade?: number
+          sem_cobranca?: boolean
           status?: Database["public"]["Enums"]["shipment_status"]
           status_label?: string | null
           transportadora?: string | null
