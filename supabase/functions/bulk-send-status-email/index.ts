@@ -120,33 +120,42 @@ Deno.serve(async (req) => {
     let failed = 0;
     const failures: { envio_id: string; error: string }[] = [];
 
-    for (let i = 0; i < ids.length; i += batchSize) {
-      const batch = ids.slice(i, i + batchSize);
-      const results = await Promise.allSettled(
-        batch.map(async (envio_id) => {
+    async function invokeWithRetry(envio_id: string, attempts = 4) {
+      let lastErr: unknown = null;
+      for (let a = 0; a < attempts; a++) {
+        try {
           const { data, error } = await supabase.functions.invoke("send-email", {
             body: { envio_id, evento_id, loja_id },
           });
           if (error) throw new Error(error.message || String(error));
           return data;
-        }),
-      );
+        } catch (e) {
+          lastErr = e;
+          await new Promise((r) => setTimeout(r, 500 * (a + 1)));
+        }
+      }
+      throw lastErr;
+    }
+
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batch = ids.slice(i, i + batchSize);
+      const results = await Promise.allSettled(batch.map((id) => invokeWithRetry(id)));
       for (let j = 0; j < results.length; j++) {
         const r = results[j];
         if (r.status === "fulfilled") {
-          // send-email returns { skipped: true } when already sent
           // deno-lint-ignore no-explicit-any
           if ((r.value as any)?.skipped) skipped++;
           else sent++;
         } else {
           failed++;
-          failures.push({ envio_id: batch[j], error: r.reason?.message || String(r.reason) });
+          failures.push({ envio_id: batch[j], error: (r.reason as Error)?.message || String(r.reason) });
         }
       }
       if (i + batchSize < ids.length && pauseMs > 0) {
         await new Promise((res) => setTimeout(res, pauseMs));
       }
     }
+
 
     const remaining = pending - processing;
     return new Response(
