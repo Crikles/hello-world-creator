@@ -88,19 +88,48 @@ const statusColors: Record<string, string> = {
   "Entregue": "bg-primary/15 text-primary",
 };
 
-const statusOptions = [
-  { value: "Pendente", label: "Pendente" },
-  { value: "Postado", label: "Postado (NF-e)" },
-  { value: "Coletado", label: "Coletado" },
-  { value: "Em Trânsito", label: "Em Trânsito" },
-  { value: "Centro Local", label: "Centro Local" },
-  { value: "Taxação", label: "Taxação" },
-  { value: "Pgto. Confirmado", label: "Pgto. Confirmado" },
-  { value: "Saiu para Entrega", label: "Saiu para Entrega" },
-  { value: "Falha Entrega", label: "Falha Entrega" },
-  { value: "Reenvio Pago", label: "Reenvio Pago" },
-  { value: "Reenvio Saiu", label: "Reenvio Saiu" },
-  { value: "Entregue", label: "Entregue" },
+// Os values batem 1:1 com `envios.status` (enum) ou `envios.status_label` (texto).
+// A RPC get_envios_paginated aceita ambos via `OR e.status::text=p_status OR e.status_label=p_status`.
+const statusOptions: { value: string; label: string; group?: string }[] = [
+  // Status internos (enum)
+  { value: "pendente", label: "Pendente", group: "Status" },
+  { value: "coletado", label: "Coletado", group: "Status" },
+  { value: "em_transito", label: "Em Trânsito", group: "Status" },
+  { value: "centro_local", label: "Centro Local", group: "Status" },
+  { value: "saiu_para_entrega", label: "Saiu para Entrega", group: "Status" },
+  { value: "entregue", label: "Entregue", group: "Status" },
+  { value: "taxacao", label: "Taxação", group: "Status" },
+  { value: "pagamento_confirmado", label: "Pgto. Confirmado", group: "Status" },
+
+  // Etapas detalhadas (status_label)
+  { value: "NF-e", label: "NF-e Emitida", group: "Etapa" },
+  { value: "Postado", label: "Postado", group: "Etapa" },
+  { value: "Postado no exterior", label: "Postado no exterior", group: "Etapa" },
+  { value: "Coletado", label: "Coletado (etapa)", group: "Etapa" },
+  { value: "Saiu da unidade de origem", label: "Saiu da unidade de origem", group: "Etapa" },
+  { value: "Em Trânsito", label: "Em Trânsito (etapa)", group: "Etapa" },
+  { value: "Em trânsito internacional", label: "Em trânsito internacional", group: "Etapa" },
+  { value: "Chegou ao Brasil", label: "Chegou ao Brasil", group: "Etapa" },
+  { value: "Liberado pela alfândega", label: "Liberado pela alfândega", group: "Etapa" },
+  { value: "Passando por centro de triagem", label: "Passando por centro de triagem", group: "Etapa" },
+  { value: "Chegou ao estado vizinho", label: "Chegou ao estado vizinho", group: "Etapa" },
+  { value: "Em redistribuição", label: "Em redistribuição", group: "Etapa" },
+  { value: "Retornou ao centro de distribuição", label: "Retornou ao centro de distribuição", group: "Etapa" },
+  { value: "Centro de Distribuição", label: "Centro de Distribuição", group: "Etapa" },
+  { value: "Chegou no centro local", label: "Chegou no centro local", group: "Etapa" },
+  { value: "Chegou perto de você", label: "Chegou perto de você", group: "Etapa" },
+  { value: "Unidade final", label: "Unidade final", group: "Etapa" },
+  { value: "Entrega reprogramada", label: "Entrega reprogramada", group: "Etapa" },
+  { value: "Em rota", label: "Em rota", group: "Etapa" },
+  { value: "Em rota final", label: "Em rota final", group: "Etapa" },
+  { value: "Saiu para Entrega", label: "Saiu para Entrega (etapa)", group: "Etapa" },
+  { value: "Saiu para Entrega (2ª tentativa)", label: "Saiu para Entrega (2ª tent.)", group: "Etapa" },
+  { value: "Saiu para Entrega (reenvio)", label: "Saiu para Entrega (reenvio)", group: "Etapa" },
+  { value: "Retido na alfândega — pagamento necessário", label: "Retido na alfândega (taxa)", group: "Etapa" },
+  { value: "Falha na entrega — pagar reenvio", label: "Falha na entrega (reenvio)", group: "Etapa" },
+  { value: "Pagamento da taxa confirmado", label: "Taxa paga", group: "Etapa" },
+  { value: "Reenvio pago", label: "Reenvio pago", group: "Etapa" },
+  { value: "Entregue ✅", label: "Entregue (etapa)", group: "Etapa" },
 ];
 
 export default function Envios() {
