@@ -75,8 +75,8 @@ export default function ResetPassword() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
           <img
-            src={isLogistics ? "/logojltransportes.png" : "/logo-magnus.png"}
-            alt={isLogistics ? "Logística JL Transportes" : "Magnus Frete"}
+            src={isLogistics ? "/logo-azul.svg" : "/logo-magnus.png"}
+            alt={isLogistics ? "ATLAS Cargo Express" : "Magnus Frete"}
             className="h-28 w-auto object-contain"
           />
           <p className="text-sm text-muted-foreground">
