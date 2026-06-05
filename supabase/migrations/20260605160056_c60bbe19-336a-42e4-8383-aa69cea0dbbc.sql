@@ -1,0 +1,2 @@
+ALTER TABLE public.envios ADD COLUMN IF NOT EXISTS sem_cobranca boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS envios_sem_cobranca_idx ON public.envios(sem_cobranca) WHERE sem_cobranca = true;

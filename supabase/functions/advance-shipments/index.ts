@@ -896,7 +896,7 @@ async function advanceShipment(
     // Se outro processo avançar antes de nós (lock falha abaixo), estornamos o débito.
     let debitedTotal = 0;
     let debitedDescricao = "";
-    if (currentOrdem === 0) {
+    if (currentOrdem === 0 && !(shipment as any).sem_cobranca) {
       let total = 0;
       const activeServices: string[] = [];
 
@@ -1077,7 +1077,7 @@ async function advanceShipment(
     } else if (nextEvent.enviar_nfe_pdf) {
       console.log(`[SMS] Skip envio ${envioId}: NF-e event (email only)`);
     } else {
-      const smsCost = costMap["custo_sms_rastreio"] || 0;
+      const smsCost = (shipment as any).sem_cobranca ? 0 : (costMap["custo_sms_rastreio"] || 0);
       let canSendSms = true;
 
       if (smsCost > 0) {
