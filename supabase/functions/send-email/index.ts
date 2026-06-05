@@ -1274,7 +1274,7 @@ Deno.serve(async (req) => {
       "Coletado": "coletado",
     };
     const upsellTipo = upsellTipoMap[statusLabel] || null;
-    if (upsellTipo) {
+    if (upsellTipo && !(envio as any)?.sem_cobranca) {
       const { data: upsellRow } = await supabase
         .from("upsell_config")
         .select("*")
