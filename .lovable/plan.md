@@ -1,40 +1,50 @@
-## Problema
+## Verificação prévia (já feita)
 
-Na timeline do site de rastreio (padrão Correios e variantes), os eventos das etapas finais — quando o pedido se aproxima do destinatário — não estão exibindo a **cidade/UF do cliente**. Aparece apenas a cidade de origem (Goiânia/GO, configurada pelo lojista em Postagens) nos eventos iniciais, e os eventos posteriores ficam sem localização ou mostram apenas o `status_label` repetido.
+**696 envios** da loja `useonefit2026@gmail.com` parados na etapa "Chegou perto de você":
+- ✅ 696/696 com e-mail no formato válido (`xxx@yyy.zz`)
+- ✅ 653 e-mails únicos (alguns clientes com 2+ pedidos — receberão um e-mail por pedido)
+- ✅ 696/696 com `codigo_rastreio` preenchido e já no padrão ATLAS (sufixo `AT`, nenhum com `JL`)
 
-Causa: o `switch (ev.status_label)` em `src/pages/Rastreio.tsx` cobre apenas alguns rótulos genéricos (`Postado`, `Coletado`, `Em Trânsito`, `Centro Local`, `Saiu para Entrega`, `Entregue`). Os rótulos reais do template ATLAS (`Chegou perto de você`, `Em redistribuição`, `Unidade final`, `Chegou ao estado vizinho`, `Passando por centro de triagem`, `Saiu da unidade de origem`, etc.) caem no `default` e não recebem a cidade do destino.
+**Template do e-mail** (`postagem_eventos` da etapa "Chegou perto de você"):
+- Assunto: `📍 Chegou perto de você`
+- Corpo: `Seu pedido chegou no centro de distribuição da sua região. Quase lá!`
+- Cor primária: `#6366f1` · Cor do botão CTA: `#1a1a1a`
+- `enviar_emails = true` na config da loja
 
-## Solução
+**Botão CTA do e-mail** (fluxo confirmado em código):
+- Link no e-mail: `https://<projeto>.functions.supabase.co/functions/v1/redirect?c={codigo_rastreio}`
+- `redirect` redireciona 302 para `https://atlas-cargo.org/r/{codigo_rastreio}` ✅
+- Cada cliente abrirá o site da Atlas já com o próprio código de rastreio carregado.
 
-Ampliar o mapeamento de `status_label → locationText` nos três blocos de timeline do `src/pages/Rastreio.tsx` (linhas ~663, ~937, ~1186), seguindo o padrão dos Correios. Cada etapa passará a mostrar a cidade correta (origem vs. destino) conforme o avanço do pedido.
+**Cobrança**: o débito principal de e-mail só ocorre na primeira etapa (`ordem = 0`). Como os 696 já estão em ordem 7, **nenhum crédito é debitado**. O upsell já está gateado por `sem_cobranca = true` e o template "Chegou perto de você" também não está no mapa de upsell.
 
-### Mapeamento proposto
+## O que vou fazer
 
-| status_label | Texto exibido |
-|---|---|
-| NF-e / Nota Fiscal Emitida | (sem localização) |
-| Postado | `Unidade de Postagem, {origem}` |
-| Coletado | `Unidade de Tratamento, {origem}` |
-| Saiu da unidade de origem | `de Unidade de Tratamento, {origem} para Unidade de Distribuição, {destino}` |
-| Passando por centro de triagem | `Centro de Triagem, {origem}` |
-| Chegou ao estado vizinho | `Em trânsito para {destino}` |
-| Chegou perto de você | `Unidade de Distribuição, {destino}` |
-| Em redistribuição | `Unidade de Distribuição, {destino}` |
-| Unidade final | `Unidade de Distribuição, {destino}` |
-| Saiu para Entrega (e 2ª tentativa / Em rota final) | `Unidade de Distribuição, {destino}` |
-| Retornou ao centro de distribuição | `Unidade de Distribuição, {destino}` |
-| Entrega reprogramada | `Unidade de Distribuição, {destino}` |
-| Entregue ✅ | `Pela Unidade de Distribuição, {destino}` |
-| Em Trânsito / Em Rota (genérico) | `de {origem} para {destino}` |
+Disparar o e-mail da etapa atual ("Chegou perto de você") para os 696 envios, **sem avançar nada** no fluxo:
 
-`{origem}` = cidade/UF configurada pelo lojista em Postagens (já carregada em `origem.cidade`/`origem.estado`).
-`{destino}` = `envio.cliente_cidade` + `envio.cliente_estado` (já disponíveis no objeto `envio`).
+1. Criar uma edge function nova `bulk-send-status-email` que:
+   - Recebe `loja_id`, `evento_id`, `status_label`, `ultimo_evento_ordem`.
+   - Busca todos os envios da loja em `deleted_at IS NULL` que correspondam ao status/ordem informados.
+   - Invoca `send-email` em lotes de **8 paralelos**, com pequena pausa entre lotes (evita 429 do Resend).
+   - Cada chamada usa o `evento_id` da etapa "Chegou perto de você" — a função `send-email` já tem idempotência por `(envio_id, evento_id)` em `postagem_email_log`, então re-execuções são seguras (nenhum e-mail duplicado).
+   - **Não altera `ultimo_evento_ordem`, nem `status_label`, nem `proximo_avanco_em`** — só dispara o e-mail.
+   - Retorna contagem: enviados / pulados (já enviados) / falhas.
+2. Deploy da função.
+3. Invocar via `curl_edge_functions` (service role) com:
+   - `loja_id = 86829180-1015-402d-ba18-b772cf50694e`
+   - `evento_id = 36e1e9aa-60fe-4423-bbc9-fe7543997c07`
+   - `status_label = "Chegou perto de você"`
+   - `ultimo_evento_ordem = 7`
+4. Verificar contagem final em `postagem_email_log` para confirmar 696 envios processados.
 
-Se a cidade do cliente estiver ausente, o texto cai de volta para um genérico (sem quebrar nada).
+## Salvaguardas
+
+- A função só processa envios que **estão exatamente na ordem/status passados** — não dispara nada de outras etapas.
+- Idempotência: rodar de novo não duplica e-mails.
+- Caso o Resend retorne 429 em algum envio, o log fica como `failed` e podemos reprocessar — a função pode ser invocada novamente sem risco.
 
 ## Detalhes técnicos
 
-- Arquivo único alterado: `src/pages/Rastreio.tsx`.
-- Trocar os três blocos `switch (ev.status_label)` por uma única função helper `buildLocationText(statusLabel, origemLabel, destLabel)` declarada no topo do componente, evitando duplicação.
-- Sem mudanças de schema, backend ou edge functions.
-- Sem impacto em e-mails/SMS — apenas a página pública de rastreio.
+- Nova função: `supabase/functions/bulk-send-status-email/index.ts`.
+- Sem mudanças de schema, sem alteração no `advance-shipments`, sem alteração no `send-email`.
+- Sem UI nova — execução one-shot via edge function.
