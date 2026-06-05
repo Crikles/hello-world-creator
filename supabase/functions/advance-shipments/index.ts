@@ -896,7 +896,7 @@ async function advanceShipment(
     // Se outro processo avançar antes de nós (lock falha abaixo), estornamos o débito.
     let debitedTotal = 0;
     let debitedDescricao = "";
-    if (currentOrdem === 0) {
+    if (currentOrdem === 0 && !(shipment as any).sem_cobranca) {
       let total = 0;
       const activeServices: string[] = [];
 
