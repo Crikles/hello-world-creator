@@ -148,13 +148,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    const remaining = pending - processing;
     return new Response(
       JSON.stringify({
         total,
+        pending_before: pending,
+        processed: processing,
+        remaining,
         sent,
         skipped,
         failed,
-        failures: failures.slice(0, 20), // cap log
+        failures: failures.slice(0, 20),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
