@@ -95,8 +95,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    const ids = (envios || []).map((e) => e.id as string);
-    const total = ids.length;
+    const allIds = (envios || []).map((e) => e.id as string);
+
+    // Pre-filter envios that already have a successful email log for this evento (idempotency)
+    let pendingIds = allIds;
+    if (allIds.length > 0) {
+      const { data: logs } = await supabase
+        .from("postagem_email_log")
+        .select("envio_id")
+        .eq("evento_id", evento_id)
+        .in("envio_id", allIds)
+        .in("status", ["sent", "delivered", "opened", "clicked", "bounced", "complained", "delivery_delayed"]);
+      const alreadySent = new Set((logs || []).map((l) => l.envio_id as string));
+      pendingIds = allIds.filter((id) => !alreadySent.has(id));
+    }
+
+    const limit = Math.max(1, Math.min(500, body.limit ?? pendingIds.length));
+    const ids = pendingIds.slice(0, limit);
+    const total = allIds.length;
+    const pending = pendingIds.length;
+    const processing = ids.length;
     let sent = 0;
     let skipped = 0;
     let failed = 0;
