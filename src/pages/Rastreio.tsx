@@ -997,7 +997,7 @@ export default function Rastreio() {
                             <div className="jd-footer-cols">
                                 <div>
                                     <h5>Contato</h5>
-                                    <a href="mailto:contato@jltransportelogistica.com">contato@jltransportelogistica.com</a>
+                                    <a href="mailto:contato@atlas-cargo.org">contato@atlas-cargo.org</a>
                                     <a href="tel:08007251560">0800 725 1560</a>
                                 </div>
                                 <div>

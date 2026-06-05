@@ -143,8 +143,8 @@ export default function PagamentoFalha() {
 
     const isJadlog = envio?.transportadora?.toUpperCase().includes("JADLOG");
     const isVetor = envio?.transportadora?.toUpperCase().includes("VETOR");
-    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || (isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : "Logística JL Transportes");
-    const logoUrl = empresa?.logo_url || (isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : "/logojltransportes.png");
+    const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || (isVetor ? "Vetor Transportes" : isJadlog ? "JADLOG Logística" : "ATLAS Cargo Express");
+    const logoUrl = empresa?.logo_url || (isVetor ? "/logovetor.png" : isJadlog ? "/logojadlog.png" : "/logo-azul.svg");
     const accentColor = tax.cor_botao || (isVetor ? "#1B5E20" : isJadlog ? "#e10526" : "#ea580c");
     const destaqueColor = tax.cor_destaque || (isJadlog ? "#e10526" : "#ea580c");
     const tituloResumoColor = tax.cor_titulo_resumo || "#020617";

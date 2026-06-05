@@ -667,8 +667,10 @@ export function ImportarPlanilha({ lojaId }: Props) {
         ncm_sh: row.ncm_sh || null,
         cst: row.cst || null,
         unidade: row.unidade || "UN",
-        codigo_rastreio: row.codigo_rastreio || null,
-        transportadora: row.transportadora || null,
+        codigo_rastreio: row.codigo_rastreio ? String(row.codigo_rastreio).replace(/JL$/i, "AT") : null,
+        transportadora: !row.transportadora || String(row.transportadora).toUpperCase().includes("JL")
+          ? "ATLAS Transportes"
+          : row.transportadora,
         postagem_template_id: configData?.template_ativo_id || null,
       }));
 

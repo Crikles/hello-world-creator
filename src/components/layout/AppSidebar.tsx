@@ -121,15 +121,15 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <div className="relative">
             <img
-              src={isLogisticsDomain() ? "/logojltransportes.png" : "/logo-magnus.png"}
-              alt={isLogisticsDomain() ? "Logística JL Transportes" : "Magnus Frete"}
+              src={isLogisticsDomain() ? "/logo-azul.svg" : "/logo-magnus.png"}
+              alt={isLogisticsDomain() ? "ATLAS Cargo Express" : "Magnus Frete"}
               className="h-12 w-12 rounded-xl object-contain"
             />
             <div className="absolute inset-0 rounded-xl border border-primary/15 animate-glow-pulse" />
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-primary truncate">
-              {loja?.nome || "Logística JL Transportes"}
+              {loja?.nome || "ATLAS Cargo Express"}
             </h2>
             <div className="flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-full glass glow-border w-fit">
               <Coins className="h-3 w-3 text-primary animate-glow-pulse" />

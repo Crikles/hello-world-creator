@@ -64,8 +64,8 @@ export default function Signup() {
         signupEmail={email}
         onResendEmail={handleResend}
         resending={resending}
-        logo={isLogistics ? "/logojltransportes.png" : "/logo-magnus.png"}
-        logoAlt={isLogistics ? "Logística JL Transportes" : "Magnus Frete"}
+        logo={isLogistics ? "/logo-azul.svg" : "/logo-magnus.png"}
+        logoAlt={isLogistics ? "ATLAS Cargo Express" : "Magnus Frete"}
         subtitle="Comece a gerenciar seus envios"
       />
     </div>

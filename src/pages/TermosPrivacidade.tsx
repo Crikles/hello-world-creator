@@ -29,13 +29,13 @@ export default function TermosPrivacidade({ tipo }: Props) {
           bgBody: "#f0fdf4",
         }
       : {
-          empresa: "JL Transporte e Logística",
-          empresaCurta: "JL Transportes",
-          site: "rastreio.jltransportelogistica.com",
-          email: "contato@jltransportelogistica.com",
-          accent: "#6366f1",
-          accentDark: "#4f46e5",
-          bgBody: "#eef2ff",
+          empresa: "Atlas Cargo Transportes Ltda",
+          empresaCurta: "Atlas Cargo",
+          site: "atlas-cargo.org",
+          email: "contato@atlas-cargo.org",
+          accent: "#f59e0b",
+          accentDark: "#d97706",
+          bgBody: "#fffbeb",
         };
 
   const { empresa, empresaCurta, site, email, accent, accentDark, bgBody } = brand;

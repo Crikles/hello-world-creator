@@ -106,9 +106,9 @@ export default function Login() {
         signupEmail={signupEmail}
         onResendEmail={handleResend}
         resending={resending}
-        logo={isLogistics ? "/logojltransportes.png" : "/logo-magnus.png"}
-        logoAlt={isLogistics ? "Logística JL Transportes" : "Magnus Frete"}
-        title={isLogistics ? "Logística JL Transportes" : undefined}
+        logo={isLogistics ? "/logo-azul.svg" : "/logo-magnus.png"}
+        logoAlt={isLogistics ? "ATLAS Cargo Express" : "Magnus Frete"}
+        title={isLogistics ? "ATLAS Cargo Express" : undefined}
         subtitle={isLogistics ? "Gestão de Envios & Rastreio" : "Plataforma de Gestão de Fretes"}
       />
     </div>

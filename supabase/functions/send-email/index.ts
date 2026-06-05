@@ -183,8 +183,9 @@ function resolveTransportadora(envio: Record<string, unknown>): string {
   if (code.endsWith("AT")) return "ATLAS Transportes";
   if (code.endsWith("VT")) return "Vetor Transportes";
   if (code.endsWith("JD")) return "Jadlog";
-  if (code.endsWith("JL")) return "JL Transportadora e Logística LTDA";
+  if (code.endsWith("JL")) return "ATLAS Transportes";
   const stored = (envio.transportadora as string) || "";
+  if (stored.toUpperCase().includes("JL")) return DEFAULT_TRANSPORTADORA;
   if (stored.trim()) return stored;
   return DEFAULT_TRANSPORTADORA;
 }
@@ -503,7 +504,7 @@ function buildEmailHtml(
   envio: Record<string, unknown>,
   extras: Record<string, string>,
   primaryColor = "#6366f1",
-  appBaseUrl = "https://rastreio.jltransportelogistica.com",
+  appBaseUrl = "https://atlas-cargo.org",
   ctaColor = "#1a1a1a",
   postagemConfig?: Record<string, unknown>,
   upsellConfig?: UpsellConfig | null

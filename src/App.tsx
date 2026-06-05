@@ -221,7 +221,7 @@ const App = () => {
     if (provider === 'vetor') {
       document.title = 'Vetor Transportes — Rastreamento';
     } else if (logistics) {
-      document.title = 'Logística JL Transportes';
+      document.title = 'ATLAS Cargo Express — Rastreamento';
     } else {
       document.title = 'Magnus Frete';
     }
