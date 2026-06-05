@@ -1,31 +1,40 @@
-## Objetivo
-Forçar todos os 291 envios da loja "use one fit" (useonefit2026@gmail.com) para a etapa **"Centro Local — Chegou perto de você"** (ordem 7) sem disparar nenhum e-mail ou SMS.
+## Problema
 
-## Como o rastreio público decide a etapa
-A página de rastreio lê de `envios`:
-- `ultimo_evento_ordem` — define até qual passo da timeline está aceso
-- `status_label` — texto mostrado no topo
-- `postagem_template_id` — template de eventos usado
+Na timeline do site de rastreio (padrão Correios e variantes), os eventos das etapas finais — quando o pedido se aproxima do destinatário — não estão exibindo a **cidade/UF do cliente**. Aparece apenas a cidade de origem (Goiânia/GO, configurada pelo lojista em Postagens) nos eventos iniciais, e os eventos posteriores ficam sem localização ou mostram apenas o `status_label` repetido.
 
-Encontrei o evento alvo já configurado para essa loja:
-- `loja_id`: 86829180-1015-402d-ba18-b772cf50694e
-- `template_id`: 5836c44c-0490-4f5d-8a9d-a67956c42a24
-- `ordem`: 7, `status_label`: "Chegou perto de você"
+Causa: o `switch (ev.status_label)` em `src/pages/Rastreio.tsx` cobre apenas alguns rótulos genéricos (`Postado`, `Coletado`, `Em Trânsito`, `Centro Local`, `Saiu para Entrega`, `Entregue`). Os rótulos reais do template ATLAS (`Chegou perto de você`, `Em redistribuição`, `Unidade final`, `Chegou ao estado vizinho`, `Passando por centro de triagem`, `Saiu da unidade de origem`, etc.) caem no `default` e não recebem a cidade do destino.
 
-## Atualização a aplicar (1 UPDATE)
-Em `public.envios`, para `loja_id = 86829180-1015-402d-ba18-b772cf50694e` e `deleted_at IS NULL`:
-- `ultimo_evento_ordem = 7`
-- `status_label = 'Chegou perto de você'`
-- `postagem_template_id = 5836c44c-0490-4f5d-8a9d-a67956c42a24`
-- `proximo_avanco_em = NULL` — impede que o cron `advance-shipments` avance ou dispare e-mails/SMS depois
-- `status = 'em_transito'` — mantém o envio ativo na timeline (não final)
+## Solução
 
-## Garantias contra disparo de e-mail/SMS
-- Não vou inserir nada em `postagem_email_log`, `confirmacao_pagamento_log`, `whatsapp_send_queue` ou `sms_*`.
-- Só faço UPDATE direto na linha do envio; nenhum trigger nessa tabela enfileira e-mail (verifiquei: não há triggers em `public`).
-- Ao zerar `proximo_avanco_em`, o worker que avança status + dispara comunicações ignora esses envios.
+Ampliar o mapeamento de `status_label → locationText` nos três blocos de timeline do `src/pages/Rastreio.tsx` (linhas ~663, ~937, ~1186), seguindo o padrão dos Correios. Cada etapa passará a mostrar a cidade correta (origem vs. destino) conforme o avanço do pedido.
 
-## Reversão (se precisar depois)
-Basta rodar outro UPDATE restaurando `ultimo_evento_ordem` e `status_label` originais — posso salvar um snapshot antes se você quiser.
+### Mapeamento proposto
 
-Confirma que posso executar?
+| status_label | Texto exibido |
+|---|---|
+| NF-e / Nota Fiscal Emitida | (sem localização) |
+| Postado | `Unidade de Postagem, {origem}` |
+| Coletado | `Unidade de Tratamento, {origem}` |
+| Saiu da unidade de origem | `de Unidade de Tratamento, {origem} para Unidade de Distribuição, {destino}` |
+| Passando por centro de triagem | `Centro de Triagem, {origem}` |
+| Chegou ao estado vizinho | `Em trânsito para {destino}` |
+| Chegou perto de você | `Unidade de Distribuição, {destino}` |
+| Em redistribuição | `Unidade de Distribuição, {destino}` |
+| Unidade final | `Unidade de Distribuição, {destino}` |
+| Saiu para Entrega (e 2ª tentativa / Em rota final) | `Unidade de Distribuição, {destino}` |
+| Retornou ao centro de distribuição | `Unidade de Distribuição, {destino}` |
+| Entrega reprogramada | `Unidade de Distribuição, {destino}` |
+| Entregue ✅ | `Pela Unidade de Distribuição, {destino}` |
+| Em Trânsito / Em Rota (genérico) | `de {origem} para {destino}` |
+
+`{origem}` = cidade/UF configurada pelo lojista em Postagens (já carregada em `origem.cidade`/`origem.estado`).
+`{destino}` = `envio.cliente_cidade` + `envio.cliente_estado` (já disponíveis no objeto `envio`).
+
+Se a cidade do cliente estiver ausente, o texto cai de volta para um genérico (sem quebrar nada).
+
+## Detalhes técnicos
+
+- Arquivo único alterado: `src/pages/Rastreio.tsx`.
+- Trocar os três blocos `switch (ev.status_label)` por uma única função helper `buildLocationText(statusLabel, origemLabel, destLabel)` declarada no topo do componente, evitando duplicação.
+- Sem mudanças de schema, backend ou edge functions.
+- Sem impacto em e-mails/SMS — apenas a página pública de rastreio.
