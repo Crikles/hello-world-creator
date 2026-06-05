@@ -13,7 +13,7 @@ export const dadosExemplo: Record<string, string> = {
   cliente_email: "tiago@email.com",
   produto: "Camiseta Polo Premium",
   codigo_rastreio: "BR547454312HF",
-  transportadora: "JL Transportadora e Logística LTDA",
+  transportadora: "ATLAS Transportes",
   valor: "89,90",
   quantidade: "1",
   empresa_nome: "Minha Loja",

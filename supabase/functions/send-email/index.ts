@@ -504,7 +504,7 @@ function buildEmailHtml(
   envio: Record<string, unknown>,
   extras: Record<string, string>,
   primaryColor = "#6366f1",
-  appBaseUrl = "https://rastreio.jltransportelogistica.com",
+  appBaseUrl = "https://atlas-cargo.org",
   ctaColor = "#1a1a1a",
   postagemConfig?: Record<string, unknown>,
   upsellConfig?: UpsellConfig | null
