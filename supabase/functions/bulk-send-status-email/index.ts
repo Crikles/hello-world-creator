@@ -60,6 +60,24 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
+    // Ownership check for non-service-role callers
+    if (!isServiceRole && authedUserId) {
+      const { data: ownsLoja } = await supabase.rpc("user_owns_loja", {
+        _user_id: authedUserId,
+        _loja_id: loja_id,
+      });
+      const { data: isAdmin } = await supabase.rpc("has_role", {
+        _user_id: authedUserId,
+        _role: "admin",
+      });
+      if (!ownsLoja && !isAdmin) {
+        return new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Fetch all matching envios for this loja/status
     const { data: envios, error: eErr } = await supabase
       .from("envios")
