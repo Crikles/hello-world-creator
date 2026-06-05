@@ -1078,9 +1078,14 @@ export default function Envios() {
                 <SelectTrigger className="w-[160px] h-8 text-xs bg-transparent border-border/50">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[400px]">
                   <SelectItem value="todos">Todos Status</SelectItem>
-                  {statusOptions.map((s) => (
+                  <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Status</div>
+                  {statusOptions.filter(s => s.group === "Status").map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                  <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Etapas detalhadas</div>
+                  {statusOptions.filter(s => s.group === "Etapa").map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>
