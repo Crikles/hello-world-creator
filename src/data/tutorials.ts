@@ -138,7 +138,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       "Clique em 'Novo Envio' para criar manualmente seguindo o passo a passo (destinatário, produto, valores).",
       "Para vários pedidos de uma vez, use 'Importar Planilha' (CSV ou Excel).",
-      "Após criado, o envio recebe um código com sufixo JL ou VT (de acordo com a transportadora configurada).",
+      "Após criado, o envio recebe um código de rastreio ATLAS automaticamente.",
       "O sistema avança o rastreamento automaticamente a cada 5 minutos seguindo o template configurado.",
       "Você pode baixar a DANFE em PDF a qualquer momento na lista de envios.",
     ],
@@ -399,15 +399,15 @@ export const TUTORIALS: Tutorial[] = [
     category: "Sistema",
     title: "Configurações",
     summary:
-      "Escolha a transportadora padrão (JL ou VETOR) e ajuste preferências da conta.",
+      "Confira a transportadora padrão ATLAS e ajuste preferências da conta.",
     icon: SlidersHorizontal,
     route: "configuracoes",
     purpose:
       "Define o comportamento global da loja: qual transportadora exibir, qual domínio aparecer nos links de rastreio, etc.",
     steps: [
       "Abra 'Configurações' → aba 'Postagens'.",
-      "Escolha JL Transportes ou VETOR Transportes.",
-      "Salve. Próximos envios já sairão com o sufixo (JL ou VT) e o domínio correspondente nos links.",
+      "A transportadora ativa é ATLAS.",
+      "Salve. Próximos envios já sairão com o sufixo AT e o domínio atlas-cargo.org nos links.",
     ],
     tips: [
       "A transportadora afeta domínio, branding dos e-mails e código de rastreio.",

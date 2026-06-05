@@ -98,7 +98,7 @@ const responseExample = `{
   "success": true,
   "pedido_id": "uuid-do-pedido",
   "envio_id": "uuid-do-envio",
-  "codigo_rastreio": "BR1A2B3C4D5EJL"
+  "codigo_rastreio": "BR1A2B3C4D5EAT"
 }`;
 
 const aiPromptText = `Integre minha loja com a API do Magnus Frete para enviar pedidos e receber códigos de rastreio automaticamente.
@@ -170,7 +170,7 @@ console.log(data.codigo_rastreio);
   "success": true,
   "pedido_id": "uuid-do-pedido",
   "envio_id": "uuid-do-envio",
-  "codigo_rastreio": "BR1A2B3C4D5EJL"
+  "codigo_rastreio": "BR1A2B3C4D5EAT"
 }
 
 ## Tratamento de erros

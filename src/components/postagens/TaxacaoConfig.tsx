@@ -166,7 +166,7 @@ function buildTaxacaoPreviewHtml(settings: TaxacaoSettings, empresaNome: string,
                   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #f1f5f9;">
                     <tr><td style="padding:14px 16px;">
                       <p style="margin:0 0 2px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">🚛 Transp.</p>
-                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;">JL Transportes</p>
+                      <p style="margin:0;font-size:13px;font-weight:600;color:#1e293b;">ATLAS Transportes</p>
                     </td></tr>
                   </table>
                 </td>
@@ -242,7 +242,7 @@ function TaxacaoTrackingPreview({ settings, empresaNome, logoUrl }: { settings: 
                         <div className="h-px bg-slate-100 my-1" />
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Produto</span><span className="font-bold text-[#020617]">Camiseta Polo Premium</span></div>
                         <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Referência</span><span className="font-mono text-[10px] font-semibold" style={{ color: settings.cor_destaque }}>BR547454312HF</span></div>
-                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Transportadora</span><span className="font-bold text-[#020617]">JL Transportes</span></div>
+                        <div className="flex justify-between"><span className="font-bold text-slate-500 uppercase">Transportadora</span><span className="font-bold text-[#020617]">ATLAS Transportes</span></div>
                         <div className="h-px bg-slate-100 my-1" />
                         {settings.mostrar_valor && (
                             <div className="flex justify-between items-baseline">

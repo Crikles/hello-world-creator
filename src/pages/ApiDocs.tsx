@@ -36,7 +36,7 @@ const responseExample = `{
   "success": true,
   "pedido_id": "uuid-do-pedido",
   "envio_id": "uuid-do-envio",
-  "codigo_rastreio": "BR1A2B3C4D5EJL"
+  "codigo_rastreio": "BR1A2B3C4D5EAT"
 }`;
 
 const errorExamples = [
