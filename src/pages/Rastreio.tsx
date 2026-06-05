@@ -147,6 +147,53 @@ const statusConfig: Record<string, { icon: any; label: string }> = {
     "Em Rota": { icon: Truck, label: "Em rota" },
 };
 
+/* ─── Location text builder (padrão Correios) ─── */
+function buildLocationText(
+    statusLabel: string | null | undefined,
+    origemLabel: string | null,
+    destLabel: string | null,
+    fallback?: string | null,
+): string | null {
+    const label = (statusLabel || "").trim();
+    switch (label) {
+        case "NF-e":
+        case "Nota Fiscal Emitida":
+        case "Nota Fiscal":
+            return null;
+        case "Postado":
+            return origemLabel ? `Unidade de Postagem, ${origemLabel}` : null;
+        case "Coletado":
+            return origemLabel ? `Unidade de Tratamento, ${origemLabel}` : null;
+        case "Saiu da unidade de origem":
+            if (origemLabel && destLabel) return `de Unidade de Tratamento, ${origemLabel} para Unidade de Distribuição, ${destLabel}`;
+            return origemLabel ? `Saiu de Unidade de Tratamento, ${origemLabel}` : null;
+        case "Passando por centro de triagem":
+            return origemLabel ? `Centro de Triagem, ${origemLabel}` : null;
+        case "Chegou ao estado vizinho":
+            return destLabel ? `Em trânsito para ${destLabel}` : null;
+        case "Chegou perto de você":
+        case "Centro Local":
+        case "Em redistribuição":
+        case "Unidade final":
+        case "Retornou ao centro de distribuição":
+        case "Entrega reprogramada":
+        case "Saiu para Entrega":
+        case "Saiu para Entrega (2ª tentativa)":
+        case "Em rota final":
+            return destLabel ? `Unidade de Distribuição, ${destLabel}` : null;
+        case "Entregue":
+        case "Entregue ✅":
+            return destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null;
+        case "Em Trânsito":
+        case "Em Rota":
+            if (origemLabel && destLabel) return `de ${origemLabel} para ${destLabel}`;
+            return null;
+        default:
+            return fallback || label || null;
+    }
+}
+
+
 /* ─── Page Component ─── */
 export default function Rastreio() {
     const { codigoParam } = useParams<{ codigoParam: string }>();
@@ -659,17 +706,8 @@ export default function Rastreio() {
 
                                                     const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
                                                     const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
-                                                    let locationText: string | null = null;
-                                                    switch (ev.status_label) {
-                                                        case "Postado": locationText = origemLabel ? `Unidade de Postagem, ${origemLabel}` : null; break;
-                                                        case "Coletado": locationText = origemLabel ? `Unidade de Tratamento, ${origemLabel}` : null; break;
-                                                        case "Em Trânsito": case "Em Rota":
-                                                            if (origemLabel && destLabel) locationText = `de ${origemLabel} para ${destLabel}`; break;
-                                                        case "Centro Local": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
-                                                        case "Saiu para Entrega": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
-                                                        case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
-                                                        default: locationText = ev.descricao || ev.status_label || null;
-                                                    }
+                                                    const locationText = buildLocationText(ev.status_label, origemLabel, destLabel, ev.descricao);
+
 
                                                     const vizinhoData = (ev.status_label === "Entregue" && ativarVizinho) ? getVizinhoData(envio.id, envio.cliente_nome) : null;
 
@@ -933,17 +971,8 @@ export default function Rastreio() {
 
                                                     const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
                                                     const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
-                                                    let locationText: string | null = null;
-                                                    switch (ev.status_label) {
-                                                        case "Postado": locationText = origemLabel ? `Unidade de Postagem, ${origemLabel}` : null; break;
-                                                        case "Coletado": locationText = origemLabel ? `Unidade de Tratamento, ${origemLabel}` : null; break;
-                                                        case "Em Trânsito": case "Em Rota":
-                                                            if (origemLabel && destLabel) locationText = `de ${origemLabel} para ${destLabel}`; break;
-                                                        case "Centro Local": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
-                                                        case "Saiu para Entrega": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
-                                                         case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
-                                                        default: locationText = ev.descricao || ev.status_label || null;
-                                                    }
+                                                    const locationText = buildLocationText(ev.status_label, origemLabel, destLabel, ev.descricao);
+
 
                                                     const vizinhoData = (ev.status_label === "Entregue" && ativarVizinho) ? getVizinhoData(envio.id, envio.cliente_nome) : null;
 
@@ -1182,17 +1211,8 @@ export default function Rastreio() {
                                                 const eventDate = new Date(new Date(envio.updated_at).getTime() - (idx * 24 * 60 * 60 * 1000));
                                                 const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
                                                 const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
-                                                let locationText: string | null = null;
-                                                switch (ev.status_label) {
-                                                    case "Postado": locationText = origemLabel ? `Unidade de Postagem, ${origemLabel}` : null; break;
-                                                    case "Coletado": locationText = origemLabel ? `Unidade de Tratamento, ${origemLabel}` : null; break;
-                                                    case "Em Trânsito": case "Em Rota":
-                                                        if (origemLabel && destLabel) locationText = `de Unidade de Tratamento, ${origemLabel} para Unidade de Distribuição, ${destLabel}`; break;
-                                                    case "Centro Local": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
-                                                    case "Saiu para Entrega": locationText = destLabel ? `Unidade de Distribuição, ${destLabel}` : null; break;
-                                                     case "Entregue": locationText = destLabel ? `Pela Unidade de Distribuição, ${destLabel}` : null; break;
-                                                    default: locationText = ev.descricao || ev.status_label || null;
-                                                }
+                                                const locationText = buildLocationText(ev.status_label, origemLabel, destLabel, ev.descricao);
+
 
                                                 const vizinhoData = (ev.status_label === "Entregue" && ativarVizinho) ? getVizinhoData(envio.id, envio.cliente_nome) : null;
                                                 return (
