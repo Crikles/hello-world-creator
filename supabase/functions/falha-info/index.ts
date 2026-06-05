@@ -177,7 +177,7 @@ Deno.serve(async (req: Request) => {
           cliente_cidade: envio.cliente_cidade,
           cliente_estado: envio.cliente_estado,
           cliente_cep: envio.cliente_cep,
-          transportadora: envio.transportadora || "JL Transportes",
+          transportadora: envio.transportadora || "ATLAS Transportes",
           valor: envio.valor,
         },
         empresa: empresa
