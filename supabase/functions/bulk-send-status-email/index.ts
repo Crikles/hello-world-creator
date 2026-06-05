@@ -13,6 +13,7 @@ interface Body {
   ultimo_evento_ordem: number;
   batch_size?: number;
   pause_ms?: number;
+  limit?: number;
 }
 
 Deno.serve(async (req) => {
