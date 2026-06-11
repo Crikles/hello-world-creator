@@ -1,65 +1,40 @@
-## O que muda
+## Situação atual
 
-### 1. Lead não precisa mais saber o número do pedido
-Hoje o card esquerdo exige **pedido + (e-mail|CPF)**. Vou tornar o número do pedido **opcional**:
+Usuário: `vercarosuporte@gmail.com` → loja `16b287dd-...` (Vercaro).
 
-- Se o lead digitar **só e-mail** (ou só CPF), o backend busca o envio mais recente daquela loja para aquele contato.
-- Se houver vários envios para o mesmo contato, retorna a lista (até 5) e o widget mostra um seletor "Selecione seu pedido" com produto + data + últimos dígitos do código.
-- Se digitar pedido + contato, mantém a lógica atual (match exato).
+Envios da loja (ativos):
+- **214 envios** com template **"Envio com Falha na Entrega"** (`87c93127`) — os que ele escolheu errado.
+- **181 envios** com `postagem_template_id = NULL` → já usam o template ativo da loja, que **já é "Envio Prolongado"** (`8fb9200e`). Esses não precisam de nada.
 
-Mudanças:
-- `supabase/functions/widget-buscar-pedido/index.ts`: aceitar requisição sem `numero`; nesse caso, consultar `envios` da loja por `cliente_email`/`cliente_cpf` (e fallback em `pedidos.customer_email/customer_document`) ordenado por `created_at desc`, devolvendo `{ matches: [{codigo_rastreio, produto, created_at}] }` quando houver mais de um, ou `{ codigo_rastreio }` direto quando for único.
-- Label do campo passa a ser "Número do Pedido (opcional)".
+## Mapeamento das etapas
 
-### 2. Resultado bonito (substitui as telas feias dos prints)
+Comparando as ordens dos dois templates, os 5 primeiros eventos batem 1:1:
 
-Atualmente o resultado mostra:
-- Produto em JSON cru (`[{"nome":"KIT...","quantidade":1}]`)
-- Status em snake_case (`em_transito`, `pendente`)
-- Sem datas em cada etapa
-- Sem cidade de origem
-- Timeline sem hierarquia (todos os pontos iguais)
-- Layout apertado
+| Ordem | Falha na Entrega | Envio Prolongado |
+|---|---|---|
+| 1 | NF-e | NF-e |
+| 2 | Postado | Postado |
+| 3 | Coletado | Coletado |
+| 4 | Em Trânsito | Saiu da unidade de origem (Em Trânsito) |
+| 5 | Centro de Distribuição | Passando por centro de triagem (Em Trânsito) |
 
-Vou redesenhar dentro do mesmo Shadow DOM (`public/widget/tracking.js`):
+Distribuição atual dos 214 envios: 103 na ordem 2, 72 na 3, 38 na 4, 1 na 5. **Todos caem em etapas equivalentes**, então manter o mesmo `ultimo_evento_ordem` preserva a posição do cliente na timeline.
 
-**Header do card**
-- Chip de status com label amigável ("Em trânsito", "Pendente", "Entregue", "Saiu para entrega", "Postado", "Coletado") — mapa de status no widget.
-- Título = produto formatado via mesma lógica de `src/lib/format-produto.ts` (decodifica JSON, junta nomes, mostra `(xN)` quando quantidade > 1).
-- Linha secundária: código do rastreio (monospace) + botão "copiar".
-- Transportadora alinhada à direita com ícone de caminhão.
+## Ação
 
-**Bloco de rota (novo)**
-Cartão com 3 colunas: **Origem → Em trânsito → Destino**
-- Origem: cidade/UF da loja (já vem em `origem.cidade/estado` da `rastreio-info`).
-- Meio: barra de progresso com % calculado por `ultimo_evento_ordem / totalEventos`.
-- Destino: `cliente_cidade/UF`.
-- Linha embaixo: "Destinatário: J*** S***" (já mascarado pelo backend).
+Um único UPDATE:
 
-**Timeline com datas**
-- Eventos em ordem cronológica decrescente (mais recente em cima).
-- Cada item: bolinha colorida (cheia = concluído, vazada = futuro), título do evento, descrição, **data formatada** ("11 jun · 14:32").
-- A data de cada etapa é calculada como `envio.created_at + delay_horas` (já temos `delay_horas` em `postagem_eventos`, só não estávamos usando). Backend já manda isso — só usar no front.
-- Primeiro evento destacado com fundo levemente colorido + label "Atualização mais recente".
-- Eventos futuros (que existem no template mas ainda não rolaram) aparecem em cinza claro, opcional — controlado por flag interna. **Por padrão: só os já ocorridos.**
+```sql
+UPDATE envios
+SET postagem_template_id = '8fb9200e-d9b7-46e5-a132-218ff90538d7' -- Envio Prolongado
+WHERE loja_id = '16b287dd-ae5d-4c39-9fe6-a617ec80da9a'
+  AND postagem_template_id = '87c93127-9307-4474-8bd3-0dde51caa10f'
+  AND deleted_at IS NULL;
+```
 
-**Rodapé**
-- "Última atualização: <data>" pequeno em cinza.
-- Botão "Nova consulta" como ghost button.
+- Mantém `ultimo_evento_ordem` e `status` intactos → cada envio fica exatamente na mesma etapa, só que com os labels e o avanço futuro vindo do template Prolongado.
+- Aplica também aos mais antigos (sem filtro de data).
+- Não mexo nos 181 envios com `NULL` (já estavam usando Prolongado pela config ativa da loja).
+- Não mexo na config da loja — `template_ativo_id` já é Prolongado.
 
-**Cor primária**
-- Já vem em `cor_primaria` da resposta. Quando `data-cor` não for definido no embed, usar a cor da loja automaticamente (hoje cai pro azul fixo).
-
-### 3. Atualizar preview
-- `public/widget-preview.html` atualizado pra refletir o novo layout (mock com origem São Paulo/SP → destino Rio de Janeiro/RJ, timeline com datas, status amigável).
-
-## Arquivos tocados
-- `supabase/functions/widget-buscar-pedido/index.ts` — busca sem número
-- `public/widget/tracking.js` — UI redesenhada + suporte a múltiplos matches + cor da loja por padrão
-- `public/widget-preview.html` — mock atualizado
-
-Sem mudanças de schema, sem nova migration.
-
-## Pontos pra confirmar
-1. Quando o e-mail tiver vários pedidos, prefere **lista de seleção** (até 5) ou **só o mais recente**?
-2. Mostrar os **eventos futuros** em cinza (como um "stepper" completo) ou só os já ocorridos?
+Sem mudanças de schema, sem código tocado.
