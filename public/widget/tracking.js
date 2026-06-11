@@ -128,25 +128,61 @@
 
       var grid = h("div", { class: "grid" });
 
-      // Left card: pedido + email
-      var leftErr = null;
+      // Left card: pedido + email OU cpf
+      var modo = "email"; // 'email' | 'cpf'
       var inpNum = h("input", { class: "input", placeholder: "Número do Pedido", autocomplete: "off" });
       var inpMail = h("input", { class: "input", type: "email", placeholder: "E-mail", autocomplete: "email" });
+      var inpCpf = h("input", { class: "input", placeholder: "CPF (somente números)", inputmode: "numeric", maxlength: "14", style: "display:none;" });
+      var lblIdent = h("label", { class: "label" }, "E-mail");
+
+      var tabEmail = h("button", { type: "button", class: "tab tab-on" }, "E-mail");
+      var tabCpf = h("button", { type: "button", class: "tab" }, "CPF");
+      var tabs = h("div", { class: "tabs" }, [tabEmail, tabCpf]);
+
+      function setModo(m) {
+        modo = m;
+        if (m === "email") {
+          tabEmail.className = "tab tab-on"; tabCpf.className = "tab";
+          inpMail.style.display = ""; inpCpf.style.display = "none";
+          lblIdent.textContent = "E-mail";
+        } else {
+          tabEmail.className = "tab"; tabCpf.className = "tab tab-on";
+          inpMail.style.display = "none"; inpCpf.style.display = "";
+          lblIdent.textContent = "CPF";
+        }
+      }
+      tabEmail.addEventListener("click", function () { setModo("email"); });
+      tabCpf.addEventListener("click", function () { setModo("cpf"); });
+
+      inpCpf.addEventListener("input", function () {
+        inpCpf.value = (inpCpf.value || "").replace(/\D/g, "").slice(0, 11);
+      });
+
       var btnLeft = h("button", { class: "btn" }, "Localizar");
       var leftCard = h("div", { class: "card" }, [
         h("label", { class: "label" }, "Número do Pedido"),
         inpNum,
-        h("label", { class: "label" }, "E-mail"),
+        lblIdent,
+        tabs,
         inpMail,
+        inpCpf,
         btnLeft,
       ]);
 
       btnLeft.addEventListener("click", function () {
         var num = (inpNum.value || "").trim();
-        var mail = (inpMail.value || "").trim();
-        if (!num || !mail) { showError(leftCard, "Preencha pedido e e-mail."); return; }
+        var params = { loja_id: lojaId, numero: num };
+        if (modo === "email") {
+          var mail = (inpMail.value || "").trim();
+          if (!num || !mail) { showError(leftCard, "Preencha pedido e e-mail."); return; }
+          params.email = mail;
+        } else {
+          var cpf = (inpCpf.value || "").replace(/\D/g, "");
+          if (!num || cpf.length !== 11) { showError(leftCard, "Preencha pedido e CPF (11 dígitos)."); return; }
+          params.cpf = cpf;
+        }
         btnLeft.disabled = true; btnLeft.textContent = "Buscando...";
-        api("/widget-buscar-pedido", { loja_id: lojaId, numero: num, email: mail })
+        api("/widget-buscar-pedido", params)
           .then(function (res) {
             btnLeft.disabled = false; btnLeft.textContent = "Localizar";
             if (!res.ok) { showError(leftCard, res.data.error || "Pedido não encontrado."); return; }
@@ -173,7 +209,7 @@
         loadTracking(cod);
       });
 
-      [inpNum, inpMail].forEach(function (el) {
+      [inpNum, inpMail, inpCpf].forEach(function (el) {
         el.addEventListener("keydown", function (e) { if (e.key === "Enter") btnLeft.click(); });
       });
       inpCod.addEventListener("keydown", function (e) { if (e.key === "Enter") btnRight.click(); });
