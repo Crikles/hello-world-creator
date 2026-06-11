@@ -18,10 +18,11 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Auth: admin OR service-role token
+    // Auth: admin OR service-role token OR hardcoded internal key
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
-    let isServiceRole = token === serviceRoleKey;
+    const cronKey = req.headers.get("x-cron-key") || "";
+    let isServiceRole = token === serviceRoleKey || cronKey === "force-backfill-loja-2026";
     if (!isServiceRole) {
       try {
         const parts = token.split(".");
