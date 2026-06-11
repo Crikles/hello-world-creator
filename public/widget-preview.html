@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<title>Preview · Widget Rastreio</title>
+<style>
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a;}
+  .page{max-width:1180px;margin:0 auto;padding:40px 24px;}
+  .shop-header{display:flex;justify-content:space-between;align-items:center;padding:18px 0;border-bottom:1px solid #e5e7eb;margin-bottom:32px;}
+  .shop-logo{font-size:20px;font-weight:700;letter-spacing:.5px;}
+  .shop-nav{display:flex;gap:24px;font-size:14px;color:#475569;}
+  .demo-tag{position:fixed;top:12px;right:12px;background:#0f172a;color:#fff;font-size:11px;padding:6px 10px;border-radius:6px;letter-spacing:.5px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:980px){.grid2{grid-template-columns:1fr;}}
+  .col h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin:0 0 12px;}
+  .box{background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+</style>
+</head>
+<body>
+  <div class="demo-tag">PREVIEW DEMO · loja fictícia</div>
+  <div class="page">
+    <div class="shop-header">
+      <div class="shop-logo">MINHA LOJA</div>
+      <div class="shop-nav"><span>Início</span><span>Produtos</span><span>Rastreio</span><span>Contato</span></div>
+    </div>
+
+    <div class="grid2">
+      <div class="col">
+        <h3>1 · Tela inicial (formulário)</h3>
+        <div class="box">
+          <div class="atlas-order-tracking" data-loja="preview-demo" data-cor="#0f172a" data-mock="form"></div>
+        </div>
+      </div>
+      <div class="col">
+        <h3>2 · Resultado (pedido localizado)</h3>
+        <div class="box">
+          <div class="atlas-order-tracking" data-loja="preview-demo" data-cor="#0f172a" data-mock="result"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// Mock renderer: copia o visual do widget real sem chamar a API.
+(function () {
+  var primary = "#0f172a";
+  function css(p){return [
+    ":host{all:initial;}",
+    "*,*::before,*::after{box-sizing:border-box;}",
+    ".w{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;line-height:1.5;padding:24px;}",
+    ".grid{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:stretch;}",
+    "@media(max-width:720px){.grid{grid-template-columns:1fr;}.sep{display:none;}}",
+    ".card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;}",
+    ".sep{display:flex;align-items:center;justify-content:center;color:#94a3b8;font-weight:600;}",
+    ".label{font-size:13px;color:#334155;font-weight:500;}",
+    ".input{width:100%;padding:11px 13px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;color:#0f172a;background:#fff;outline:none;}",
+    ".btn{background:"+p+";color:#fff;border:0;border-radius:8px;padding:11px 16px;font:inherit;font-weight:600;cursor:pointer;}",
+    ".title{font-size:22px;font-weight:700;margin:0 0 8px;text-align:center;}",
+    ".sub{font-size:14px;color:#64748b;text-align:center;margin:0 0 20px;}",
+    ".result{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;}",
+    ".result-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;border-bottom:1px solid #f1f5f9;padding-bottom:14px;margin-bottom:14px;}",
+    ".chip{display:inline-block;background:"+p+"15;color:"+p+";padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;}",
+    ".timeline{position:relative;padding-left:24px;}",
+    ".timeline::before{content:'';position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:#e2e8f0;}",
+    ".ev{position:relative;padding:10px 0 14px;}",
+    ".ev::before{content:'';position:absolute;left:-21px;top:14px;width:14px;height:14px;border-radius:50%;background:"+p+";border:3px solid "+p+";}",
+    ".ev.pending::before{background:#fff;}",
+    ".ev-title{font-weight:600;font-size:15px;}",
+    ".ev-desc{font-size:13px;color:#475569;margin-top:2px;}",
+    ".ev-date{font-size:12px;color:#94a3b8;margin-top:4px;}",
+    ".muted{color:#64748b;font-size:13px;}",
+    ".row{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:#334155;margin-bottom:14px;}",
+    ".row b{color:#0f172a;font-weight:600;}",
+    ".back{margin-top:14px;font-size:13px;color:"+p+";background:transparent;border:0;cursor:pointer;padding:0;text-decoration:underline;}",
+    ".tabs{display:inline-flex;background:#f1f5f9;border-radius:8px;padding:3px;gap:2px;}",
+    ".tab{flex:1;padding:6px 14px;border:0;background:transparent;border-radius:6px;font:inherit;font-size:13px;color:#475569;cursor:pointer;font-weight:500;}",
+    ".tab-on{background:#fff;color:"+p+";box-shadow:0 1px 2px rgba(0,0,0,.06);font-weight:600;}",
+  ].join("");}
+
+  function mount(host, mode){
+    var shadow = host.attachShadow({mode:"open"});
+    var style = document.createElement("style"); style.textContent = css(primary); shadow.appendChild(style);
+    var root = document.createElement("div"); root.className = "w"; shadow.appendChild(root);
+
+    if (mode === "form") {
+      root.innerHTML = '\
+        <h2 class="title">Rastreio</h2>\
+        <p class="sub">Acompanhe seu pedido em tempo real</p>\
+        <div class="grid">\
+          <div class="card">\
+            <label class="label">Número do Pedido</label>\
+            <input class="input" placeholder="Número do Pedido" value="#10234"/>\
+            <label class="label">E-mail</label>\
+            <div class="tabs"><button class="tab tab-on">E-mail</button><button class="tab">CPF</button></div>\
+            <input class="input" type="email" placeholder="E-mail" value="cliente@email.com"/>\
+            <button class="btn">Localizar</button>\
+          </div>\
+          <div class="sep">Ou</div>\
+          <div class="card">\
+            <label class="label">Número de Rastreio</label>\
+            <input class="input" placeholder="Número de Rastreio"/>\
+            <button class="btn">Localizar</button>\
+          </div>\
+        </div>';
+    } else {
+      root.innerHTML = '\
+        <div class="result">\
+          <div class="result-head">\
+            <div>\
+              <div class="chip">Em trânsito</div>\
+              <div style="font-size:18px;font-weight:700;margin-top:8px;">Camiseta Premium Algodão</div>\
+              <div class="muted">Código: BR8A2F9C3D7EAT</div>\
+            </div>\
+            <div style="text-align:right;">\
+              <div class="muted">Transportadora</div>\
+              <div style="font-weight:600;">ATLAS Transportes</div>\
+            </div>\
+          </div>\
+          <div class="row">\
+            <div><b>Destinatário:</b> João S***</div>\
+            <div><b>Destino:</b> São Paulo/SP</div>\
+          </div>\
+          <div class="timeline">\
+            <div class="ev"><div class="ev-title">Saiu para entrega</div><div class="ev-desc">Centro de distribuição São Paulo/SP</div><div class="ev-date">11 jun 2026 · 08:42</div></div>\
+            <div class="ev"><div class="ev-title">Em trânsito</div><div class="ev-desc">A caminho do destino final</div><div class="ev-date">10 jun 2026 · 19:15</div></div>\
+            <div class="ev"><div class="ev-title">Coletado pela transportadora</div><div class="ev-desc">Centro de triagem Campinas/SP</div><div class="ev-date">09 jun 2026 · 14:30</div></div>\
+            <div class="ev"><div class="ev-title">Postado</div><div class="ev-desc">Pedido despachado pelo remetente</div><div class="ev-date">09 jun 2026 · 10:05</div></div>\
+            <div class="ev pending"><div class="ev-title" style="color:#94a3b8;">Entregue</div><div class="ev-desc">Aguardando atualização</div></div>\
+          </div>\
+          <button class="back">← Nova consulta</button>\
+        </div>';
+    }
+  }
+
+  document.querySelectorAll(".atlas-order-tracking").forEach(function(n){
+    mount(n, n.getAttribute("data-mock") || "form");
+  });
+})();
+</script>
+</body>
+</html>
