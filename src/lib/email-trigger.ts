@@ -300,20 +300,33 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             generate_nfe_server: nextEvent.enviar_nfe_pdf,
         });
 
-        const { error: funcErr } = await supabase.functions.invoke("send-email", {
-            body: {
-                envio_id: shipment.id,
-                evento_id: nextEvent.id,
-                loja_id: lojaId,
-                generate_nfe_server: nextEvent.enviar_nfe_pdf || false,
-            },
-        });
+        // Invoca send-email com retry em caso de rate limit do Functions runtime
+        let funcErr: any = null;
+        for (let attempt = 0; attempt < 4; attempt++) {
+            const res = await supabase.functions.invoke("send-email", {
+                body: {
+                    envio_id: shipment.id,
+                    evento_id: nextEvent.id,
+                    loja_id: lojaId,
+                    generate_nfe_server: nextEvent.enviar_nfe_pdf || false,
+                },
+            });
+            funcErr = res.error;
+            if (!funcErr) break;
+            const retryMs = (funcErr as any)?.context?.retryAfterMs ?? (funcErr as any)?.context?.retry_after_ms;
+            const isRateLimit = (funcErr as any)?.context?.name === "RateLimitError" || typeof retryMs === "number";
+            if (!isRateLimit || attempt === 3) break;
+            const waitMs = Math.min((retryMs || 2000) + 500, 15000);
+            console.warn(`Rate limit ao invocar send-email (envio ${shipment.id}); aguardando ${waitMs}ms (tentativa ${attempt + 1}/4)`);
+            await new Promise(r => setTimeout(r, waitMs));
+        }
 
         if (funcErr) {
             console.error("Edge function failed for event:", nextEvent.nome, funcErr);
         } else {
             console.log("Email sent for event:", nextEvent.nome);
         }
+
 
         // SMS dispatch — charged individually per message, only when the flow is active
         if (
