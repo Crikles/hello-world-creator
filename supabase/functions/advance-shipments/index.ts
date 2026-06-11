@@ -368,7 +368,7 @@ Deno.serve(async (req) => {
   let totalProcessed = 0;
   const MAX_PER_RUN = 500;
   const MAX_PER_LOJA = 300;
-  const BATCH_DELAY_MS = 200; // delay between each shipment to avoid rate limits
+  const BATCH_DELAY_MS = 1500; // delay between each shipment to avoid Functions rate limit
 
   try {
     // Fetch all stores with postagem config
@@ -1019,18 +1019,30 @@ async function advanceShipment(
       }
     }
 
-    // Send email
+    // Send email (com retry em caso de rate limit do Functions)
     if (isAtivo && nextEvent.enviar_email) {
       console.log(`Sending email for envio ${envioId}, event: ${nextEvent.nome}`);
-      const { error: funcErr } = await supabase.functions.invoke("send-email", {
-        body: {
-          envio_id: envioId,
-          evento_id: nextEvent.id,
-          loja_id: lojaId,
-          nfe_storage_path,
-          nfe_filename,
-        },
-      });
+      let funcErr: any = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const res = await supabase.functions.invoke("send-email", {
+          body: {
+            envio_id: envioId,
+            evento_id: nextEvent.id,
+            loja_id: lojaId,
+            nfe_storage_path,
+            nfe_filename,
+          },
+        });
+        funcErr = res.error;
+        if (!funcErr) break;
+        // Detecta RateLimitError do Edge Runtime e aguarda retryAfterMs
+        const retryMs = funcErr?.context?.retryAfterMs ?? funcErr?.context?.retry_after_ms;
+        const isRateLimit = funcErr?.context?.name === "RateLimitError" || (typeof retryMs === "number");
+        if (!isRateLimit || attempt === 3) break;
+        const waitMs = Math.min((retryMs || 2000) + 500, 15000);
+        console.warn(`Rate limit ao invocar send-email (envio ${envioId}); aguardando ${waitMs}ms (tentativa ${attempt + 1}/4)`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
       if (funcErr) {
         console.error(`Email failed for envio ${envioId} (will revert advance):`, funcErr);
         // ── REVERTER O AVANÇO ──
