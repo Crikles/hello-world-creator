@@ -81,8 +81,7 @@
     if (!iso) return "";
     try {
       var d = new Date(iso);
-      return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) +
-        " · " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
     } catch (_) { return ""; }
   }
 
@@ -90,8 +89,7 @@
     if (!iso) return "—";
     try {
       var d = new Date(iso);
-      return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) +
-        " às " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
     } catch (_) { return "—"; }
   }
 
