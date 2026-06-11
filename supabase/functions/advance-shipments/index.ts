@@ -368,7 +368,7 @@ Deno.serve(async (req) => {
   let totalProcessed = 0;
   const MAX_PER_RUN = 500;
   const MAX_PER_LOJA = 300;
-  const BATCH_DELAY_MS = 200; // delay between each shipment to avoid rate limits
+  const BATCH_DELAY_MS = 1500; // delay between each shipment to avoid Functions rate limit
 
   try {
     // Fetch all stores with postagem config
