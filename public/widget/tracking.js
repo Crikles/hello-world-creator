@@ -427,20 +427,23 @@
       ]);
 
       // ----- Bloco de rota -----
-      var routeBar = h("div", { class: "bar" });
-      routeBar.appendChild(h("i", { style: "width:" + progress + "%;" }));
       var route = h("div", { class: "route" }, [
         h("div", { class: "stop" }, [
-          h("div", { class: "stop-label" }, "Origem"),
+          h("div", { class: "stop-label" }, [
+            h("span", { class: "stop-dot" }),
+            document.createTextNode("Origem"),
+          ]),
           h("div", { class: "stop-city" }, origemTxt),
         ]),
         h("div", { class: "arrow" }, [
-          h("div", { class: "arrow-ico" }, "→"),
-          routeBar,
-          h("div", { style: "font-size:11px;color:#94a3b8;font-weight:600;" }, progress + "%"),
+          h("span", { class: "line" }),
+          h("span", { class: "badge", html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>' }),
         ]),
         h("div", { class: "stop r" }, [
-          h("div", { class: "stop-label" }, "Destino"),
+          h("div", { class: "stop-label" }, [
+            h("span", { class: "stop-dot" }),
+            document.createTextNode("Destino"),
+          ]),
           h("div", { class: "stop-city" }, destinoTxt),
         ]),
       ]);
