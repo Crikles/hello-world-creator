@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight, BookOpen, Filter } from "lucide-react";
+import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight, BookOpen, Filter, Package } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -256,6 +256,9 @@ export default function Integracoes() {
         })}
       </div>
 
+      {/* Widget de Rastreio Embutível */}
+      <WidgetRastreioCard lojaId={loja?.id} />
+
       {/* API Externa Card */}
       <div className="mt-6 glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.4s" }}>
         <div className="flex items-center gap-3 mb-4">
@@ -328,5 +331,70 @@ export default function Integracoes() {
         </Button>
       </div>
     </>
+  );
+}
+
+function WidgetRastreioCard({ lojaId }: { lojaId?: string }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const snippet = lojaId
+    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"></div>\n<script src="https://atlas-cargo.org/widget/tracking.js" async></script>`
+    : `<!-- Selecione uma loja primeiro -->`;
+
+  const copy = async (key: string, text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(key);
+    toast({ title: "Copiado!", description: "Cole no HTML da sua página de rastreio." });
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <div className="mt-6 glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.35s" }}>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2.5 rounded-xl bg-primary/10">
+          <Package className="h-5 w-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-semibold text-sm text-foreground">Widget de Rastreio (Shopify / qualquer site)</h3>
+            <Badge variant="outline" className="border-primary/30 text-primary text-[10px]">EMBED</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Cole na página de rastreio da sua loja e os clientes consultam os pedidos sem sair do site.
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Código para colar</label>
+        <div className="flex items-start gap-2">
+          <pre className="flex-1 text-xs glass border-primary/10 px-3 py-2.5 rounded-lg text-foreground font-mono whitespace-pre-wrap break-all overflow-hidden">
+{snippet}
+          </pre>
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 glass border-primary/20 hover:border-primary/40 h-9 w-9"
+            onClick={() => lojaId && copy("widget", snippet)}
+            disabled={!lojaId}
+          >
+            {copied === "widget" ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-muted/40 border border-border/40 p-3 text-xs text-muted-foreground space-y-1.5">
+        <p className="font-medium text-foreground">Como instalar no Shopify:</p>
+        <ol className="list-decimal pl-4 space-y-1">
+          <li>Admin Shopify → <b>Loja online</b> → <b>Páginas</b> → criar página "Rastreio".</li>
+          <li>No editor da página, clique no botão <b>{"<>"}</b> (Mostrar HTML).</li>
+          <li>Cole o código acima e salve.</li>
+          <li>Pronto! O cliente pode buscar por <b>pedido + e-mail</b> ou <b>código de rastreio</b>.</li>
+        </ol>
+        <p className="pt-1.5">
+          O widget herda a cor primária definida em <b>Postagens</b> e mostra apenas pedidos desta loja.
+          Funciona também em WooCommerce, Wix, Nuvemshop ou qualquer HTML.
+        </p>
+      </div>
+    </div>
   );
 }

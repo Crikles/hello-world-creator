@@ -1,0 +1,1 @@
+ALTER TABLE public.postagem_config ADD COLUMN IF NOT EXISTS widget_rastreio_ativo boolean NOT NULL DEFAULT true;

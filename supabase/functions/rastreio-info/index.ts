@@ -212,12 +212,10 @@ Deno.serve(async (req) => {
     try {
         const url = new URL(req.url);
         const codigo = url.searchParams.get("codigo");
+        const lojaIdFilter = url.searchParams.get("loja_id"); // optional widget scoping
         let sessionId = url.searchParams.get("session_id") || req.headers.get("x-lv-session");
         const action = url.searchParams.get("action") === "disconnect" ? "disconnect" : "heartbeat";
 
-        // Fallback: if the (possibly old) public build does not send a session_id,
-        // derive a stable one from IP + User-Agent + day so the visitor still
-        // appears in the Live View. Live build still has priority with its own UUID.
         if (!sessionId) {
             try {
                 const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "0.0.0.0";
@@ -245,7 +243,6 @@ Deno.serve(async (req) => {
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // 1. Find the envio by tracking code
         const { data: envio, error: envioError } = await supabase
             .from("envios")
             .select("id, produto, codigo_rastreio, cliente_nome, transportadora, status, ultimo_evento_ordem, created_at, updated_at, empresa_id, loja_id, valor, cliente_cidade, cliente_estado, postagem_template_id")
@@ -253,6 +250,14 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
         if (envioError || !envio) {
+            return new Response(
+                JSON.stringify({ error: "Código de rastreio não encontrado" }),
+                { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        // Widget scoping: when loja_id is provided, code must belong to that loja
+        if (lojaIdFilter && envio.loja_id !== lojaIdFilter) {
             return new Response(
                 JSON.stringify({ error: "Código de rastreio não encontrado" }),
                 { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
