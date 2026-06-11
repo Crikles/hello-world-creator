@@ -19,6 +19,10 @@ function normalizeOrder(n: string): string {
   return (n || "").trim().replace(/^#/, "").toUpperCase();
 }
 
+function normalizeCpf(c: string): string {
+  return (c || "").replace(/\D/g, "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,6 +33,7 @@ Deno.serve(async (req) => {
     const loja_id = url.searchParams.get("loja_id") || "";
     const numero = normalizeOrder(url.searchParams.get("numero") || "");
     const email = normalizeEmail(url.searchParams.get("email") || "");
+    const cpf = normalizeCpf(url.searchParams.get("cpf") || "");
 
     if (!loja_id || loja_id.length < 10) {
       return new Response(
@@ -36,9 +41,15 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    if (!numero || !email) {
+    if (!numero || (!email && !cpf)) {
       return new Response(
-        JSON.stringify({ error: "Informe número do pedido e e-mail" }),
+        JSON.stringify({ error: "Informe número do pedido e e-mail ou CPF" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    if (cpf && cpf.length !== 11) {
+      return new Response(
+        JSON.stringify({ error: "CPF inválido" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
