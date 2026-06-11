@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < ids.length; i += 500) {
       const slice = ids.slice(i, i + 500);
       const { data: logs } = await supabase
-        .from("postagem_email_log").select("envio_id").in("envio_id", slice).eq("status", "enviado");
+        .from("postagem_email_log").select("envio_id").in("envio_id", slice).in("status", ["sent","delivered","opened","clicked","bounced","complained","delivery_delayed"]);
       for (const l of logs || []) sent.add(l.envio_id);
     }
     const pending = candidates.filter((c) => !sent.has(c.id)).slice(0, limit);
