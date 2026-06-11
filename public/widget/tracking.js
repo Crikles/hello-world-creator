@@ -80,6 +80,9 @@
       ".row b{color:#0f172a;font-weight:600;}",
       ".back{margin-top:14px;font-size:13px;color:" + primary + ";background:transparent;border:0;cursor:pointer;padding:0;text-decoration:underline;}",
       ".loading{text-align:center;padding:32px;color:#64748b;font-size:14px;}",
+      ".tabs{display:inline-flex;background:#f1f5f9;border-radius:8px;padding:3px;gap:2px;margin-bottom:2px;}",
+      ".tab{flex:1;padding:6px 14px;border:0;background:transparent;border-radius:6px;font:inherit;font-size:13px;color:#475569;cursor:pointer;font-weight:500;}",
+      ".tab-on{background:#fff;color:" + primary + ";box-shadow:0 1px 2px rgba(0,0,0,.06);font-weight:600;}",
     ].join("");
   }
 
