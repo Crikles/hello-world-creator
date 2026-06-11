@@ -216,8 +216,8 @@
     // ===== Tela 1: formulário =====
     function viewForm() {
       var wrap = h("div", null);
-      wrap.appendChild(h("h2", { class: "title" }, "Rastreio"));
-      wrap.appendChild(h("p", { class: "sub" }, "Acompanhe seu pedido em tempo real"));
+
+
 
       var grid = h("div", { class: "grid" });
 
