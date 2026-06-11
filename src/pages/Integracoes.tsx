@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight, BookOpen, Filter } from "lucide-react";
+import { Copy, Check, Plug, Zap, ZapOff, Code2, ArrowRight, BookOpen, Filter, Package } from "lucide-react";
 import {
   Select,
   SelectContent,
