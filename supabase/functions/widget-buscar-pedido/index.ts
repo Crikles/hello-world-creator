@@ -76,45 +76,51 @@ Deno.serve(async (req) => {
     // Try matching against pedidos table: transaction_token OR last chars of id
     const { data: pedidos } = await supabase
       .from("pedidos")
-      .select("id, transaction_token, customer_email, envio_id")
+      .select("id, transaction_token, customer_email, customer_document, envio_id")
       .eq("loja_id", loja_id)
       .or(`transaction_token.ilike.${numero},transaction_token.ilike.%${numero}`)
       .limit(20);
 
-    let matched: { envio_id: string | null; customer_email: string | null } | null = null;
-    for (const p of pedidos || []) {
-      const pe = normalizeEmail(p.customer_email || "");
-      if (pe && pe === email && p.envio_id) {
-        matched = p as any;
-        break;
+    function matchPedido(p: any): boolean {
+      if (!p?.envio_id) return false;
+      if (email) {
+        const pe = normalizeEmail(p.customer_email || "");
+        if (pe && pe === email) return true;
       }
+      if (cpf) {
+        const pc = normalizeCpf(p.customer_document || "");
+        if (pc && pc === cpf) return true;
+      }
+      return false;
+    }
+
+    let matched: { envio_id: string | null } | null = null;
+    for (const p of pedidos || []) {
+      if (matchPedido(p)) { matched = p as any; break; }
     }
 
     // Fallback: maybe the "numero" is actually a partial id
     if (!matched) {
       const { data: byId } = await supabase
         .from("pedidos")
-        .select("id, customer_email, envio_id")
+        .select("id, customer_email, customer_document, envio_id")
         .eq("loja_id", loja_id)
         .ilike("id", `%${numero.toLowerCase()}%`)
         .limit(10);
       for (const p of byId || []) {
-        const pe = normalizeEmail(p.customer_email || "");
-        if (pe && pe === email && p.envio_id) {
-          matched = p as any;
-          break;
-        }
+        if (matchPedido(p)) { matched = p as any; break; }
       }
     }
 
-    // Last fallback: search directly on envios by id suffix + cliente_email
+    // Last fallback: search directly on envios by id suffix + cliente_email/cpf
     if (!matched) {
-      const { data: envios } = await supabase
+      let query = supabase
         .from("envios")
-        .select("id, cliente_email, codigo_rastreio")
-        .eq("loja_id", loja_id)
-        .ilike("cliente_email", email)
-        .limit(20);
+        .select("id, cliente_email, cliente_cpf, codigo_rastreio")
+        .eq("loja_id", loja_id);
+      if (email) query = query.ilike("cliente_email", email);
+      else if (cpf) query = query.eq("cliente_cpf", cpf);
+      const { data: envios } = await query.limit(20);
       for (const e of envios || []) {
         if ((e.id as string).toLowerCase().includes(numero.toLowerCase()) ||
             (e.codigo_rastreio || "").toUpperCase().includes(numero)) {
