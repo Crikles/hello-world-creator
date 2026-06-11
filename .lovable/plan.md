@@ -1,77 +1,65 @@
-## Objetivo
+## O que muda
 
-Permitir que cada lojista cole um snippet de 2 linhas na página de rastreio da loja Shopify dele (ou qualquer site) e os clientes finais consultem o rastreio dos pedidos **daquela loja**, dentro do site do próprio lojista — visual nativo, sem iframe da Atlas.
+### 1. Lead não precisa mais saber o número do pedido
+Hoje o card esquerdo exige **pedido + (e-mail|CPF)**. Vou tornar o número do pedido **opcional**:
 
-Modelo igual Reportana:
-```html
-<div class="atlas-order-tracking" data-loja="LOJA_ID"></div>
-<script src="https://atlas-cargo.org/widget/tracking.js" async></script>
-```
+- Se o lead digitar **só e-mail** (ou só CPF), o backend busca o envio mais recente daquela loja para aquele contato.
+- Se houver vários envios para o mesmo contato, retorna a lista (até 5) e o widget mostra um seletor "Selecione seu pedido" com produto + data + últimos dígitos do código.
+- Se digitar pedido + contato, mantém a lógica atual (match exato).
 
-## Como vai funcionar
+Mudanças:
+- `supabase/functions/widget-buscar-pedido/index.ts`: aceitar requisição sem `numero`; nesse caso, consultar `envios` da loja por `cliente_email`/`cliente_cpf` (e fallback em `pedidos.customer_email/customer_document`) ordenado por `created_at desc`, devolvendo `{ matches: [{codigo_rastreio, produto, created_at}] }` quando houver mais de um, ou `{ codigo_rastreio }` direto quando for único.
+- Label do campo passa a ser "Número do Pedido (opcional)".
 
-1. Lojista entra em **Integrações → Widget de Rastreio**, copia o snippet (já com o `data-loja` preenchido), cola no HTML da página de rastreio do Shopify dele.
-2. O `tracking.js` detecta a `<div class="atlas-order-tracking">`, cria um **Shadow DOM** dentro dela (isola CSS — não vaza nem é afetado pelos estilos do Shopify) e renderiza:
-   - Tela 1 — formulário com 2 modos lado a lado: **Pedido + e-mail** OU **Código de rastreio**
-   - Tela 2 — linha do tempo com os eventos, status atual, transportadora, cidade/estado, produto (mesmos dados do `/rastreio` interno)
-3. Tudo busca via endpoint público já existente (`rastreio-info`) + um novo endpoint `widget-buscar-pedido` para o modo "pedido + e-mail".
-4. Cores e logo seguem a `postagem_config` da loja (`cor_primaria`, logo da empresa) — fica visualmente alinhado com a marca do lojista.
+### 2. Resultado bonito (substitui as telas feias dos prints)
 
-## O que vai ser construído
+Atualmente o resultado mostra:
+- Produto em JSON cru (`[{"nome":"KIT...","quantidade":1}]`)
+- Status em snake_case (`em_transito`, `pendente`)
+- Sem datas em cada etapa
+- Sem cidade de origem
+- Timeline sem hierarquia (todos os pontos iguais)
+- Layout apertado
 
-### 1. Script público `tracking.js`
-- Arquivo servido em `public/widget/tracking.js` (acessível em `https://atlas-cargo.org/widget/tracking.js`).
-- Vanilla JS, sem dependências, < 20 KB.
-- Cria Shadow DOM, injeta HTML + CSS isolados.
-- Lê `data-loja` da div hospedeira.
-- Faz chamadas para os endpoints públicos com `loja_id` no query string.
-- Auto-altura, responsivo, acessível.
+Vou redesenhar dentro do mesmo Shadow DOM (`public/widget/tracking.js`):
 
-### 2. Endpoint novo: `widget-buscar-pedido` (edge function pública)
-- Recebe `loja_id` + `numero_pedido` + `email` (ou só rastreio).
-- Valida que o pedido pertence àquela loja (evita um lojista consultar pedidos de outro).
-- Retorna o `codigo_rastreio` → o widget chama `rastreio-info` em seguida.
+**Header do card**
+- Chip de status com label amigável ("Em trânsito", "Pendente", "Entregue", "Saiu para entrega", "Postado", "Coletado") — mapa de status no widget.
+- Título = produto formatado via mesma lógica de `src/lib/format-produto.ts` (decodifica JSON, junta nomes, mostra `(xN)` quando quantidade > 1).
+- Linha secundária: código do rastreio (monospace) + botão "copiar".
+- Transportadora alinhada à direita com ícone de caminhão.
 
-### 3. Ajuste no `rastreio-info`
-- Aceitar parâmetro opcional `loja_id` e validar que o código pertence à loja (segurança: lojista A não pode buscar rastreios da loja B colando o widget dele).
-- Adicionar header `Access-Control-Allow-Origin: *` (já tem) e permitir uso cross-origin.
+**Bloco de rota (novo)**
+Cartão com 3 colunas: **Origem → Em trânsito → Destino**
+- Origem: cidade/UF da loja (já vem em `origem.cidade/estado` da `rastreio-info`).
+- Meio: barra de progresso com % calculado por `ultimo_evento_ordem / totalEventos`.
+- Destino: `cliente_cidade/UF`.
+- Linha embaixo: "Destinatário: J*** S***" (já mascarado pelo backend).
 
-### 4. Página nova: `/integracoes/widget-rastreio`
-- Mostra o snippet pronto para copiar (com o `loja_id` já preenchido).
-- Preview ao vivo do widget renderizado.
-- Instruções passo a passo para Shopify (onde colar: Online Store → Pages → criar página "Rastreio" → editar HTML).
-- Toggle "Ativar widget" salvo em `postagem_config` (campo novo `widget_rastreio_ativo`).
+**Timeline com datas**
+- Eventos em ordem cronológica decrescente (mais recente em cima).
+- Cada item: bolinha colorida (cheia = concluído, vazada = futuro), título do evento, descrição, **data formatada** ("11 jun · 14:32").
+- A data de cada etapa é calculada como `envio.created_at + delay_horas` (já temos `delay_horas` em `postagem_eventos`, só não estávamos usando). Backend já manda isso — só usar no front.
+- Primeiro evento destacado com fundo levemente colorido + label "Atualização mais recente".
+- Eventos futuros (que existem no template mas ainda não rolaram) aparecem em cinza claro, opcional — controlado por flag interna. **Por padrão: só os já ocorridos.**
 
-### 5. Migração
-- Adicionar coluna `widget_rastreio_ativo boolean default true` em `postagem_config`.
-- Opcional: tabela `widget_uso_log` para contar quantas buscas o widget de cada loja recebe (telemetria).
+**Rodapé**
+- "Última atualização: <data>" pequeno em cinza.
+- Botão "Nova consulta" como ghost button.
 
-## Detalhes técnicos
+**Cor primária**
+- Já vem em `cor_primaria` da resposta. Quando `data-cor` não for definido no embed, usar a cor da loja automaticamente (hoje cai pro azul fixo).
 
-```text
-Shopify page (lojista)
-└── <div class="atlas-order-tracking" data-loja="UUID">
-    └── #shadow-root (isolado)
-        ├── <style> ...css próprio... </style>
-        └── <div class="widget">
-            ├── view: formulário (pedido+email | rastreio)
-            └── view: timeline (após busca)
-                       │
-                       ▼
-          GET https://atlas-cargo.org/functions/v1/widget-buscar-pedido
-              ?loja_id=...&numero=...&email=...
-          GET https://atlas-cargo.org/functions/v1/rastreio-info
-              ?codigo=...&loja_id=...
-```
+### 3. Atualizar preview
+- `public/widget-preview.html` atualizado pra refletir o novo layout (mock com origem São Paulo/SP → destino Rio de Janeiro/RJ, timeline com datas, status amigável).
 
-**Segurança:**
-- Endpoints públicos validam `loja_id` ↔ `codigo_rastreio` / `pedido` (não vaza dados entre lojas).
-- E-mail do cliente nunca é retornado, só usado para validar (igual fluxo do Vercaro da imagem).
-- Nome do cliente continua mascarado (mesma lógica do `maskName` atual).
+## Arquivos tocados
+- `supabase/functions/widget-buscar-pedido/index.ts` — busca sem número
+- `public/widget/tracking.js` — UI redesenhada + suporte a múltiplos matches + cor da loja por padrão
+- `public/widget-preview.html` — mock atualizado
 
-**Compatível com Shopify:** Shopify permite `<script>` em páginas (Online Store → Pages → Edit code), não precisa de app instalado.
+Sem mudanças de schema, sem nova migration.
 
-## Fora de escopo (podemos fazer depois)
-- App oficial Shopify publicado na app store.
-- Webhooks para puxar pedidos automaticamente do Shopify do lojista (hoje já temos integração separada).
-- Customização visual avançada via atributos `data-*` (cor, fonte) — começamos só herdando da `postagem_config`.
+## Pontos pra confirmar
+1. Quando o e-mail tiver vários pedidos, prefere **lista de seleção** (até 5) ou **só o mais recente**?
+2. Mostrar os **eventos futuros** em cinza (como um "stepper" completo) ou só os já ocorridos?
