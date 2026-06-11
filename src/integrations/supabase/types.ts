@@ -949,6 +949,7 @@ export type Database = {
           whatsapp_msg_template: string | null
           whatsapp_reply_text: string | null
           whatsapp_vendedor: string | null
+          widget_rastreio_ativo: boolean
         }
         Insert: {
           ativar_falha_entrega?: boolean
@@ -985,6 +986,7 @@ export type Database = {
           whatsapp_msg_template?: string | null
           whatsapp_reply_text?: string | null
           whatsapp_vendedor?: string | null
+          widget_rastreio_ativo?: boolean
         }
         Update: {
           ativar_falha_entrega?: boolean
@@ -1021,6 +1023,7 @@ export type Database = {
           whatsapp_msg_template?: string | null
           whatsapp_reply_text?: string | null
           whatsapp_vendedor?: string | null
+          widget_rastreio_ativo?: boolean
         }
         Relationships: [
           {
