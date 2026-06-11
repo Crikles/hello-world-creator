@@ -503,14 +503,30 @@
     nodes.forEach(mount);
   }
 
+  // Render imediato — não esperar DOMContentLoaded se os nodes já existem
+  init();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
   }
 
+  // Observa apenas adições de novos nodes (não roda querySelectorAll a cada mutação)
   if (window.MutationObserver) {
-    var mo = new MutationObserver(function () { init(); });
+    var mo = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var added = mutations[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
+          if (n.nodeType !== 1) continue;
+          if (n.matches && (n.matches(".atlas-order-tracking") || n.matches("[data-atlas-tracking]"))) {
+            mount(n);
+          } else if (n.querySelector && n.querySelector(".atlas-order-tracking, [data-atlas-tracking]")) {
+            init();
+            return;
+          }
+        }
+      }
+    });
     mo.observe(document.documentElement, { childList: true, subtree: true });
   }
+
 })();
