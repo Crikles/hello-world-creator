@@ -1163,8 +1163,8 @@ Deno.serve(async (req) => {
     }
 
 
-    if (config?.email_remetente) {
-      emailRemetente = config.email_remetente;
+    if ((config as any)?.email_remetente) {
+      emailRemetente = (config as any).email_remetente;
     }
     if (config?.whatsapp_vendedor) {
       whatsappVendedor = config.whatsapp_vendedor;
