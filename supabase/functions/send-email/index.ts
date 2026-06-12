@@ -1128,11 +1128,14 @@ Deno.serve(async (req) => {
     let corPrimaria = "#6366f1";
     let corBotaoCta = "#1a1a1a";
 
-    const { data: config } = await supabase
+    const { data: config, error: configErr } = await supabase
       .from("postagem_config")
-      .select("email_remetente, whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho, msg_falha_entrega, template_ativo_id, failed_delivery_template_id")
+      .select("whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho, msg_falha_entrega, template_ativo_id, failed_delivery_template_id")
       .eq("loja_id", loja_id)
       .maybeSingle();
+    if (configErr) {
+      console.error(`[send-email] Erro ao carregar postagem_config para loja ${loja_id}:`, configErr);
+    }
 
     // ── GUARDA: Lojas sem template configurado em Postagens não devem disparar e-mail ──
     // Verifica o template do envio (congelado) OU o template_ativo_id da config,
