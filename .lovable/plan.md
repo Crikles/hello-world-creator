@@ -1,40 +1,21 @@
-## Situação atual
+Plano para corrigir o fluxo automático após o start manual/automático:
 
-Usuário: `vercarosuporte@gmail.com` → loja `16b287dd-...` (Vercaro).
+1. Corrigir a regra da automação
+- Hoje a rotina automática só continua avançando pedidos se o botão AUTO estiver ligado na loja.
+- Isso faz pedidos iniciados manualmente ficarem parados por dias, mesmo com o próximo avanço vencido.
+- Vou ajustar para que:
+  - AUTO ligado: inicia pedidos pendentes automaticamente e continua o fluxo.
+  - AUTO desligado: não inicia novos pendentes sozinho, mas continua automaticamente os pedidos que já foram iniciados manualmente.
 
-Envios da loja (ativos):
-- **214 envios** com template **"Envio com Falha na Entrega"** (`87c93127`) — os que ele escolheu errado.
-- **181 envios** com `postagem_template_id = NULL` → já usam o template ativo da loja, que **já é "Envio Prolongado"** (`8fb9200e`). Esses não precisam de nada.
+2. Preservar as pausas manuais corretas
+- Manter paradas obrigatórias para etapas como pagamento/taxação/falha de entrega e entrega final quando exigirem ação manual.
+- Não alterar os dias configurados em Postagens; a rotina vai respeitar exatamente o delay de cada etapa.
 
-## Mapeamento das etapas
+3. Reprocessar o acúmulo travado
+- Depois da correção, executar a rotina para avançar os pedidos já vencidos que ficaram parados em Coletado/Postado/Em trânsito/etc.
+- O processamento continuará em lotes para evitar falhas por limite de envio.
 
-Comparando as ordens dos dois templates, os 5 primeiros eventos batem 1:1:
-
-| Ordem | Falha na Entrega | Envio Prolongado |
-|---|---|---|
-| 1 | NF-e | NF-e |
-| 2 | Postado | Postado |
-| 3 | Coletado | Coletado |
-| 4 | Em Trânsito | Saiu da unidade de origem (Em Trânsito) |
-| 5 | Centro de Distribuição | Passando por centro de triagem (Em Trânsito) |
-
-Distribuição atual dos 214 envios: 103 na ordem 2, 72 na 3, 38 na 4, 1 na 5. **Todos caem em etapas equivalentes**, então manter o mesmo `ultimo_evento_ordem` preserva a posição do cliente na timeline.
-
-## Ação
-
-Um único UPDATE:
-
-```sql
-UPDATE envios
-SET postagem_template_id = '8fb9200e-d9b7-46e5-a132-218ff90538d7' -- Envio Prolongado
-WHERE loja_id = '16b287dd-ae5d-4c39-9fe6-a617ec80da9a'
-  AND postagem_template_id = '87c93127-9307-4474-8bd3-0dde51caa10f'
-  AND deleted_at IS NULL;
-```
-
-- Mantém `ultimo_evento_ordem` e `status` intactos → cada envio fica exatamente na mesma etapa, só que com os labels e o avanço futuro vindo do template Prolongado.
-- Aplica também aos mais antigos (sem filtro de data).
-- Não mexo nos 181 envios com `NULL` (já estavam usando Prolongado pela config ativa da loja).
-- Não mexo na config da loja — `template_ativo_id` já é Prolongado.
-
-Sem mudanças de schema, sem código tocado.
+4. Validar
+- Conferir se pedidos com `próximo avanço` vencido estão saindo da etapa atual.
+- Conferir logs recentes de e-mail para garantir que os disparos voltaram a acompanhar cada avanço.
+- Confirmar que pedidos pendentes em ordem zero continuam não iniciando sozinhos quando AUTO estiver desligado.
