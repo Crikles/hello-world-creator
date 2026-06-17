@@ -131,7 +131,17 @@ interface EventoData {
     corpo_email: string | null;
     ordem: number;
     delay_horas: number;
+    enviado_em?: string | null;
 }
+
+/** Returns the real timestamp for an event: backend `enviado_em` if present,
+ * otherwise fallback to envio.created_at + delay_horas. */
+function resolveEventDate(ev: { enviado_em?: string | null; delay_horas?: number }, envioCreatedAt: string): Date {
+    if (ev.enviado_em) return new Date(ev.enviado_em);
+    const base = new Date(envioCreatedAt).getTime();
+    return new Date(base + (Number(ev.delay_horas) || 0) * 3600 * 1000);
+}
+
 
 /* ─── Status Visual Config ─── */
 const statusConfig: Record<string, { icon: any; label: string }> = {
