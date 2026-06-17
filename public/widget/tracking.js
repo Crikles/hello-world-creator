@@ -384,10 +384,13 @@
       var progress = Math.max(8, Math.min(100, Math.round(((envio.ultimo_evento_ordem || 0) / Math.max(total, 1)) * 100)));
       if (envio.status === "entregue") progress = 100;
 
-      // Datas calculadas: created_at + delay_horas (do envio.created_at)
+      // Datas reais: usa ev.enviado_em (do backend) quando disponível;
+      // fallback: created_at do envio + delay_horas do template.
       var baseTs = envio.created_at ? new Date(envio.created_at).getTime() : Date.now();
       var eventosComData = eventos.map(function (e) {
-        var ts = baseTs + (Number(e.delay_horas) || 0) * 3600 * 1000;
+        var ts = e.enviado_em
+          ? new Date(e.enviado_em).getTime()
+          : baseTs + (Number(e.delay_horas) || 0) * 3600 * 1000;
         return Object.assign({}, e, { ts: ts });
       }).sort(function (a, b) { return b.ts - a.ts; }); // mais recente primeiro
 

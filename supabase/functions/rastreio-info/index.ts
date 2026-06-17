@@ -297,6 +297,7 @@ Deno.serve(async (req) => {
             status_label: string | null;
             ordem: number;
             delay_horas: number;
+            enviado_em: string | null;
         }> = [];
 
         if (envio.loja_id) {
@@ -313,15 +314,28 @@ Deno.serve(async (req) => {
                 // Get ALL events up to the current ordem
                 const { data: allEvents } = await supabase
                     .from("postagem_eventos")
-                    .select("nome, descricao, status_label, ordem, delay_horas")
+                    .select("id, nome, descricao, status_label, ordem, delay_horas")
                     .eq("template_id", templateIdToUse)
                     .lte("ordem", envio.ultimo_evento_ordem)
                     .order("ordem", { ascending: true });
 
+                // Real timestamps from email log (first successful send per evento_id)
+                const { data: logs } = await supabase
+                    .from("postagem_email_log")
+                    .select("evento_id, created_at, status")
+                    .eq("envio_id", envio.id)
+                    .in("status", ["sent", "queued", "delivered"]);
+                const enviadoByEventoId = new Map<string, string>();
+                for (const l of (logs || [])) {
+                    if (!l.evento_id) continue;
+                    const prev = enviadoByEventoId.get(l.evento_id as string);
+                    if (!prev || new Date(l.created_at as string).getTime() < new Date(prev).getTime()) {
+                        enviadoByEventoId.set(l.evento_id as string, l.created_at as string);
+                    }
+                }
+
                 if (allEvents) {
-                    // Filter out Taxação and Pago events unless taxação is active
-                    // Filter out Falha Entrega events unless falha_entrega is active
-                    eventos = allEvents.filter((e) => {
+                    eventos = (allEvents as any[]).filter((e) => {
                         if (e.nome === "Nota Fiscal Emitida") {
                             return false;
                         }
@@ -332,6 +346,18 @@ Deno.serve(async (req) => {
                             return config.ativar_falha_entrega;
                         }
                         return true;
+                    }).map((e: any) => {
+                        const realTs = enviadoByEventoId.get(e.id) || null;
+                        // First event (ordem 1, ex.: "Postado") uses envio.created_at as fallback
+                        const enviado_em = realTs || (e.ordem === 1 ? envio.created_at : null);
+                        return {
+                            nome: e.nome,
+                            descricao: e.descricao,
+                            status_label: e.status_label,
+                            ordem: e.ordem,
+                            delay_horas: e.delay_horas,
+                            enviado_em,
+                        };
                     });
                 }
 

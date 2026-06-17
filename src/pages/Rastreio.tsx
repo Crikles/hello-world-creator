@@ -131,7 +131,17 @@ interface EventoData {
     corpo_email: string | null;
     ordem: number;
     delay_horas: number;
+    enviado_em?: string | null;
 }
+
+/** Returns the real timestamp for an event: backend `enviado_em` if present,
+ * otherwise fallback to envio.created_at + delay_horas. */
+function resolveEventDate(ev: { enviado_em?: string | null; delay_horas?: number }, envioCreatedAt: string): Date {
+    if (ev.enviado_em) return new Date(ev.enviado_em);
+    const base = new Date(envioCreatedAt).getTime();
+    return new Date(base + (Number(ev.delay_horas) || 0) * 3600 * 1000);
+}
+
 
 /* ─── Status Visual Config ─── */
 const statusConfig: Record<string, { icon: any; label: string }> = {
@@ -701,7 +711,7 @@ export default function Rastreio() {
                                                 {[...eventos].reverse().map((ev, idx) => {
                                                     const cfg = statusConfig[ev.status_label || ""] || { icon: MapPin, label: "Atualização" };
                                                     const Icon = cfg.icon;
-                                                    const eventDate = new Date(new Date(envio.updated_at).getTime() - (idx * 24 * 60 * 60 * 1000));
+                                                    const eventDate = resolveEventDate(ev, envio.created_at);
                                                     const isFirst = idx === 0;
 
                                                     const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
@@ -966,7 +976,7 @@ export default function Rastreio() {
                                                 {[...eventos].reverse().map((ev, idx) => {
                                                     const cfg = statusConfig[ev.status_label || ""] || { icon: MapPin, label: "Atualização" };
                                                     const Icon = cfg.icon;
-                                                    const eventDate = new Date(new Date(envio.updated_at).getTime() - (idx * 24 * 60 * 60 * 1000));
+                                                    const eventDate = resolveEventDate(ev, envio.created_at);
                                                     const isFirst = idx === 0;
 
                                                     const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
@@ -1208,7 +1218,7 @@ export default function Rastreio() {
                                             {[...eventos].reverse().map((ev, idx) => {
                                                 const cfg = statusConfig[ev.status_label || ""] || { icon: MapPin, label: "Atualização" };
                                                 const Icon = cfg.icon;
-                                                const eventDate = new Date(new Date(envio.updated_at).getTime() - (idx * 24 * 60 * 60 * 1000));
+                                                const eventDate = resolveEventDate(ev, envio.created_at);
                                                 const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
                                                 const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
                                                 const locationText = buildLocationText(ev.status_label, origemLabel, destLabel, ev.descricao);
