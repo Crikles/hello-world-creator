@@ -1079,43 +1079,79 @@ async function advanceShipment(
       }
     }
 
-    // SMS dispatch — only when the flow is active
-    if (!isAtivo) {
-      console.log(`[SMS] Skip envio ${envioId}: event not active (isAtivo=false)`);
-    } else if (!config.ativar_site_rastreio) {
-      console.log(`[SMS] Skip envio ${envioId}: ativar_site_rastreio is OFF`);
-    } else if (!shipment.cliente_telefone) {
-      console.log(`[SMS] Skip envio ${envioId}: no cliente_telefone`);
-    } else if (nextEvent.enviar_nfe_pdf) {
-      console.log(`[SMS] Skip envio ${envioId}: NF-e event (email only)`);
-    } else {
-      const smsCost = (shipment as any).sem_cobranca ? 0 : (costMap["custo_sms_rastreio"] || 0);
-      let canSendSms = true;
+    // SMS dispatch — independente do toggle de e-mail. Gate único = ativar_site_rastreio (rótulo "SMS" no painel).
+    {
+      let smsSkipReason: string | null = null;
+      if (!config.ativar_site_rastreio) smsSkipReason = "sms toggle OFF (ativar_site_rastreio)";
+      else if (!shipment.cliente_telefone) smsSkipReason = "no cliente_telefone";
+      else if (nextEvent.enviar_nfe_pdf) smsSkipReason = "NF-e event (email only)";
 
-      if (smsCost > 0) {
-        const { data: smsDebitOk, error: smsDebitErr } = await supabase.rpc("debit_user_credits", {
-          _user_id: lojaUserId,
-          _quantidade: smsCost,
-          _descricao: `SMS enviado - ${nextEvent.status_label}`,
-        });
+      if (smsSkipReason) {
+        console.log(`[SMS] Skip envio ${envioId}: ${smsSkipReason}`);
+        try {
+          await supabase.from("sms_log").insert({
+            envio_id: envioId, loja_id: lojaId, user_id: lojaUserId,
+            evento_id: nextEvent.id, status_label: nextEvent.status_label,
+            status: "skipped", motivo: smsSkipReason,
+            telefone: shipment.cliente_telefone || null, custo: 0,
+          });
+        } catch (_) { /* best-effort */ }
+      } else {
+        const smsCost = (shipment as any).sem_cobranca ? 0 : (costMap["custo_sms_rastreio"] || 0);
+        let canSendSms = true;
+        let debited = 0;
 
-        if (smsDebitErr || !smsDebitOk) {
-          console.warn(`[SMS] Skip envio ${envioId}: insufficient balance (cost=${smsCost})`);
-          canSendSms = false;
-        } else {
-          console.log(`[SMS] Debited ${smsCost} credits for envio ${envioId}`);
+        if (smsCost > 0) {
+          const { data: smsDebitOk, error: smsDebitErr } = await supabase.rpc("debit_user_credits", {
+            _user_id: lojaUserId,
+            _quantidade: smsCost,
+            _descricao: `SMS enviado - ${nextEvent.status_label}`,
+          });
+          if (smsDebitErr || !smsDebitOk) {
+            console.warn(`[SMS] Skip envio ${envioId}: insufficient balance (cost=${smsCost})`);
+            canSendSms = false;
+            await supabase.from("sms_log").insert({
+              envio_id: envioId, loja_id: lojaId, user_id: lojaUserId,
+              evento_id: nextEvent.id, status_label: nextEvent.status_label,
+              status: "skipped", motivo: "insufficient balance",
+              telefone: shipment.cliente_telefone, custo: 0,
+            });
+          } else {
+            debited = smsCost;
+            console.log(`[SMS] Debited ${smsCost} credits for envio ${envioId}`);
+          }
         }
-      }
 
-      if (canSendSms) {
-        console.log(`[SMS] Dispatching for envio ${envioId}, status: ${nextEvent.status_label}, phone: ${shipment.cliente_telefone}`);
-        const { error: smsErr } = await supabase.functions.invoke("send-sms", {
-          body: { envio_id: envioId, loja_id: lojaId, status_label: nextEvent.status_label },
-        });
-        if (smsErr) {
-          console.error(`[SMS] Failed for envio ${envioId}:`, smsErr);
-        } else {
-          console.log(`[SMS] Sent successfully for envio ${envioId}`);
+        if (canSendSms) {
+          console.log(`[SMS] Dispatching envio ${envioId}, status: ${nextEvent.status_label}, phone: ${shipment.cliente_telefone}`);
+          const { data: smsRes, error: smsErr } = await supabase.functions.invoke("send-sms", {
+            body: { envio_id: envioId, loja_id: lojaId, status_label: nextEvent.status_label },
+          });
+          if (smsErr) {
+            console.error(`[SMS] Failed for envio ${envioId}:`, smsErr);
+            // Refund manual via insert+update se débito ocorreu
+            if (debited > 0) {
+              await supabase.rpc("debit_user_credits", {
+                _user_id: lojaUserId, _quantidade: -debited,
+                _descricao: `Estorno SMS - falha disparo envio ${envioId}`,
+              }).catch(() => {});
+            }
+            await supabase.from("sms_log").insert({
+              envio_id: envioId, loja_id: lojaId, user_id: lojaUserId,
+              evento_id: nextEvent.id, status_label: nextEvent.status_label,
+              status: "failed", motivo: String(smsErr?.message || smsErr),
+              telefone: shipment.cliente_telefone, custo: 0,
+              provider_response: smsRes ?? null,
+            });
+          } else {
+            console.log(`[SMS] Sent successfully for envio ${envioId}`);
+            await supabase.from("sms_log").insert({
+              envio_id: envioId, loja_id: lojaId, user_id: lojaUserId,
+              evento_id: nextEvent.id, status_label: nextEvent.status_label,
+              status: "sent", telefone: shipment.cliente_telefone, custo: debited,
+              provider_response: smsRes ?? null,
+            });
+          }
         }
       }
     }
