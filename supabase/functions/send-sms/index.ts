@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, phone, message }),
+      JSON.stringify({ success: true, phone, message, provider_status: smsResponse.status, provider_response: smsResult }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
