@@ -1129,12 +1129,18 @@ async function advanceShipment(
           });
           if (smsErr) {
             console.error(`[SMS] Failed for envio ${envioId}:`, smsErr);
-            // Refund manual via insert+update se débito ocorreu
+            // Refund manual: aumenta saldo e registra transação
             if (debited > 0) {
-              await supabase.rpc("debit_user_credits", {
-                _user_id: lojaUserId, _quantidade: -debited,
-                _descricao: `Estorno SMS - falha disparo envio ${envioId}`,
-              }).catch(() => {});
+              try {
+                await supabase.from("creditos_transacoes").insert({
+                  user_id: lojaUserId, tipo: "adicao", quantidade: debited,
+                  descricao: `Estorno SMS - falha disparo envio ${envioId}`,
+                });
+                const { data: cred } = await supabase.from("creditos").select("saldo").eq("user_id", lojaUserId).single();
+                if (cred) {
+                  await supabase.from("creditos").update({ saldo: Number(cred.saldo) + debited }).eq("user_id", lojaUserId);
+                }
+              } catch (_) { /* best-effort */ }
             }
             await supabase.from("sms_log").insert({
               envio_id: envioId, loja_id: lojaId, user_id: lojaUserId,
