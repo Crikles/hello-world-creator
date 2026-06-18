@@ -1717,6 +1717,59 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_log: {
+        Row: {
+          created_at: string
+          custo: number
+          envio_id: string | null
+          evento_id: string | null
+          id: string
+          loja_id: string
+          motivo: string | null
+          provider_response: Json | null
+          status: string
+          status_label: string | null
+          telefone: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          custo?: number
+          envio_id?: string | null
+          evento_id?: string | null
+          id?: string
+          loja_id: string
+          motivo?: string | null
+          provider_response?: Json | null
+          status?: string
+          status_label?: string | null
+          telefone?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          custo?: number
+          envio_id?: string | null
+          evento_id?: string | null
+          id?: string
+          loja_id?: string
+          motivo?: string | null
+          provider_response?: Json | null
+          status?: string
+          status_label?: string | null
+          telefone?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_log_envio_id_fkey"
+            columns: ["envio_id"]
+            isOneToOne: false
+            referencedRelation: "envios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_templates: {
         Row: {
           ativo: boolean
