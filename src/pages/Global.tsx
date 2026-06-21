@@ -457,28 +457,80 @@ export default function Global() {
             ))}
           </div>
 
-          {/* Timeline preview */}
+          {/* Etapas editáveis do fluxo */}
           <Card className="p-6 glass glow-border">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-2">
               <div>
-                <h2 className="text-lg font-semibold">Pré-visualização do fluxo</h2>
+                <h2 className="text-lg font-semibold">Etapas do fluxo Global</h2>
                 <p className="text-sm text-muted-foreground">
-                  As 10 etapas exibidas em <span className="text-primary font-medium">{local.idioma === "en" ? "English (US)" : "Español"}</span>
+                  Defina quantos dias cada etapa leva a partir da etapa anterior. Idioma atual:{" "}
+                  <span className="text-primary font-medium">{local.idioma === "en" ? "English (US)" : "Español"}</span>
                 </p>
               </div>
               <Badge variant="outline" className="text-xs">10 etapas</Badge>
             </div>
-            <ol className="relative">
-              <div className="absolute left-[15px] top-2 bottom-2 w-px bg-gradient-to-b from-primary/40 via-primary/20 to-transparent" />
-              {steps.map((label, i) => (
-                <li key={i} className="relative flex items-center gap-4 py-2.5">
-                  <div className="relative z-10 flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-bold shrink-0">
-                    {i + 1}
+            <p className="text-[11px] text-muted-foreground mb-4">
+              A primeira etapa dispara imediatamente. As demais respeitam o intervalo configurado.
+            </p>
+
+            <div className="space-y-2">
+              {(eventos || []).map((evento, index) => {
+                const ativo = localAtivos[evento.id] ?? evento.ativo;
+                const isFirst = index === 0;
+                const label =
+                  local.idioma === "es" ? evento.nome_es : local.idioma === "en" ? evento.nome_en : evento.nome_pt;
+                return (
+                  <div
+                    key={evento.id}
+                    className={cn(
+                      "glass rounded-xl transition-all",
+                      ativo
+                        ? "border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]"
+                        : "border border-destructive/40 shadow-[0_0_8px_rgba(239,68,68,0.15)] opacity-60"
+                    )}
+                  >
+                    <div className="flex items-center gap-3 py-3 px-4">
+                      <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+                      <div
+                        className={cn(
+                          "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold",
+                          ativo ? "bg-primary/10 text-primary" : "bg-muted/30 text-muted-foreground/50"
+                        )}
+                      >
+                        {evento.step_order}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-foreground">{label}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground/60">{evento.step_key}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {evento.nome_pt}
+                        </p>
+                      </div>
+                      {!isFirst && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Clock className="h-3 w-3 text-muted-foreground/50" />
+                          <DelayInput
+                            value={localDelays[evento.id] ?? evento.delay_horas}
+                            onChange={(delay_horas) =>
+                              setLocalDelays((prev) => ({ ...prev, [evento.id]: delay_horas }))
+                            }
+                          />
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            dias após etapa anterior
+                          </span>
+                        </div>
+                      )}
+                      <Switch
+                        checked={ativo}
+                        onCheckedChange={(v) => setLocalAtivos((prev) => ({ ...prev, [evento.id]: v }))}
+                      />
+                    </div>
                   </div>
-                  <span className="text-sm text-foreground/90">{label}</span>
-                </li>
-              ))}
-            </ol>
+                );
+              })}
+            </div>
           </Card>
         </TabsContent>
 
