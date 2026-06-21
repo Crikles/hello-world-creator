@@ -151,7 +151,11 @@ export default function Global() {
       const { data } = await supabase
         .from("system_config")
         .select("key, value")
-        .in("key", ["custo_email_rastreio", "custo_sms_rastreio", "custo_confirmacao_email", "custo_confirmacao_sms"]);
+        .in("key", [
+          "custo_global_flow_email",
+          "custo_global_flow_sms",
+          "custo_global_flow_confirmacao_email",
+        ]);
       let custom: Record<string, number> = {};
       if (loja?.user_id) {
         const { data: p } = await supabase
@@ -187,20 +191,19 @@ export default function Global() {
     }
   }, [config, loja?.id, isLoading]);
 
-  const custoEmailRastreio = custos?.custo_email_rastreio ?? 1;
-  const custoSmsRastreio = custos?.custo_sms_rastreio ?? 0.25;
-  const custoConfEmail = custos?.custo_confirmacao_email ?? 0.5;
-  const custoConfSms = custos?.custo_confirmacao_sms ?? 0.12;
+  const custoEmailFluxo = custos?.custo_global_flow_email ?? 1.20;
+  const custoSmsUnit = custos?.custo_global_flow_sms ?? 0.20;
+  const custoConfEmail = custos?.custo_global_flow_confirmacao_email ?? 1.00;
+  const custoEmailUnit = custoEmailFluxo / 10;
 
   const custoTotal = useMemo(() => {
     if (!local) return 0;
     let t = 0;
-    if (local.enviar_email) t += custoEmailRastreio * 10;
-    if (local.enviar_sms) t += custoSmsRastreio * 10;
+    if (local.enviar_email) t += custoEmailFluxo;
+    if (local.enviar_sms) t += custoSmsUnit * 10;
     if (local.confirmacao_email) t += custoConfEmail;
-    if (local.confirmacao_sms) t += custoConfSms;
     return t;
-  }, [local, custoEmailRastreio, custoSmsRastreio, custoConfEmail, custoConfSms]);
+  }, [local, custoEmailFluxo, custoSmsUnit, custoConfEmail]);
 
   const hasChanges = useMemo(() => {
     if (!local) return false;
