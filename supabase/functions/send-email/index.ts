@@ -332,109 +332,6 @@ function markdownToHtml(text: string): string {
     .replace(/\n/g, "<br>");
 }
 
-interface TaxacaoSettings {
-  mensagem_taxa: string;
-  texto_botao: string;
-  valor_exemplo: string;
-  prazo_dias: string;
-  url_pagamento: string;
-  forma_pagamento: string;
-  cor_botao: string;
-  cor_header: string;
-  mostrar_valor: boolean;
-  mostrar_prazo: boolean;
-}
-
-function parseTaxacaoSettings(corpoEmail: string): TaxacaoSettings {
-  const corpo = corpoEmail || "";
-  const urlMatch = corpo.match(/\{\{taxacao_url:([^}]*)\}\}/);
-  const botaoMatch = corpo.match(/\{\{taxacao_botao:([^}]*)\}\}/);
-  const valorMatch = corpo.match(/\{\{taxacao_valor:([^}]*)\}\}/);
-  const corMatch = corpo.match(/\{\{taxacao_cor:([^}]*)\}\}/);
-  const corHeaderMatch = corpo.match(/\{\{taxacao_cor_header:([^}]*)\}\}/);
-  const prazoMatch = corpo.match(/\{\{taxacao_prazo:([^}]*)\}\}/);
-  const formaMatch = corpo.match(/\{\{taxacao_forma:([^}]*)\}\}/);
-  const mostrarValorMatch = corpo.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
-  const mostrarPrazoMatch = corpo.match(/\{\{taxacao_mostrar_prazo:([^}]*)\}\}/);
-
-  const msgEnd = corpo.indexOf("{{taxacao_");
-  const plainMessage = msgEnd > 0
-    ? corpo.substring(0, msgEnd).trim()
-    : (corpo.trim() || "Fiscalização aduaneira concluída - aguardando pagamento da taxa.");
-
-  return {
-    mensagem_taxa: plainMessage,
-    texto_botao: botaoMatch?.[1] || "PAGAR TAXA",
-    valor_exemplo: valorMatch?.[1] || "0.00",
-    prazo_dias: prazoMatch?.[1] || "5",
-    url_pagamento: urlMatch?.[1] || "",
-    forma_pagamento: formaMatch?.[1] || "Todos",
-    cor_botao: corMatch?.[1] || "#2563eb",
-    cor_header: corHeaderMatch?.[1] || "#f59e0b",
-    mostrar_valor: mostrarValorMatch ? mostrarValorMatch[1] === "true" : true,
-    mostrar_prazo: mostrarPrazoMatch ? mostrarPrazoMatch[1] === "true" : true,
-  };
-}
-
-interface FalhaEntregaSettings {
-  msg_falha_entrega: string;
-  checkout_url_falha: string;
-  valor_taxa_falha: string;
-  cor_botao: string;
-  cor_destaque: string;
-  cor_titulo_resumo: string;
-  cor_label_taxa: string;
-  cor_descricao: string;
-  cor_fundo_descricao: string;
-  cor_borda_descricao: string;
-  mensagem_site: string;
-}
-
-function getTaggedValue(corpo: string, tag: string): string | null {
-  return corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1] || null;
-}
-
-function isFalhaEntregaLabel(label?: string, nome?: string): boolean {
-  const value = `${label || ""} ${nome || ""}`.toLowerCase();
-  return value.includes("falha");
-}
-
-function isTaxacaoLabel(label?: string, nome?: string): boolean {
-  const value = `${label || ""} ${nome || ""}`.toLowerCase();
-  return value.includes("taxação") || value.includes("taxacao");
-}
-
-function parseFalhaEntregaSettings(
-  corpoEmail: string,
-  configMsg?: string,
-  configCheckoutUrl?: string,
-  configValorTaxa?: number | string
-): FalhaEntregaSettings {
-  const corpo = corpoEmail || "";
-  // Mensagem: prioriza msg_falha_entrega do postagem_config (o que o usuário edita na aba Postagens),
-  // depois texto antes das tags, depois fallback.
-  let plainMessage = (configMsg || "").trim();
-  if (!plainMessage) {
-    const msgEnd = corpo.indexOf("{{falha_");
-    plainMessage = msgEnd > 0
-      ? corpo.substring(0, msgEnd).trim()
-      : (corpo.trim() || "Houve uma falha na tentativa de entrega do seu pedido. Para reenviarmos, por favor pague a taxa de retentativa.");
-  }
-
-  return {
-    msg_falha_entrega: plainMessage,
-    checkout_url_falha: configCheckoutUrl || "",
-    valor_taxa_falha: String(configValorTaxa ?? "0.00"),
-    cor_botao: getTaggedValue(corpo, "falha_cor_botao") || "#ea580c",
-    cor_destaque: getTaggedValue(corpo, "falha_cor_destaque") || "#ea580c",
-    cor_titulo_resumo: getTaggedValue(corpo, "falha_cor_titulo_resumo") || "#020617",
-    cor_label_taxa: getTaggedValue(corpo, "falha_cor_label_taxa") || "#020617",
-    cor_descricao: getTaggedValue(corpo, "falha_cor_descricao") || "#9a3412",
-    cor_fundo_descricao: getTaggedValue(corpo, "falha_cor_fundo_descricao") || "#fff7ed",
-    cor_borda_descricao: getTaggedValue(corpo, "falha_cor_borda_descricao") || "#fed7aa",
-    mensagem_site: getTaggedValue(corpo, "falha_mensagem_site") || "",
-  };
-}
 
 
 function buildWhatsAppButton(whatsapp: string): string {
@@ -509,26 +406,11 @@ function buildEmailHtml(
   postagemConfig?: Record<string, unknown>,
   upsellConfig?: UpsellConfig | null
 ): string {
-  // --- Always route Falha/Taxação to specialized layouts (preview-style) ---
   const statusLabel = (evento.status_label as string) || "";
   const eventName = (evento.nome as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const envioId = (envio.id as string) || "";
 
-  if (isTaxacaoLabel(statusLabel, eventName)) {
-    const taxSettings = parseTaxacaoSettings(corpoEmail);
-    return buildTaxacaoEmailHtml(envio, extras, taxSettings, envioId, appBaseUrl);
-  }
-
-  if (isFalhaEntregaLabel(statusLabel, eventName)) {
-    const falhaSettings = parseFalhaEntregaSettings(
-      corpoEmail,
-      (postagemConfig?.msg_falha_entrega as string) || "",
-      (postagemConfig?.checkout_url_falha as string) || "",
-      postagemConfig?.valor_taxa_falha as number | string | undefined
-    );
-    return buildFalhaEntregaEmailHtml(envio, extras, falhaSettings, appBaseUrl);
-  }
 
 
   const enviarNfePdf = (evento.enviar_nfe_pdf as boolean) || false;
@@ -786,221 +668,6 @@ function buildEmailHtml(
 </html>`;
 }
 
-/** Build a specialized Taxação email — layout minimalista (preview style) */
-function buildTaxacaoEmailHtml(
-  envio: Record<string, unknown>,
-  extras: Record<string, string>,
-  tax: TaxacaoSettings,
-  envioId: string,
-  appBaseUrl: string
-): string {
-  const empresaNome = extras.empresa_nome || "Loja";
-  const empresaLogoUrl = extras.empresa_logo_url || "";
-  const clienteNome = (envio.cliente_nome as string) || "Cliente";
-  const produto = replaceVariables("{{produto}}", envio, extras);
-  const valor = parseFloat(tax.valor_exemplo) || 0;
-  const valorFormatted = valor.toFixed(2).replace(".", ",");
-  const mensagem = replaceVariables(tax.mensagem_taxa, envio, extras);
-
-  // Botão sempre aponta para a página personalizada de pagamento na Atlas
-  // (lá o lead vê todas as personalizações da aba Postagens → Taxação e segue para o checkout)
-  const checkoutUrl = `https://atlas-cargo.org/p/${envioId}`;
-
-
-  const accent = tax.cor_botao || "#2563eb";
-  const accentSoft = "#fffbeb";
-  const accentBorder = "#fde68a";
-  const accentText = "#92400e";
-
-  const iconHtml = empresaLogoUrl
-    ? `<img src="${empresaLogoUrl}" alt="${empresaNome}" width="56" height="56" style="width:56px;height:56px;object-fit:cover;border-radius:16px;display:block;" />`
-    : `<div style="width:56px;height:56px;border-radius:16px;background:${accentSoft};border:1px solid ${accentBorder};display:inline-block;text-align:center;line-height:56px;font-size:28px;">📦</div>`;
-
-  return buildMinimalActionEmail({
-    title: "Taxa de Importação",
-    subtitle: "Ação Necessária",
-    clienteNome,
-    introTexto: `Identificamos uma taxa de importação para o seu pedido <strong>${produto}</strong>.`,
-    mensagem,
-    boxLabel: "VALOR DA TAXA",
-    boxValor: tax.mostrar_valor ? `R$ ${valorFormatted}` : "",
-    botaoTexto: tax.texto_botao || "PAGAR AGORA",
-    botaoUrl: checkoutUrl,
-    accent,
-    accentSoft,
-    accentBorder,
-    accentText,
-    iconHtml,
-    empresaNome,
-    whatsappVendedor: extras.whatsapp_vendedor || "",
-  });
-}
-
-/** Build a specialized Falha na Entrega email — layout minimalista (preview style) */
-function buildFalhaEntregaEmailHtml(
-  envio: Record<string, unknown>,
-  extras: Record<string, string>,
-  config: FalhaEntregaSettings,
-  appBaseUrl: string
-): string {
-  const empresaNome = extras.empresa_nome || "Loja";
-  const empresaLogoUrl = extras.empresa_logo_url || "";
-  const clienteNome = (envio.cliente_nome as string) || "Cliente";
-  const produto = replaceVariables("{{produto}}", envio, extras);
-  const valor = parseFloat(config.valor_taxa_falha) || 0;
-  const valorFormatted = valor.toFixed(2).replace(".", ",");
-  const mensagem = replaceVariables(config.msg_falha_entrega, envio, extras);
-
-  // Botão sempre aponta para a página personalizada de falha na Atlas
-  // (lá o lead vê todas as personalizações da aba Postagens → Falha na Entrega e segue para o checkout)
-  const envioId = (envio.id as string) || "";
-  const checkoutUrl = `https://atlas-cargo.org/f/${envioId}`;
-
-  const accent = config.cor_botao || config.cor_destaque || "#ea580c";
-  const accentSoft = config.cor_fundo_descricao || "#fff7ed";
-  const accentBorder = config.cor_borda_descricao || "#fed7aa";
-  const accentText = config.cor_descricao || "#9a3412";
-
-  const iconHtml = empresaLogoUrl
-    ? `<img src="${empresaLogoUrl}" alt="${empresaNome}" width="56" height="56" style="width:56px;height:56px;object-fit:cover;border-radius:16px;display:block;" />`
-    : `<div style="width:56px;height:56px;border-radius:16px;background:${accentSoft};border:1px solid ${accentBorder};display:inline-block;text-align:center;line-height:56px;font-size:28px;">📦</div>`;
-
-  return buildMinimalActionEmail({
-    title: "Falha na Entrega",
-    subtitle: "Ação Necessária",
-    clienteNome,
-    introTexto: `Tivemos um problema ao entregar o seu pedido <strong>${produto}</strong>.`,
-    mensagem,
-    boxLabel: "TAXA DE REENVIO",
-    boxValor: `R$ ${valorFormatted}`,
-    botaoTexto: "PAGAR REENVIO",
-    botaoUrl: checkoutUrl,
-    accent,
-    accentSoft,
-    accentBorder,
-    accentText,
-    iconHtml,
-    empresaNome,
-    whatsappVendedor: extras.whatsapp_vendedor || "",
-  });
-}
-
-interface MinimalActionEmailParams {
-  title: string;
-  subtitle: string;
-  clienteNome: string;
-  introTexto: string;
-  mensagem: string;
-  boxLabel: string;
-  boxValor: string;
-  botaoTexto: string;
-  botaoUrl: string;
-  accent: string;
-  accentSoft: string;
-  accentBorder: string;
-  accentText: string;
-  iconHtml: string;
-  empresaNome: string;
-  whatsappVendedor: string;
-}
-
-/** Layout compartilhado entre Taxação e Falha na Entrega (estilo do preview do painel) */
-function buildMinimalActionEmail(p: MinimalActionEmailParams): string {
-  const valorLinha = p.boxValor
-    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;">
-         <tr>
-           <td align="left" style="font-size:11px;font-weight:700;color:${p.accentText};letter-spacing:1px;text-transform:uppercase;">${p.boxLabel}</td>
-           <td align="right" style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">${p.boxValor}</td>
-         </tr>
-       </table>`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>${p.title}</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 16px;">
-    <tr><td align="center">
-
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05),0 8px 32px rgba(0,0,0,0.08);">
-
-        <!-- Header: ícone + título + subtítulo -->
-        <tr>
-          <td style="padding:36px 40px 8px;">
-            <table cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="vertical-align:middle;padding-right:16px;">${p.iconHtml}</td>
-                <td style="vertical-align:middle;">
-                  <p style="margin:0;font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;line-height:1.2;">${p.title}</p>
-                  <p style="margin:4px 0 0;font-size:13px;font-weight:600;color:${p.accent};">${p.subtitle}</p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Saudação + intro -->
-        <tr>
-          <td style="padding:24px 40px 0;">
-            <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">Olá <strong>${p.clienteNome}</strong>,</p>
-            <p style="margin:0;font-size:14px;line-height:1.7;color:#475569;">${p.introTexto}</p>
-          </td>
-        </tr>
-
-        <!-- Box destacado: mensagem editável + linha de valor -->
-        <tr>
-          <td style="padding:20px 40px 8px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:${p.accentSoft};border:1px solid ${p.accentBorder};border-radius:14px;">
-              <tr>
-                <td style="padding:20px 22px;">
-                  <p style="margin:0;font-size:14px;line-height:1.7;color:${p.accentText};">${p.mensagem}</p>
-                  ${valorLinha}
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Botão CTA -->
-        <tr>
-          <td style="padding:20px 40px 8px;text-align:center;">
-            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-              <tr><td style="background-color:${p.accent};border-radius:50px;box-shadow:0 4px 16px ${p.accent}44;">
-                <a href="${p.botaoUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 48px;font-size:14px;font-weight:800;letter-spacing:0.5px;">${p.botaoTexto} →</a>
-              </td></tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- WhatsApp -->
-        <tr><td style="padding:0 40px;text-align:center;">${buildWhatsAppButton(p.whatsappVendedor)}</td></tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="padding:32px 40px 28px;">
-            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #f1f5f9;padding-top:20px;">
-              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;text-align:center;">Atenciosamente,<br><strong>${p.empresaNome}</strong></p>
-            </td></tr></table>
-          </td>
-        </tr>
-      </table>
-
-      <!-- Sub-footer -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-        <tr><td style="padding:16px 0;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#cbd5e1;">Enviado por ${p.empresaNome} • Rastreio automático</p>
-        </td></tr>
-      </table>
-
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
 
 
 Deno.serve(async (req) => {
@@ -1130,7 +797,7 @@ Deno.serve(async (req) => {
 
     const { data: config, error: configErr } = await supabase
       .from("postagem_config")
-      .select("whatsapp_vendedor, cor_primaria, cor_botao_cta, checkout_url_falha, valor_taxa_falha, ativar_vizinho, msg_falha_entrega, template_ativo_id, failed_delivery_template_id")
+      .select("whatsapp_vendedor, cor_primaria, cor_botao_cta, ativar_vizinho, template_ativo_id")
       .eq("loja_id", loja_id)
       .maybeSingle();
     if (configErr) {
@@ -1225,32 +892,8 @@ Deno.serve(async (req) => {
       Object.assign(extras, vizinhoExtras);
     }
 
-    // Para Falha Entrega / Taxação, busca o corpo_email mais recente no template ATIVO da loja
-    // (não no template congelado do envio) para que edições na aba Postagens sejam refletidas
-    // imediatamente nos próximos emails.
-    if ((isFalhaEntregaLabel(statusLabel, evento.nome as string) || isTaxacaoLabel(statusLabel, evento.nome as string)) && config?.template_ativo_id) {
-      const templateIdForEvent = isFalhaEntregaLabel(statusLabel, evento.nome as string)
-        ? ((config.failed_delivery_template_id as string) || config.template_ativo_id)
-        : config.template_ativo_id;
-      const { data: latestEvento } = await supabase
-        .from("postagem_eventos")
-        .select("nome, status_label, corpo_email, assunto_email")
-        .eq("template_id", templateIdForEvent)
-        .order("ordem");
-      const latestMatchingEvento = (latestEvento || []).find((event: Record<string, unknown>) => {
-        const latestStatus = (event.status_label as string) || "";
-        const latestName = (event.nome as string) || "";
-        return isFalhaEntregaLabel(statusLabel, evento.nome as string)
-          ? isFalhaEntregaLabel(latestStatus, latestName)
-          : isTaxacaoLabel(latestStatus, latestName);
-      });
-      if (latestMatchingEvento?.corpo_email) {
-        (evento as Record<string, unknown>).corpo_email = latestMatchingEvento.corpo_email;
-      }
-      if (latestMatchingEvento?.assunto_email) {
-        (evento as Record<string, unknown>).assunto_email = latestMatchingEvento.assunto_email;
-      }
-    }
+    // (Funcionalidades de Taxação e Falha na Entrega foram removidas.)
+
 
 
     // Build beautiful HTML email

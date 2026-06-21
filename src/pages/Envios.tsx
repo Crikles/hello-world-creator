@@ -386,7 +386,7 @@ export default function Envios() {
       if (!loja) return {};
       const { data: config } = await supabase
         .from("postagem_config")
-        .select("template_ativo_id, ativar_falha_entrega, enviar_nfe_email")
+        .select("template_ativo_id, enviar_nfe_email")
         .eq("loja_id", loja.id)
         .maybeSingle();
       if (!config) return {};
@@ -405,12 +405,10 @@ export default function Envios() {
         .in("template_id", templateIds);
       if (!eventos) return {};
 
-      const falhaLabels = ["Falha Entrega", "Reenvio Pago", "Reenvio Saiu"];
       const map: Record<string, number> = {};
       for (const tid of templateIds) {
         const filtered = eventos.filter(e => {
           if (e.template_id !== tid) return false;
-          if (!config.ativar_falha_entrega && falhaLabels.includes(e.status_label || "")) return false;
           if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
           return true;
         });
@@ -1314,15 +1312,6 @@ export default function Envios() {
                         <CreditCard className="h-3 w-3" />
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 hover:bg-orange-500/10 hover:text-orange-500"
-                      title="Falha na Entrega"
-                      onClick={() => window.open(`https://${getTrackingDomain(envio)}/f/${envio.id}`, '_blank')}
-                    >
-                      <PackageX className="h-3 w-3" />
-                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
