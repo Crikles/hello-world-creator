@@ -132,6 +132,79 @@ function buildDefaultEmailHtml(vars: Record<string, string>, empresa: any): stri
   return buildEmailFromTags("", vars, empresa);
 }
 
+type GlobalLang = "en" | "es";
+
+const GLOBAL_CONFIRM_I18N = {
+  en: {
+    header: "Payment Confirmed",
+    preview: "Your international payment has been confirmed",
+    greeting: (n: string) => `Hi ${n},`,
+    intro: "Your payment has been confirmed and your international order is now being processed.",
+    product: "Product",
+    value: "Amount",
+    cta: "Track your order",
+    footer: "Thank you for shopping with us.",
+  },
+  es: {
+    header: "Pago Confirmado",
+    preview: "Tu pago internacional ha sido confirmado",
+    greeting: (n: string) => `Hola ${n},`,
+    intro: "Tu pago ha sido confirmado y tu pedido internacional está siendo procesado.",
+    product: "Producto",
+    value: "Valor",
+    cta: "Rastrear pedido",
+    footer: "Gracias por tu compra.",
+  },
+} as const;
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
+function buildGlobalConfirmationEmail(
+  lang: GlobalLang,
+  vars: Record<string, string>,
+  empresa: any,
+  originCountry: string,
+  trackingLink: string
+): string {
+  const t = GLOBAL_CONFIRM_I18N[lang];
+  const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
+  const accent = "#1e40af";
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(t.preview)}</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:20px 0;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+  <tr><td style="padding:24px 32px 16px;border-bottom:2px solid ${accent};">
+    <p style="margin:0;font-size:15px;font-weight:700;color:${accent};">${escapeHtml(t.header)}</p>
+    <p style="margin:2px 0 0;font-size:12px;color:#888;">${escapeHtml(empresaNome)} · ${lang === "es" ? "Enviado desde" : "Shipped from"} ${escapeHtml(originCountry)}</p>
+  </td></tr>
+  <tr><td style="padding:24px 32px 8px;">
+    <p style="font-size:15px;color:#222;margin:0 0 8px;">${escapeHtml(t.greeting(vars.nome))}</p>
+    <p style="font-size:14px;color:#555;margin:0;">${escapeHtml(t.intro)}</p>
+  </td></tr>
+  <tr><td style="padding:8px 32px;">
+    <table width="100%" cellpadding="8" cellspacing="0" style="background:#f9f9f9;border-radius:6px;border:1px solid #eee;">
+      <tr><td style="color:#666;font-size:13px;">${escapeHtml(t.product)}</td><td style="color:#222;font-size:13px;font-weight:600;text-align:right;">${escapeHtml(vars.produto)}</td></tr>
+      <tr><td style="color:#666;font-size:13px;border-top:1px solid #eee;">${escapeHtml(t.value)}</td><td style="color:${accent};font-size:13px;font-weight:600;text-align:right;border-top:1px solid #eee;">R$ ${escapeHtml(vars.valor)}</td></tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:20px 32px;text-align:center;">
+    <a href="${escapeHtml(trackingLink)}" style="display:inline-block;background:${accent};color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
+      ${escapeHtml(t.cta)}
+    </a>
+  </td></tr>
+  <tr><td style="padding:20px 32px 24px;border-top:1px solid #eee;text-align:center;">
+    <p style="font-size:12px;color:#999;margin:0;">${escapeHtml(t.footer)}</p>
+  </td></tr>
+</table>
+</td></tr></table></body></html>`;
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -152,21 +225,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Check config
-    const { data: config } = await supabase
-      .from("confirmacao_pagamento_config")
-      .select("*")
-      .eq("loja_id", loja_id)
-      .maybeSingle();
-
-    if (!config?.ativo) {
-      return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "not active" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // 2. Get pedido data
+    // 1. Get pedido data
     const { data: pedido } = await supabase
       .from("pedidos")
       .select("*")
@@ -180,7 +239,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Get loja owner
+    // 2. Get loja owner
     const { data: loja } = await supabase
       .from("lojas")
       .select("user_id")
@@ -194,14 +253,174 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Get empresa data
+    // 3. Get empresa data
     const { data: empresa } = await supabase
       .from("empresas")
       .select("*")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
-    // 5. Get costs
+    // 4. Check if this is an international order managed by the Global flow
+    let globalConfig: any = null;
+    let envioGlobal: any = null;
+    if (pedido.envio_id) {
+      const { data: envio } = await supabase
+        .from("envios")
+        .select("id, is_international, global_flow_lang, codigo_rastreio")
+        .eq("id", pedido.envio_id)
+        .maybeSingle();
+      if (envio?.is_international) {
+        envioGlobal = envio;
+        const { data: gcfg } = await supabase
+          .from("global_flow_config")
+          .select("ativo, idioma, confirmacao_email, pais_origem_nome")
+          .eq("loja_id", loja_id)
+          .maybeSingle();
+        globalConfig = gcfg;
+      }
+    }
+
+    if (envioGlobal && globalConfig) {
+      if (!globalConfig.ativo || !globalConfig.confirmacao_email) {
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "global flow not active or confirmation email disabled" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Use global confirmation email (no SMS confirmation for Global)
+      const { data: custos } = await supabase
+        .from("system_config")
+        .select("key, value")
+        .in("key", ["custo_global_flow_confirmacao_email"]);
+      const custoMap: Record<string, number> = {};
+      (custos || []).forEach((c: any) => { custoMap[c.key] = c.value; });
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("custom_prices")
+        .eq("id", loja.user_id)
+        .maybeSingle();
+      const customPrices = (profile?.custom_prices || {}) as Record<string, number>;
+      const custoEmail = customPrices["custo_global_flow_confirmacao_email"] ?? custoMap["custo_global_flow_confirmacao_email"] ?? 1.00;
+
+      // Parse product name
+      let produtoNome = "Product";
+      try {
+        if (pedido.products) {
+          const prods = typeof pedido.products === "string" ? JSON.parse(pedido.products) : pedido.products;
+          if (Array.isArray(prods) && prods.length > 0) {
+            produtoNome = prods.map((p: any) => p.title || p.nome || p.name || "Product").join(", ");
+          }
+        }
+      } catch { /* ignore */ }
+
+      const firstName = (pedido.customer_name || "Customer").split(" ")[0];
+      const lang: GlobalLang = (envioGlobal.global_flow_lang || globalConfig.idioma || "en") as GlobalLang;
+      const templateVars: Record<string, string> = {
+        nome: firstName,
+        produto: produtoNome,
+        valor: (pedido.total_price / 100).toFixed(2).replace(".", ","),
+      };
+      const trackingLink = `https://atlas-cargo.org/r/${envioGlobal.codigo_rastreio || ""}`;
+      const originCountry = globalConfig.pais_origem_nome || "";
+
+      const results: { email?: string } = {};
+
+      if (retry) {
+        const { data: recentLogs } = await supabase
+          .from("confirmacao_pagamento_log")
+          .select("tipo, status, created_at")
+          .eq("pedido_id", pedido_id)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        const lastEmail = recentLogs?.find((l) => l.tipo === "email");
+        if (lastEmail?.status === "sent") {
+          return new Response(
+            JSON.stringify({ success: true, skipped: true, reason: "already sent" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      if (pedido.customer_email) {
+        const resendKey = Deno.env.get("RESEND_CONFIRMATION_API_KEY") || Deno.env.get("RESEND_API_KEY");
+        if (!resendKey) {
+          console.error("[payment-confirmation/global] No Resend API key configured");
+          results.email = "skipped_no_key";
+        } else {
+          const { data: debited } = await supabase.rpc("debit_user_credits", {
+            _user_id: loja.user_id,
+            _quantidade: custoEmail,
+            _descricao: `Email confirmação pagamento global - ${pedido.customer_email}`,
+          });
+          if (!debited) {
+            console.warn("[payment-confirmation/global] Insufficient credits for email");
+            results.email = "skipped_no_credits";
+          } else {
+            const html = buildGlobalConfirmationEmail(lang, templateVars, empresa, originCountry, trackingLink);
+            const remetenteNome = empresa?.nome_fantasia || empresa?.razao_social || "Store";
+            const fromEmail = `${remetenteNome} <contato@recuperacaodenegocios.com>`;
+            try {
+              const emailRes = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+                body: JSON.stringify({
+                  from: fromEmail,
+                  to: [pedido.customer_email],
+                  subject: GLOBAL_CONFIRM_I18N[lang].header,
+                  html,
+                }),
+              });
+              const emailResult = await emailRes.json();
+              if (emailRes.ok) {
+                await supabase.from("confirmacao_pagamento_log").insert({
+                  loja_id, pedido_id, tipo: "email", status: "sent",
+                  custo: custoEmail, destinatario: pedido.customer_email,
+                });
+                results.email = "sent";
+              } else {
+                console.error("[payment-confirmation/global] Email error:", emailResult);
+                await supabase.from("confirmacao_pagamento_log").insert({
+                  loja_id, pedido_id, tipo: "email", status: "failed",
+                  custo: custoEmail, destinatario: pedido.customer_email,
+                  error_reason: JSON.stringify(emailResult),
+                });
+                results.email = "failed";
+              }
+            } catch (err) {
+              console.error("[payment-confirmation/global] Email exception:", err);
+              await supabase.from("confirmacao_pagamento_log").insert({
+                loja_id, pedido_id, tipo: "email", status: "failed",
+                custo: custoEmail, destinatario: pedido.customer_email,
+                error_reason: String(err),
+              });
+              results.email = "failed";
+            }
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, global: true, results }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 5. Standard confirmation flow (non-international orders)
+    const { data: config } = await supabase
+      .from("confirmacao_pagamento_config")
+      .select("*")
+      .eq("loja_id", loja_id)
+      .maybeSingle();
+
+    if (!config?.ativo) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "not active" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 6. Get costs
     const { data: custos } = await supabase
       .from("system_config")
       .select("key, value")

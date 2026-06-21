@@ -13,7 +13,6 @@ import {
   Globe2,
   Mail,
   MessageSquare,
-  MessageCircle,
   BadgeCheck,
   CheckCircle2,
   Circle,
@@ -151,7 +150,11 @@ export default function Global() {
       const { data } = await supabase
         .from("system_config")
         .select("key, value")
-        .in("key", ["custo_email_rastreio", "custo_sms_rastreio", "custo_confirmacao_email", "custo_confirmacao_sms"]);
+        .in("key", [
+          "custo_global_flow_email",
+          "custo_global_flow_sms",
+          "custo_global_flow_confirmacao_email",
+        ]);
       let custom: Record<string, number> = {};
       if (loja?.user_id) {
         const { data: p } = await supabase
@@ -187,20 +190,19 @@ export default function Global() {
     }
   }, [config, loja?.id, isLoading]);
 
-  const custoEmailRastreio = custos?.custo_email_rastreio ?? 1;
-  const custoSmsRastreio = custos?.custo_sms_rastreio ?? 0.25;
-  const custoConfEmail = custos?.custo_confirmacao_email ?? 0.5;
-  const custoConfSms = custos?.custo_confirmacao_sms ?? 0.12;
+  const custoEmailFluxo = custos?.custo_global_flow_email ?? 1.20;
+  const custoSmsUnit = custos?.custo_global_flow_sms ?? 0.20;
+  const custoConfEmail = custos?.custo_global_flow_confirmacao_email ?? 1.00;
+  const custoEmailUnit = custoEmailFluxo / 10;
 
   const custoTotal = useMemo(() => {
     if (!local) return 0;
     let t = 0;
-    if (local.enviar_email) t += custoEmailRastreio * 10;
-    if (local.enviar_sms) t += custoSmsRastreio * 10;
+    if (local.enviar_email) t += custoEmailFluxo;
+    if (local.enviar_sms) t += custoSmsUnit * 10;
     if (local.confirmacao_email) t += custoConfEmail;
-    if (local.confirmacao_sms) t += custoConfSms;
     return t;
-  }, [local, custoEmailRastreio, custoSmsRastreio, custoConfEmail, custoConfSms]);
+  }, [local, custoEmailFluxo, custoSmsUnit, custoConfEmail]);
 
   const hasChanges = useMemo(() => {
     if (!local) return false;
@@ -249,10 +251,11 @@ export default function Global() {
       key: "enviar_email",
       icon: Mail,
       title: "Email de Rastreio",
-      desc: "Envia 1 email a cada uma das 10 etapas do fluxo internacional.",
-      unit: custoEmailRastreio,
-      unitSuffix: "/email",
-      total: custoEmailRastreio * 10,
+      desc: "Envia 1 email a cada uma das 10 etapas do fluxo internacional. Cobrança proporcional por etapa enviada.",
+      unit: custoEmailFluxo,
+      unitSuffix: " por todo o fluxo",
+      unitDetail: `${custoEmailUnit.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/email`,
+      total: custoEmailFluxo,
       checked: local.enviar_email,
       toggle: () => setLocal({ ...local, enviar_email: !local.enviar_email }),
     },
@@ -261,9 +264,9 @@ export default function Global() {
       icon: MessageSquare,
       title: "SMS de Rastreio",
       desc: "Envia 1 SMS a cada uma das 10 etapas do fluxo internacional.",
-      unit: custoSmsRastreio,
+      unit: custoSmsUnit,
       unitSuffix: "/SMS",
-      total: custoSmsRastreio * 10,
+      total: custoSmsUnit * 10,
       checked: local.enviar_sms,
       toggle: () => setLocal({ ...local, enviar_sms: !local.enviar_sms }),
     },
@@ -271,23 +274,12 @@ export default function Global() {
       key: "confirmacao_email",
       icon: BadgeCheck,
       title: "Email de Confirmação de Pagamento",
-      desc: "Dispara assim que o pagamento internacional é aprovado.",
+      desc: "Dispara assim que o pagamento internacional é aprovado. Traduzido automaticamente.",
       unit: custoConfEmail,
       unitSuffix: "/email",
       total: custoConfEmail,
       checked: local.confirmacao_email,
       toggle: () => setLocal({ ...local, confirmacao_email: !local.confirmacao_email }),
-    },
-    {
-      key: "confirmacao_sms",
-      icon: MessageCircle,
-      title: "SMS de Confirmação de Pagamento",
-      desc: "Dispara assim que o pagamento internacional é aprovado.",
-      unit: custoConfSms,
-      unitSuffix: "/SMS",
-      total: custoConfSms,
-      checked: local.confirmacao_sms,
-      toggle: () => setLocal({ ...local, confirmacao_sms: !local.confirmacao_sms }),
     },
   ];
 
@@ -489,6 +481,11 @@ export default function Global() {
                     <Badge variant="outline" className="text-[10px] font-mono">
                       {formatMoedas(ch.unit)}{ch.unitSuffix}
                     </Badge>
+                    {ch.unitDetail && (
+                      <Badge variant="secondary" className="text-[10px] font-mono">
+                        {ch.unitDetail}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">{ch.desc}</p>
                 </div>
