@@ -70,7 +70,7 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
-function buildEmailHtml(lang: Lang, currentStep: number, name: string, link: string, empresaNome: string): string {
+function buildEmailHtml(lang: Lang, currentStep: number, name: string, link: string, empresaNome: string, originCountry: string): string {
   const t = I18N[lang];
   const steps = STEPS[lang];
   const accent = "#1e40af";
@@ -100,7 +100,7 @@ function buildEmailHtml(lang: Lang, currentStep: number, name: string, link: str
 <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
   <tr><td style="padding:24px 32px 16px;border-bottom:2px solid ${accent};">
     <p style="margin:0;font-size:15px;font-weight:700;color:${accent};">${escapeHtml(STEPS[lang][currentStep - 1] || "")}</p>
-    <p style="margin:2px 0 0;font-size:12px;color:#888;">${escapeHtml(empresaNome)}</p>
+    <p style="margin:2px 0 0;font-size:12px;color:#888;">${escapeHtml(empresaNome)} · ${lang === "es" ? "Enviado desde" : "Shipped from"} ${escapeHtml(originCountry)}</p>
   </td></tr>
   <tr><td style="padding:24px 32px 8px;">
     <p style="font-size:15px;color:#222;margin:0 0 8px;">${escapeHtml(t.hi(name))}</p>
@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
           _descricao: `Global flow email step ${step} - ${envio.cliente_email}`,
         });
         if (debited) {
-          const html = buildEmailHtml(lang, step, firstName, link, empresaNome);
+          const html = buildEmailHtml(lang, step, firstName, link, empresaNome, config.pais_origem_nome || "");
           const fromName = empresaNome || "Tracking";
           const from = `${fromName} <contato@recuperacaodenegocios.com>`;
           try {
