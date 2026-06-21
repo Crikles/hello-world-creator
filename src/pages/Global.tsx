@@ -482,6 +482,11 @@ export default function Global() {
                     <Badge variant="outline" className="text-[10px] font-mono">
                       {formatMoedas(ch.unit)}{ch.unitSuffix}
                     </Badge>
+                    {ch.unitDetail && (
+                      <Badge variant="secondary" className="text-[10px] font-mono">
+                        {ch.unitDetail}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">{ch.desc}</p>
                 </div>
