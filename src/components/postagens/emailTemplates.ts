@@ -59,6 +59,43 @@ export const emojiSugeridos: Record<string, string[]> = {
   "Falha Entrega": ["⚠️", "📦", "🛑", "🔔"],
 };
 
+export const defaultSubjectByEvent: Record<string, string> = {
+  "Postado": "📦 Seu pedido foi postado",
+  "NF-e": "🧾 Sua nota fiscal já está disponível",
+  "Nota Fiscal Emitida": "🧾 Sua nota fiscal já está disponível",
+  "Postado no exterior": "📦 Pedido postado no exterior",
+  "Coletado": "🚚 Pedido coletado pela transportadora",
+  "Em Trânsito": "🛣️ Seu pedido está em trânsito",
+  "Em trânsito internacional": "🌎 Pedido em trânsito internacional",
+  "Chegou ao Brasil": "🇧🇷 Seu pedido chegou ao Brasil",
+  "Retido na alfândega — pagamento necessário": "⚠️ Pedido retido na alfândega — ação necessária",
+  "Taxação": "⚠️ Pedido retido na alfândega — ação necessária",
+  "Pagamento da taxa confirmado": "✅ Pagamento da taxa confirmado",
+  "Pago": "✅ Pagamento confirmado — pedido a caminho",
+  "Liberado pela alfândega": "🛃 Liberado pela alfândega",
+  "Passando por centro de triagem": "🛣️ Atualização do trajeto do seu pedido",
+  "Em redistribuição": "🔄 Pedido em redistribuição",
+  "Retornou ao centro de distribuição": "📍 Entrega remarcada — pedido a caminho",
+  "Chegou ao estado vizinho": "📍 Seu pedido está perto da região de entrega",
+  "Chegou perto de você": "📍 Seu pedido chegou perto de você",
+  "Centro de Distribuição": "🏢 Pedido no centro de distribuição",
+  "Centro Local": "🏢 Pedido no centro de distribuição",
+  "Chegou no centro local": "🏢 Pedido no centro local",
+  "Entrega reprogramada": "📅 Entrega reprogramada",
+  "Saiu para entrega": "🛵 Seu pedido saiu para entrega",
+  "Saiu para Entrega": "🛵 Seu pedido saiu para entrega",
+  "Em rota": "🛵 Pedido em rota de entrega",
+  "Em Rota": "🛵 Pedido em rota de entrega",
+  "Em rota final": "🛵 Saiu para a entrega final",
+  "Entregue": "✅ Pedido entregue com sucesso",
+  "Entregue ✅": "✅ Pedido entregue com sucesso",
+  "Falha Entrega": "⚠️ Falha na entrega — pagamento do reenvio",
+  "Falha na entrega — pagar reenvio": "⚠️ Falha na entrega — pagamento do reenvio",
+  "Reenvio pago": "✅ Reenvio confirmado — pedido a caminho",
+};
+
+
+
 export const defaultSectionsByEvent: Record<string, EmailSections> = {
   Postado: {
     saudacao: "Olá {{cliente_nome}},",
