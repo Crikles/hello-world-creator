@@ -678,7 +678,6 @@ export type Database = {
       }
       global_flow_eventos: {
         Row: {
-          ativo: boolean
           created_at: string
           delay_horas: number
           id: string
@@ -691,7 +690,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          ativo?: boolean
           created_at?: string
           delay_horas?: number
           id?: string
@@ -704,7 +702,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          ativo?: boolean
           created_at?: string
           delay_horas?: number
           id?: string
