@@ -190,11 +190,12 @@ Deno.serve(async (req) => {
     const { data: custos } = await supabase
       .from("system_config")
       .select("key, value")
-      .in("key", ["custo_email_rastreio", "custo_sms"]);
+      .in("key", ["custo_global_flow_email", "custo_global_flow_sms"]);
     const custoMap: Record<string, number> = {};
     (custos || []).forEach((c: any) => { custoMap[c.key] = c.value; });
-    const custoEmail = custoMap["custo_email_rastreio"] ?? 1;
-    const custoSms = custoMap["custo_sms"] ?? 0.12;
+    const custoEmailFluxo = custoMap["custo_global_flow_email"] ?? 1.20;
+    const custoEmail = custoEmailFluxo / 10;
+    const custoSms = custoMap["custo_global_flow_sms"] ?? 0.20;
 
     const results: { email?: string; sms?: string } = {};
 
