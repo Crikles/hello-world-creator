@@ -923,8 +923,6 @@ export type Database = {
           created_at: string
           enviar_emails: boolean
           enviar_nfe_email: boolean
-          failed_delivery_cost: number | null
-          failed_delivery_template_id: string | null
           id: string
           loja_id: string
           origem_cidade: string | null
@@ -952,8 +950,6 @@ export type Database = {
           created_at?: string
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
-          failed_delivery_cost?: number | null
-          failed_delivery_template_id?: string | null
           id?: string
           loja_id: string
           origem_cidade?: string | null
@@ -981,8 +977,6 @@ export type Database = {
           created_at?: string
           enviar_emails?: boolean
           enviar_nfe_email?: boolean
-          failed_delivery_cost?: number | null
-          failed_delivery_template_id?: string | null
           id?: string
           loja_id?: string
           origem_cidade?: string | null
@@ -1002,13 +996,6 @@ export type Database = {
           widget_rastreio_ativo?: boolean
         }
         Relationships: [
-          {
-            foreignKeyName: "postagem_config_failed_delivery_template_id_fkey"
-            columns: ["failed_delivery_template_id"]
-            isOneToOne: false
-            referencedRelation: "postagem_templates"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "postagem_config_loja_id_fkey"
             columns: ["loja_id"]
