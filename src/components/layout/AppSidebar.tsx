@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isLogisticsDomain } from "@/lib/domain-config";
-import { Gauge, SendHorizonal, Megaphone, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy, Users, MessageCircle, Sparkles, ShoppingCart, BadgeCheck, Activity, GraduationCap } from "lucide-react";
+import { Gauge, SendHorizonal, Megaphone, CircleDollarSign, Landmark, Cable, SlidersHorizontal, Store, LogOut, Coins, LifeBuoy, Users, MessageCircle, Sparkles, ShoppingCart, BadgeCheck, Activity, GraduationCap, Globe2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoja } from "@/contexts/LojaContext";
@@ -81,6 +81,7 @@ export function AppSidebar() {
         { title: "Upsell", url: `${base}/upsell`, icon: Sparkles },
         { title: "Recuperação", url: `${base}/recuperacao`, icon: ShoppingCart, restricted: !isRecoveryAllowed },
         { title: "Confirmação Pgto", url: `${base}/confirmacao-pagamento`, icon: BadgeCheck },
+        { title: "Global", url: `${base}/global`, icon: Globe2 },
       ],
     },
     {

@@ -510,7 +510,9 @@ export type Database = {
           cst: string | null
           deleted_at: string | null
           empresa_id: string | null
+          global_flow_lang: string | null
           id: string
+          is_international: boolean
           loja_id: string | null
           ncm_sh: string | null
           nfe_chave_acesso: string | null
@@ -547,7 +549,9 @@ export type Database = {
           cst?: string | null
           deleted_at?: string | null
           empresa_id?: string | null
+          global_flow_lang?: string | null
           id?: string
+          is_international?: boolean
           loja_id?: string | null
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
@@ -584,7 +588,9 @@ export type Database = {
           cst?: string | null
           deleted_at?: string | null
           empresa_id?: string | null
+          global_flow_lang?: string | null
           id?: string
+          is_international?: boolean
           loja_id?: string | null
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
@@ -615,6 +621,44 @@ export type Database = {
             foreignKeyName: "envios_loja_id_fkey"
             columns: ["loja_id"]
             isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      global_flow_config: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          enviar_email: boolean
+          enviar_sms: boolean
+          idioma: string
+          loja_id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          idioma?: string
+          loja_id: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          enviar_email?: boolean
+          enviar_sms?: boolean
+          idioma?: string
+          loja_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "global_flow_config_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: true
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
