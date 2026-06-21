@@ -879,7 +879,12 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
     },
   });
 
-  const activeLabel = "Atlas Transportes";
+  const providers = [
+    { id: "atlas", label: "Atlas Transportes", short: "ATLAS", site: "https://atlas-cargo.org" },
+    { id: "jetline", label: "JetLine Logística", short: "JETLINE", site: "https://jetline-log.com" },
+  ];
+
+  const active = providers.find((p) => p.id === logisticaProvider) ?? providers[0];
 
   return (
     <Card>
@@ -894,30 +899,40 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
           <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
           <span className="text-sm text-foreground">
-            Transportadora ativa: <strong className="text-primary">{activeLabel}</strong>
+            Transportadora ativa: <strong className="text-primary">{active.label}</strong>
           </span>
         </div>
-        <div className="grid grid-cols-1 gap-4">
-          <button
-            onClick={() => mutation.mutate("atlas")}
-            disabled={mutation.isPending}
-            className="flex flex-col items-center justify-center p-8 border-2 border-primary ring-2 ring-primary/20 rounded-xl transition-all bg-white"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Truck className="h-10 w-10 text-primary" />
-              <span className="text-3xl font-extrabold tracking-wider text-slate-800">ATLAS</span>
-            </div>
-            <span className="font-semibold text-sm text-primary">Atlas Transportes</span>
-          </button>
-          <a
-            href="https://atlas-cargo.org"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
-          >
-            Visitar site da transportadora
-            <ExternalLink className="h-3 w-3" />
-          </a>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {providers.map((p) => {
+            const isActive = logisticaProvider === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => mutation.mutate(p.id)}
+                disabled={mutation.isPending}
+                className={`flex flex-col items-center justify-center p-8 border-2 rounded-xl transition-all bg-white ${
+                  isActive ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Truck className={`h-10 w-10 ${isActive ? "text-primary" : "text-slate-500"}`} />
+                  <span className="text-3xl font-extrabold tracking-wider text-slate-800">{p.short}</span>
+                </div>
+                <span className={`font-semibold text-sm ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                  {p.label}
+                </span>
+                <a
+                  href={p.site}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-3 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Visitar site <ExternalLink className="h-3 w-3" />
+                </a>
+              </button>
+            );
+          })}
         </div>
       </CardContent>
     </Card>
