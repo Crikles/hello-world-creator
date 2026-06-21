@@ -495,20 +495,6 @@ export default function Postagens() {
             <Settings2 className="h-3.5 w-3.5" />
             Configuração
           </TabsTrigger>
-          <TabsTrigger value="taxacao" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Taxação
-            {localConfig?.ativar_taxacao && (
-              <span className="ml-1 w-2 h-2 rounded-full bg-primary animate-pulse-dot" />
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="falha_entrega" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-            <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
-            Falha na Entrega
-            {localConfig?.ativar_falha_entrega && (
-              <span className="ml-1 w-2 h-2 rounded-full bg-orange-500 animate-pulse-dot" />
-            )}
-          </TabsTrigger>
           <TabsTrigger value="logistica" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
             <Truck className="h-3.5 w-3.5" />
             Logística
@@ -679,8 +665,6 @@ export default function Postagens() {
                         let evtAtivo = true;
                         if (localConfig) {
                           if (e.enviar_nfe_pdf) evtAtivo = localConfig.enviar_nfe_email;
-                          else if (e.status_label === "Taxação" || e.status_label === "Pago") evtAtivo = localConfig.ativar_taxacao;
-                          else if (FALHA_LABELS.includes(e.status_label || "")) evtAtivo = localConfig.ativar_falha_entrega;
                         }
                         const activeColor = evtAtivo
                           ? "bg-emerald-500/20 text-emerald-400"
@@ -830,8 +814,6 @@ export default function Postagens() {
                   { label: "NF por email", active: localConfig.enviar_nfe_email, cost: systemConfigValues?.custo_nfe_email ?? 1, display: formatMoedas(systemConfigValues?.custo_nfe_email ?? 1) },
                   { label: "Rastreio por email", active: localConfig.enviar_emails, cost: systemConfigValues?.custo_email_rastreio ?? 1, display: formatMoedas(systemConfigValues?.custo_email_rastreio ?? 1) },
                   { label: `SMS (${smsEventCount}x ${formatMoedas(smsCostUnit)})`, active: localConfig.ativar_site_rastreio, cost: smsTotalCost, display: formatMoedas(smsTotalCost), prefix: "+" },
-                  { label: "Funil de Taxação", active: localConfig.ativar_taxacao, cost: systemConfigValues?.custo_taxacao ?? 1, display: formatMoedas(systemConfigValues?.custo_taxacao ?? 1), prefix: "+" },
-                  { label: "Falha na Entrega", active: localConfig.ativar_falha_entrega, cost: systemConfigValues?.custo_falha_entrega ?? 1, display: formatMoedas(systemConfigValues?.custo_falha_entrega ?? 1), prefix: "+" },
                 ].map((item) => (
                   <div key={item.label} className="flex justify-between">
                     <span className={item.active ? "text-foreground" : "text-muted-foreground line-through"}>{item.label}</span>
@@ -849,25 +831,6 @@ export default function Postagens() {
           )}
         </TabsContent>
 
-        {/* ─── Taxação Tab ─── */}
-        <TabsContent value="taxacao" className="mt-5">
-          {loja?.id && (
-            <TaxacaoConfig
-              lojaId={loja.id}
-              taxacaoAtivo={localConfig?.ativar_taxacao ?? false}
-            />
-          )}
-        </TabsContent>
-
-        {/* ─── Falha Entrega Tab ─── */}
-        <TabsContent value="falha_entrega" className="mt-5">
-          {loja?.id && (
-            <FalhaEntregaConfig
-              lojaId={loja.id}
-              falhaEntregaAtivo={localConfig?.ativar_falha_entrega ?? false}
-            />
-          )}
-        </TabsContent>
 
         {/* ─── Logística Tab ─── */}
         <TabsContent value="logistica" className="mt-5">
