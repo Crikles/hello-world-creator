@@ -1,61 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  EMAIL_TEMPLATES,
+  SMS_TEMPLATES,
+  STEP_LABELS,
+  type EmailContent,
+  type Lang,
+} from "./templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-type Lang = "en" | "es";
-
-const STEPS: Record<Lang, string[]> = {
-  en: [
-    "Order Received",
-    "Order Prepared",
-    "Shipped by Sender",
-    "Left Country of Origin",
-    "In International Transit",
-    "Arrived at Destination Country",
-    "In Customs Processing",
-    "In Local Transit",
-    "Out for Delivery",
-    "Delivered",
-  ],
-  es: [
-    "Pedido Recibido",
-    "Pedido Preparado",
-    "Enviado por el Remitente",
-    "Salió del País de Origen",
-    "En Tránsito Internacional",
-    "Llegó al País de Destino",
-    "En Procesamiento Aduanero",
-    "En Tránsito Local",
-    "Salió para Entrega",
-    "Entregado",
-  ],
-};
-
-const I18N = {
-  en: {
-    subject: (step: string) => `Order update: ${step}`,
-    preview: "Your international shipment progress",
-    hi: (n: string) => `Hi ${n},`,
-    intro: "Here is the latest update on your international shipment:",
-    trackBtn: "Track your order",
-    footer: "Thank you for shopping with us.",
-    sms: (n: string, step: string, link: string) =>
-      `${n}, your order status: ${step}. Track: ${link}`,
-  },
-  es: {
-    subject: (step: string) => `Actualización del pedido: ${step}`,
-    preview: "Progreso de tu envío internacional",
-    hi: (n: string) => `Hola ${n},`,
-    intro: "Esta es la última actualización de tu envío internacional:",
-    trackBtn: "Rastrear pedido",
-    footer: "Gracias por tu compra.",
-    sms: (n: string, step: string, link: string) =>
-      `${n}, estado de tu pedido: ${step}. Rastrear: ${link}`,
-  },
-} as const;
 
 function removeAccents(t: string): string {
   return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -70,14 +25,20 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
-function buildEmailHtml(lang: Lang, currentStep: number, name: string, link: string, empresaNome: string, originCountry: string): string {
-  const t = I18N[lang];
-  const steps = STEPS[lang];
+function buildEmailHtml(
+  lang: Lang,
+  currentStep: number,
+  content: EmailContent,
+  link: string,
+  empresaNome: string,
+  originCountry: string,
+): string {
+  const labels = STEP_LABELS[lang];
   const accent = "#1e40af";
   const done = "#16a34a";
   const muted = "#9ca3af";
 
-  const stepsHtml = steps
+  const stepsHtml = labels
     .map((label, i) => {
       const n = i + 1;
       const isDone = n < currentStep;
@@ -92,32 +53,42 @@ function buildEmailHtml(lang: Lang, currentStep: number, name: string, link: str
     })
     .join("");
 
+  const hintHtml = content.hint
+    ? `<tr><td style="padding:0 32px 8px;">
+        <div style="background:#eff6ff;border-left:3px solid ${accent};padding:10px 14px;border-radius:4px;font-size:13px;color:#1e3a8a;">
+          ${escapeHtml(content.hint)}
+        </div>
+      </td></tr>`
+    : "";
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
-<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(t.preview)}</div>
+<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(content.preview)}</div>
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:20px 0;">
 <tr><td align="center">
 <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
   <tr><td style="padding:24px 32px 16px;border-bottom:2px solid ${accent};">
-    <p style="margin:0;font-size:15px;font-weight:700;color:${accent};">${escapeHtml(STEPS[lang][currentStep - 1] || "")}</p>
-    <p style="margin:2px 0 0;font-size:12px;color:#888;">${escapeHtml(empresaNome)} · ${lang === "es" ? "Enviado desde" : "Shipped from"} ${escapeHtml(originCountry)}</p>
+    <p style="margin:0;font-size:18px;font-weight:700;color:${accent};">${escapeHtml(content.headline)}</p>
+    <p style="margin:4px 0 0;font-size:12px;color:#888;">${escapeHtml(empresaNome)} · ${lang === "es" ? "Enviado desde" : "Shipped from"} ${escapeHtml(originCountry)}</p>
   </td></tr>
   <tr><td style="padding:24px 32px 8px;">
-    <p style="font-size:15px;color:#222;margin:0 0 8px;">${escapeHtml(t.hi(name))}</p>
-    <p style="font-size:14px;color:#555;margin:0;">${escapeHtml(t.intro)}</p>
+    <p style="font-size:15px;color:#222;margin:0 0 12px;">${escapeHtml(content.intro)}</p>
+    <p style="font-size:14px;color:#444;line-height:1.55;margin:0;">${escapeHtml(content.body)}</p>
   </td></tr>
-  <tr><td style="padding:8px 32px;">
+  ${hintHtml}
+  <tr><td style="padding:16px 32px 8px;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border-radius:6px;border:1px solid #eee;padding:12px 16px;">
       ${stepsHtml}
     </table>
   </td></tr>
   <tr><td style="padding:20px 32px;text-align:center;">
     <a href="${escapeHtml(link)}" style="display:inline-block;background:${accent};color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
-      ${escapeHtml(t.trackBtn)}
+      ${escapeHtml(content.ctaLabel)}
     </a>
   </td></tr>
   <tr><td style="padding:20px 32px 24px;border-top:1px solid #eee;text-align:center;">
-    <p style="font-size:12px;color:#999;margin:0;">${escapeHtml(t.footer)}</p>
+    <p style="font-size:13px;color:#555;margin:0 0 4px;">${escapeHtml(content.closing)}</p>
+    <p style="font-size:13px;color:#222;font-weight:600;margin:0;">${escapeHtml(empresaNome)}</p>
   </td></tr>
 </table>
 </td></tr></table></body></html>`;
@@ -174,9 +145,7 @@ Deno.serve(async (req) => {
     }
 
     const lang: Lang = (envio.global_flow_lang || config.idioma || "en") as Lang;
-    const t = I18N[lang];
-    const stepLabel = STEPS[lang][step - 1];
-    const firstName = (envio.cliente_nome || "Customer").split(" ")[0];
+    const firstName = (envio.cliente_nome || (lang === "es" ? "Cliente" : "Customer")).split(" ")[0];
     const link = `https://atlas-cargo.org/r/${envio.codigo_rastreio || ""}`;
 
     const { data: loja } = await supabase.from("lojas").select("user_id").eq("id", envio.loja_id).single();
@@ -187,13 +156,19 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
 
+    const ctx = {
+      name: firstName,
+      empresa: empresaNome || (lang === "es" ? "nuestra tienda" : "our store"),
+      originCountry: config.pais_origem_nome || "",
+      tracking: envio.codigo_rastreio || "",
+    };
+
     const { data: custos } = await supabase
       .from("system_config")
       .select("key, value")
       .in("key", ["custo_global_flow_email", "custo_global_flow_sms"]);
     const custoMap: Record<string, number> = {};
     (custos || []).forEach((c: any) => { custoMap[c.key] = c.value; });
-    // Per-user overrides (profiles.custom_prices)
     let customPrices: Record<string, number> = {};
     if (loja?.user_id) {
       const { data: profile } = await supabase
@@ -221,7 +196,8 @@ Deno.serve(async (req) => {
           _descricao: `Global flow email step ${step} - ${envio.cliente_email}`,
         });
         if (debited) {
-          const html = buildEmailHtml(lang, step, firstName, link, empresaNome, config.pais_origem_nome || "");
+          const content = EMAIL_TEMPLATES[lang][step](ctx);
+          const html = buildEmailHtml(lang, step, content, link, ctx.empresa, ctx.originCountry);
           const fromName = empresaNome || "Tracking";
           const from = `${fromName} <contato@recuperacaodenegocios.com>`;
           try {
@@ -231,7 +207,7 @@ Deno.serve(async (req) => {
               body: JSON.stringify({
                 from,
                 to: [envio.cliente_email],
-                subject: t.subject(stepLabel),
+                subject: content.subject,
                 html,
               }),
             });
@@ -260,7 +236,8 @@ Deno.serve(async (req) => {
         });
         if (debited) {
           const phone = formatPhone(envio.cliente_telefone);
-          const message = removeAccents(t.sms(firstName, stepLabel, link));
+          const rawMsg = SMS_TEMPLATES[lang][step]({ ...ctx, link });
+          const message = removeAccents(rawMsg);
           try {
             const r = await fetch(
               `https://sms.aresfun.com/v1/integration/${integraxKey}/send-sms`,
