@@ -464,33 +464,22 @@ export default function Global() {
               <Badge variant="outline" className="text-xs">10 etapas</Badge>
             </div>
             <p className="text-[11px] text-muted-foreground mb-4">
-              A primeira etapa dispara imediatamente. As demais respeitam o intervalo configurado.
+              A primeira etapa dispara imediatamente. As demais respeitam o intervalo configurado. Todas as etapas são obrigatórias.
             </p>
 
             <div className="space-y-2">
               {(eventos || []).map((evento, index) => {
-                const ativo = localAtivos[evento.id] ?? evento.ativo;
                 const isFirst = index === 0;
                 const label =
                   local.idioma === "es" ? evento.nome_es : local.idioma === "en" ? evento.nome_en : evento.nome_pt;
                 return (
                   <div
                     key={evento.id}
-                    className={cn(
-                      "glass rounded-xl transition-all",
-                      ativo
-                        ? "border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]"
-                        : "border border-destructive/40 shadow-[0_0_8px_rgba(239,68,68,0.15)] opacity-60"
-                    )}
+                    className="glass rounded-xl border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]"
                   >
                     <div className="flex items-center gap-3 py-3 px-4">
                       <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0" />
-                      <div
-                        className={cn(
-                          "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold",
-                          ativo ? "bg-primary/10 text-primary" : "bg-muted/30 text-muted-foreground/50"
-                        )}
-                      >
+                      <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-primary/10 text-primary">
                         {evento.step_order}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -502,7 +491,7 @@ export default function Global() {
                           {evento.nome_pt}
                         </p>
                       </div>
-                      {!isFirst && (
+                      {!isFirst ? (
                         <div className="flex items-center gap-1 shrink-0">
                           <Clock className="h-3 w-3 text-muted-foreground/50" />
                           <DelayInput
@@ -515,17 +504,16 @@ export default function Global() {
                             dias após etapa anterior
                           </span>
                         </div>
+                      ) : (
+                        <span className="text-[10px] text-emerald-400/80 shrink-0">Disparo imediato</span>
                       )}
-                      <Switch
-                        checked={ativo}
-                        onCheckedChange={(v) => setLocalAtivos((prev) => ({ ...prev, [evento.id]: v }))}
-                      />
                     </div>
                   </div>
                 );
               })}
             </div>
           </Card>
+
         </TabsContent>
 
         {/* ── Origem & Idioma ── */}
