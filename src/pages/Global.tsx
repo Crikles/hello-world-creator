@@ -25,6 +25,7 @@ import {
   ChevronsUpDown,
   Clock,
   GripVertical,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
