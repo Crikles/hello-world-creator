@@ -161,6 +161,8 @@ export default function Global() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("visao");
   const [local, setLocal] = useState<GlobalConfig | null>(null);
+  const [localDelays, setLocalDelays] = useState<Record<string, number>>({});
+  const [localAtivos, setLocalAtivos] = useState<Record<string, boolean>>({});
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["global-flow-config", loja?.id],
@@ -174,6 +176,32 @@ export default function Global() {
     },
     enabled: !!loja?.id,
   });
+
+  const { data: eventos } = useQuery({
+    queryKey: ["global-flow-eventos", loja?.id],
+    queryFn: async () => {
+      if (!loja?.id) return [] as GlobalEvento[];
+      // ensure seed exists for stores created before the trigger
+      await supabase.rpc("seed_global_flow_eventos" as any, { _loja_id: loja.id });
+      const { data } = await supabase
+        .from("global_flow_eventos" as any)
+        .select("*")
+        .eq("loja_id", loja.id)
+        .order("step_order");
+      return (data || []) as unknown as GlobalEvento[];
+    },
+    enabled: !!loja?.id,
+  });
+
+  useEffect(() => {
+    if (eventos && eventos.length) {
+      const d: Record<string, number> = {};
+      const a: Record<string, boolean> = {};
+      eventos.forEach((e) => { d[e.id] = e.delay_horas; a[e.id] = e.ativo; });
+      setLocalDelays(d);
+      setLocalAtivos(a);
+    }
+  }, [eventos]);
 
   const { data: custos } = useQuery({
     queryKey: ["system-config-global", loja?.user_id],
@@ -235,13 +263,24 @@ export default function Global() {
     return t;
   }, [local, custoEmailFluxo, custoSmsUnit, custoConfEmail]);
 
+  const eventosChanged = useMemo(() => {
+    if (!eventos) return false;
+    return eventos.some(
+      (e) =>
+        (localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas) ||
+        (localAtivos[e.id] !== undefined && localAtivos[e.id] !== e.ativo)
+    );
+  }, [eventos, localDelays, localAtivos]);
+
   const hasChanges = useMemo(() => {
     if (!local) return false;
-    if (!config) return true;
-    return (Object.keys(local) as (keyof GlobalConfig)[]).some(
-      (k) => local[k] !== (config as any)[k]
-    );
-  }, [local, config]);
+    const cfgChanged = !config
+      ? true
+      : (Object.keys(local) as (keyof GlobalConfig)[]).some(
+          (k) => local[k] !== (config as any)[k]
+        );
+    return cfgChanged || eventosChanged;
+  }, [local, config, eventosChanged]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -250,9 +289,31 @@ export default function Global() {
         .from("global_flow_config")
         .upsert(local, { onConflict: "loja_id" });
       if (error) throw error;
+
+      // Save eventos (delays + ativo)
+      if (eventos) {
+        for (const e of eventos) {
+          const newDelay = localDelays[e.id];
+          const newAtivo = localAtivos[e.id];
+          const changed =
+            (newDelay !== undefined && newDelay !== e.delay_horas) ||
+            (newAtivo !== undefined && newAtivo !== e.ativo);
+          if (changed) {
+            const { error: upErr } = await supabase
+              .from("global_flow_eventos" as any)
+              .update({
+                delay_horas: newDelay ?? e.delay_horas,
+                ativo: newAtivo ?? e.ativo,
+              })
+              .eq("id", e.id);
+            if (upErr) throw upErr;
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["global-flow-config"] });
+      queryClient.invalidateQueries({ queryKey: ["global-flow-eventos"] });
       toast({ title: "Configurações salvas com sucesso!" });
     },
     onError: (err: any) => {
@@ -267,6 +328,7 @@ export default function Global() {
     if (loja?.id) {
       await supabase.from("global_flow_config").upsert({ ...local, ativo: v }, { onConflict: "loja_id" });
       queryClient.invalidateQueries({ queryKey: ["global-flow-config"] });
+      queryClient.invalidateQueries({ queryKey: ["global-flow-eventos"] });
       toast({ title: v ? "Fluxo Global ATIVADO" : "Fluxo Global desativado" });
     }
   };
