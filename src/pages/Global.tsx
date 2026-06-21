@@ -337,7 +337,7 @@ export default function Global() {
     return <div className="p-8 text-sm text-muted-foreground">Carregando…</div>;
   }
 
-  const steps = STEPS[local.idioma];
+  
 
   const channels = [
     {
