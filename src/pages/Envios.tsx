@@ -349,7 +349,8 @@ export default function Envios() {
   const pedidoMetodoMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const e of paginatedEnvios) {
-      if (e.metodo_pagamento) map[e.id] = e.metodo_pagamento;
+      const m = e.metodo ?? e.metodo_pagamento;
+      if (m) map[e.id] = m;
     }
     return map;
   }, [paginatedEnvios]);
