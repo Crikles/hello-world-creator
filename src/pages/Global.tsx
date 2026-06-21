@@ -1,13 +1,38 @@
-import { useEffect, useState } from "react";
-import { Globe2, Mail, MessageSquare, CheckCircle2, Circle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useLoja } from "@/contexts/LojaContext";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { useLoja } from "@/contexts/LojaContext";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Globe2,
+  Mail,
+  MessageSquare,
+  MessageCircle,
+  BadgeCheck,
+  CheckCircle2,
+  Circle,
+  Save,
+  Settings2,
+  Coins,
+  Sparkles,
+  Languages,
+  ShieldCheck,
+  Check,
+  ChevronsUpDown,
+} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { COUNTRIES, type Country } from "@/lib/countries";
 
-const STEPS = {
+type Lang = "en" | "es";
+
+const STEPS: Record<Lang, string[]> = {
   en: [
     "Order Received",
     "Order Prepared",
@@ -34,178 +59,479 @@ const STEPS = {
   ],
 };
 
+interface GlobalConfig {
+  loja_id: string;
+  ativo: boolean;
+  idioma: Lang;
+  enviar_email: boolean;
+  enviar_sms: boolean;
+  pais_origem: string;
+  pais_origem_nome: string;
+  confirmacao_email: boolean;
+  confirmacao_sms: boolean;
+}
+
+function formatMoedas(value: number): string {
+  const f = value % 1 === 0
+    ? String(value)
+    : value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${f} ${value === 1 ? "moeda" : "moedas"}`;
+}
+
+function CountryPicker({ value, onChange, lang }: { value: string; onChange: (c: Country) => void; lang: Lang }) {
+  const [open, setOpen] = useState(false);
+  const selected = COUNTRIES.find((c) => c.code === value) || COUNTRIES[0];
+  const nameKey = lang === "es" ? "name_es" : "name_en";
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between h-14 text-base bg-card/50 border-border/60 hover:bg-card hover:border-primary/40"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-2xl leading-none">{selected.flag}</span>
+            <span className="font-medium">{selected[nameKey]}</span>
+            <Badge variant="secondary" className="text-[10px] font-mono">{selected.code}</Badge>
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar país..." />
+          <CommandList>
+            <CommandEmpty>Nenhum país encontrado.</CommandEmpty>
+            <CommandGroup>
+              {COUNTRIES.map((c) => (
+                <CommandItem
+                  key={c.code}
+                  value={`${c.name_pt} ${c.name_en} ${c.name_es} ${c.code}`}
+                  onSelect={() => { onChange(c); setOpen(false); }}
+                  className="cursor-pointer"
+                >
+                  <span className="text-xl mr-2">{c.flag}</span>
+                  <span className="flex-1">{c[nameKey]}</span>
+                  <Badge variant="outline" className="text-[10px] font-mono mr-2">{c.code}</Badge>
+                  <Check className={cn("h-4 w-4", c.code === value ? "opacity-100" : "opacity-0")} />
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function Global() {
   const { loja } = useLoja();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [ativo, setAtivo] = useState(false);
-  const [idioma, setIdioma] = useState<"en" | "es">("en");
-  const [enviarEmail, setEnviarEmail] = useState(true);
-  const [enviarSms, setEnviarSms] = useState(true);
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("visao");
+  const [local, setLocal] = useState<GlobalConfig | null>(null);
 
-  useEffect(() => {
-    if (!loja?.id) return;
-    (async () => {
-      setLoading(true);
+  const { data: config, isLoading } = useQuery({
+    queryKey: ["global-flow-config", loja?.id],
+    queryFn: async () => {
       const { data } = await supabase
         .from("global_flow_config")
         .select("*")
-        .eq("loja_id", loja.id)
+        .eq("loja_id", loja!.id)
         .maybeSingle();
-      if (data) {
-        setAtivo(data.ativo);
-        setIdioma((data.idioma as "en" | "es") || "en");
-        setEnviarEmail(data.enviar_email);
-        setEnviarSms(data.enviar_sms);
-      }
-      setLoading(false);
-    })();
-  }, [loja?.id]);
+      return data as GlobalConfig | null;
+    },
+    enabled: !!loja?.id,
+  });
 
-  const save = async (patch: Partial<{ ativo: boolean; idioma: "en" | "es"; enviar_email: boolean; enviar_sms: boolean }>) => {
-    if (!loja?.id) return;
-    setSaving(true);
-    const payload = {
-      loja_id: loja.id,
-      ativo,
-      idioma,
-      enviar_email: enviarEmail,
-      enviar_sms: enviarSms,
-      ...patch,
-    };
-    const { error } = await supabase
-      .from("global_flow_config")
-      .upsert(payload, { onConflict: "loja_id" });
-    setSaving(false);
-    if (error) {
-      toast.error("Erro ao salvar: " + error.message);
-    } else {
-      toast.success("Configuração salva");
+  const { data: custos } = useQuery({
+    queryKey: ["system-config-global", loja?.user_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_config")
+        .select("key, value")
+        .in("key", ["custo_email_rastreio", "custo_sms_rastreio", "custo_confirmacao_email", "custo_confirmacao_sms"]);
+      let custom: Record<string, number> = {};
+      if (loja?.user_id) {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("custom_prices")
+          .eq("id", loja.user_id)
+          .maybeSingle();
+        if (p?.custom_prices) custom = p.custom_prices as Record<string, number>;
+      }
+      const map: Record<string, number> = {};
+      (data || []).forEach((r: any) => {
+        map[r.key] = custom[r.key] !== undefined ? Number(custom[r.key]) : Number(r.value);
+      });
+      return map;
+    },
+  });
+
+  useEffect(() => {
+    if (config) {
+      setLocal({ ...config });
+    } else if (loja?.id && !isLoading) {
+      setLocal({
+        loja_id: loja.id,
+        ativo: false,
+        idioma: "en",
+        enviar_email: true,
+        enviar_sms: true,
+        pais_origem: "CN",
+        pais_origem_nome: "China",
+        confirmacao_email: true,
+        confirmacao_sms: false,
+      });
+    }
+  }, [config, loja?.id, isLoading]);
+
+  const custoEmailRastreio = custos?.custo_email_rastreio ?? 1;
+  const custoSmsRastreio = custos?.custo_sms_rastreio ?? 0.25;
+  const custoConfEmail = custos?.custo_confirmacao_email ?? 0.5;
+  const custoConfSms = custos?.custo_confirmacao_sms ?? 0.12;
+
+  const custoTotal = useMemo(() => {
+    if (!local) return 0;
+    let t = 0;
+    if (local.enviar_email) t += custoEmailRastreio * 10;
+    if (local.enviar_sms) t += custoSmsRastreio * 10;
+    if (local.confirmacao_email) t += custoConfEmail;
+    if (local.confirmacao_sms) t += custoConfSms;
+    return t;
+  }, [local, custoEmailRastreio, custoSmsRastreio, custoConfEmail, custoConfSms]);
+
+  const hasChanges = useMemo(() => {
+    if (!local) return false;
+    if (!config) return true;
+    return (Object.keys(local) as (keyof GlobalConfig)[]).some(
+      (k) => local[k] !== (config as any)[k]
+    );
+  }, [local, config]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!local || !loja?.id) return;
+      const { error } = await supabase
+        .from("global_flow_config")
+        .upsert(local, { onConflict: "loja_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["global-flow-config"] });
+      toast({ title: "Configurações salvas com sucesso!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao salvar", description: err?.message, variant: "destructive" });
+    },
+  });
+
+  const toggleAtivo = async (v: boolean) => {
+    if (!local) return;
+    setLocal({ ...local, ativo: v });
+    // persiste imediato para o toggle principal
+    if (loja?.id) {
+      await supabase.from("global_flow_config").upsert({ ...local, ativo: v }, { onConflict: "loja_id" });
+      queryClient.invalidateQueries({ queryKey: ["global-flow-config"] });
+      toast({ title: v ? "Fluxo Global ATIVADO" : "Fluxo Global desativado" });
     }
   };
 
-  if (loading) {
+  if (isLoading || !local) {
     return <div className="p-8 text-sm text-muted-foreground">Carregando…</div>;
   }
 
-  const steps = STEPS[idioma];
+  const steps = STEPS[local.idioma];
+
+  const channels = [
+    {
+      key: "enviar_email",
+      icon: Mail,
+      title: "Email de Rastreio",
+      desc: "Envia 1 email a cada uma das 10 etapas do fluxo internacional.",
+      unit: custoEmailRastreio,
+      unitSuffix: "/email",
+      total: custoEmailRastreio * 10,
+      checked: local.enviar_email,
+      toggle: () => setLocal({ ...local, enviar_email: !local.enviar_email }),
+    },
+    {
+      key: "enviar_sms",
+      icon: MessageSquare,
+      title: "SMS de Rastreio",
+      desc: "Envia 1 SMS a cada uma das 10 etapas do fluxo internacional.",
+      unit: custoSmsRastreio,
+      unitSuffix: "/SMS",
+      total: custoSmsRastreio * 10,
+      checked: local.enviar_sms,
+      toggle: () => setLocal({ ...local, enviar_sms: !local.enviar_sms }),
+    },
+    {
+      key: "confirmacao_email",
+      icon: BadgeCheck,
+      title: "Email de Confirmação de Pagamento",
+      desc: "Dispara assim que o pagamento internacional é aprovado.",
+      unit: custoConfEmail,
+      unitSuffix: "/email",
+      total: custoConfEmail,
+      checked: local.confirmacao_email,
+      toggle: () => setLocal({ ...local, confirmacao_email: !local.confirmacao_email }),
+    },
+    {
+      key: "confirmacao_sms",
+      icon: MessageCircle,
+      title: "SMS de Confirmação de Pagamento",
+      desc: "Dispara assim que o pagamento internacional é aprovado.",
+      unit: custoConfSms,
+      unitSuffix: "/SMS",
+      total: custoConfSms,
+      checked: local.confirmacao_sms,
+      toggle: () => setLocal({ ...local, confirmacao_sms: !local.confirmacao_sms }),
+    },
+  ];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-xl glass glow-border">
-          <Globe2 className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">Fluxo Global</h1>
-          <p className="text-sm text-muted-foreground">
-            Fluxo internacional padrão de 10 etapas em inglês ou espanhol
-          </p>
-        </div>
-      </div>
-
-      <Card className="p-6">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6 pb-28">
+      {/* Hero */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-3 rounded-2xl glass glow-border">
+            <Globe2 className="h-6 w-6 text-primary" />
+          </div>
           <div>
-            <h2 className="text-lg font-semibold">Status</h2>
-            <p className="text-sm text-muted-foreground">
-              {ativo ? "Fluxo Global ATIVO — pedidos internacionais receberão notificações automáticas." : "Fluxo Global DESATIVADO."}
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Fluxo Global</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Fluxo internacional padrão de 10 etapas em inglês ou espanhol, com confirmação de pagamento traduzida.
             </p>
           </div>
-          <Switch
-            checked={ativo}
-            disabled={saving}
-            onCheckedChange={(v) => { setAtivo(v); save({ ativo: v }); }}
-          />
         </div>
-      </Card>
+        <Badge
+          className={cn(
+            "h-7 px-3 text-xs font-semibold uppercase tracking-wider",
+            local.ativo
+              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+              : "bg-muted/40 text-muted-foreground border border-border/60"
+          )}
+        >
+          {local.ativo ? "● Ativo" : "○ Desativado"}
+        </Badge>
+      </div>
 
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Idioma</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant={idioma === "en" ? "default" : "outline"}
-            onClick={() => { setIdioma("en"); save({ idioma: "en" }); }}
-            disabled={saving}
-            className="h-16 text-base"
-          >
-            🇺🇸 English (US)
-          </Button>
-          <Button
-            variant={idioma === "es" ? "default" : "outline"}
-            onClick={() => { setIdioma("es"); save({ idioma: "es" }); }}
-            disabled={saving}
-            className="h-16 text-base"
-          >
-            🇪🇸 Español
-          </Button>
-        </div>
-      </Card>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="glass glow-border p-1 h-auto">
+          <TabsTrigger value="visao" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Sparkles className="h-3.5 w-3.5" /> Visão Geral
+          </TabsTrigger>
+          <TabsTrigger value="origem" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Languages className="h-3.5 w-3.5" /> Origem & Idioma
+          </TabsTrigger>
+          <TabsTrigger value="canais" className="flex items-center gap-1.5 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Settings2 className="h-3.5 w-3.5" /> Canais & Custos
+          </TabsTrigger>
+        </TabsList>
 
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Canais</h2>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-lg border">
-            <div className="flex items-center gap-3">
-              <Mail className="h-5 w-5 text-primary" />
+        {/* ── Visão Geral ── */}
+        <TabsContent value="visao" className="mt-6 space-y-6">
+          {/* Status */}
+          <Card className="p-6 glass glow-border">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "p-3 rounded-xl transition-colors",
+                  local.ativo ? "bg-emerald-500/10" : "bg-muted/40"
+                )}>
+                  <ShieldCheck className={cn("h-6 w-6", local.ativo ? "text-emerald-400" : "text-muted-foreground")} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">Status do Fluxo Global</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {local.ativo
+                      ? "Pedidos internacionais recebem notificações automáticas em 10 etapas."
+                      : "Ative para começar a notificar seus clientes internacionais."}
+                  </p>
+                </div>
+              </div>
+              <Switch checked={local.ativo} onCheckedChange={toggleAtivo} className="scale-125" />
+            </div>
+          </Card>
+
+          {/* Como funciona */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { icon: Globe2, title: "Detecção automática", desc: "Pedidos sem CEP brasileiro entram no fluxo Global automaticamente." },
+              { icon: Languages, title: "Idioma travado", desc: "O idioma é fixado no momento da criação do envio." },
+              { icon: ShieldCheck, title: "Sem edição manual", desc: "Templates 100% padrão, traduzidos profissionalmente." },
+            ].map((item) => (
+              <Card key={item.title} className="p-5 glass">
+                <item.icon className="h-5 w-5 text-primary mb-2" />
+                <h3 className="font-semibold text-sm mb-1">{item.title}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
+              </Card>
+            ))}
+          </div>
+
+          {/* Timeline preview */}
+          <Card className="p-6 glass glow-border">
+            <div className="flex items-center justify-between mb-5">
               <div>
-                <p className="font-medium">Email</p>
-                <p className="text-xs text-muted-foreground">Enviar email a cada etapa</p>
+                <h2 className="text-lg font-semibold">Pré-visualização do fluxo</h2>
+                <p className="text-sm text-muted-foreground">
+                  As 10 etapas exibidas em <span className="text-primary font-medium">{local.idioma === "en" ? "English (US)" : "Español"}</span>
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">10 etapas</Badge>
+            </div>
+            <ol className="relative">
+              <div className="absolute left-[15px] top-2 bottom-2 w-px bg-gradient-to-b from-primary/40 via-primary/20 to-transparent" />
+              {steps.map((label, i) => (
+                <li key={i} className="relative flex items-center gap-4 py-2.5">
+                  <div className="relative z-10 flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-bold shrink-0">
+                    {i + 1}
+                  </div>
+                  <span className="text-sm text-foreground/90">{label}</span>
+                </li>
+              ))}
+            </ol>
+          </Card>
+        </TabsContent>
+
+        {/* ── Origem & Idioma ── */}
+        <TabsContent value="origem" className="mt-6 space-y-6">
+          <Card className="p-6 glass glow-border">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Globe2 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">País de origem do pedido</h2>
+                <p className="text-sm text-muted-foreground">
+                  Esse país aparece como remetente nos emails e na página de rastreio do cliente.
+                </p>
               </div>
             </div>
-            <Switch
-              checked={enviarEmail}
-              disabled={saving}
-              onCheckedChange={(v) => { setEnviarEmail(v); save({ enviar_email: v }); }}
+            <CountryPicker
+              value={local.pais_origem}
+              lang={local.idioma}
+              onChange={(c) => setLocal({ ...local, pais_origem: c.code, pais_origem_nome: c[local.idioma === "es" ? "name_es" : "name_en"] })}
             />
-          </div>
-          <div className="flex items-center justify-between p-3 rounded-lg border">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="h-5 w-5 text-primary" />
+          </Card>
+
+          <Card className="p-6 glass glow-border">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Languages className="h-5 w-5 text-primary" />
+              </div>
               <div>
-                <p className="font-medium">SMS</p>
-                <p className="text-xs text-muted-foreground">Enviar SMS a cada etapa</p>
+                <h2 className="text-lg font-semibold">Idioma das mensagens</h2>
+                <p className="text-sm text-muted-foreground">
+                  Aplica-se a todos os emails e SMS — incluindo a confirmação de pagamento.
+                </p>
               </div>
             </div>
-            <Switch
-              checked={enviarSms}
-              disabled={saving}
-              onCheckedChange={(v) => { setEnviarSms(v); save({ enviar_sms: v }); }}
-            />
-          </div>
-        </div>
-      </Card>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { code: "en" as Lang, flag: "🇺🇸", title: "English", sub: "United States" },
+                { code: "es" as Lang, flag: "🇪🇸", title: "Español", sub: "España / LatAm" },
+              ]).map((opt) => {
+                const active = local.idioma === opt.code;
+                return (
+                  <button
+                    key={opt.code}
+                    onClick={() => setLocal({ ...local, idioma: opt.code })}
+                    className={cn(
+                      "relative p-5 rounded-xl border-2 transition-all text-left",
+                      active
+                        ? "border-primary bg-primary/5 glow-border"
+                        : "border-border/40 hover:border-primary/40 hover:bg-card/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl leading-none">{opt.flag}</span>
+                      <div>
+                        <p className={cn("font-semibold", active && "text-primary")}>{opt.title}</p>
+                        <p className="text-xs text-muted-foreground">{opt.sub}</p>
+                      </div>
+                    </div>
+                    {active && (
+                      <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="h-3 w-3 text-primary-foreground" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        </TabsContent>
 
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-1">
-          {idioma === "en" ? "Tracking flow preview" : "Vista previa del flujo"}
-        </h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          {idioma === "en"
-            ? "These are the 10 automated steps your customers will see."
-            : "Estos son los 10 pasos automáticos que verán sus clientes."}
-        </p>
-        <ol className="space-y-2">
-          {steps.map((label, i) => (
-            <li key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold">
-                {i + 1}
+        {/* ── Canais & Custos ── */}
+        <TabsContent value="canais" className="mt-6 space-y-3">
+          {channels.map((ch) => (
+            <Card
+              key={ch.key}
+              className={cn(
+                "p-5 glass transition-all",
+                ch.checked ? "glow-border" : "border-border/40 opacity-80"
+              )}
+            >
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "p-3 rounded-xl shrink-0 transition-colors",
+                  ch.checked ? "bg-primary/15" : "bg-muted/40"
+                )}>
+                  <ch.icon className={cn("h-5 w-5", ch.checked ? "text-primary" : "text-muted-foreground")} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="font-semibold">{ch.title}</h3>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      {formatMoedas(ch.unit)}{ch.unitSuffix}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{ch.desc}</p>
+                </div>
+                <div className="text-right shrink-0 hidden sm:block">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Total</p>
+                  <p className="text-sm font-bold text-primary tabular-nums">{formatMoedas(ch.total)}</p>
+                </div>
+                <Switch checked={ch.checked} onCheckedChange={ch.toggle} />
               </div>
-              <span className="text-sm">{label}</span>
-            </li>
+            </Card>
           ))}
-        </ol>
-      </Card>
 
-      <Card className="p-6 bg-muted/30">
-        <h3 className="font-semibold mb-2">Como funciona</h3>
-        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>Apenas pedidos detectados como internacionais entram neste fluxo.</li>
-          <li>Pedidos brasileiros continuam usando o fluxo nacional (Atlas / JetLine) normalmente.</li>
-          <li>Não há edição de template — tudo é padrão e traduzido automaticamente.</li>
-          <li>O idioma é travado no envio no momento da criação.</li>
-        </ul>
-      </Card>
+          <Card className="p-4 mt-4 bg-muted/20 border-dashed">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <strong className="text-foreground">Cobrança:</strong> O custo só é debitado quando cada mensagem é efetivamente enviada. Não há cobrança antecipada por pedido — o valor abaixo é apenas o teto estimado por pedido.
+            </p>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Barra fixa inferior */}
+      <div className="fixed bottom-0 left-0 right-0 md:left-[var(--sidebar-width,16rem)] z-30 border-t border-primary/10 bg-background/95 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-4 px-6 py-3 max-w-[1400px] mx-auto">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Coins className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Custo estimado por pedido</p>
+              <p className="text-lg font-bold text-primary tabular-nums">{formatMoedas(custoTotal)}</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => save.mutate()}
+            disabled={!hasChanges || save.isPending}
+            className="gap-2"
+            size="lg"
+          >
+            <Save className="h-4 w-4" />
+            {save.isPending ? "Salvando..." : "Salvar alterações"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
