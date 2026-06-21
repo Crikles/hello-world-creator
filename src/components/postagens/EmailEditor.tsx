@@ -21,6 +21,7 @@ import {
   variaveisDisponiveis,
   emojiSugeridos,
   defaultSectionsByEvent,
+  defaultSubjectByEvent,
   buildEmailHtml,
 } from "./emailTemplates";
 import {
@@ -66,7 +67,7 @@ export function EmailEditor({
   const eventKey = statusLabel || eventoNome;
   const defaults = defaultSectionsByEvent[eventKey] || defaultSectionsByEvent["Postado"];
 
-  const [assunto, setAssunto] = useState(initialAssunto || `${eventoNome} - {{produto}}`);
+  const [assunto, setAssunto] = useState(initialAssunto || defaultSubjectByEvent[eventKey] || defaultSubjectByEvent[eventoNome] || eventoNome);
   const [sections, setSections] = useState<EmailSections>(defaults);
   const [emailActive, setEmailActive] = useState(enviarEmail);
   const [nfePdf, setNfePdf] = useState(enviarNfePdf);
@@ -121,7 +122,7 @@ export function EmailEditor({
   const resetToDefault = useCallback(() => {
     const d = defaultSectionsByEvent[eventKey] || defaultSectionsByEvent["Postado"];
     setSections(d);
-    setAssunto(`${eventoNome} - {{produto}}`);
+    setAssunto(defaultSubjectByEvent[eventKey] || defaultSubjectByEvent[eventoNome] || eventoNome);
   }, [eventKey, eventoNome]);
 
   const handleSave = useCallback(() => {
