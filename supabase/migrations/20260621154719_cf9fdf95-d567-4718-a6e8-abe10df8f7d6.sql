@@ -1,0 +1,1 @@
+ALTER TABLE public.global_flow_eventos DROP COLUMN IF EXISTS ativo;
