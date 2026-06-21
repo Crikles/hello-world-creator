@@ -598,15 +598,27 @@ export default function Global() {
               })}
             </div>
 
-            <a
-              href={local.idioma === "en" ? "https://us.tracker-master.com" : "https://estracker-master.com"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-            >
-              <ExternalLink className="h-4 w-4" />
-              {local.idioma === "en" ? "Access Global Logistics website" : "Acceder al sitio de Logística Global"}
-            </a>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <a
+                href="https://us.tracker-master.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+              >
+                <ExternalLink className="h-4 w-4" />
+                🇺🇸 Global Logistics (US) — us.tracker-master.com
+              </a>
+              <a
+                href="https://estracker-master.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+              >
+                <ExternalLink className="h-4 w-4" />
+                🇪🇸 Logística Global (ES) — estracker-master.com
+              </a>
+            </div>
+
           </Card>
         </TabsContent>
 
