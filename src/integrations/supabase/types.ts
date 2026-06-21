@@ -915,12 +915,9 @@ export type Database = {
       }
       postagem_config: {
         Row: {
-          ativar_falha_entrega: boolean
           ativar_site_rastreio: boolean
-          ativar_taxacao: boolean
           ativar_vizinho: boolean
           auto_envio: boolean
-          checkout_url_falha: string | null
           cor_botao_cta: string | null
           cor_primaria: string | null
           created_at: string
@@ -930,15 +927,10 @@ export type Database = {
           failed_delivery_template_id: string | null
           id: string
           loja_id: string
-          msg_falha_entrega: string | null
-          msg_taxacao: string | null
           origem_cidade: string | null
           origem_estado: string | null
-          taxacao_template_id: string | null
-          taxacao_valor: number | null
           template_ativo_id: string | null
           updated_at: string
-          valor_taxa_falha: number | null
           whatsapp_auto_send: boolean | null
           whatsapp_btn_text: string | null
           whatsapp_btn2_text: string | null
@@ -952,12 +944,9 @@ export type Database = {
           widget_rastreio_ativo: boolean
         }
         Insert: {
-          ativar_falha_entrega?: boolean
           ativar_site_rastreio?: boolean
-          ativar_taxacao?: boolean
           ativar_vizinho?: boolean
           auto_envio?: boolean
-          checkout_url_falha?: string | null
           cor_botao_cta?: string | null
           cor_primaria?: string | null
           created_at?: string
@@ -967,15 +956,10 @@ export type Database = {
           failed_delivery_template_id?: string | null
           id?: string
           loja_id: string
-          msg_falha_entrega?: string | null
-          msg_taxacao?: string | null
           origem_cidade?: string | null
           origem_estado?: string | null
-          taxacao_template_id?: string | null
-          taxacao_valor?: number | null
           template_ativo_id?: string | null
           updated_at?: string
-          valor_taxa_falha?: number | null
           whatsapp_auto_send?: boolean | null
           whatsapp_btn_text?: string | null
           whatsapp_btn2_text?: string | null
@@ -989,12 +973,9 @@ export type Database = {
           widget_rastreio_ativo?: boolean
         }
         Update: {
-          ativar_falha_entrega?: boolean
           ativar_site_rastreio?: boolean
-          ativar_taxacao?: boolean
           ativar_vizinho?: boolean
           auto_envio?: boolean
-          checkout_url_falha?: string | null
           cor_botao_cta?: string | null
           cor_primaria?: string | null
           created_at?: string
@@ -1004,15 +985,10 @@ export type Database = {
           failed_delivery_template_id?: string | null
           id?: string
           loja_id?: string
-          msg_falha_entrega?: string | null
-          msg_taxacao?: string | null
           origem_cidade?: string | null
           origem_estado?: string | null
-          taxacao_template_id?: string | null
-          taxacao_valor?: number | null
           template_ativo_id?: string | null
           updated_at?: string
-          valor_taxa_falha?: number | null
           whatsapp_auto_send?: boolean | null
           whatsapp_btn_text?: string | null
           whatsapp_btn2_text?: string | null
@@ -1038,13 +1014,6 @@ export type Database = {
             columns: ["loja_id"]
             isOneToOne: true
             referencedRelation: "lojas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "postagem_config_taxacao_template_id_fkey"
-            columns: ["taxacao_template_id"]
-            isOneToOne: false
-            referencedRelation: "postagem_templates"
             referencedColumns: ["id"]
           },
           {
