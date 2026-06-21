@@ -132,6 +132,7 @@ export default function AdminValores() {
             const groups: { title: string; match: (k: string) => boolean }[] = [
               { title: "Rastreio & NF-e", match: (k) => ["custo_email_rastreio", "custo_sms_rastreio", "custo_nfe_email"].includes(k) },
               { title: "Confirmação de Pagamento", match: (k) => k.startsWith("custo_confirmacao_") },
+              { title: "Global (Internacional)", match: (k) => k.startsWith("custo_global_flow_") },
               { title: "Recuperação de Vendas", match: (k) => k.startsWith("custo_recovery_") },
               { title: "Upsell", match: (k) => k === "custo_upsell_email" },
               { title: "WhatsApp (assinatura mensal por instância)", match: (k) => k === "custo_whatsapp" },
