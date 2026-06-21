@@ -821,13 +821,7 @@ async function advanceShipment(
     if (allEvents.length === 0) return false;
 
     // Filter events based on config
-    const falhaNomes = ["Falha Entrega"];
-    const taxNomes = ["Taxação", "Taxacao"];
     const filteredEvents = allEvents.filter((e: any) => {
-      const en = (e.nome || "").trim();
-      if (!config.ativar_falha_entrega && falhaNomes.includes(en)) return false;
-      if (!config.ativar_taxacao && taxNomes.includes(en)) return false;
-      if (en === "Pago" && !config.ativar_taxacao && !config.ativar_falha_entrega) return false;
       if (!config.enviar_nfe_email && e.enviar_nfe_pdf) return false;
       return true;
     });
@@ -847,11 +841,9 @@ async function advanceShipment(
 
     const nextNome = (nextEvent.nome || "").trim();
 
-    // ── REGRA: cron NUNCA avança automaticamente para eventos de aprovação manual ──
-    // (Falha Entrega, Taxação, Pago, Entregue)
+    // ── REGRA: cron NUNCA avança automaticamente para "Pago" / "Entregue" ──
     const manualOnlyNomes = ["Pago", "Entregue"];
     if (manualOnlyNomes.includes(nextNome)) {
-      // Lead permanece parado no evento atual (Falha Entrega / Taxação) aguardando aprovação manual
       await supabase
         .from("envios")
         .update({ proximo_avanco_em: null })
@@ -907,14 +899,6 @@ async function advanceShipment(
       if (config.enviar_emails && costMap["custo_email_rastreio"]) {
         total += costMap["custo_email_rastreio"];
         activeServices.push("E-mail");
-      }
-      if (config.ativar_taxacao && costMap["custo_taxacao"]) {
-        total += costMap["custo_taxacao"];
-        activeServices.push("Taxacao");
-      }
-      if (config.ativar_falha_entrega && costMap["custo_falha_entrega"]) {
-        total += costMap["custo_falha_entrega"];
-        activeServices.push("Falha na Entrega");
       }
 
       if (total > 0) {
@@ -984,12 +968,6 @@ async function advanceShipment(
     let isAtivo = false;
     if (nextEvent.enviar_nfe_pdf) {
       isAtivo = config.enviar_nfe_email;
-    } else if (nextNome === "Taxação" || nextNome === "Taxacao") {
-      isAtivo = config.ativar_taxacao;
-    } else if (nextNome === "Falha Entrega") {
-      isAtivo = config.ativar_falha_entrega;
-    } else if (nextNome === "Pago") {
-      isAtivo = config.ativar_taxacao || config.ativar_falha_entrega;
     } else {
       isAtivo = config.enviar_emails;
     }

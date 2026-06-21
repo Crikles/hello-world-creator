@@ -332,109 +332,6 @@ function markdownToHtml(text: string): string {
     .replace(/\n/g, "<br>");
 }
 
-interface TaxacaoSettings {
-  mensagem_taxa: string;
-  texto_botao: string;
-  valor_exemplo: string;
-  prazo_dias: string;
-  url_pagamento: string;
-  forma_pagamento: string;
-  cor_botao: string;
-  cor_header: string;
-  mostrar_valor: boolean;
-  mostrar_prazo: boolean;
-}
-
-function parseTaxacaoSettings(corpoEmail: string): TaxacaoSettings {
-  const corpo = corpoEmail || "";
-  const urlMatch = corpo.match(/\{\{taxacao_url:([^}]*)\}\}/);
-  const botaoMatch = corpo.match(/\{\{taxacao_botao:([^}]*)\}\}/);
-  const valorMatch = corpo.match(/\{\{taxacao_valor:([^}]*)\}\}/);
-  const corMatch = corpo.match(/\{\{taxacao_cor:([^}]*)\}\}/);
-  const corHeaderMatch = corpo.match(/\{\{taxacao_cor_header:([^}]*)\}\}/);
-  const prazoMatch = corpo.match(/\{\{taxacao_prazo:([^}]*)\}\}/);
-  const formaMatch = corpo.match(/\{\{taxacao_forma:([^}]*)\}\}/);
-  const mostrarValorMatch = corpo.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
-  const mostrarPrazoMatch = corpo.match(/\{\{taxacao_mostrar_prazo:([^}]*)\}\}/);
-
-  const msgEnd = corpo.indexOf("{{taxacao_");
-  const plainMessage = msgEnd > 0
-    ? corpo.substring(0, msgEnd).trim()
-    : (corpo.trim() || "Fiscalização aduaneira concluída - aguardando pagamento da taxa.");
-
-  return {
-    mensagem_taxa: plainMessage,
-    texto_botao: botaoMatch?.[1] || "PAGAR TAXA",
-    valor_exemplo: valorMatch?.[1] || "0.00",
-    prazo_dias: prazoMatch?.[1] || "5",
-    url_pagamento: urlMatch?.[1] || "",
-    forma_pagamento: formaMatch?.[1] || "Todos",
-    cor_botao: corMatch?.[1] || "#2563eb",
-    cor_header: corHeaderMatch?.[1] || "#f59e0b",
-    mostrar_valor: mostrarValorMatch ? mostrarValorMatch[1] === "true" : true,
-    mostrar_prazo: mostrarPrazoMatch ? mostrarPrazoMatch[1] === "true" : true,
-  };
-}
-
-interface FalhaEntregaSettings {
-  msg_falha_entrega: string;
-  checkout_url_falha: string;
-  valor_taxa_falha: string;
-  cor_botao: string;
-  cor_destaque: string;
-  cor_titulo_resumo: string;
-  cor_label_taxa: string;
-  cor_descricao: string;
-  cor_fundo_descricao: string;
-  cor_borda_descricao: string;
-  mensagem_site: string;
-}
-
-function getTaggedValue(corpo: string, tag: string): string | null {
-  return corpo.match(new RegExp(`\\{\\{${tag}:([^}]*)\\}\\}`))?.[1] || null;
-}
-
-function isFalhaEntregaLabel(label?: string, nome?: string): boolean {
-  const value = `${label || ""} ${nome || ""}`.toLowerCase();
-  return value.includes("falha");
-}
-
-function isTaxacaoLabel(label?: string, nome?: string): boolean {
-  const value = `${label || ""} ${nome || ""}`.toLowerCase();
-  return value.includes("taxação") || value.includes("taxacao");
-}
-
-function parseFalhaEntregaSettings(
-  corpoEmail: string,
-  configMsg?: string,
-  configCheckoutUrl?: string,
-  configValorTaxa?: number | string
-): FalhaEntregaSettings {
-  const corpo = corpoEmail || "";
-  // Mensagem: prioriza msg_falha_entrega do postagem_config (o que o usuário edita na aba Postagens),
-  // depois texto antes das tags, depois fallback.
-  let plainMessage = (configMsg || "").trim();
-  if (!plainMessage) {
-    const msgEnd = corpo.indexOf("{{falha_");
-    plainMessage = msgEnd > 0
-      ? corpo.substring(0, msgEnd).trim()
-      : (corpo.trim() || "Houve uma falha na tentativa de entrega do seu pedido. Para reenviarmos, por favor pague a taxa de retentativa.");
-  }
-
-  return {
-    msg_falha_entrega: plainMessage,
-    checkout_url_falha: configCheckoutUrl || "",
-    valor_taxa_falha: String(configValorTaxa ?? "0.00"),
-    cor_botao: getTaggedValue(corpo, "falha_cor_botao") || "#ea580c",
-    cor_destaque: getTaggedValue(corpo, "falha_cor_destaque") || "#ea580c",
-    cor_titulo_resumo: getTaggedValue(corpo, "falha_cor_titulo_resumo") || "#020617",
-    cor_label_taxa: getTaggedValue(corpo, "falha_cor_label_taxa") || "#020617",
-    cor_descricao: getTaggedValue(corpo, "falha_cor_descricao") || "#9a3412",
-    cor_fundo_descricao: getTaggedValue(corpo, "falha_cor_fundo_descricao") || "#fff7ed",
-    cor_borda_descricao: getTaggedValue(corpo, "falha_cor_borda_descricao") || "#fed7aa",
-    mensagem_site: getTaggedValue(corpo, "falha_mensagem_site") || "",
-  };
-}
 
 
 function buildWhatsAppButton(whatsapp: string): string {
@@ -509,26 +406,11 @@ function buildEmailHtml(
   postagemConfig?: Record<string, unknown>,
   upsellConfig?: UpsellConfig | null
 ): string {
-  // --- Always route Falha/Taxação to specialized layouts (preview-style) ---
   const statusLabel = (evento.status_label as string) || "";
   const eventName = (evento.nome as string) || "";
   const corpoEmail = (evento.corpo_email as string) || "";
   const envioId = (envio.id as string) || "";
 
-  if (isTaxacaoLabel(statusLabel, eventName)) {
-    const taxSettings = parseTaxacaoSettings(corpoEmail);
-    return buildTaxacaoEmailHtml(envio, extras, taxSettings, envioId, appBaseUrl);
-  }
-
-  if (isFalhaEntregaLabel(statusLabel, eventName)) {
-    const falhaSettings = parseFalhaEntregaSettings(
-      corpoEmail,
-      (postagemConfig?.msg_falha_entrega as string) || "",
-      (postagemConfig?.checkout_url_falha as string) || "",
-      postagemConfig?.valor_taxa_falha as number | string | undefined
-    );
-    return buildFalhaEntregaEmailHtml(envio, extras, falhaSettings, appBaseUrl);
-  }
 
 
   const enviarNfePdf = (evento.enviar_nfe_pdf as boolean) || false;

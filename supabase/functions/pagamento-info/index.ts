@@ -100,28 +100,8 @@ Deno.serve(async (req) => {
             empresa = data;
         }
 
-        // 3. Fetch tax settings from postagem_eventos via postagem_config
-        let tax = null;
-        if (envio.loja_id) {
-            const { data: config } = await supabase
-                .from("postagem_config")
-                .select("template_ativo_id")
-                .eq("loja_id", envio.loja_id)
-                .maybeSingle();
-
-            if (config?.template_ativo_id) {
-                const { data: taxEvento } = await supabase
-                    .from("postagem_eventos")
-                    .select("corpo_email")
-                    .eq("template_id", config.template_ativo_id)
-                    .eq("nome", "Taxação")
-                    .maybeSingle();
-
-                if (taxEvento?.corpo_email) {
-                    tax = parseTaxSettings(taxEvento.corpo_email);
-                }
-            }
-        }
+        // Tax settings removed (taxação descontinuada)
+        const tax = null;
 
         // Return only what the payment page needs — no sensitive data
         return new Response(
@@ -156,44 +136,3 @@ Deno.serve(async (req) => {
         );
     }
 });
-
-/** Parse the custom taxação settings from corpo_email tags */
-function parseTaxSettings(corpo: string) {
-    const urlMatch = corpo.match(/\{\{taxacao_url:([^}]*)\}\}/);
-    const botaoMatch = corpo.match(/\{\{taxacao_botao:([^}]*)\}\}/);
-    const valorMatch = corpo.match(/\{\{taxacao_valor:([^}]*)\}\}/);
-    const corMatch = corpo.match(/\{\{taxacao_cor:([^}]*)\}\}/);
-    const corHeaderMatch = corpo.match(/\{\{taxacao_cor_header:([^}]*)\}\}/);
-    const corDestaqueMatch = corpo.match(/\{\{taxacao_cor_destaque:([^}]*)\}\}/);
-    const prazoMatch = corpo.match(/\{\{taxacao_prazo:([^}]*)\}\}/);
-    const mostrarValorMatch = corpo.match(/\{\{taxacao_mostrar_valor:([^}]*)\}\}/);
-    const mostrarPrazoMatch = corpo.match(/\{\{taxacao_mostrar_prazo:([^}]*)\}\}/);
-    const corTituloResumoMatch = corpo.match(/\{\{taxacao_cor_titulo_resumo:([^}]*)\}\}/);
-    const corLabelTaxaMatch = corpo.match(/\{\{taxacao_cor_label_taxa:([^}]*)\}\}/);
-    const corDescricaoMatch = corpo.match(/\{\{taxacao_cor_descricao:([^}]*)\}\}/);
-    const corFundoDescricaoMatch = corpo.match(/\{\{taxacao_cor_fundo_descricao:([^}]*)\}\}/);
-    const corBordaDescricaoMatch = corpo.match(/\{\{taxacao_cor_borda_descricao:([^}]*)\}\}/);
-    const mensagemSiteMatch = corpo.match(/\{\{taxacao_mensagem_site:([^}]*)\}\}/);
-
-    const msgEnd = corpo.indexOf("{{taxacao_");
-    const plainMessage = msgEnd > 0 ? corpo.substring(0, msgEnd).trim() : "Fiscalização aduaneira concluída - aguardando pagamento";
-
-    return {
-        mensagem_taxa: plainMessage,
-        texto_botao: botaoMatch?.[1] || "PAGUE AGORA",
-        valor_exemplo: valorMatch?.[1] || "0.00",
-        prazo_dias: prazoMatch?.[1] || "5",
-        url_pagamento: urlMatch?.[1] || "",
-        cor_botao: corMatch?.[1] || "#2563eb",
-        cor_header: corHeaderMatch?.[1] || "#f59e0b",
-        cor_destaque: corDestaqueMatch?.[1] || "#6366f1",
-        cor_titulo_resumo: corTituloResumoMatch?.[1] || "#020617",
-        cor_label_taxa: corLabelTaxaMatch?.[1] || "#020617",
-        cor_descricao: corDescricaoMatch?.[1] || "#92400e",
-        cor_fundo_descricao: corFundoDescricaoMatch?.[1] || "#fffbeb",
-        cor_borda_descricao: corBordaDescricaoMatch?.[1] || "#fde68a80",
-        mensagem_site: mensagemSiteMatch?.[1] || "Sua encomenda foi retida pela fiscalização aduaneira e aguarda a quitação da taxa de liberação. O pagamento é indispensável para que o processo de entrega seja retomado. Efetue o pagamento dentro do prazo para evitar o retorno da mercadoria ao remetente.",
-        mostrar_valor: mostrarValorMatch ? mostrarValorMatch[1] === "true" : true,
-        mostrar_prazo: mostrarPrazoMatch ? mostrarPrazoMatch[1] === "true" : true,
-    };
-}
