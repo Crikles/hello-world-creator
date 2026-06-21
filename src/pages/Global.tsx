@@ -71,11 +71,41 @@ interface GlobalConfig {
   confirmacao_sms: boolean;
 }
 
+interface GlobalEvento {
+  id: string;
+  loja_id: string;
+  step_order: number;
+  step_key: string;
+  nome_pt: string;
+  nome_en: string;
+  nome_es: string;
+  delay_horas: number;
+  ativo: boolean;
+}
+
 function formatMoedas(value: number): string {
   const f = value % 1 === 0
     ? String(value)
     : value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return `${f} ${value === 1 ? "moeda" : "moedas"}`;
+}
+
+function DelayInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [local, setLocalVal] = useState(String(Math.round(value / 24)));
+  useEffect(() => { setLocalVal(String(Math.round(value / 24))); }, [value]);
+  return (
+    <Input
+      type="number"
+      min={0}
+      className="w-14 h-7 text-xs text-center bg-transparent border-border/50"
+      value={local}
+      onChange={(e) => setLocalVal(e.target.value)}
+      onBlur={() => {
+        const dias = parseInt(local) || 0;
+        onChange(dias * 24);
+      }}
+    />
+  );
 }
 
 function CountryPicker({ value, onChange, lang }: { value: string; onChange: (c: Country) => void; lang: Lang }) {
