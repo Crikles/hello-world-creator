@@ -1,57 +1,99 @@
-## Objetivo
+# Plano: Separar sites de logística em outro projeto Lovable
 
-Substituir os assuntos atuais dos emails (que estão muito simples e curtos, como "Quase aí!", "Atualização do trajeto", "Em redistribuição") por assuntos **claros, diretos e profissionais**, sem usar `{{produto}}`, em todos os templates de sistema (Envio Rápido, Envio com Falha na Entrega, Envio com Taxação, Envio Prolongado).
+## Contexto
 
-## Como vai ficar
+Hoje este projeto serve duas coisas no mesmo código:
+- **Painel Magnus Frete** (magnusfrete.net) — onde os lojistas administram envios.
+- **Sites públicos de rastreio das transportadoras** (atlas-cargo.org, vetortransportesltda.com, jltransportelogistica.com, etc.) — selecionados em `src/lib/domain-config.ts` e renderizados pelas rotas `LogisticsRoutes` (Rastreio, Pagamento de taxação, Falha de entrega, Termos).
 
-Mapa de novos assuntos por `status_label`:
+Você quer mover só os sites de logística para outra conta Lovable, mantendo os dados (envios, pagamentos PIX, eventos, configurações de empresa/loja) vindos do banco atual.
 
-```text
-Postado                                         → 📦 Seu pedido foi postado
-NF-e                                            → 🧾 Sua nota fiscal já está disponível
-Coletado                                        → 🚚 Pedido coletado pela transportadora
-Em Trânsito                                     → 🛣️ Seu pedido está em trânsito
-Em trânsito internacional                       → 🌎 Pedido em trânsito internacional
-Chegou ao Brasil                                → 🇧🇷 Seu pedido chegou ao Brasil
-Retido na alfândega — pagamento necessário      → ⚠️ Pedido retido na alfândega — ação necessária
-Pagamento da taxa confirmado                    → ✅ Pagamento da taxa confirmado
-Liberado pela alfândega                         → 🛃 Liberado pela alfândega
-Passando por centro de triagem                  → 🛣️ Atualização do trajeto do seu pedido
-Em redistribuição                               → 🔄 Pedido em redistribuição
-Retornou ao centro de distribuição              → 📍 Entrega remarcada — pedido a caminho
-Chegou ao estado vizinho                        → 📍 Seu pedido está perto da região de entrega
-Chegou perto de você                            → 📍 Seu pedido chegou perto de você
-Centro de Distribuição                          → 🏢 Pedido no centro de distribuição
-Chegou no centro local                          → 🏢 Pedido no centro local
-Entrega reprogramada                            → 📅 Entrega reprogramada
-Saiu para entrega                               → 🛵 Seu pedido saiu para entrega
-Em rota                                         → 🛵 Pedido em rota de entrega
-Em rota final                                   → 🛵 Saiu para a entrega final
-Entregue ✅                                     → ✅ Pedido entregue com sucesso
-Falha na entrega — pagar reenvio                → ⚠️ Falha na entrega — pagamento do reenvio
-Reenvio pago                                    → ✅ Reenvio confirmado — pedido a caminho
+## Estratégia recomendada: 2 projetos, 1 banco compartilhado
+
+O novo projeto na outra conta vai **ler e gravar no mesmo Lovable Cloud (Supabase)** deste projeto. Assim qualquer envio/pagamento criado pelos lojistas no painel Magnus aparece imediatamente no site de rastreio, e vice-versa.
+
+Não dá pra "conectar" Lovable Cloud de um projeto ao banco de outro pela UI da Lovable. A forma suportada é o novo projeto rodar como **client externo** apontando para a URL e a chave pública (anon) deste projeto — exatamente como um site React qualquer se conecta a um Supabase. Isso funciona porque tudo que os sites de logística usam é leitura/escrita controlada por RLS e pelas edge functions públicas (`rastreio-info`, `pagamento-info`, `falha-info`, `create-pix-payment`, `check-pix-payment`, `cancel-pix-payment`, `redirect`).
+
+### O que vai pra conta nova
+
+Conteúdo de `LogisticsRoutes` + dependências:
+- Páginas: `Rastreio`, `Pagamento`, `PagamentoFalha`, `Taxacao`, `FalhaEntrega`, `TermosPrivacidade`
+- `src/lib/domain-config.ts` (allowlist de domínios da logística — sem Magnus)
+- Componentes UI usados por essas páginas (shadcn, logos em `public/`)
+- Assets: `public/logo-*.svg`, imagens da Atlas/Vetor
+- `index.html`, Tailwind, configs
+
+### O que NÃO vai
+
+- Todo o painel (`/lojas`, `/loja/:id/...`, `/admin/*`, AuthContext, LojaContext, integrações de checkout, dashboard, etc.)
+- Edge functions de gestão (advance-shipments, send-email, send-sms, backup, etc.)
+
+### Como o novo projeto fala com o banco atual
+
+No novo projeto **não** ativar Lovable Cloud. Em vez disso, criar um cliente Supabase manual apontando para este projeto:
+
+```ts
+// src/integrations/data/client.ts (no novo projeto)
+import { createClient } from "@supabase/supabase-js";
+export const supabase = createClient(
+  "https://wzxfbejykayahnfdkdbl.supabase.co",
+  "<ANON KEY pública deste projeto>"
+);
 ```
 
-Características do novo padrão:
-- Tom claro, direto e profissional (não infantil)
-- Sem `{{produto}}` — assunto curto e legível na caixa de entrada
-- Um emoji semântico no início para ajudar o scan visual
-- Consistência entre os 4 templates de sistema (mesmo status_label → mesmo assunto)
+A chave anon é pública por design e já está no `.env` deste projeto (`VITE_SUPABASE_PUBLISHABLE_KEY`). Pode ser colada no `.env` do projeto novo. RLS continua protegendo: o site de rastreio só consegue ler o que as policies + edge functions liberam pra `anon`.
 
-## Implementação técnica
+As páginas de rastreio/pagamento chamam edge functions deste projeto via URL absoluta:
 
-1. **Migration SQL única** atualizando `public.postagem_eventos`:
-   - `UPDATE` por `status_label`, restrito a eventos cujo `template_id` pertença a `postagem_templates` com `is_system = true`
-   - Não toca em eventos personalizados (lojas que já editaram o assunto continuam com o texto delas, pois `is_system = false` no template clonado)
+```ts
+fetch("https://wzxfbejykayahnfdkdbl.functions.supabase.co/rastreio-info", { ... })
+```
 
-2. **Atualizar `src/components/postagens/emailTemplates.ts`**:
-   - Adicionar um `defaultSubjectByEvent: Record<string, string>` com os mesmos textos acima
-   - Em `EmailEditor.tsx` (linhas 69 e 124), trocar o fallback `${eventoNome} - {{produto}}` por `defaultSubjectByEvent[eventKey] ?? eventoNome` — assim o preview e o "Restaurar padrão" também refletem o novo padrão
+(hoje elas usam `supabase.functions.invoke`, que resolve pra essa mesma URL — só trocamos para a URL fixa deste projeto.)
 
-3. Nenhuma mudança em edge functions: `send-email` já lê `assunto_email` da tabela e a substituição de variáveis continua funcionando (sem `{{produto}}` o subject só não tem nada para substituir).
+## Passo a passo
 
-## Fora de escopo
+### 1. Preparar este projeto (Magnus, conta atual)
+- Confirmar que as edge functions usadas pelos sites públicos têm CORS aberto (`Access-Control-Allow-Origin: *`) — quase todas já têm.
+- Confirmar que as policies RLS de `envios`, `pix_payments`, `empresas`, `lojas` permitem o SELECT mínimo que o rastreio precisa para `anon` (hoje já permitem, via edge functions com service role).
+- Nenhuma mudança de schema necessária.
 
-- Não altera assuntos já personalizados por lojas (eventos com `is_system = false`)
-- Não altera assuntos de recovery (`recovery_config`) nem de confirmação de pagamento
-- Não muda o corpo dos emails — só o assunto que aparece na caixa de entrada
+### 2. Criar o projeto novo na outra conta Lovable
+- Criar projeto em branco (sem Lovable Cloud).
+- Copiar para ele:
+  - `src/pages/Rastreio.tsx`, `Pagamento.tsx`, `PagamentoFalha.tsx`, `Taxacao.tsx`, `FalhaEntrega.tsx`, `TermosPrivacidade.tsx`
+  - `src/lib/domain-config.ts` (reduzido — só hosts de logística)
+  - Componentes shadcn usados por essas páginas
+  - Assets `public/logo-*.svg` e imagens
+  - `src/App.tsx` reduzido (só `LogisticsRoutes`)
+  - `index.html`, `tailwind.config.ts`, `index.css`
+- Adicionar `@supabase/supabase-js` e criar `src/integrations/data/client.ts` apontando para a URL+anon deste projeto.
+- Trocar `supabase.functions.invoke("xxx")` por `fetch("https://wzxfbejykayahnfdkdbl.functions.supabase.co/xxx", ...)` nas páginas.
+- Ferramenta que facilita isso: **cross-project copy** — posso usar `@mention` para o projeto novo e copiar arquivos automaticamente assim que ele existir e estiver no mesmo workspace; se for em outra conta sem workspace compartilhado, você baixa este projeto via GitHub e cola no novo.
+
+### 3. Apontar domínios
+- Mover os DNS de `atlas-cargo.org`, `vetortransportesltda.com`, `jltransportelogistica.com` para o publish do projeto novo.
+- Remover esses domínios deste projeto (Project Settings → Domains).
+- Manter `magnusfrete.net` neste projeto.
+
+### 4. Limpar este projeto (opcional, depois que o novo estiver no ar)
+- Remover `LogisticsRoutes` e páginas públicas de rastreio do código.
+- Manter as edge functions — elas continuam sendo o backend do site novo.
+
+## Detalhes técnicos importantes
+
+- **Chave anon é segura no cliente.** A chave de service role (não disponível em Lovable Cloud) nunca sai do servidor.
+- **CORS:** todas as edge functions chamadas pelos sites públicos precisam aceitar a origem do novo domínio. Como já usam `*`, funciona.
+- **Webhooks de pagamento PIX** (CyberPay) continuam chegando neste projeto, porque a function `check-pix-payment` está hospedada aqui. O site novo só consulta status.
+- **Realtime / push:** não é usado pelo fluxo público de rastreio, então sem impacto.
+- **Banco único = backup único.** O backup pra Google Drive deste projeto continua cobrindo tudo.
+
+## Alternativa (não recomendada): banco separado
+
+Criar um novo Lovable Cloud na conta nova e replicar dados via ETL. Rejeitada porque (a) duplica custo, (b) exige sincronização constante de envios/pagamentos entre dois bancos, (c) quebra a fonte única de verdade do painel Magnus.
+
+## Confirmações que preciso de você
+
+1. A conta nova é da mesma organização/workspace Lovable, ou é totalmente separada? (Define se posso usar cross-project copy ou se você precisa migrar via GitHub.)
+2. Posso assumir que **só** os domínios de logística (Atlas, Vetor, JL) vão para o projeto novo, e o Magnus continua aqui?
+3. Os pagamentos PIX (CyberPay) devem continuar processados por este projeto, certo? (Recomendado — senão precisamos duplicar a integração na conta nova.)
