@@ -80,8 +80,8 @@ interface GlobalEvento {
   nome_en: string;
   nome_es: string;
   delay_horas: number;
-  ativo: boolean;
 }
+
 
 function formatMoedas(value: number): string {
   const f = value % 1 === 0
@@ -162,7 +162,7 @@ export default function Global() {
   const [activeTab, setActiveTab] = useState("visao");
   const [local, setLocal] = useState<GlobalConfig | null>(null);
   const [localDelays, setLocalDelays] = useState<Record<string, number>>({});
-  const [localAtivos, setLocalAtivos] = useState<Record<string, boolean>>({});
+
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["global-flow-config", loja?.id],
@@ -196,12 +196,11 @@ export default function Global() {
   useEffect(() => {
     if (eventos && eventos.length) {
       const d: Record<string, number> = {};
-      const a: Record<string, boolean> = {};
-      eventos.forEach((e) => { d[e.id] = e.delay_horas; a[e.id] = e.ativo; });
+      eventos.forEach((e) => { d[e.id] = e.delay_horas; });
       setLocalDelays(d);
-      setLocalAtivos(a);
     }
   }, [eventos]);
+
 
   const { data: custos } = useQuery({
     queryKey: ["system-config-global", loja?.user_id],
@@ -267,10 +266,10 @@ export default function Global() {
     if (!eventos) return false;
     return eventos.some(
       (e) =>
-        (localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas) ||
-        (localAtivos[e.id] !== undefined && localAtivos[e.id] !== e.ativo)
+        (localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas)
     );
-  }, [eventos, localDelays, localAtivos]);
+  }, [eventos, localDelays]);
+
 
   const hasChanges = useMemo(() => {
     if (!local) return false;
