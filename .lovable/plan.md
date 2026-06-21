@@ -1,33 +1,59 @@
-# Melhorias na aba Global
+# Fluxo Global — Emails e SMS por Etapa (EN + ES)
 
-## 1. Dias por etapa (igual Postagens)
+## Situação atual
+O `send-global-flow` hoje usa **um único template HTML genérico** que apenas marca qual das 10 etapas é a "atual" numa checklist. O SMS é uma frase só (`"estado de tu pedido: X"`). Isto significa que as 10 etapas, na prática, mandam o **mesmo email** com título diferente — não é o nível que queremos.
 
-- Adicionar nova tabela `global_flow_eventos` com: `loja_id`, `step_order` (1..10), `step_key`, `nome_pt`, `delay_horas`, `ativo`.
-- Migration faz seed automático das 10 etapas para cada loja existente e via trigger ao criar `global_flow_config`.
-- Na aba **Visão Geral** do `Global.tsx`, substituir o preview estático do fluxo por uma lista editável no mesmo padrão visual de Postagens: cada etapa numerada, switch de ativo, input numérico de **dias após último evento**, e botão Salvar no rodapé fixo (junto do custo estimado).
-- Defaults sugeridos: 0, 1, 1, 2, 3, 7, 1, 2, 1, 1 dias.
+## Objetivo
+Construir conteúdo único, escrito à mão, para cada uma das 10 etapas, em **EN (US)** e **ES**, totalizando:
+- 20 emails HTML (10 EN + 10 ES) com copy, headline, corpo e CTA próprios da etapa
+- 20 mensagens SMS curtas (10 EN + 10 ES), cada uma com tom adequado à etapa (ex.: "saiu para entrega" tem urgência; "entregue" tem agradecimento)
 
-## 2. Bandeiras no seletor de idioma
+Mantemos o visual base (header com cor, checklist de progresso, botão de rastreio, rodapé com nome da empresa e país de origem) — o que muda por etapa é **título, parágrafo intro, parágrafo de contexto e SMS**.
 
-- Na aba **Origem & Idioma**, manter o `CountryPicker` como está (sem bandeira inline além da existente).
-- Nos dois botões de idioma (English / Español), renderizar a bandeira: 🇺🇸 English (US) e 🇪🇸 Español, no mesmo tamanho dos demais ícones.
+## Etapas e tom de cada uma
 
-## 3. Custos no painel admin + override por usuário
+| # | Etapa (EN / ES) | Tom do email |
+|---|---|---|
+| 1 | Order Received / Pedido Recibido | Boas-vindas, confirmação, prazo estimado |
+| 2 | Order Prepared / Pedido Preparado | Embalagem concluída, próximo passo |
+| 3 | Shipped by Sender / Enviado por el Remitente | Saiu da loja, código de rastreio em destaque |
+| 4 | Left Country of Origin / Salió del País de Origen | Despachado internacionalmente, menciona país de origem |
+| 5 | In International Transit / En Tránsito Internacional | A caminho, tempo de voo/transporte |
+| 6 | Arrived at Destination Country / Llegó al País de Destino | Chegada confirmada, próximo: alfândega |
+| 7 | In Customs Processing / En Procesamiento Aduanero | Tranquilizador, processo normal, sem ação do cliente |
+| 8 | In Local Transit / En Tránsito Local | Liberado, indo para centro de distribuição local |
+| 9 | Out for Delivery / Salió para Entrega | Urgência positiva — "hoje!", pede alguém em casa |
+| 10 | Delivered / Entregado | Agradecimento, pedido de feedback/avaliação |
 
-- Já existe `AdminValores.tsx` que lê tudo de `system_config`, e `AdminUsuarios.tsx` que aplica `profiles.custom_prices` por usuário. As chaves `custo_global_flow_email`, `custo_global_flow_sms`, `custo_global_flow_confirmacao_email` já estão em `system_config`.
-- Adicionar nova categoria em `AdminValores.tsx`: **"Global (Internacional)"** agrupando essas 3 chaves com labels e descrições amigáveis.
-- Adicionar essas 3 chaves na lista de preços customizáveis por usuário em `AdminUsuarios.tsx` (mesma UI já existente de `customPricesForm`).
-- Atualizar as edge functions `send-global-flow` e `send-payment-confirmation` para, antes de debitar, checar `profiles.custom_prices[chave]` do dono da loja e usar esse valor se existir; senão cair no `system_config`. (Helper `resolveCusto(userId, key, fallback)`.)
+## Arquitetura técnica
 
-## Arquivos
+### Novo arquivo: `supabase/functions/send-global-flow/templates.ts`
+Exporta dois objetos tipados:
+```ts
+export const EMAIL_TEMPLATES: Record<Lang, Record<1..10, {
+  subject: (ctx) => string;
+  preview: string;
+  headline: string;
+  intro: (name) => string;
+  body: string;        // parágrafo principal da etapa
+  hint?: string;       // dica opcional (ex.: "tenha alguém em casa")
+  ctaLabel: string;
+}>>
 
-- Migration: criar `global_flow_eventos` + GRANTs + RLS + seed + trigger.
-- `src/pages/Global.tsx`: nova seção de etapas editáveis, bandeiras nos botões de idioma.
-- `src/pages/admin/AdminValores.tsx`: nova categoria Global.
-- `src/pages/admin/AdminUsuarios.tsx`: incluir as 3 chaves no editor de preços por usuário.
-- `supabase/functions/send-global-flow/index.ts` e `send-payment-confirmation/index.ts`: ler custom_prices do usuário.
+export const SMS_TEMPLATES: Record<Lang, Record<1..10, (ctx) => string>>
+```
 
-## Fora de escopo
+### `supabase/functions/send-global-flow/index.ts`
+- Substituir `I18N.subject/preview/intro/...` e `I18N.sms` por leitura de `EMAIL_TEMPLATES[lang][step]` e `SMS_TEMPLATES[lang][step]`.
+- Manter `buildEmailHtml` mas receber agora um objeto `content` da etapa (headline, intro, body, hint, ctaLabel) em vez do label fixo.
+- A checklist visual das 10 etapas continua igual (mantém senso de progresso).
+- Nada muda em custos, débito de créditos, RLS, ou na tabela `global_flow_eventos`.
 
-- Editor visual do conteúdo dos emails/SMS globais (segue padrão fixo).
-- Mudar o `CountryPicker` (continua com bandeira+nome+código já implementados).
+### Sem mudanças em
+- Frontend (`Global.tsx`)
+- Migrations
+- `send-payment-confirmation`
+- Admin / custos
+
+## Entrega
+Um único PR: cria `templates.ts` com os 20 emails + 20 SMS escritos por extenso, e refatora `index.ts` para consumir. Deploy do `send-global-flow`.
