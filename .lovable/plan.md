@@ -1,57 +1,57 @@
-## Diagnóstico
+## Objetivo
 
-No painel **Postagens**, o switch rotulado como **"SMS"** (`src/pages/Postagens.tsx`) está bound em `localConfig.ativar_site_rastreio`. Ou seja, "Enviar SMS ativo" = `postagem_config.ativar_site_rastreio = true`.
+Substituir os assuntos atuais dos emails (que estão muito simples e curtos, como "Quase aí!", "Atualização do trajeto", "Em redistribuição") por assuntos **claros, diretos e profissionais**, sem usar `{{produto}}`, em todos os templates de sistema (Envio Rápido, Envio com Falha na Entrega, Envio com Taxação, Envio Prolongado).
 
-No `advance-shipments` (linhas 1082-1121), o disparo de SMS é gateado por **4 condições** — e duas delas estão erradas:
+## Como vai ficar
 
-1. `isAtivo` — calculado nas linhas 983-995. Para eventos normais isso resolve para `config.enviar_emails`. **Bug:** uma loja que tem SMS ligado mas e-mail desligado nunca dispara SMS, mesmo com a flag de SMS ON.
-2. `config.ativar_site_rastreio` — correto, é o toggle do SMS.
-3. `cliente_telefone` presente — correto.
-4. `nextEvent.enviar_nfe_pdf === false` — correto (evento NF-e é só e-mail).
+Mapa de novos assuntos por `status_label`:
 
-Resultado prático observado nos logs e na base:
-- 13 lojas, só **4 com a flag ON** (Magalu, use one fit, OLX, Use Essence).
-- Últimas 24h: 4 envios processados, **todos skipados corretamente** porque pertencem a lojas com flag OFF.
-- Não há registros recentes de SMS efetivamente disparado nem falhas — falta amostra real para auditar, mas o gate `isAtivo` provavelmente bloqueia silenciosamente envios das lojas com SMS-on/e-mail-off.
+```text
+Postado                                         → 📦 Seu pedido foi postado
+NF-e                                            → 🧾 Sua nota fiscal já está disponível
+Coletado                                        → 🚚 Pedido coletado pela transportadora
+Em Trânsito                                     → 🛣️ Seu pedido está em trânsito
+Em trânsito internacional                       → 🌎 Pedido em trânsito internacional
+Chegou ao Brasil                                → 🇧🇷 Seu pedido chegou ao Brasil
+Retido na alfândega — pagamento necessário      → ⚠️ Pedido retido na alfândega — ação necessária
+Pagamento da taxa confirmado                    → ✅ Pagamento da taxa confirmado
+Liberado pela alfândega                         → 🛃 Liberado pela alfândega
+Passando por centro de triagem                  → 🛣️ Atualização do trajeto do seu pedido
+Em redistribuição                               → 🔄 Pedido em redistribuição
+Retornou ao centro de distribuição              → 📍 Entrega remarcada — pedido a caminho
+Chegou ao estado vizinho                        → 📍 Seu pedido está perto da região de entrega
+Chegou perto de você                            → 📍 Seu pedido chegou perto de você
+Centro de Distribuição                          → 🏢 Pedido no centro de distribuição
+Chegou no centro local                          → 🏢 Pedido no centro local
+Entrega reprogramada                            → 📅 Entrega reprogramada
+Saiu para entrega                               → 🛵 Seu pedido saiu para entrega
+Em rota                                         → 🛵 Pedido em rota de entrega
+Em rota final                                   → 🛵 Saiu para a entrega final
+Entregue ✅                                     → ✅ Pedido entregue com sucesso
+Falha na entrega — pagar reenvio                → ⚠️ Falha na entrega — pagamento do reenvio
+Reenvio pago                                    → ✅ Reenvio confirmado — pedido a caminho
+```
 
-Também não existe tabela de log de SMS, então hoje é impossível auditar "quantos avanços tiveram SMS". Vamos criar uma.
+Características do novo padrão:
+- Tom claro, direto e profissional (não infantil)
+- Sem `{{produto}}` — assunto curto e legível na caixa de entrada
+- Um emoji semântico no início para ajudar o scan visual
+- Consistência entre os 4 templates de sistema (mesmo status_label → mesmo assunto)
 
-## Mudanças
+## Implementação técnica
 
-### 1. `supabase/functions/advance-shipments/index.ts` — corrigir gate SMS
-- Remover dependência de `isAtivo` para SMS. Substituir o bloco das linhas 1082-1121 por:
-  - Pré-requisitos: `config.ativar_site_rastreio === true`, `shipment.cliente_telefone` não vazio, `nextEvent.enviar_nfe_pdf === false`.
-  - Logs claros: `[SMS] Skip envio X: sms toggle OFF | no phone | nfe-only event | insufficient balance`.
-  - Manter débito de `custo_sms_rastreio` via `debit_user_credits`.
-  - Após `invoke("send-sms")`, gravar resultado em `sms_log` (nova tabela, item 3).
-  - Se `smsErr`, fazer `refund_user_credits` do custo debitado.
+1. **Migration SQL única** atualizando `public.postagem_eventos`:
+   - `UPDATE` por `status_label`, restrito a eventos cujo `template_id` pertença a `postagem_templates` com `is_system = true`
+   - Não toca em eventos personalizados (lojas que já editaram o assunto continuam com o texto delas, pois `is_system = false` no template clonado)
 
-### 2. `supabase/functions/send-sms/index.ts`
-- Após chamada à API IntegraX, retornar `provider_response`, `provider_status` para que o caller possa logar.
+2. **Atualizar `src/components/postagens/emailTemplates.ts`**:
+   - Adicionar um `defaultSubjectByEvent: Record<string, string>` com os mesmos textos acima
+   - Em `EmailEditor.tsx` (linhas 69 e 124), trocar o fallback `${eventoNome} - {{produto}}` por `defaultSubjectByEvent[eventKey] ?? eventoNome` — assim o preview e o "Restaurar padrão" também refletem o novo padrão
 
-### 3. Nova tabela `public.sms_log` (migration)
-Campos: `id uuid pk`, `envio_id uuid fk envios`, `loja_id uuid`, `user_id uuid`, `evento_id uuid null`, `status_label text`, `status text` (`sent|failed|skipped`), `motivo text null`, `telefone text`, `custo numeric`, `provider_response jsonb`, `created_at timestamptz default now()`.
-- Índices: `(loja_id, created_at desc)`, `(envio_id)`.
-- GRANT `SELECT, INSERT` para `authenticated` (leitura via RLS por loja), `ALL` para `service_role`.
-- RLS: dono da loja pode SELECT (`user_owns_loja(auth.uid(), loja_id)`); admin pode tudo via `has_role`.
+3. Nenhuma mudança em edge functions: `send-email` já lê `assunto_email` da tabela e a substituição de variáveis continua funcionando (sem `{{produto}}` o subject só não tem nada para substituir).
 
-### 4. Backfill — `supabase/functions/backfill-sms` (nova edge function)
-- Body: `{ loja_id?: uuid, hours?: number (default 72) }`. Sem `loja_id` = todas com flag ON.
-- Para cada envio nas lojas alvo cujo `ultimo_evento_ordem > 0`, `cliente_telefone` presente, e que **não tem registro `sent` em `sms_log` para o evento atual**, dispara `send-sms` com o `status_label` do evento atual e grava em `sms_log`.
-- Throttle: 200ms entre chamadas, máximo 500 envios por execução.
-- Apenas usuário admin pode invocar (verificar JWT + `has_role`).
+## Fora de escopo
 
-### 5. Disparo de teste manual (você pediu)
-- Executar `backfill-sms` com `{ loja_id: "be5a3623-...", hours: 168 }` (Use Essence — única loja ativa com envio recente com telefone) e exibir o resultado em chat.
-- Em paralelo, chamar `send-sms` direto no envio mais recente dela para validar end-to-end (com confirmação sua antes, já que envia SMS real).
-
-## Fora do escopo
-- Não criar coluna `enviar_sms` separada nem mexer no UI de Postagens — a flag `ativar_site_rastreio` continua sendo o toggle de SMS, conforme está hoje.
-- Não alterar template/conteúdo de SMS nem custos.
-- Não tocar em WhatsApp/e-mail.
-
-## Validação
-1. Rodar `supabase--curl_edge_functions` em `backfill-sms` para `loja_id` da Use Essence (1 envio com tel) e mostrar log.
-2. Confirmar inserção em `sms_log` e cobrança em `creditos_transacoes`.
-3. Próximo ciclo do cron `advance-shipments`: confirmar que envios das 4 lojas ON disparam SMS sem o bloqueio de `isAtivo`.
-4. Rodar SQL para mostrar quantos SMS foram disparados nas últimas 24h após a correção.
+- Não altera assuntos já personalizados por lojas (eventos com `is_system = false`)
+- Não altera assuntos de recovery (`recovery_config`) nem de confirmação de pagamento
+- Não muda o corpo dos emails — só o assunto que aparece na caixa de entrada
