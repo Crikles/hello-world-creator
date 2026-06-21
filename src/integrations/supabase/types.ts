@@ -629,29 +629,41 @@ export type Database = {
       global_flow_config: {
         Row: {
           ativo: boolean
+          confirmacao_email: boolean
+          confirmacao_sms: boolean
           created_at: string
           enviar_email: boolean
           enviar_sms: boolean
           idioma: string
           loja_id: string
+          pais_origem: string
+          pais_origem_nome: string
           updated_at: string
         }
         Insert: {
           ativo?: boolean
+          confirmacao_email?: boolean
+          confirmacao_sms?: boolean
           created_at?: string
           enviar_email?: boolean
           enviar_sms?: boolean
           idioma?: string
           loja_id: string
+          pais_origem?: string
+          pais_origem_nome?: string
           updated_at?: string
         }
         Update: {
           ativo?: boolean
+          confirmacao_email?: boolean
+          confirmacao_sms?: boolean
           created_at?: string
           enviar_email?: boolean
           enviar_sms?: boolean
           idioma?: string
           loja_id?: string
+          pais_origem?: string
+          pais_origem_nome?: string
           updated_at?: string
         }
         Relationships: [
