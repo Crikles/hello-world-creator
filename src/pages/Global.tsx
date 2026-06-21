@@ -569,8 +569,8 @@ export default function Global() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { code: "en" as Lang, flag: "🇺🇸", title: "English", sub: "United States" },
-                { code: "es" as Lang, flag: "🇪🇸", title: "Español", sub: "España / LatAm" },
+                { code: "en" as Lang, iso: "us", emoji: "🇺🇸", title: "English", sub: "United States" },
+                { code: "es" as Lang, iso: "es", emoji: "🇪🇸", title: "Español", sub: "España / LatAm" },
               ]).map((opt) => {
                 const active = local.idioma === opt.code;
                 return (
@@ -585,7 +585,21 @@ export default function Global() {
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl leading-none">{opt.flag}</span>
+                      <img
+                        src={`https://flagcdn.com/w80/${opt.iso}.png`}
+                        srcSet={`https://flagcdn.com/w160/${opt.iso}.png 2x`}
+                        alt={opt.title}
+                        width={48}
+                        height={32}
+                        className="rounded-md shadow-sm ring-1 ring-border/40 object-cover"
+                        onError={(e) => {
+                          // Fallback to emoji if flagcdn blocked
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                          const sib = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (sib) sib.style.display = "inline";
+                        }}
+                      />
+                      <span className="text-3xl leading-none hidden">{opt.emoji}</span>
                       <div>
                         <p className={cn("font-semibold", active && "text-primary")}>{opt.title}</p>
                         <p className="text-xs text-muted-foreground">{opt.sub}</p>
