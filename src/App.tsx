@@ -42,10 +42,7 @@ import AdminCashback from "./pages/admin/AdminCashback";
 import AdminBackup from "./pages/admin/AdminBackup";
 import NotFound from "./pages/NotFound";
 import Pagamento from "./pages/Pagamento";
-import PagamentoFalha from "./pages/PagamentoFalha";
 import Rastreio from "./pages/Rastreio";
-import Taxacao from "./pages/Taxacao";
-import FalhaEntrega from "./pages/FalhaEntrega";
 import Moedas from "./pages/Moedas";
 import Indicacao from "./pages/Indicacao";
 import ResetPassword from "./pages/ResetPassword";
@@ -77,7 +74,6 @@ function LogisticsRoutes() {
     <Routes>
       <Route path="/" element={<Rastreio />} />
       <Route path="/p/:envioId" element={<Pagamento />} />
-      <Route path="/f/:envioId" element={<PagamentoFalha />} />
       <Route path="/r" element={<Rastreio />} />
       <Route path="/r/:codigoParam" element={<Rastreio />} />
       <Route path="/termos" element={<TermosPrivacidade tipo="termos" />} />
@@ -124,8 +120,6 @@ function PanelRoutes() {
           <Route path="api-docs" element={<ApiDocs />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="upsell" element={<Upsell />} />
-          <Route path="taxacao" element={<Taxacao />} />
-          <Route path="falha-entrega" element={<FalhaEntrega />} />
           <Route path="moedas" element={<Moedas />} />
           <Route path="indicacao" element={<Indicacao />} />
           <Route path="suporte" element={<Suporte />} />

@@ -237,45 +237,6 @@ export const TUTORIALS: Tutorial[] = [
     ],
   },
   {
-    id: "taxacao",
-    category: "Operações",
-    title: "Taxação",
-    summary:
-      "Cobre taxas extras de entrega via página pública e link de pagamento PIX.",
-    icon: ShieldAlert,
-    route: "taxacao",
-    purpose:
-      "Quando o pedido precisa de taxa adicional (reentrega, ICMS, etc.), o cliente paga em uma página personalizada com a sua marca.",
-    steps: [
-      "Configure a aparência da página em 'Taxação' (logo, cores, textos).",
-      "Defina o valor da taxa.",
-      "Quando um envio entrar em taxação, o cliente recebe o link e paga via PIX.",
-      "O sistema continua a automação só após confirmar o pagamento.",
-    ],
-    tips: [
-      "A marca da sua loja sempre se sobrepõe à da transportadora nessa página.",
-    ],
-  },
-  {
-    id: "falha-entrega",
-    category: "Operações",
-    title: "Falha na Entrega",
-    summary:
-      "Fluxo de 3 etapas para tratar pedidos não entregues, com página pública para o cliente atualizar dados.",
-    icon: PackageX,
-    route: "falha-entrega",
-    purpose:
-      "Em vez de devolver o pedido, ofereça ao cliente a chance de corrigir endereço ou agendar reentrega.",
-    steps: [
-      "Configure a página pública em 'Falha na Entrega' (textos, cores, logo).",
-      "Quando um envio entra em falha, o cliente recebe um link.",
-      "Ele preenche os dados corretos e o pedido volta ao fluxo normal.",
-    ],
-    warnings: [
-      "Esse fluxo pausa a automação automática até a resposta do cliente.",
-    ],
-  },
-  {
     id: "confirmacao-pgto",
     category: "Operações",
     title: "Confirmação de Pagamento",
