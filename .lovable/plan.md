@@ -1,63 +1,100 @@
 ## Objetivo
 
-Transformar o projeto **Magnus Logistica** num site enxuto que mostra apenas a **tela de rastreio** (e o checkout PIX dela), puxando dados do **mesmo backend (Lovable Cloud) deste projeto Magnus**. Assim, quando um pedido entra no painel daqui, ele aparece em tempo real no site isolado — sem duplicar banco, sem sincronização.
+Criar uma aba **Global** (item no menu lateral, abaixo de "Confirmação Pgto") com um fluxo internacional padrão de 10 etapas. Quando ATIVADO, todo novo pedido **internacional** da loja dispara automaticamente Email + SMS em **inglês (US)** ou **espanhol (ES)** — sem edição de template pelo usuário. O fluxo nacional (Atlas/JetLine + emails PT) continua funcionando normalmente para pedidos brasileiros.
 
-## Arquitetura recomendada
+## 1. UI — nova página `/loja/:id/global`
 
-```text
-┌─────────────────────────┐         ┌──────────────────────────┐
-│  Painel Magnus (este)   │────────▶│  Lovable Cloud (Supabase)│
-│  - cadastra envios      │  write  │  - envios                │
-│  - dispara emails/SMS   │         │  - postagem_eventos      │
-└─────────────────────────┘         │  - pix_payments          │
-                                    │  - lojas, postagem_config│
-┌─────────────────────────┐  read   └──────────────────────────┘
-│ Magnus Logistica (novo) │◀──────────────┘
-│  - /rastreio/:codigo    │   + Realtime
-│  - /pagamento/:id       │
-└─────────────────────────┘
+Item de menu **"Global"** (ícone `Globe2`) no `AppSidebar`, na seção Operações logo após "Confirmação Pgto".
+
+Página minimalista, sem editor de template:
+
+- **Card "Status"**: Switch grande **ATIVAR / DESATIVAR Fluxo Global**
+- **Card "Idioma"**: 2 botões — 🇺🇸 English (US) / 🇪🇸 Español
+- **Card "Canais"**: dois toggles simples (Email / SMS) — ambos ON por padrão
+- **Card "Pré-visualização"**: lista somente leitura das 10 etapas no idioma escolhido (Order Received, Order Prepared, Shipped by Sender, Left Country of Origin, In International Transit, Arrived at Destination Country, In Customs Processing, In Local Transit, Out for Delivery, Delivered)
+- **Card "Como funciona"**: parágrafo explicando que apenas pedidos detectados como internacionais entram neste fluxo; pedidos BR seguem usando o fluxo nacional (Atlas/JetLine).
+
+## 2. Backend — schema
+
+Nova tabela `global_flow_config` (uma linha por loja):
+
+| coluna | tipo |
+| --- | --- |
+| `loja_id` | uuid PK, FK lojas |
+| `ativo` | boolean default false |
+| `idioma` | text check in ('en','es') default 'en' |
+| `enviar_email` | boolean default true |
+| `enviar_sms` | boolean default true |
+| `created_at` / `updated_at` | timestamptz |
+
+GRANTs + RLS (owner da loja gerencia; admin tudo).
+
+Adicionar **`envios.is_international`** (boolean default false). Detecção na criação do envio:
+- `cliente_estado` vazio/não-BR (não está na lista dos 27 UFs) **ou**
+- CEP não casa com `^\d{5}-?\d{3}$`
+→ marcar `is_international = true`.
+
+Adicionar `envios.global_flow_lang` (text, nullable) para travar o idioma usado no envio no momento da criação (evita inconsistência se o usuário trocar EN↔ES no meio do fluxo).
+
+## 3. Edge function — `send-global-flow`
+
+Nova função única, invocada a cada avanço de etapa do envio (no mesmo ponto onde hoje o `send-sms` / template de email é disparado).
+
+Entrada: `{ envio_id, step }` onde `step` é 1..10.
+
+Lógica:
+1. Buscar envio + `global_flow_config` da loja.
+2. Se config não ativa OU `envio.is_international = false` → ignora (return skip).
+3. Resolver idioma: `envio.global_flow_lang` (fallback `config.idioma`).
+4. Renderizar **um único template React Email** (`_shared/transactional-email-templates/global-tracking.tsx`) com array das 10 etapas e marca da `currentStep`. Strings em EN/ES vêm de um dicionário (sem `dangerouslySetInnerHTML`).
+5. Renderizar SMS curto: `"{firstName}, your order status: {stepLabel}. Track: {link}"` (EN) / equivalente ES, sem acentos.
+6. Enviar via `send-transactional-email` (Email) + provedor IntegraX (SMS), debitando créditos com os mesmos `custo_email_rastreio` / `custo_sms` já existentes.
+
+## 4. Wiring com o fluxo de envios existente
+
+No ponto onde os envios avançam de status (cron `advance-shipments` e/ou webhooks), adicionar:
+
+```ts
+if (envio.is_international) {
+  // tenta global; se config inativa, função decide e retorna skip
+  await supabase.functions.invoke("send-global-flow", { body: { envio_id, step } });
+} else {
+  // fluxo nacional atual (Atlas/JetLine) — inalterado
+}
 ```
 
-- **Um único banco** (o deste projeto). O site isolado só lê (e cria PIX quando o cliente paga).
-- **Tempo real**: a tela de rastreio assina `postgres_changes` em `envios` e `postagem_eventos` via Realtime, então qualquer atualização feita aqui aparece instantaneamente lá.
-- **Sem migração de dados** — o site novo aponta para o backend atual.
+Mapear os status atuais (`pendente`, `em_transito`, `saiu_para_entrega`, `entregue`, etc.) → step number 1..10 numa única tabela de mapeamento dentro da função.
 
-## Passos no projeto "Magnus Logistica"
+## 5. Confirmação de Pagamento padrão (EN/ES)
 
-1. **Desconectar o Lovable Cloud próprio** dele (o banco dele fica órfão; tudo bem, não usaremos).
-2. **Substituir `src/integrations/supabase/client.ts`** para apontar para a URL + anon key deste projeto Magnus.
-3. **Limpar páginas, rotas e componentes não usados**, mantendo apenas:
-   - `pages/Rastreio.tsx`
-   - `pages/Pagamento.tsx` (PIX da taxa de reenvio/importação, se quiser manter)
-   - `pages/NotFound.tsx`, `pages/TermosPrivacidade.tsx`
-   - Componentes em `components/rastreio/*` e o que `Rastreio.tsx`/`Pagamento.tsx` importam
-   - `App.tsx` reduzido só às rotas públicas
-4. **Remover do sidebar e do projeto**: Dashboard, Envios, Postagens, Lojas, Configurações, Admin, LiveView, WhatsApp, Upsell, Recuperação, Indicação, Empresa, Login/Signup, ApiDocs, Tutorial, Suporte, Integrações, Moedas, ConfirmacaoPagamento — não fazem sentido no site público.
-5. **Remover edge functions** que não atendem o rastreio público; manter (chamando o backend deste projeto via fetch direto) apenas as necessárias:
-   - `rastreio-info` (lê envio + eventos)
-   - `pagamento-info` + `create-pix-payment` + webhook (se mantiver o pagamento PIX no site isolado)
-6. **Adicionar Realtime** na tela de rastreio: `supabase.channel(...).on('postgres_changes', { table: 'envios', filter: 'codigo=eq.<X>' })` e idem para `postagem_eventos`.
-7. **Apontar o domínio** do site isolado (ex.: `rastreio.magnus...`) para o projeto Magnus Logistica publicado.
+A função existente `send-payment-confirmation` ganha um **branch global**: se `global_flow_config.ativo = true` e o pedido é internacional, usa um template hardcoded de "Payment Confirmed" / "Pago confirmado" no idioma da config, em vez do template editável atual. Sem alterar a tabela `confirmacao_pagamento_config`.
 
-## Passos neste projeto Magnus (backend)
+## 6. Detalhes técnicos
 
-1. **Habilitar Realtime** nas tabelas que o site público vai ouvir:
-   ```sql
-   ALTER PUBLICATION supabase_realtime ADD TABLE public.envios;
-   ALTER PUBLICATION supabase_realtime ADD TABLE public.postagem_eventos;
-   ```
-2. **Conferir RLS** de leitura pública por código de rastreio (já existe hoje, pois o site atual já lê) — garantir que `anon` consegue dar `SELECT` em `envios`/`postagem_eventos` filtrando pelo `codigo`. Se não permitir hoje, ajustar política para `USING (true)` apenas nas colunas necessárias, ou expor via edge function `rastreio-info` (que é a abordagem já em uso e é a recomendada — mantém anon sem acesso direto).
-3. **CORS nas edge functions** (`rastreio-info`, `pagamento-info`, etc.): liberar o domínio do site isolado.
-4. Nenhuma mudança de dados — pedidos continuam entrando normalmente.
+- **Templates**: um único arquivo React Email com `<Section>` por etapa, etapas concluídas em verde, atual destacada em azul, futuras em cinza. Dicionário inline `{en: {...}, es: {...}}`.
+- **i18n**: nenhuma lib — só dicionário em JSON.
+- **Idioma trava no envio**: snapshot em `envios.global_flow_lang` na criação.
+- **Pedidos antigos não migram**: ativação só vale para envios criados após o switch (já é o comportamento natural pois `is_international` é setado na criação).
+- **Site público de rastreio internacional**: ficará a cargo do "outro projeto" conforme você indicou; aqui só geramos o link `{baseUrl}/r/{codigo}` (mesma URL atual da Atlas até o novo site existir).
 
-## Decisões para você confirmar
+## Arquivos a criar / editar
 
-- **Pagamentos PIX**: manter no site isolado (cliente paga lá mesmo, usando as functions deste projeto) ou tirar e deixar só a tela de rastreio?
-- **Login admin no site isolado**: confirmo que **não** terá login — é só uma página pública de rastreio.
-- **Domínio**: vai apontar `rastreio.seudominio` para o projeto Magnus Logistica? (você cuida do DNS depois.)
+**Criar**
+- `src/pages/Global.tsx`
+- `supabase/functions/send-global-flow/index.ts`
+- `supabase/functions/_shared/transactional-email-templates/global-tracking.tsx`
+- migration: tabela `global_flow_config` + colunas `envios.is_international`, `envios.global_flow_lang`
 
-## Resultado
+**Editar**
+- `src/components/layout/AppSidebar.tsx` — item "Global"
+- `src/App.tsx` — rota `global`
+- `supabase/functions/advance-shipments/index.ts` — branch internacional → `send-global-flow`
+- Webhooks que criam envios — setar `is_international` e `global_flow_lang`
+- `supabase/functions/send-payment-confirmation/index.ts` — branch internacional
 
-- Quando um envio é criado/atualizado no painel Magnus → aparece em tempo real no site Magnus Logistica.
-- Banco único, sem sincronização, sem risco de divergência.
-- Site isolado fica leve (só rastreio), independente para deploy/domínio próprio.
+## Fora de escopo (próxima fase)
+
+- Site público de rastreio internacional (outro projeto).
+- Editor de templates Global (será sempre padrão).
+- WhatsApp no fluxo Global.
+- Migrar envios antigos para o fluxo Global.
