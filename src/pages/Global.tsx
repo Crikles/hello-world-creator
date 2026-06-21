@@ -13,7 +13,6 @@ import {
   Globe2,
   Mail,
   MessageSquare,
-  MessageCircle,
   BadgeCheck,
   CheckCircle2,
   Circle,
