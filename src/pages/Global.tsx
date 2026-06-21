@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -14,8 +15,6 @@ import {
   Mail,
   MessageSquare,
   BadgeCheck,
-  CheckCircle2,
-  Circle,
   Save,
   Settings2,
   Coins,
@@ -24,6 +23,8 @@ import {
   ShieldCheck,
   Check,
   ChevronsUpDown,
+  Clock,
+  GripVertical,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -70,11 +71,41 @@ interface GlobalConfig {
   confirmacao_sms: boolean;
 }
 
+interface GlobalEvento {
+  id: string;
+  loja_id: string;
+  step_order: number;
+  step_key: string;
+  nome_pt: string;
+  nome_en: string;
+  nome_es: string;
+  delay_horas: number;
+  ativo: boolean;
+}
+
 function formatMoedas(value: number): string {
   const f = value % 1 === 0
     ? String(value)
     : value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return `${f} ${value === 1 ? "moeda" : "moedas"}`;
+}
+
+function DelayInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [local, setLocalVal] = useState(String(Math.round(value / 24)));
+  useEffect(() => { setLocalVal(String(Math.round(value / 24))); }, [value]);
+  return (
+    <Input
+      type="number"
+      min={0}
+      className="w-14 h-7 text-xs text-center bg-transparent border-border/50"
+      value={local}
+      onChange={(e) => setLocalVal(e.target.value)}
+      onBlur={() => {
+        const dias = parseInt(local) || 0;
+        onChange(dias * 24);
+      }}
+    />
+  );
 }
 
 function CountryPicker({ value, onChange, lang }: { value: string; onChange: (c: Country) => void; lang: Lang }) {
@@ -130,6 +161,8 @@ export default function Global() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("visao");
   const [local, setLocal] = useState<GlobalConfig | null>(null);
+  const [localDelays, setLocalDelays] = useState<Record<string, number>>({});
+  const [localAtivos, setLocalAtivos] = useState<Record<string, boolean>>({});
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["global-flow-config", loja?.id],
@@ -143,6 +176,32 @@ export default function Global() {
     },
     enabled: !!loja?.id,
   });
+
+  const { data: eventos } = useQuery({
+    queryKey: ["global-flow-eventos", loja?.id],
+    queryFn: async () => {
+      if (!loja?.id) return [] as GlobalEvento[];
+      // ensure seed exists for stores created before the trigger
+      await supabase.rpc("seed_global_flow_eventos" as any, { _loja_id: loja.id });
+      const { data } = await supabase
+        .from("global_flow_eventos" as any)
+        .select("*")
+        .eq("loja_id", loja.id)
+        .order("step_order");
+      return (data || []) as unknown as GlobalEvento[];
+    },
+    enabled: !!loja?.id,
+  });
+
+  useEffect(() => {
+    if (eventos && eventos.length) {
+      const d: Record<string, number> = {};
+      const a: Record<string, boolean> = {};
+      eventos.forEach((e) => { d[e.id] = e.delay_horas; a[e.id] = e.ativo; });
+      setLocalDelays(d);
+      setLocalAtivos(a);
+    }
+  }, [eventos]);
 
   const { data: custos } = useQuery({
     queryKey: ["system-config-global", loja?.user_id],
@@ -204,13 +263,24 @@ export default function Global() {
     return t;
   }, [local, custoEmailFluxo, custoSmsUnit, custoConfEmail]);
 
+  const eventosChanged = useMemo(() => {
+    if (!eventos) return false;
+    return eventos.some(
+      (e) =>
+        (localDelays[e.id] !== undefined && localDelays[e.id] !== e.delay_horas) ||
+        (localAtivos[e.id] !== undefined && localAtivos[e.id] !== e.ativo)
+    );
+  }, [eventos, localDelays, localAtivos]);
+
   const hasChanges = useMemo(() => {
     if (!local) return false;
-    if (!config) return true;
-    return (Object.keys(local) as (keyof GlobalConfig)[]).some(
-      (k) => local[k] !== (config as any)[k]
-    );
-  }, [local, config]);
+    const cfgChanged = !config
+      ? true
+      : (Object.keys(local) as (keyof GlobalConfig)[]).some(
+          (k) => local[k] !== (config as any)[k]
+        );
+    return cfgChanged || eventosChanged;
+  }, [local, config, eventosChanged]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -219,9 +289,31 @@ export default function Global() {
         .from("global_flow_config")
         .upsert(local, { onConflict: "loja_id" });
       if (error) throw error;
+
+      // Save eventos (delays + ativo)
+      if (eventos) {
+        for (const e of eventos) {
+          const newDelay = localDelays[e.id];
+          const newAtivo = localAtivos[e.id];
+          const changed =
+            (newDelay !== undefined && newDelay !== e.delay_horas) ||
+            (newAtivo !== undefined && newAtivo !== e.ativo);
+          if (changed) {
+            const { error: upErr } = await supabase
+              .from("global_flow_eventos" as any)
+              .update({
+                delay_horas: newDelay ?? e.delay_horas,
+                ativo: newAtivo ?? e.ativo,
+              })
+              .eq("id", e.id);
+            if (upErr) throw upErr;
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["global-flow-config"] });
+      queryClient.invalidateQueries({ queryKey: ["global-flow-eventos"] });
       toast({ title: "Configurações salvas com sucesso!" });
     },
     onError: (err: any) => {
@@ -236,6 +328,7 @@ export default function Global() {
     if (loja?.id) {
       await supabase.from("global_flow_config").upsert({ ...local, ativo: v }, { onConflict: "loja_id" });
       queryClient.invalidateQueries({ queryKey: ["global-flow-config"] });
+      queryClient.invalidateQueries({ queryKey: ["global-flow-eventos"] });
       toast({ title: v ? "Fluxo Global ATIVADO" : "Fluxo Global desativado" });
     }
   };
@@ -244,7 +337,7 @@ export default function Global() {
     return <div className="p-8 text-sm text-muted-foreground">Carregando…</div>;
   }
 
-  const steps = STEPS[local.idioma];
+  
 
   const channels = [
     {
@@ -364,28 +457,80 @@ export default function Global() {
             ))}
           </div>
 
-          {/* Timeline preview */}
+          {/* Etapas editáveis do fluxo */}
           <Card className="p-6 glass glow-border">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-2">
               <div>
-                <h2 className="text-lg font-semibold">Pré-visualização do fluxo</h2>
+                <h2 className="text-lg font-semibold">Etapas do fluxo Global</h2>
                 <p className="text-sm text-muted-foreground">
-                  As 10 etapas exibidas em <span className="text-primary font-medium">{local.idioma === "en" ? "English (US)" : "Español"}</span>
+                  Defina quantos dias cada etapa leva a partir da etapa anterior. Idioma atual:{" "}
+                  <span className="text-primary font-medium">{local.idioma === "en" ? "English (US)" : "Español"}</span>
                 </p>
               </div>
               <Badge variant="outline" className="text-xs">10 etapas</Badge>
             </div>
-            <ol className="relative">
-              <div className="absolute left-[15px] top-2 bottom-2 w-px bg-gradient-to-b from-primary/40 via-primary/20 to-transparent" />
-              {steps.map((label, i) => (
-                <li key={i} className="relative flex items-center gap-4 py-2.5">
-                  <div className="relative z-10 flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-bold shrink-0">
-                    {i + 1}
+            <p className="text-[11px] text-muted-foreground mb-4">
+              A primeira etapa dispara imediatamente. As demais respeitam o intervalo configurado.
+            </p>
+
+            <div className="space-y-2">
+              {(eventos || []).map((evento, index) => {
+                const ativo = localAtivos[evento.id] ?? evento.ativo;
+                const isFirst = index === 0;
+                const label =
+                  local.idioma === "es" ? evento.nome_es : local.idioma === "en" ? evento.nome_en : evento.nome_pt;
+                return (
+                  <div
+                    key={evento.id}
+                    className={cn(
+                      "glass rounded-xl transition-all",
+                      ativo
+                        ? "border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]"
+                        : "border border-destructive/40 shadow-[0_0_8px_rgba(239,68,68,0.15)] opacity-60"
+                    )}
+                  >
+                    <div className="flex items-center gap-3 py-3 px-4">
+                      <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+                      <div
+                        className={cn(
+                          "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold",
+                          ativo ? "bg-primary/10 text-primary" : "bg-muted/30 text-muted-foreground/50"
+                        )}
+                      >
+                        {evento.step_order}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-foreground">{label}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground/60">{evento.step_key}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {evento.nome_pt}
+                        </p>
+                      </div>
+                      {!isFirst && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Clock className="h-3 w-3 text-muted-foreground/50" />
+                          <DelayInput
+                            value={localDelays[evento.id] ?? evento.delay_horas}
+                            onChange={(delay_horas) =>
+                              setLocalDelays((prev) => ({ ...prev, [evento.id]: delay_horas }))
+                            }
+                          />
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            dias após etapa anterior
+                          </span>
+                        </div>
+                      )}
+                      <Switch
+                        checked={ativo}
+                        onCheckedChange={(v) => setLocalAtivos((prev) => ({ ...prev, [evento.id]: v }))}
+                      />
+                    </div>
                   </div>
-                  <span className="text-sm text-foreground/90">{label}</span>
-                </li>
-              ))}
-            </ol>
+                );
+              })}
+            </div>
           </Card>
         </TabsContent>
 
@@ -424,8 +569,8 @@ export default function Global() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { code: "en" as Lang, flag: "🇺🇸", title: "English", sub: "United States" },
-                { code: "es" as Lang, flag: "🇪🇸", title: "Español", sub: "España / LatAm" },
+                { code: "en" as Lang, iso: "us", emoji: "🇺🇸", title: "English", sub: "United States" },
+                { code: "es" as Lang, iso: "es", emoji: "🇪🇸", title: "Español", sub: "España / LatAm" },
               ]).map((opt) => {
                 const active = local.idioma === opt.code;
                 return (
@@ -440,7 +585,21 @@ export default function Global() {
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl leading-none">{opt.flag}</span>
+                      <img
+                        src={`https://flagcdn.com/w80/${opt.iso}.png`}
+                        srcSet={`https://flagcdn.com/w160/${opt.iso}.png 2x`}
+                        alt={opt.title}
+                        width={48}
+                        height={32}
+                        className="rounded-md shadow-sm ring-1 ring-border/40 object-cover"
+                        onError={(e) => {
+                          // Fallback to emoji if flagcdn blocked
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                          const sib = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (sib) sib.style.display = "inline";
+                        }}
+                      />
+                      <span className="text-3xl leading-none hidden">{opt.emoji}</span>
                       <div>
                         <p className={cn("font-semibold", active && "text-primary")}>{opt.title}</p>
                         <p className="text-xs text-muted-foreground">{opt.sub}</p>

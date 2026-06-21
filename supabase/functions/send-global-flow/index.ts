@@ -193,9 +193,21 @@ Deno.serve(async (req) => {
       .in("key", ["custo_global_flow_email", "custo_global_flow_sms"]);
     const custoMap: Record<string, number> = {};
     (custos || []).forEach((c: any) => { custoMap[c.key] = c.value; });
-    const custoEmailFluxo = custoMap["custo_global_flow_email"] ?? 1.20;
+    // Per-user overrides (profiles.custom_prices)
+    let customPrices: Record<string, number> = {};
+    if (loja?.user_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("custom_prices")
+        .eq("id", loja.user_id)
+        .maybeSingle();
+      customPrices = (profile?.custom_prices || {}) as Record<string, number>;
+    }
+    const resolveCusto = (key: string, fallback: number) =>
+      customPrices[key] !== undefined ? Number(customPrices[key]) : (custoMap[key] ?? fallback);
+    const custoEmailFluxo = resolveCusto("custo_global_flow_email", 1.20);
     const custoEmail = custoEmailFluxo / 10;
-    const custoSms = custoMap["custo_global_flow_sms"] ?? 0.20;
+    const custoSms = resolveCusto("custo_global_flow_sms", 0.20);
 
     const results: { email?: string; sms?: string } = {};
 
