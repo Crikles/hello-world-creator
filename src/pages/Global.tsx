@@ -289,21 +289,15 @@ export default function Global() {
         .upsert(local, { onConflict: "loja_id" });
       if (error) throw error;
 
-      // Save eventos (delays + ativo)
+      // Save eventos (delays only)
       if (eventos) {
         for (const e of eventos) {
           const newDelay = localDelays[e.id];
-          const newAtivo = localAtivos[e.id];
-          const changed =
-            (newDelay !== undefined && newDelay !== e.delay_horas) ||
-            (newAtivo !== undefined && newAtivo !== e.ativo);
+          const changed = newDelay !== undefined && newDelay !== e.delay_horas;
           if (changed) {
             const { error: upErr } = await supabase
               .from("global_flow_eventos" as any)
-              .update({
-                delay_horas: newDelay ?? e.delay_horas,
-                ativo: newAtivo ?? e.ativo,
-              })
+              .update({ delay_horas: newDelay })
               .eq("id", e.id);
             if (upErr) throw upErr;
           }
@@ -319,6 +313,7 @@ export default function Global() {
       toast({ title: "Erro ao salvar", description: err?.message, variant: "destructive" });
     },
   });
+
 
   const toggleAtivo = async (v: boolean) => {
     if (!local) return;
