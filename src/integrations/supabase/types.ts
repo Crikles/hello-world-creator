@@ -676,6 +676,56 @@ export type Database = {
           },
         ]
       }
+      global_flow_eventos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          delay_horas: number
+          id: string
+          loja_id: string
+          nome_en: string
+          nome_es: string
+          nome_pt: string
+          step_key: string
+          step_order: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          delay_horas?: number
+          id?: string
+          loja_id: string
+          nome_en: string
+          nome_es: string
+          nome_pt: string
+          step_key: string
+          step_order: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          delay_horas?: number
+          id?: string
+          loja_id?: string
+          nome_en?: string
+          nome_es?: string
+          nome_pt?: string
+          step_key?: string
+          step_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "global_flow_eventos_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           bairro: string | null
@@ -2274,6 +2324,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      seed_global_flow_eventos: {
+        Args: { _loja_id: string }
+        Returns: undefined
       }
       try_create_envio_dedupe: {
         Args: {
