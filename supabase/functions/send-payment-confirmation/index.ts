@@ -225,21 +225,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Check config
-    const { data: config } = await supabase
-      .from("confirmacao_pagamento_config")
-      .select("*")
-      .eq("loja_id", loja_id)
-      .maybeSingle();
-
-    if (!config?.ativo) {
-      return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "not active" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // 2. Get pedido data
+    // 1. Get pedido data
     const { data: pedido } = await supabase
       .from("pedidos")
       .select("*")
@@ -253,7 +239,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Get loja owner
+    // 2. Get loja owner
     const { data: loja } = await supabase
       .from("lojas")
       .select("user_id")
@@ -267,14 +253,174 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Get empresa data
+    // 3. Get empresa data
     const { data: empresa } = await supabase
       .from("empresas")
       .select("*")
       .eq("loja_id", loja_id)
       .maybeSingle();
 
-    // 5. Get costs
+    // 4. Check if this is an international order managed by the Global flow
+    let globalConfig: any = null;
+    let envioGlobal: any = null;
+    if (pedido.envio_id) {
+      const { data: envio } = await supabase
+        .from("envios")
+        .select("id, is_international, global_flow_lang, codigo_rastreio")
+        .eq("id", pedido.envio_id)
+        .maybeSingle();
+      if (envio?.is_international) {
+        envioGlobal = envio;
+        const { data: gcfg } = await supabase
+          .from("global_flow_config")
+          .select("ativo, idioma, confirmacao_email, pais_origem_nome")
+          .eq("loja_id", loja_id)
+          .maybeSingle();
+        globalConfig = gcfg;
+      }
+    }
+
+    if (envioGlobal && globalConfig) {
+      if (!globalConfig.ativo || !globalConfig.confirmacao_email) {
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "global flow not active or confirmation email disabled" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Use global confirmation email (no SMS confirmation for Global)
+      const { data: custos } = await supabase
+        .from("system_config")
+        .select("key, value")
+        .in("key", ["custo_global_flow_confirmacao_email"]);
+      const custoMap: Record<string, number> = {};
+      (custos || []).forEach((c: any) => { custoMap[c.key] = c.value; });
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("custom_prices")
+        .eq("id", loja.user_id)
+        .maybeSingle();
+      const customPrices = (profile?.custom_prices || {}) as Record<string, number>;
+      const custoEmail = customPrices["custo_global_flow_confirmacao_email"] ?? custoMap["custo_global_flow_confirmacao_email"] ?? 1.00;
+
+      // Parse product name
+      let produtoNome = "Product";
+      try {
+        if (pedido.products) {
+          const prods = typeof pedido.products === "string" ? JSON.parse(pedido.products) : pedido.products;
+          if (Array.isArray(prods) && prods.length > 0) {
+            produtoNome = prods.map((p: any) => p.title || p.nome || p.name || "Product").join(", ");
+          }
+        }
+      } catch { /* ignore */ }
+
+      const firstName = (pedido.customer_name || "Customer").split(" ")[0];
+      const lang: GlobalLang = (envioGlobal.global_flow_lang || globalConfig.idioma || "en") as GlobalLang;
+      const templateVars: Record<string, string> = {
+        nome: firstName,
+        produto: produtoNome,
+        valor: (pedido.total_price / 100).toFixed(2).replace(".", ","),
+      };
+      const trackingLink = `https://atlas-cargo.org/r/${envioGlobal.codigo_rastreio || ""}`;
+      const originCountry = globalConfig.pais_origem_nome || "";
+
+      const results: { email?: string } = {};
+
+      if (retry) {
+        const { data: recentLogs } = await supabase
+          .from("confirmacao_pagamento_log")
+          .select("tipo, status, created_at")
+          .eq("pedido_id", pedido_id)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        const lastEmail = recentLogs?.find((l) => l.tipo === "email");
+        if (lastEmail?.status === "sent") {
+          return new Response(
+            JSON.stringify({ success: true, skipped: true, reason: "already sent" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      if (pedido.customer_email) {
+        const resendKey = Deno.env.get("RESEND_CONFIRMATION_API_KEY") || Deno.env.get("RESEND_API_KEY");
+        if (!resendKey) {
+          console.error("[payment-confirmation/global] No Resend API key configured");
+          results.email = "skipped_no_key";
+        } else {
+          const { data: debited } = await supabase.rpc("debit_user_credits", {
+            _user_id: loja.user_id,
+            _quantidade: custoEmail,
+            _descricao: `Email confirmação pagamento global - ${pedido.customer_email}`,
+          });
+          if (!debited) {
+            console.warn("[payment-confirmation/global] Insufficient credits for email");
+            results.email = "skipped_no_credits";
+          } else {
+            const html = buildGlobalConfirmationEmail(lang, templateVars, empresa, originCountry, trackingLink);
+            const remetenteNome = empresa?.nome_fantasia || empresa?.razao_social || "Store";
+            const fromEmail = `${remetenteNome} <contato@recuperacaodenegocios.com>`;
+            try {
+              const emailRes = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+                body: JSON.stringify({
+                  from: fromEmail,
+                  to: [pedido.customer_email],
+                  subject: GLOBAL_CONFIRM_I18N[lang].header,
+                  html,
+                }),
+              });
+              const emailResult = await emailRes.json();
+              if (emailRes.ok) {
+                await supabase.from("confirmacao_pagamento_log").insert({
+                  loja_id, pedido_id, tipo: "email", status: "sent",
+                  custo: custoEmail, destinatario: pedido.customer_email,
+                });
+                results.email = "sent";
+              } else {
+                console.error("[payment-confirmation/global] Email error:", emailResult);
+                await supabase.from("confirmacao_pagamento_log").insert({
+                  loja_id, pedido_id, tipo: "email", status: "failed",
+                  custo: custoEmail, destinatario: pedido.customer_email,
+                  error_reason: JSON.stringify(emailResult),
+                });
+                results.email = "failed";
+              }
+            } catch (err) {
+              console.error("[payment-confirmation/global] Email exception:", err);
+              await supabase.from("confirmacao_pagamento_log").insert({
+                loja_id, pedido_id, tipo: "email", status: "failed",
+                custo: custoEmail, destinatario: pedido.customer_email,
+                error_reason: String(err),
+              });
+              results.email = "failed";
+            }
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, global: true, results }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 5. Standard confirmation flow (non-international orders)
+    const { data: config } = await supabase
+      .from("confirmacao_pagamento_config")
+      .select("*")
+      .eq("loja_id", loja_id)
+      .maybeSingle();
+
+    if (!config?.ativo) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "not active" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 6. Get costs
     const { data: custos } = await supabase
       .from("system_config")
       .select("key, value")
