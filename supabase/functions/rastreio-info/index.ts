@@ -303,7 +303,7 @@ Deno.serve(async (req) => {
         if (envio.loja_id) {
             const { data: config } = await supabase
                 .from("postagem_config")
-                .select("template_ativo_id, ativar_site_rastreio, ativar_taxacao, ativar_falha_entrega, origem_cidade, origem_estado, cor_primaria, ativar_vizinho")
+                .select("template_ativo_id, ativar_site_rastreio, origem_cidade, origem_estado, cor_primaria, ativar_vizinho")
                 .eq("loja_id", envio.loja_id)
                 .maybeSingle();
 
@@ -338,12 +338,6 @@ Deno.serve(async (req) => {
                     eventos = (allEvents as any[]).filter((e) => {
                         if (e.nome === "Nota Fiscal Emitida") {
                             return false;
-                        }
-                        if (e.status_label === "Taxação" || e.status_label === "Pago") {
-                            return config.ativar_taxacao;
-                        }
-                        if (e.status_label === "Falha Entrega" || e.nome === "Falha na Entrega") {
-                            return config.ativar_falha_entrega;
                         }
                         return true;
                     }).map((e: any) => {
