@@ -35,6 +35,9 @@ export function getLogisticsProvider(): string | null {
   const host = getHost();
   if (isMagnusDomain()) return null;
 
+  // JetLine — domínio próprio de rastreio.
+  if (host === 'app.jetlinetransportes.com' || host.endsWith('.jetlinetransportes.com')) return 'jetline';
+
   if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return 'vetor';
   if (host === 'rastreio.jltransportelogistica.com' || host.endsWith('.jltransportelogistica.com')) return 'atlas';
   if (host === 'atlas-cargo.org' || host === 'www.atlas-cargo.org' || host.includes('atlas')) return 'atlas';
@@ -44,3 +47,4 @@ export function getLogisticsProvider(): string | null {
   // Fallback seguro: provider genérico atlas (rastreio público).
   return 'atlas';
 }
+
