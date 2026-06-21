@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -14,8 +15,6 @@ import {
   Mail,
   MessageSquare,
   BadgeCheck,
-  CheckCircle2,
-  Circle,
   Save,
   Settings2,
   Coins,
@@ -24,6 +23,8 @@ import {
   ShieldCheck,
   Check,
   ChevronsUpDown,
+  Clock,
+  GripVertical,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
