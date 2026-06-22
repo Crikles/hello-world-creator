@@ -213,7 +213,10 @@ export default function AdminTemplates() {
             </Card>
           );
         })}
+
+        <GlobalTemplatesCard />
       </div>
+
 
       {editingEvento && (
         <EmailEditor
