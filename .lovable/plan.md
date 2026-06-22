@@ -1,33 +1,57 @@
-## Problema
+## Diagnóstico
 
-Na aba **Envios**, o contador de etapas (`X/16`) está sempre baseado em `postagem_eventos` (fluxo Nacional). Quando o **Fluxo Global está ATIVO** e o envio é internacional (`is_international = true`), deveria mostrar `X/10` — o total de passos definidos em `global_flow_eventos` para a loja.
+A página de rastreio que mostra "From → To: Ceara / PE → São Paulo / SP" está hospedada em **`us.tracker-master.com`** / **`es.tracker-master.com`** — é um **projeto Lovable separado** (TrackMaster), com seu próprio frontend e edge function.
 
-## Causa
+Aqui no projeto **Atlas/Magnus** já corrigi o `rastreio-info` para usar `global_flow_config.pais_origem_nome` quando `is_international = true`. Mas isso só afeta o domínio Atlas. O TrackMaster continua lendo `postagem_config.origem_cidade/estado` (Nacional) porque o código dele não foi atualizado.
 
-Em `src/pages/Envios.tsx` a função `getTotalEventos(envio)` consulta apenas o `eventCountMap`, que é montado a partir de `postagem_eventos` (linhas 395–427). Não há consulta ao `global_flow_eventos`, então o total para envios globais cai sempre nos 16 do Nacional.
+## Ação necessária
 
-## Mudanças
+Não há alteração a fazer neste projeto. Envie o prompt abaixo no chat do **projeto TrackMaster** para que ele aplique a mesma correção.
 
-### `src/pages/Envios.tsx`
+## Prompt para colar no projeto TrackMaster
 
-1. **Nova query `globalFlowCount`** (irmã da query `eventCountMap`, condicionada à loja existir):
-   - `SELECT count` em `public.global_flow_eventos` com `loja_id = loja.id` e `ativo = true`.
-   - Retorna um número (ex.: `10`). Cacheia por loja.
+```
+Na edge function que retorna os dados de rastreio (rastreio-info ou equivalente),
+a origem ("From") está sendo lida sempre de postagem_config.origem_cidade /
+origem_estado. Para envios internacionais (Fluxo Global) isso está errado —
+precisa puxar o País de Origem configurado no painel Global.
 
-2. **Atualizar `getTotalEventos(envio)`** (linha 856):
-   - Se `envio.is_international === true` (ou `envio.global_flow_lang` preenchido), retornar `globalFlowCount` quando disponível (fallback `10`).
-   - Caso contrário, manter a lógica atual via `eventCountMap`.
+Ajuste:
 
-3. **`getProgress` / `canAdvance`** continuam usando `getTotalEventos`, então passam a refletir corretamente `ordem / 10` para envios globais.
+1) Em supabase/functions/rastreio-info/index.ts (ou nome equivalente),
+   logo após carregar `postagem_config`, adicione:
 
-4. **Exibição (`linha 1232`)** já usa `getTotalEventos`, então mostrará `X/10` automaticamente.
+   let origemCidade = config?.origem_cidade ?? null;
+   let origemEstado = config?.origem_estado ?? null;
 
-### Sem mudanças em backend
+   if (envio.is_international) {
+     const { data: gfc } = await supabase
+       .from("global_flow_config")
+       .select("pais_origem_nome")
+       .eq("loja_id", envio.loja_id)
+       .maybeSingle();
+     if (gfc?.pais_origem_nome) {
+       origemCidade = gfc.pais_origem_nome;
+       origemEstado = null;
+     }
+   }
 
-`ultimo_evento_ordem` já é incrementado de 1 a 10 pelo avanço do Fluxo Global (a tabela `global_flow_eventos` tem `step_order` 1..10). Apenas o total exibido estava errado.
+   E retorne `origem: { cidade: origemCidade, estado: origemEstado }` no JSON
+   (substituindo o uso direto de config.origem_cidade/estado).
 
-## Validação
+2) Na página de rastreio (Rastreio.tsx ou equivalente), trate o caso de só ter
+   cidade (sem estado):
 
-Após aplicar:
-- Loja com Fluxo Global ATIVO e envio internacional → cartão mostra `0/10` (ou `n/10` conforme avança).
-- Envio Nacional na mesma loja continua `X/16` (ou o que o template definir).
+   const origemLabel = origem.cidade
+     ? (origem.estado ? `${origem.cidade} - ${origem.estado}` : origem.cidade)
+     : null;
+
+3) Faça deploy da edge function rastreio-info.
+
+Resultado esperado: para envios com is_international = true, "From" exibe o
+País de Origem configurado no Global (ex.: "China") em vez de "Ceara / PE".
+```
+
+## Observação
+
+A tabela `global_flow_config` precisa estar acessível pelo service_role no projeto TrackMaster — como ambos os projetos compartilham o mesmo banco Supabase (mesma `loja_id`), a consulta funcionará desde que as credenciais Supabase do TrackMaster apontem para a mesma instância.
