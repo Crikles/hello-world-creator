@@ -67,8 +67,9 @@ Deno.serve(async (req) => {
       while (phantom.length < limit + 50) {
         let q = supabase
           .from("envios")
-          .select("id, loja_id, postagem_template_id, ultimo_evento_ordem, updated_at, cliente_email")
+          .select("id, loja_id, postagem_template_id, ultimo_evento_ordem, updated_at, cliente_email, is_international")
           .is("deleted_at", null)
+          .or("is_international.is.null,is_international.eq.false")
           .gte("ultimo_evento_ordem", 1)
           .not("cliente_email", "is", null)
           .neq("cliente_email", "")
