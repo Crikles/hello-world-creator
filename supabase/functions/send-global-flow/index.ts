@@ -66,6 +66,18 @@ function buildEmailHtml(
       </td></tr>`
     : "";
 
+  const productLabel = lang === "es" ? "Producto" : "Product";
+  const productHtml = content.product
+    ? `<tr><td style="padding:0 32px 8px;">
+        <table width="100%" cellpadding="10" cellspacing="0" style="background:#f9f9f9;border-radius:6px;border:1px solid #eee;">
+          <tr>
+            <td style="color:#666;font-size:13px;">${productLabel}</td>
+            <td style="color:#222;font-size:13px;font-weight:600;text-align:right;">${escapeHtml(content.product)}</td>
+          </tr>
+        </table>
+      </td></tr>`
+    : "";
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
 <div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(content.preview)}</div>
@@ -78,6 +90,7 @@ function buildEmailHtml(
   </td></tr>
   <tr><td style="padding:24px 32px 8px;">
     <p style="font-size:15px;color:#222;margin:0 0 12px;">${escapeHtml(content.intro)}</p>
+
     <p style="font-size:14px;color:#444;line-height:1.55;margin:0;">${escapeHtml(content.body)}</p>
   </td></tr>
   ${hintHtml}

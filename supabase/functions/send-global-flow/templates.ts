@@ -159,7 +159,9 @@ const EMAIL_ES: Record<number, EmailFn> = {
     hint: "Tiempo promedio de entrega internacional: 12–25 días hábiles.",
     ctaLabel: "Rastrear pedido",
     closing: "Bienvenido,",
+    product: c.produto || undefined,
   }),
+
   2: (c) => ({
     subject: `Tu pedido está empacado y listo para enviar`,
     preview: `Buenas noticias ${c.name} — empacado terminado.`,
