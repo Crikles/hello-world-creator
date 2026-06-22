@@ -1,103 +1,74 @@
-## Diagnóstico
+## Objetivo
 
-### Onde estão os templates Globais hoje
-Os templates do Fluxo Global (10 passos × EN/ES, e-mail + SMS) **não estão no Painel Admin**. Eles vivem **hardcoded** em `supabase/functions/send-global-flow/templates.ts` (arquivo Deno na edge function). Nenhum admin pode editá-los pela UI — só editando o código.
+Para envios internacionais (fluxo global), exibir o status sempre no idioma do template (inglês ou espanhol, conforme `envio.global_flow_lang`) — tanto na **lista de envios** ao lado do `0/10` quanto no **filtro de status** do topo.
 
-O único editor "global" no app é o `GlobalPaymentEmailEditor` (página /:lojaId/global → aba Confirmação de Pagamento), que cobre **apenas o e-mail de confirmação de pagamento internacional** e é por loja, não global do sistema.
+## Estado atual
 
-### Por que o idioma "não vai" conforme escolhido
-Fluxo do idioma:
-1. Usuário escolhe EN ou ES em `/:lojaId/global` → grava `global_flow_config.idioma`.
-2. Quando um envio é criado, o trigger `apply_global_flow_on_envio` lê `config.idioma` e **trava** em `envios.global_flow_lang`.
-3. `send-global-flow` usa `envio.global_flow_lang` (com fallback para `config.idioma`, depois `"en"`).
-
-Causas possíveis do "idioma errado":
-- **Envios antigos** foram criados quando `config.idioma` ainda era `"en"` (padrão). Mudar o idioma na UI depois **não atualiza envios já existentes** — o campo é travado na criação.
-- Loja sem `global_flow_config` cadastrada → fallback `"en"`.
-- Em alguns webhooks/inserts o trigger pode estar sendo bypassado (insert via service_role em campos parciais).
+- `src/pages/Envios.tsx`:
+  - `statusLabels` e `statusOptions` só têm rótulos em português (Pendente, Em Trânsito, Coletado, etc.).
+  - `getDisplayStatus(envio)` retorna `envio.status_label` (PT) ou o mapa em português do enum interno.
+  - Resultado: envio internacional aparece como **"Em Trânsito"** / **"Coletado"** em vez de **"In International Transit"** / **"Shipped by Sender"**.
+- Backend `advance-shipments → advanceGlobalFlowShipment` **não grava** `status_label`. O texto em português que aparece hoje veio do wizard de criação ou de avanço manual nacional.
 
 ## Mudanças
 
-### 1) Banco — nova tabela de templates de sistema (EN/ES)
+### 1) Frontend — `src/pages/Envios.tsx`
 
-```sql
-CREATE TABLE public.global_flow_system_templates (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  step_order int NOT NULL CHECK (step_order BETWEEN 1 AND 10),
-  lang text NOT NULL CHECK (lang IN ('en','es')),
-  step_key text NOT NULL,
-  status_label text NOT NULL,           -- ex: "Order Received" / "Pedido Recibido"
-  assunto_email text NOT NULL,
-  corpo_email text NOT NULL,            -- HTML/markdown com {{nome}} {{produto}} {{link}} {{empresa}} {{origem}}
-  sms_texto text NOT NULL,              -- SMS com {{nome}} {{link}}
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(step_order, lang)
-);
+a) Constantes novas com os 10 status do fluxo global (mesmos nomes de `seed_global_flow_eventos.nome_en/nome_es` e de `global_flow_system_templates.status_label`):
 
-GRANT SELECT ON public.global_flow_system_templates TO anon, authenticated;
-GRANT ALL    ON public.global_flow_system_templates TO service_role;
-
-ALTER TABLE public.global_flow_system_templates ENABLE ROW LEVEL SECURITY;
-
--- Leitura: qualquer um autenticado vê (templates do sistema, não dados sensíveis)
-CREATE POLICY "read system global templates" ON public.global_flow_system_templates
-  FOR SELECT TO authenticated, anon USING (true);
-
--- Escrita: só admin
-CREATE POLICY "admin manage system global templates" ON public.global_flow_system_templates
-  FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+```ts
+const GLOBAL_STEPS_EN = [
+  "Order Received","Order Prepared","Shipped by Sender","Left Country of Origin",
+  "In International Transit","Arrived at Destination Country","In Customs Processing",
+  "In Local Transit","Out for Delivery","Delivered"
+];
+const GLOBAL_STEPS_ES = [
+  "Pedido Recibido","Pedido Preparado","Enviado por el Remitente","Salió del País de Origen",
+  "En Tránsito Internacional","Llegó al País de Destino","En Procesamiento Aduanero",
+  "En Tránsito Local","Salió para Entrega","Entregado"
+];
 ```
 
-Seed: 20 linhas (10 passos × 2 idiomas) extraídas do conteúdo atual de `templates.ts`.
+b) `getDisplayStatus(envio)`: se `envio.is_international`, retornar `GLOBAL_STEPS_xx[ultimo_evento_ordem - 1]` (em inglês por padrão, espanhol se `global_flow_lang === 'es'`). Para `ultimo_evento_ordem = 0`, mostrar **"Pending"** / **"Pendiente"**.
 
-### 2) Admin — nova aba em /admin/templates
+c) `statusOptions`: adicionar grupo **"Global (International)"** com os 10 itens em inglês, cujo `value` seja o próprio texto em inglês (será usado como `status_label` no filtro do backend).
 
-Editar `src/pages/admin/AdminTemplates.tsx` para adicionar **um terceiro card** "Templates Globais (Internacional)" abaixo dos templates nacionais, contendo:
+d) `statusColors`: cobrir os novos labels EN/ES reusando as mesmas classes semânticas já existentes (em trânsito → accent; out for delivery → primary; delivered → primary/15).
 
-- Toggle de idioma no topo: `[ English ] [ Español ]`
-- Lista dos 10 passos do idioma selecionado (Order Received → Delivered)
-- Cada passo abre o `EmailEditor` existente com campos: `assunto_email`, `corpo_email`, e um novo campo `sms_texto`
-- Botão "Restaurar padrão" por passo (re-aplica seed)
+### 2) Backend — gravar `status_label` em inglês a cada avanço global
 
-Reutilizar `EmailEditor` (estender com prop opcional `smsTexto`/`onSmsChange`).
+`supabase/functions/advance-shipments/index.ts → advanceGlobalFlowShipment`:
 
-### 3) Edge function `send-global-flow`
+- Adicionar mapa `GLOBAL_LABELS_EN` (mesmo array de 10 nomes).
+- No `update` do envio, incluir `status_label: GLOBAL_LABELS_EN[nextStep - 1]` (sempre em inglês para indexar/filtrar no banco — UI traduz para ES quando preciso).
 
-Substituir o uso de `EMAIL_TEMPLATES[lang][step]` / `SMS_TEMPLATES[lang][step]` por leitura de `global_flow_system_templates` (cached por invocação). Interpolar `{{nome}}`, `{{produto}}`, `{{empresa}}`, `{{origem}}`, `{{link}}`, `{{rastreio}}`. Fallback para o hardcoded atual se a linha não existir (defesa em profundidade).
+Deploy de `advance-shipments`.
 
-### 4) Correção do idioma
+### 3) Backfill — alinhar envios internacionais existentes
 
-- **Backfill (migration única):** atualizar `envios` internacionais ativos para alinhar com o `idioma` atual da loja, **apenas para envios que ainda não passaram do passo 1** (não quebra histórico):
-  ```sql
-  UPDATE envios e SET global_flow_lang = c.idioma
-  FROM global_flow_config c
-  WHERE e.loja_id = c.loja_id
-    AND e.is_international = true
-    AND coalesce(e.ultimo_evento_ordem, 0) <= 1
-    AND coalesce(e.global_flow_lang,'') <> c.idioma;
-  ```
+Migration única:
 
-- **Override por envio na UI** (página /envios, drawer do envio internacional): pequeno seletor "Idioma do fluxo: EN / ES" que faz `UPDATE envios SET global_flow_lang = ?` — útil para corrigir envios já em andamento.
-
-- **Garantir trigger em todos os inserts:** auditar webhooks que fazem `insert` em `envios` para confirmar que `apply_global_flow_on_envio` está ativo (é `BEFORE INSERT`, então sempre roda; mas validar que nenhum insert seta `global_flow_lang` cru com valor errado).
-
-### 5) Documentação
-
-Adicionar em `/admin/templates` um aviso no topo do card Global:
-> "Estes templates são compartilhados por todas as lojas. O idioma de cada envio é definido pela loja em **Global → Idioma**, e travado quando o envio é criado."
+```sql
+UPDATE public.envios SET status_label = CASE ultimo_evento_ordem
+  WHEN 1 THEN 'Order Received'
+  WHEN 2 THEN 'Order Prepared'
+  WHEN 3 THEN 'Shipped by Sender'
+  WHEN 4 THEN 'Left Country of Origin'
+  WHEN 5 THEN 'In International Transit'
+  WHEN 6 THEN 'Arrived at Destination Country'
+  WHEN 7 THEN 'In Customs Processing'
+  WHEN 8 THEN 'In Local Transit'
+  WHEN 9 THEN 'Out for Delivery'
+  WHEN 10 THEN 'Delivered'
+END
+WHERE is_international = true
+  AND deleted_at IS NULL
+  AND ultimo_evento_ordem BETWEEN 1 AND 10;
+```
 
 ## Validação
 
-1. `/admin/templates` mostra 3 cards: Atlas Nacional, Jetline Nacional, **Global Internacional (EN/ES)**.
-2. Editar o assunto do passo 5 em ES e disparar um envio com `global_flow_lang='es'` → e-mail chega com o novo assunto.
-3. Envio internacional novo criado em loja com `idioma='es'` chega com templates ES.
-4. Envio antigo travado em EN: após usar o seletor de idioma no /envios, próximo passo sai em ES.
-5. Backfill: envios pendentes (ordem ≤ 1) de uma loja que mudou para ES passam a sair em ES.
-
-## Deploy
-
-- Migration SQL (tabela + seed + backfill).
-- Deploy de `send-global-flow`.
-- Sem mudança em outras edge functions.
+1. Na lista de envios em `/loja/.../envios`, um envio internacional no step 3 mostra **"Shipped by Sender"** e o badge `3/10`.
+2. Filtro de status passa a ter um grupo **"Global (International)"** com 10 opções em inglês; selecionar "In International Transit" filtra apenas envios internacionais nesse step.
+3. Envios nacionais continuam exibindo "Em Trânsito", "Coletado", etc., sem regressão.
+4. Próximo avanço global escreve `status_label` em inglês automaticamente.

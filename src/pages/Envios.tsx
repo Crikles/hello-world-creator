@@ -89,6 +89,32 @@ const statusColors: Record<string, string> = {
   "Entregue": "bg-primary/15 text-primary",
 };
 
+// Fluxo Global (internacional) — 10 etapas EN/ES
+const GLOBAL_STEPS_EN = [
+  "Order Received","Order Prepared","Shipped by Sender","Left Country of Origin",
+  "In International Transit","Arrived at Destination Country","In Customs Processing",
+  "In Local Transit","Out for Delivery","Delivered",
+];
+const GLOBAL_STEPS_ES = [
+  "Pedido Recibido","Pedido Preparado","Enviado por el Remitente","Salió del País de Origen",
+  "En Tránsito Internacional","Llegó al País de Destino","En Procesamiento Aduanero",
+  "En Tránsito Local","Salió para Entrega","Entregado",
+];
+GLOBAL_STEPS_EN.forEach((l, i) => {
+  statusColors[l] = i === 9
+    ? "bg-primary/15 text-primary"
+    : i === 8
+      ? "bg-primary/30 text-primary"
+      : "bg-accent text-accent-foreground";
+});
+GLOBAL_STEPS_ES.forEach((l, i) => {
+  statusColors[l] = i === 9
+    ? "bg-primary/15 text-primary"
+    : i === 8
+      ? "bg-primary/30 text-primary"
+      : "bg-accent text-accent-foreground";
+});
+
 // Os values batem 1:1 com `envios.status` (enum) ou `envios.status_label` (texto).
 // A RPC get_envios_paginated aceita ambos via `OR e.status::text=p_status OR e.status_label=p_status`.
 const statusOptions: { value: string; label: string; group?: string }[] = [
@@ -131,6 +157,9 @@ const statusOptions: { value: string; label: string; group?: string }[] = [
   { value: "Pagamento da taxa confirmado", label: "Taxa paga", group: "Etapa" },
   { value: "Reenvio pago", label: "Reenvio pago", group: "Etapa" },
   { value: "Entregue ✅", label: "Entregue (etapa)", group: "Etapa" },
+
+  // Fluxo Global (Internacional) — sempre filtrar em inglês (status_label gravado em EN)
+  ...GLOBAL_STEPS_EN.map((s) => ({ value: s, label: s, group: "Global (International)" })),
 ];
 
 export default function Envios() {
@@ -898,6 +927,13 @@ export default function Envios() {
   };
 
   const getDisplayStatus = (envio: any) => {
+    if (envio?.is_international || envio?.global_flow_lang) {
+      const ordem = envio.ultimo_evento_ordem ?? 0;
+      const isEs = (envio.global_flow_lang || "en").toLowerCase() === "es";
+      const arr = isEs ? GLOBAL_STEPS_ES : GLOBAL_STEPS_EN;
+      if (ordem >= 1 && ordem <= arr.length) return arr[ordem - 1];
+      return isEs ? "Pendiente" : "Pending";
+    }
     return (envio as any).status_label || statusLabels[envio.status] || envio.status;
   };
 
@@ -1253,7 +1289,7 @@ export default function Envios() {
                   {/* Status */}
                   <Badge
                     variant="secondary"
-                    className={`${statusColors[envio.status_label || ""] || statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[9px] px-1.5 py-0 h-5 whitespace-nowrap shrink-0`}
+                    className={`${statusColors[getDisplayStatus(envio)] || statusColors[envio.status_label || ""] || statusColors[envio.status] || "bg-muted text-muted-foreground"} text-[9px] px-1.5 py-0 h-5 whitespace-nowrap shrink-0`}
                   >
                     <span className="inline-block h-1 w-1 rounded-full bg-current mr-1" />
                     {getDisplayStatus(envio)}
