@@ -93,7 +93,9 @@ function buildEmailHtml(
 
     <p style="font-size:14px;color:#444;line-height:1.55;margin:0;">${escapeHtml(content.body)}</p>
   </td></tr>
+  ${productHtml}
   ${hintHtml}
+
   <tr><td style="padding:16px 32px 8px;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border-radius:6px;border:1px solid #eee;padding:12px 16px;">
       ${stepsHtml}
@@ -131,9 +133,10 @@ Deno.serve(async (req) => {
 
     const { data: envio } = await supabase
       .from("envios")
-      .select("id, loja_id, cliente_nome, cliente_email, cliente_telefone, codigo_rastreio, is_international, global_flow_lang, marca")
+      .select("id, loja_id, cliente_nome, cliente_email, cliente_telefone, codigo_rastreio, is_international, global_flow_lang, marca, produto")
       .eq("id", envio_id)
       .single();
+
 
     if (!envio) {
       return new Response(JSON.stringify({ error: "Envio not found" }), {
@@ -180,12 +183,30 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
 
+    // Parse product name from envio.produto (JSON array or plain text)
+    let produtoNome = "";
+    try {
+      const raw = (envio as any).produto;
+      if (raw) {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed)) {
+          produtoNome = parsed.map((p: any) => p.title || p.nome || p.name || "").filter(Boolean).join(", ");
+        } else {
+          produtoNome = String(raw);
+        }
+      }
+    } catch {
+      produtoNome = String((envio as any).produto || "");
+    }
+
     const ctx = {
       name: firstName,
       empresa: empresaNome || (lang === "es" ? "nuestra tienda" : "our store"),
       originCountry: config.pais_origem_nome || "",
       tracking: envio.codigo_rastreio || "",
+      produto: produtoNome,
     };
+
 
     const { data: custos } = await supabase
       .from("system_config")
