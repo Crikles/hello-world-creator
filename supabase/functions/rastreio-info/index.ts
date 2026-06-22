@@ -400,9 +400,10 @@ Deno.serve(async (req) => {
                         eventos,
                         totalEventos: totalCount ?? 0,
                         origem: {
-                            cidade: config?.origem_cidade || null,
-                            estado: config?.origem_estado || null,
+                            cidade: origemCidade,
+                            estado: origemEstado,
                         },
+
                         cor_primaria: config?.cor_primaria || null,
                         ativar_vizinho: config?.ativar_vizinho ?? true,
                     }),
