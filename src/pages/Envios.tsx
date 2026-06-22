@@ -434,8 +434,7 @@ export default function Envios() {
       const { count } = await supabase
         .from("global_flow_eventos")
         .select("id", { count: "exact", head: true })
-        .eq("loja_id", loja.id)
-        .eq("ativo", true);
+        .eq("loja_id", loja.id);
       return count ?? 0;
     },
     enabled: !!loja,
