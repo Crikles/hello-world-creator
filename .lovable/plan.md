@@ -1,61 +1,74 @@
 ## Objetivo
 
-Alinhar este projeto (painel/back-end) ao spec do projeto de logística: cada envio passa a ter uma **marca** explícita, e todo link enviado ao cliente (email/SMS/WhatsApp) usa o **domínio correto da marca**, no formato `https://<dominio>/r/<codigo_rastreio>`.
+Adicionar ao card "Email de Confirmação de Pagamento" (aba **Canais & Custos** do Fluxo Global) um botão **"Personalizar email"** que abre um editor com **preview ao vivo** dos templates em **Inglês** e **Espanhol**. O usuário edita, salva, e a partir daí o `send-payment-confirmation` envia o template personalizado da loja (com fallback para o padrão atual).
 
-## Mapeamento oficial
+## O que será construído
 
-| Marca | Valor no banco | Domínio | Idioma | Sufixo do código |
-|---|---|---|---|---|
-| JET LINE | `jetline` | app.jetlinetransportes.com | PT-BR | `JL` (ex.: `BRxxxxJL`) |
-| ATLAS | `atlas` | app.atlas-cargo.org | PT-BR | `AT` |
-| TrackMaster US | `trackmaster_us` | us.tracker-master.com | EN | `TM` + final `US` |
-| TrackMaster ES | `trackmaster_es` | es.tracker-master.com | ES | `TM` + final `ES` |
+### 1. Banco — armazenar templates personalizados por loja
 
-## Como a marca é decidida
+Migration adicionando ao `global_flow_config`:
+- `confirm_email_template_en jsonb` — template personalizado em inglês (nullable = usa padrão)
+- `confirm_email_template_es jsonb` — template personalizado em espanhol (nullable = usa padrão)
 
-- **Envio nacional** (`is_international = false`): herda da loja → `lojas.logistica_provider` (`atlas` ou `jetline`).
-- **Envio global** (`is_international = true`): pelo idioma do fluxo global
-  - `global_flow_lang = 'en'` (ou config padrão) → `trackmaster_us`
-  - `global_flow_lang = 'es'` → `trackmaster_es`
-  - `pt` em envio internacional cai em `trackmaster_us` (fallback) — confirmar abaixo.
+Cada JSON guarda os campos editáveis:
+```
+{ header, preview, greeting, intro, product_label, value_label, cta, footer, accent_color }
+```
+Variáveis dinâmicas suportadas: `{{nome}}`, `{{produto}}`, `{{valor}}`, `{{empresa}}`, `{{origem}}`, `{{tracking_url}}`.
 
-## Mudanças
+### 2. Edge Function — usar o template salvo
 
-### 1. Banco
-- Migration para adicionar `envios.marca text` (nullable, mas preenchida por trigger).
-- Atualizar `generate_tracking_code()`:
-  - Detectar marca em `BEFORE INSERT` usando `is_international` + `global_flow_lang` + `lojas.logistica_provider`.
-  - Gerar sufixo conforme tabela (TM…US, TM…ES, …JL, …AT).
-  - Gravar `NEW.marca` e `NEW.transportadora` coerentes.
-- Backfill: preencher `marca` em envios existentes a partir do sufixo do `codigo_rastreio` atual + `is_international`.
+Atualizar `supabase/functions/send-payment-confirmation/index.ts`:
+- Ler `global_flow_config.confirm_email_template_{lang}` da loja.
+- Se existir, mesclar sobre os defaults (`GLOBAL_CONFIRM_I18N[lang]`) antes de renderizar `buildGlobalConfirmationEmail`.
+- Se nulo, comportamento atual (template padrão) — nenhum envio é quebrado.
 
-### 2. Helper único de URL de rastreio
-Criar `getTrackingUrl(marca, codigo)` em dois lugares espelhados:
-- `src/lib/tracking-url.ts` (front)
-- `supabase/functions/_shared/tracking-url.ts` (edge functions)
+### 3. UI — Editor com Preview lado a lado
 
-Único ponto de verdade — todo email/SMS/WhatsApp passa a importar daqui.
+Novo componente `src/components/global/GlobalPaymentEmailEditor.tsx`, aberto por **Dialog** a partir do card "Email de Confirmação de Pagamento" em `src/pages/Global.tsx`.
 
-### 3. Edge functions que mandam link ao cliente
-Trocar o domínio fixo pelo helper:
-- `send-global-flow/index.ts` — hoje hardcoda `https://atlas-cargo.org/r/...` mesmo em envio internacional. Passar a usar `trackmaster_us` / `trackmaster_es` conforme `lang`.
-- `send-email`, `send-sms`, `send-whatsapp`, `send-payment-confirmation`, `send-recovery-email`, `send-recovery-sms`, `auto-whatsapp-new-order`, `bulk-send-status-email`, `backfill-missed-emails`, `resend-daily-emails`, `retry-failed-sends` — auditar e trocar qualquer link `atlas-cargo.org/r/...` ou similar pelo helper baseado na `marca` do envio.
-- `redirect/index.ts` (link curto) — passar a resolver o domínio destino pela `marca` do envio/pedido em vez de `BASE_URL` fixo no Atlas.
+Layout do Dialog (responsivo, em telas grandes 2 colunas):
+```text
+┌────────────── Personalizar Email de Confirmação ──────────────┐
+│ [Tabs: 🇺🇸 English | 🇪🇸 Español]                              │
+├──────────────────────────┬────────────────────────────────────┤
+│ FORMULÁRIO               │ PREVIEW (iframe sandbox)           │
+│ • Cabeçalho              │  ┌──────────────────────────────┐  │
+│ • Preview text           │  │ Payment Confirmed            │  │
+│ • Saudação               │  │ Acme Corp · Shipped from CN  │  │
+│ • Intro                  │  │                              │  │
+│ • Label Produto/Valor    │  │ Hi John,                     │  │
+│ • Texto do botão         │  │ Your payment...              │  │
+│ • Rodapé                 │  │ [Track your order]           │  │
+│ • Cor de destaque        │  │ Thank you...                 │  │
+│ Variáveis: {{nome}}...   │  └──────────────────────────────┘  │
+│ [Restaurar padrão]       │                                    │
+├──────────────────────────┴────────────────────────────────────┤
+│                              [Cancelar]  [Salvar alterações]  │
+└────────────────────────────────────────────────────────────────┘
+```
 
-### 4. Frontend
-- `src/lib/domain-config.ts`: adicionar `us.tracker-master.com` e `es.tracker-master.com` como domínios de logística reconhecidos, com `getLogisticsProvider` retornando `trackmaster_us` / `trackmaster_es`.
-- Página `Global.tsx` e qualquer botão "Ver rastreio" que monta URL: usar o helper.
+- O preview é renderizado em `<iframe srcDoc>` usando a **mesma função de build do edge function** — extraída para `src/lib/global-confirm-email.ts` (compartilhada). Garante 1:1 entre preview e envio real.
+- Dados de exemplo (`nome: "John Doe"`, `produto: "Wireless Earbuds"`, `valor: "199,90"`, etc.) são usados no preview.
+- Botão **"Restaurar padrão"** por idioma — limpa o template daquele idioma (volta a usar o default `GLOBAL_CONFIRM_I18N`).
+- **Salvar** chama upsert em `global_flow_config` (RLS já cobre via `user_owns_loja`).
 
-### 5. Validação / entrega ao outro projeto
-Não precisa endpoint novo — o outro projeto lê a tabela `envios` direto. Garantimos só que:
-- `codigo_rastreio` segue o padrão por marca
-- `marca` está sempre preenchida
-- `status`, `status_label`, `eventos`, etc. continuam atualizados em tempo real
+### 4. Botão no card existente
 
-Após implementar, gero uma amostra de 4 códigos (um por marca) para você validar manualmente nos 4 domínios.
+No card "Email de Confirmação de Pagamento" de `src/pages/Global.tsx`, adicionar um botão sutil "Personalizar" (ícone `Pencil`) ao lado do switch que abre o Dialog. Não muda o resto da estrutura do card.
 
-## Perguntas rápidas antes de implementar
+## Arquivos afetados
 
-1. **Envio internacional com `global_flow_lang = 'pt'`** (raro mas existe) → cai em `trackmaster_us` ou `atlas`?
-2. **Backfill**: reescrevo o sufixo dos códigos antigos para o novo padrão (TM…US/ES nos internacionais) ou mantenho os códigos antigos como estão e só preencho a coluna `marca`?
-3. Quer que eu adicione um campo na UI da loja para **forçar manualmente** a marca de um envio (override), ou a decisão automática basta?
+- **Novo:** `supabase/migrations/<timestamp>_global_confirm_templates.sql`
+- **Novo:** `src/lib/global-confirm-email.ts` (renderer compartilhado FE/BE — versão TS pura)
+- **Novo:** `supabase/functions/_shared/global-confirm-email.ts` (mesmo renderer para Deno)
+- **Novo:** `src/components/global/GlobalPaymentEmailEditor.tsx`
+- **Editado:** `src/pages/Global.tsx` (botão Personalizar no card)
+- **Editado:** `supabase/functions/send-payment-confirmation/index.ts` (carregar template custom)
+- **Editado:** `src/integrations/supabase/types.ts` (após migration)
+
+## Fora do escopo (manter para depois se quiser)
+
+- Editor visual rich-text (será baseado em campos estruturados + cor — mais previsível e seguro).
+- Upload de logo dentro do email (usa logo da loja já cadastrado, se houver).
+- Edição do template de Email de Rastreio (apenas Confirmação por enquanto, conforme pedido).
