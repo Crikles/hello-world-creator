@@ -61,6 +61,28 @@ export function GlobalPaymentEmailEditor({
   const [en, setEn] = useState<GlobalConfirmTemplate>(mergeTemplate("en", initialEn));
   const [es, setEs] = useState<GlobalConfirmTemplate>(mergeTemplate("es", initialEs));
 
+  // Busca empresa real (aba Empresa) para usar nome_fantasia + logo_url no preview
+  const { data: empresa } = useQuery({
+    queryKey: ["empresa-for-email-preview", lojaId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("empresas")
+        .select("nome_fantasia, razao_social, logo_url")
+        .eq("loja_id", lojaId)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!lojaId && open,
+  });
+
+  const resolvedEmpresaNome =
+    (empresa as any)?.nome_fantasia ||
+    (empresa as any)?.razao_social ||
+    empresaNome ||
+    "Sua Empresa";
+  const resolvedLogoUrl = (empresa as any)?.logo_url || null;
+
   useEffect(() => {
     if (open) {
       setEn(mergeTemplate("en", initialEn));
@@ -74,10 +96,11 @@ export function GlobalPaymentEmailEditor({
   const previewHtml = useMemo(() => {
     return renderGlobalConfirmEmail(lang, current, {
       ...PREVIEW_VARS,
-      empresa: empresaNome || "Sua Empresa",
+      empresa: resolvedEmpresaNome,
       origem: origemNome || (lang === "es" ? "China" : "China"),
+      logo_url: resolvedLogoUrl,
     });
-  }, [lang, current, empresaNome, origemNome]);
+  }, [lang, current, resolvedEmpresaNome, origemNome, resolvedLogoUrl]);
 
   const save = useMutation({
     mutationFn: async () => {
