@@ -18,6 +18,7 @@ import {
   Edit2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { GlobalTemplatesCard } from "@/components/admin/GlobalTemplatesCard";
 
 interface PostagemEvento {
   id: string;
