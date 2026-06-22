@@ -796,6 +796,11 @@ async function advanceShipment(
 
     if (sErr || !shipment) return false;
 
+    // ── Roteamento Fluxo GLOBAL (envios internacionais) ──
+    if ((shipment as any).is_international) {
+      return await advanceGlobalFlowShipment(supabase, shipment, lojaId);
+    }
+
     // ── RACE GUARD: respeita o delay mesmo se a query do caller estiver desatualizada ──
     const proximoAvancoCheck = (shipment as any).proximo_avanco_em;
     if (proximoAvancoCheck && new Date(proximoAvancoCheck) > new Date()) {
@@ -1241,6 +1246,92 @@ async function advanceShipment(
     return true;
   } catch (err) {
     console.error(`Error advancing envio ${envioId}:`, err);
+    return false;
+  }
+}
+
+// ── Avanço de envios internacionais via FLUXO GLOBAL ──
+// Usa global_flow_eventos (10 passos) e invoca send-global-flow.
+// Não avança automaticamente o último passo (entregue) — manual only.
+// deno-lint-ignore no-explicit-any
+async function advanceGlobalFlowShipment(supabase: any, shipment: any, lojaId: string): Promise<boolean> {
+  try {
+    const proximoAvancoCheck = shipment.proximo_avanco_em;
+    if (proximoAvancoCheck && new Date(proximoAvancoCheck) > new Date()) {
+      return false;
+    }
+
+    const { data: gfc } = await supabase
+      .from("global_flow_config")
+      .select("ativo")
+      .eq("loja_id", lojaId)
+      .maybeSingle();
+    if (!gfc?.ativo) return false;
+
+    const { data: eventos } = await supabase
+      .from("global_flow_eventos")
+      .select("step_order, delay_horas")
+      .eq("loja_id", lojaId)
+      .order("step_order", { ascending: true });
+
+    if (!eventos || eventos.length === 0) return false;
+
+    const totalSteps = eventos.length;
+    const currentOrdem: number = shipment.ultimo_evento_ordem ?? 0;
+    const nextStep = currentOrdem + 1;
+    if (nextStep > totalSteps) return false;
+
+    // Último passo (entregue) só manualmente
+    if (nextStep === totalSteps) return false;
+
+    let newStatus: string;
+    if (nextStep === totalSteps - 1) newStatus = "saiu_para_entrega";
+    else newStatus = "em_transito";
+
+    const followingEvent = eventos.find((e: any) => e.step_order > nextStep);
+    const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
+      ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
+      : null;
+
+    const { data: updatedRows, error: uErr } = await supabase
+      .from("envios")
+      .update({
+        ultimo_evento_ordem: nextStep,
+        status: newStatus,
+        proximo_avanco_em: proximoAvancoEm,
+      })
+      .eq("id", shipment.id)
+      .eq("ultimo_evento_ordem", currentOrdem)
+      .select("id");
+
+    if (uErr || !updatedRows || updatedRows.length === 0) {
+      console.log(`Global cron skip envio ${shipment.id}: race lost or error`);
+      return false;
+    }
+
+    const { error: funcErr } = await supabase.functions.invoke("send-global-flow", {
+      body: { envio_id: shipment.id, step: nextStep },
+    });
+
+    if (funcErr) {
+      console.error(`send-global-flow failed for envio ${shipment.id}:`, funcErr);
+      // Reverter avanço
+      await supabase
+        .from("envios")
+        .update({
+          ultimo_evento_ordem: currentOrdem,
+          status: shipment.status ?? "pendente",
+          proximo_avanco_em: shipment.proximo_avanco_em ?? null,
+        })
+        .eq("id", shipment.id)
+        .eq("ultimo_evento_ordem", nextStep);
+      return false;
+    }
+
+    console.log(`Global cron advanced envio ${shipment.id} to step ${nextStep}`);
+    return true;
+  } catch (err) {
+    console.error(`advanceGlobalFlowShipment error envio ${shipment.id}:`, err);
     return false;
   }
 }

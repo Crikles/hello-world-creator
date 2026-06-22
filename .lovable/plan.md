@@ -1,57 +1,78 @@
 ## Diagnóstico
 
-A página de rastreio que mostra "From → To: Ceara / PE → São Paulo / SP" está hospedada em **`us.tracker-master.com`** / **`es.tracker-master.com`** — é um **projeto Lovable separado** (TrackMaster), com seu próprio frontend e edge function.
+Dois bugs com a mesma causa: o sistema **não diferencia envio internacional do nacional** no momento de avançar etapa / enviar e-mail.
 
-Aqui no projeto **Atlas/Magnus** já corrigi o `rastreio-info` para usar `global_flow_config.pais_origem_nome` quando `is_international = true`. Mas isso só afeta o domínio Atlas. O TrackMaster continua lendo `postagem_config.origem_cidade/estado` (Nacional) porque o código dele não foi atualizado.
+1. **Contador `0/16` em /envios** — meu fix anterior em `getTotalEventos` está correto, mas `paginatedEnvios` vem da RPC `get_envios_paginated` que faz `to_jsonb(base.*)`. Vou reconfirmar que `is_international` chega no front (já confirmei no banco que os envios Jorge/Jurema têm `is_international=true`). Provavelmente é hot-reload — mesmo assim vou robustecer.
 
-## Ação necessária
+2. **E-mails errados (nacional em vez de global)** — `src/lib/email-trigger.ts` (UI manual) e `supabase/functions/advance-shipments/index.ts` (cron) sempre:
+   - Carregam `postagem_eventos` (16 passos nacional)
+   - Invocam `send-email` (template nacional)
+   - Ignoram que existe `send-global-flow` e `global_flow_eventos` (10 passos EN/ES já implementados)
 
-Não há alteração a fazer neste projeto. Envie o prompt abaixo no chat do **projeto TrackMaster** para que ele aplique a mesma correção.
+Ambos precisam **bifurcar por `is_international`** e, quando true, usar `global_flow_eventos` para delays/total e invocar `send-global-flow` com `step`.
 
-## Prompt para colar no projeto TrackMaster
+## Mudanças
 
-```
-Na edge function que retorna os dados de rastreio (rastreio-info ou equivalente),
-a origem ("From") está sendo lida sempre de postagem_config.origem_cidade /
-origem_estado. Para envios internacionais (Fluxo Global) isso está errado —
-precisa puxar o País de Origem configurado no painel Global.
+### 1) `src/lib/email-trigger.ts`
 
-Ajuste:
+No início, após carregar o `shipment`:
 
-1) Em supabase/functions/rastreio-info/index.ts (ou nome equivalente),
-   logo após carregar `postagem_config`, adicione:
-
-   let origemCidade = config?.origem_cidade ?? null;
-   let origemEstado = config?.origem_estado ?? null;
-
-   if (envio.is_international) {
-     const { data: gfc } = await supabase
-       .from("global_flow_config")
-       .select("pais_origem_nome")
-       .eq("loja_id", envio.loja_id)
-       .maybeSingle();
-     if (gfc?.pais_origem_nome) {
-       origemCidade = gfc.pais_origem_nome;
-       origemEstado = null;
-     }
-   }
-
-   E retorne `origem: { cidade: origemCidade, estado: origemEstado }` no JSON
-   (substituindo o uso direto de config.origem_cidade/estado).
-
-2) Na página de rastreio (Rastreio.tsx ou equivalente), trate o caso de só ter
-   cidade (sem estado):
-
-   const origemLabel = origem.cidade
-     ? (origem.estado ? `${origem.cidade} - ${origem.estado}` : origem.cidade)
-     : null;
-
-3) Faça deploy da edge function rastreio-info.
-
-Resultado esperado: para envios com is_international = true, "From" exibe o
-País de Origem configurado no Global (ex.: "China") em vez de "Ceara / PE".
+```ts
+if (shipment.is_international) {
+  return await triggerGlobalFlow(shipment, lojaId, forceAdvance);
+}
 ```
 
-## Observação
+Criar `triggerGlobalFlow(shipment, lojaId, forceAdvance)`:
+- Buscar `global_flow_config` (loja). Se `!ativo` → return null.
+- Buscar `global_flow_eventos` (loja) ordenados por `step_order`.
+- `currentOrdem = shipment.ultimo_evento_ordem ?? 0`.
+- Respeitar `proximo_avanco_em` (igual lógica atual) se `!forceAdvance`.
+- Próximo `step = currentOrdem + 1`. Se `>10` → null.
+- Se step === 10 (Entregue) e `!forceAdvance` → return null (mesma regra do nacional).
+- Update `envios` com lock otimista: `ultimo_evento_ordem = step`, `status` (em_transito; saiu_para_entrega quando step=9; entregue quando step=10), `proximo_avanco_em` = now + delay_horas do próximo step (step+1).
+- Invocar `supabase.functions.invoke("send-global-flow", { body: { envio_id, step } })`.
+- Não consultar `postagem_eventos`, não invocar `send-email`.
 
-A tabela `global_flow_config` precisa estar acessível pelo service_role no projeto TrackMaster — como ambos os projetos compartilham o mesmo banco Supabase (mesma `loja_id`), a consulta funcionará desde que as credenciais Supabase do TrackMaster apontem para a mesma instância.
+### 2) `supabase/functions/advance-shipments/index.ts`
+
+Na função `advanceShipment(...)`, logo após `if (sErr || !shipment) return false;`:
+
+```ts
+if (shipment.is_international) {
+  return await advanceGlobalFlow(supabase, shipment, lojaId);
+}
+```
+
+Criar `advanceGlobalFlow(supabase, shipment, lojaId)`:
+- Buscar `global_flow_config` da loja, sair se `!ativo`.
+- Cache `globalEventsCache[lojaId]` para `global_flow_eventos` ordenados.
+- `currentOrdem`, calcular `nextStep = currentOrdem + 1`. Se `>10` → false.
+- Se step=10 (delivered) → não avançar via cron (manual only), retornar false.
+- Respeitar `proximo_avanco_em`.
+- Update otimista igual padrão atual.
+- Invocar `send-global-flow` com `{ envio_id, step: nextStep }`.
+- Reverter avanço se a invocação falhar (mesma lógica de rollback existente).
+
+### 3) `src/pages/Envios.tsx` (reforço do contador)
+
+Já corrigi `getTotalEventos`. Para garantir refresh:
+- Confirmar que o seletor lê `(envio as any).is_international` (ok).
+- Adicionar pequena verificação: se `globalFlowCount === 0` mas envio é global, fallback `10` (já está).
+
+Não há mudança nova aqui — o problema do "0/16" deve sumir após o reload da preview. Vou também garantir que o `useQuery` de `globalFlowCount` está antes de qualquer render que use `getTotalEventos`.
+
+### 4) Sem mudanças em backend SQL
+
+`global_flow_eventos` já está populado (10 linhas) e `send-global-flow` já existe e funciona.
+
+## Validação
+
+1. Em /envios, envios internacionais existentes (Jorge/Jurema) mostram **n/10** (não 16).
+2. Ao clicar "Avançar próximo" em um envio internacional, o cliente recebe e-mail em EN/ES (template global), não o template nacional.
+3. Cron `advance-shipments` rodando: envios internacionais avançam pelos delays de `global_flow_eventos` (24/48/72/168h) e disparam `send-global-flow`.
+4. Envios nacionais continuam usando `postagem_eventos` + `send-email` (sem regressão).
+
+## Deploy
+
+Após edição: `deploy_edge_functions` para `advance-shipments`.

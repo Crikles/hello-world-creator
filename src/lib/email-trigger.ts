@@ -34,6 +34,11 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             if (fallbackEmpresa) (shipment as any).empresas = fallbackEmpresa;
         }
 
+        // ── Roteamento Fluxo GLOBAL (envios internacionais) ──
+        if ((shipment as any).is_international) {
+            return await triggerGlobalFlowNext(shipment, lojaId, forceAdvance);
+        }
+
         // 1.5. Check delay constraint — block if proximo_avanco_em is in the future
         const proximoAvanco = (shipment as any).proximo_avanco_em;
         if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
@@ -351,6 +356,110 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
     } catch (err) {
         if (err instanceof InsufficientBalanceError) throw err;
         console.error("Global trigger error:", err);
+        return null;
+    }
+}
+
+/**
+ * Avança o próximo passo do FLUXO GLOBAL (envios internacionais).
+ * Usa global_flow_eventos (10 steps) e invoca send-global-flow.
+ */
+async function triggerGlobalFlowNext(
+    shipment: any,
+    lojaId: string,
+    forceAdvance: boolean
+): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
+    try {
+        // Respeitar delay
+        const proximoAvanco = shipment.proximo_avanco_em;
+        if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
+            console.log("Global trigger skip: delay not elapsed", shipment.id);
+            return null;
+        }
+
+        const { data: gfc } = await supabase
+            .from("global_flow_config")
+            .select("ativo")
+            .eq("loja_id", lojaId)
+            .maybeSingle();
+
+        if (!gfc?.ativo) {
+            console.log("Global trigger skip: global flow not active", lojaId);
+            return null;
+        }
+
+        const { data: eventos } = await supabase
+            .from("global_flow_eventos")
+            .select("step_order, delay_horas")
+            .eq("loja_id", lojaId)
+            .order("step_order", { ascending: true });
+
+        if (!eventos || eventos.length === 0) {
+            console.log("Global trigger skip: no global_flow_eventos", lojaId);
+            return null;
+        }
+
+        const totalSteps = eventos.length;
+        const currentOrdem: number = shipment.ultimo_evento_ordem ?? 0;
+        const nextStep = currentOrdem + 1;
+        if (nextStep > totalSteps) return null;
+
+        // Último passo (entregue) só manualmente
+        const isFinalDelivered = nextStep === totalSteps;
+        if (isFinalDelivered && !forceAdvance) {
+            console.log("Global trigger skip: 'Entregue' manual only", shipment.id);
+            return null;
+        }
+
+        // Status novo
+        let newStatus: ShipmentStatus;
+        if (nextStep === totalSteps) newStatus = "entregue";
+        else if (nextStep === totalSteps - 1) newStatus = "saiu_para_entrega";
+        else newStatus = "em_transito";
+
+        // Próximo delay (delay do próximo step depois desse)
+        const followingEvent = eventos.find((e: any) => e.step_order > nextStep);
+        const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
+            ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
+            : null;
+
+        // Update com lock otimista
+        const { data: updatedRows, error: uErr } = await supabase
+            .from("envios")
+            .update({
+                ultimo_evento_ordem: nextStep,
+                status: newStatus,
+                proximo_avanco_em: proximoAvancoEm,
+            } as any)
+            .eq("id", shipment.id)
+            .eq("ultimo_evento_ordem", currentOrdem)
+            .select("id");
+
+        if (uErr) {
+            console.error("Global trigger update fail:", uErr);
+            return null;
+        }
+        if (!updatedRows || updatedRows.length === 0) {
+            console.log("Global trigger skip: race lost", shipment.id);
+            return null;
+        }
+
+        // Final entregue: não dispara email
+        if (isFinalDelivered) {
+            return { status: newStatus, ultimoOrdem: nextStep };
+        }
+
+        // Invocar send-global-flow
+        const { error: funcErr } = await supabase.functions.invoke("send-global-flow", {
+            body: { envio_id: shipment.id, step: nextStep },
+        });
+        if (funcErr) {
+            console.error("send-global-flow failed:", funcErr);
+        }
+
+        return { status: newStatus, ultimoOrdem: nextStep };
+    } catch (err) {
+        console.error("triggerGlobalFlowNext error:", err);
         return null;
     }
 }
