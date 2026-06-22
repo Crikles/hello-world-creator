@@ -157,6 +157,9 @@ const statusOptions: { value: string; label: string; group?: string }[] = [
   { value: "Pagamento da taxa confirmado", label: "Taxa paga", group: "Etapa" },
   { value: "Reenvio pago", label: "Reenvio pago", group: "Etapa" },
   { value: "Entregue ✅", label: "Entregue (etapa)", group: "Etapa" },
+
+  // Fluxo Global (Internacional) — sempre filtrar em inglês (status_label gravado em EN)
+  ...GLOBAL_STEPS_EN.map((s) => ({ value: s, label: s, group: "Global (International)" })),
 ];
 
 export default function Envios() {
