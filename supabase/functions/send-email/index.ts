@@ -775,6 +775,16 @@ Deno.serve(async (req) => {
       throw new Error(`Envio not found: ${envioError?.message}`);
     }
 
+    // Guard: envios internacionais usam send-global-flow (templates EN/ES).
+    // Nunca disparar templates nacionais (PT-BR) para envios do Fluxo Global.
+    if ((envio as any).is_international === true) {
+      console.log(`[send-email] skip envio ${envio_id}: is_international=true (uses send-global-flow)`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "international_envio_uses_global_flow" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Fetch evento data
     const { data: evento, error: eventoError } = await supabase
       .from("postagem_eventos")

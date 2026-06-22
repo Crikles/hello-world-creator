@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
       .select("id")
       .eq("loja_id", loja_id)
       .is("deleted_at", null)
+      .or("is_international.is.null,is_international.eq.false")
       .eq("ultimo_evento_ordem", ultimo_evento_ordem)
       .eq("status_label", status_label);
 
