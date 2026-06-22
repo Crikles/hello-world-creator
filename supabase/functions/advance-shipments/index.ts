@@ -1288,6 +1288,13 @@ async function advanceGlobalFlowShipment(supabase: any, shipment: any, lojaId: s
     if (nextStep === totalSteps - 1) newStatus = "saiu_para_entrega";
     else newStatus = "em_transito";
 
+    const GLOBAL_LABELS_EN = [
+      "Order Received","Order Prepared","Shipped by Sender","Left Country of Origin",
+      "In International Transit","Arrived at Destination Country","In Customs Processing",
+      "In Local Transit","Out for Delivery","Delivered",
+    ];
+    const newStatusLabel = GLOBAL_LABELS_EN[nextStep - 1] ?? null;
+
     const followingEvent = eventos.find((e: any) => e.step_order > nextStep);
     const proximoAvancoEm = followingEvent && followingEvent.delay_horas > 0
       ? new Date(Date.now() + followingEvent.delay_horas * 3600000).toISOString()
@@ -1298,6 +1305,7 @@ async function advanceGlobalFlowShipment(supabase: any, shipment: any, lojaId: s
       .update({
         ultimo_evento_ordem: nextStep,
         status: newStatus,
+        status_label: newStatusLabel,
         proximo_avanco_em: proximoAvancoEm,
       })
       .eq("id", shipment.id)
