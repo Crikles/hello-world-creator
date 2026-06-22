@@ -367,7 +367,17 @@ Deno.serve(async (req) => {
             console.warn("[payment-confirmation/global] Insufficient credits for email");
             results.email = "skipped_no_credits";
           } else {
-            const html = buildGlobalConfirmationEmail(lang, templateVars, empresa, originCountry, trackingLink);
+            const customTpl = lang === "es" ? globalConfig.confirm_email_template_es : globalConfig.confirm_email_template_en;
+            const mergedTpl = mergeTemplate(lang as GLang, customTpl || null);
+            const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
+            const html = renderGlobalConfirmEmail(lang as GLang, mergedTpl, {
+              nome: templateVars.nome,
+              produto: templateVars.produto,
+              valor: templateVars.valor,
+              empresa: empresaNome,
+              origem: originCountry,
+              tracking_url: trackingLink,
+            });
             const remetenteNome = empresa?.nome_fantasia || empresa?.razao_social || "Store";
             const fromEmail = `${remetenteNome} <contato@recuperacaodenegocios.com>`;
             try {
@@ -377,7 +387,7 @@ Deno.serve(async (req) => {
                 body: JSON.stringify({
                   from: fromEmail,
                   to: [pedido.customer_email],
-                  subject: GLOBAL_CONFIRM_I18N[lang].header,
+                  subject: getEmailSubject(lang as GLang, mergedTpl),
                   html,
                 }),
               });
