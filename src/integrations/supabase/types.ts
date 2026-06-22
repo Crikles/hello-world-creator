@@ -514,6 +514,7 @@ export type Database = {
           id: string
           is_international: boolean
           loja_id: string | null
+          marca: string | null
           ncm_sh: string | null
           nfe_chave_acesso: string | null
           nfe_numero: string | null
@@ -553,6 +554,7 @@ export type Database = {
           id?: string
           is_international?: boolean
           loja_id?: string | null
+          marca?: string | null
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
           nfe_numero?: string | null
@@ -592,6 +594,7 @@ export type Database = {
           id?: string
           is_international?: boolean
           loja_id?: string | null
+          marca?: string | null
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
           nfe_numero?: string | null
