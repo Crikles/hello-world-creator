@@ -372,6 +372,11 @@ export default function Global() {
       total: custoConfEmail,
       checked: local.confirmacao_email,
       toggle: () => setLocal({ ...local, confirmacao_email: !local.confirmacao_email }),
+      action: {
+        label: "Personalizar",
+        icon: Pencil,
+        onClick: () => setEmailEditorOpen(true),
+      } as { label: string; icon: typeof Pencil; onClick: () => void } | undefined,
     },
   ];
 
