@@ -732,6 +732,60 @@ export type Database = {
           },
         ]
       }
+      global_flow_system_templates: {
+        Row: {
+          body: string
+          closing: string
+          cta_label: string
+          headline: string
+          hint: string | null
+          id: string
+          intro: string
+          lang: string
+          preview: string
+          sms_texto: string
+          status_label: string
+          step_key: string
+          step_order: number
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          closing: string
+          cta_label: string
+          headline: string
+          hint?: string | null
+          id?: string
+          intro: string
+          lang: string
+          preview: string
+          sms_texto: string
+          status_label: string
+          step_key: string
+          step_order: number
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          closing?: string
+          cta_label?: string
+          headline?: string
+          hint?: string | null
+          id?: string
+          intro?: string
+          lang?: string
+          preview?: string
+          sms_texto?: string
+          status_label?: string
+          step_key?: string
+          step_order?: number
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           bairro: string | null

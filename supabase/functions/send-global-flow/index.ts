@@ -8,6 +8,10 @@ import {
 } from "./templates.ts";
 import { getTrackingUrl, resolveMarca } from "../_shared/tracking-url.ts";
 
+function interpolate(tpl: string, vars: Record<string, string>): string {
+  return (tpl || "").replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => vars[k] ?? "");
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -193,6 +197,21 @@ Deno.serve(async (req) => {
 
     const results: { email?: string; sms?: string } = {};
 
+    // Load admin-editable templates (system table, EN/ES)
+    const { data: tplRows } = await supabase
+      .from("global_flow_system_templates")
+      .select("*")
+      .eq("step_order", step)
+      .eq("lang", lang)
+      .maybeSingle();
+
+    const interpVars: Record<string, string> = {
+      name: ctx.name,
+      empresa: ctx.empresa,
+      originCountry: ctx.originCountry,
+      tracking: ctx.tracking,
+    };
+
     // EMAIL
     if (config.enviar_email && envio.cliente_email && loja?.user_id) {
       const resendKey = Deno.env.get("RESEND_TRACKING_API_KEY") || Deno.env.get("RESEND_API_KEY");
@@ -203,7 +222,21 @@ Deno.serve(async (req) => {
           _descricao: `Global flow email step ${step} - ${envio.cliente_email}`,
         });
         if (debited) {
-          const content = EMAIL_TEMPLATES[lang][step](ctx);
+          let content: EmailContent;
+          if (tplRows) {
+            content = {
+              subject: interpolate(tplRows.subject, interpVars),
+              preview: interpolate(tplRows.preview, interpVars),
+              headline: interpolate(tplRows.headline, interpVars),
+              intro: interpolate(tplRows.intro, interpVars),
+              body: interpolate(tplRows.body, interpVars),
+              hint: tplRows.hint ? interpolate(tplRows.hint, interpVars) : undefined,
+              ctaLabel: interpolate(tplRows.cta_label, interpVars),
+              closing: interpolate(tplRows.closing, interpVars),
+            };
+          } else {
+            content = EMAIL_TEMPLATES[lang][step](ctx);
+          }
           const html = buildEmailHtml(lang, step, content, link, ctx.empresa, ctx.originCountry);
           const fromName = empresaNome || "Tracking";
           const from = `${fromName} <contato@recuperacaodenegocios.com>`;
@@ -243,7 +276,9 @@ Deno.serve(async (req) => {
         });
         if (debited) {
           const phone = formatPhone(envio.cliente_telefone);
-          const rawMsg = SMS_TEMPLATES[lang][step]({ ...ctx, link });
+          const rawMsg = tplRows?.sms_texto
+            ? interpolate(tplRows.sms_texto, { ...interpVars, link })
+            : SMS_TEMPLATES[lang][step]({ ...ctx, link });
           const message = removeAccents(rawMsg);
           try {
             const r = await fetch(
@@ -267,6 +302,7 @@ Deno.serve(async (req) => {
         results.sms = "skipped_no_key";
       }
     }
+
 
     return new Response(JSON.stringify({ success: true, lang, step, results }), {
       status: 200,
