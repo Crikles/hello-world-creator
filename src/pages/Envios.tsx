@@ -24,6 +24,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLoja } from "@/contexts/LojaContext";
 import { toast } from "sonner";
+import { getTrackingBaseUrl, getTrackingUrl, resolveMarca } from "@/lib/tracking-url";
 import { BloqueioCobrancaBanner } from "@/components/BloqueioCobrancaBanner";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -192,9 +193,14 @@ export default function Envios() {
     return false;
   }, []);
 
-  const getTrackingDomain = useCallback((_envio: { transportadora?: string | null; codigo_rastreio?: string | null }) => {
-    // JL e Vetor descontinuados — sempre Atlas.
-    return 'atlas-cargo.org';
+  const getTrackingDomain = useCallback((envio: { transportadora?: string | null; codigo_rastreio?: string | null; marca?: string | null; is_international?: boolean | null; global_flow_lang?: string | null }) => {
+    const marca = resolveMarca({
+      marca: envio.marca,
+      is_international: envio.is_international,
+      global_flow_lang: envio.global_flow_lang,
+      codigo_rastreio: envio.codigo_rastreio,
+    });
+    return getTrackingBaseUrl(marca).replace(/^https?:\/\//, "");
   }, []);
 
   // Batch advance state (global context)
