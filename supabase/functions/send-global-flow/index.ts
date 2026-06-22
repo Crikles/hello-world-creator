@@ -8,6 +8,10 @@ import {
 } from "./templates.ts";
 import { getTrackingUrl, resolveMarca } from "../_shared/tracking-url.ts";
 
+function interpolate(tpl: string, vars: Record<string, string>): string {
+  return (tpl || "").replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => vars[k] ?? "");
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
