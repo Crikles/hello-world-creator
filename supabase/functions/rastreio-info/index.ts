@@ -307,6 +307,22 @@ Deno.serve(async (req) => {
                 .eq("loja_id", envio.loja_id)
                 .maybeSingle();
 
+            // For international shipments (Global Flow), override origin with country from global_flow_config
+            let origemCidade: string | null = config?.origem_cidade || null;
+            let origemEstado: string | null = config?.origem_estado || null;
+            if ((envio as any).is_international) {
+                const { data: gfc } = await supabase
+                    .from("global_flow_config")
+                    .select("pais_origem_nome")
+                    .eq("loja_id", envio.loja_id)
+                    .maybeSingle();
+                if (gfc?.pais_origem_nome) {
+                    origemCidade = gfc.pais_origem_nome;
+                    origemEstado = null;
+                }
+            }
+
+
             // Prefer the template frozen on the shipment; fall back to the active store template
             const templateIdToUse = (envio as any).postagem_template_id || config?.template_ativo_id;
 
@@ -384,9 +400,10 @@ Deno.serve(async (req) => {
                         eventos,
                         totalEventos: totalCount ?? 0,
                         origem: {
-                            cidade: config?.origem_cidade || null,
-                            estado: config?.origem_estado || null,
+                            cidade: origemCidade,
+                            estado: origemEstado,
                         },
+
                         cor_primaria: config?.cor_primaria || null,
                         ativar_vizinho: config?.ativar_vizinho ?? true,
                     }),

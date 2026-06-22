@@ -714,7 +714,7 @@ export default function Rastreio() {
                                                     const eventDate = resolveEventDate(ev, envio.created_at);
                                                     const isFirst = idx === 0;
 
-                                                    const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
+                                                    const origemLabel = origem.cidade ? (origem.estado ? `${origem.cidade} - ${origem.estado}` : origem.cidade) : null;
                                                     const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
                                                     const locationText = buildLocationText(ev.status_label, origemLabel, destLabel, ev.descricao);
 
@@ -979,7 +979,7 @@ export default function Rastreio() {
                                                     const eventDate = resolveEventDate(ev, envio.created_at);
                                                     const isFirst = idx === 0;
 
-                                                    const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
+                                                    const origemLabel = origem.cidade ? (origem.estado ? `${origem.cidade} - ${origem.estado}` : origem.cidade) : null;
                                                     const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
                                                     const locationText = buildLocationText(ev.status_label, origemLabel, destLabel, ev.descricao);
 
@@ -1219,7 +1219,7 @@ export default function Rastreio() {
                                                 const cfg = statusConfig[ev.status_label || ""] || { icon: MapPin, label: "Atualização" };
                                                 const Icon = cfg.icon;
                                                 const eventDate = resolveEventDate(ev, envio.created_at);
-                                                const origemLabel = origem.cidade && origem.estado ? `${origem.cidade} - ${origem.estado}` : null;
+                                                const origemLabel = origem.cidade ? (origem.estado ? `${origem.cidade} - ${origem.estado}` : origem.cidade) : null;
                                                 const destLabel = envio.cliente_cidade && envio.cliente_estado ? `${envio.cliente_cidade} - ${envio.cliente_estado}` : null;
                                                 const locationText = buildLocationText(ev.status_label, origemLabel, destLabel, ev.descricao);
 
