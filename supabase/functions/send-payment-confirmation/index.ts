@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
         envioGlobal = envio;
         const { data: gcfg } = await supabase
           .from("global_flow_config")
-          .select("ativo, idioma, confirmacao_email, pais_origem_nome")
+          .select("ativo, idioma, confirmacao_email, pais_origem_nome, confirm_email_template_en, confirm_email_template_es")
           .eq("loja_id", loja_id)
           .maybeSingle();
         globalConfig = gcfg;
