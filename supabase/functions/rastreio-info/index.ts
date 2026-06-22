@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
 
         const { data: envio, error: envioError } = await supabase
             .from("envios")
-            .select("id, produto, codigo_rastreio, cliente_nome, transportadora, status, ultimo_evento_ordem, created_at, updated_at, empresa_id, loja_id, valor, cliente_cidade, cliente_estado, postagem_template_id")
+            .select("id, produto, codigo_rastreio, cliente_nome, transportadora, status, ultimo_evento_ordem, created_at, updated_at, empresa_id, loja_id, valor, cliente_cidade, cliente_estado, postagem_template_id, is_international")
             .eq("codigo_rastreio", codigo.trim().toUpperCase())
             .maybeSingle();
 
