@@ -123,7 +123,7 @@ function CountryPicker({ value, onChange, lang }: { value: string; onChange: (c:
           className="w-full justify-between h-14 text-base bg-card/50 border-border/60 hover:bg-card hover:border-primary/40"
         >
           <span className="flex items-center gap-3">
-            <span className="text-2xl leading-none">{selected.flag}</span>
+            <img src={`https://flagcdn.com/${selected.code.toLowerCase()}.svg`} alt={selected.code} className="h-5 w-7 rounded-sm object-cover" />
             <span className="font-medium">{selected[nameKey]}</span>
             <Badge variant="secondary" className="text-[10px] font-mono">{selected.code}</Badge>
           </span>
@@ -143,7 +143,7 @@ function CountryPicker({ value, onChange, lang }: { value: string; onChange: (c:
                   onSelect={() => { onChange(c); setOpen(false); }}
                   className="cursor-pointer"
                 >
-                  <span className="text-xl mr-2">{c.flag}</span>
+                  <img src={`https://flagcdn.com/${c.code.toLowerCase()}.svg`} alt={c.code} className="h-5 w-7 rounded-sm object-cover mr-2" />
                   <span className="flex-1">{c[nameKey]}</span>
                   <Badge variant="outline" className="text-[10px] font-mono mr-2">{c.code}</Badge>
                   <Check className={cn("h-4 w-4", c.code === value ? "opacity-100" : "opacity-0")} />
