@@ -1,74 +1,33 @@
-## Objetivo
+## Problema
 
-Adicionar ao card "Email de Confirmação de Pagamento" (aba **Canais & Custos** do Fluxo Global) um botão **"Personalizar email"** que abre um editor com **preview ao vivo** dos templates em **Inglês** e **Espanhol**. O usuário edita, salva, e a partir daí o `send-payment-confirmation` envia o template personalizado da loja (com fallback para o padrão atual).
+Na aba **Envios**, o contador de etapas (`X/16`) está sempre baseado em `postagem_eventos` (fluxo Nacional). Quando o **Fluxo Global está ATIVO** e o envio é internacional (`is_international = true`), deveria mostrar `X/10` — o total de passos definidos em `global_flow_eventos` para a loja.
 
-## O que será construído
+## Causa
 
-### 1. Banco — armazenar templates personalizados por loja
+Em `src/pages/Envios.tsx` a função `getTotalEventos(envio)` consulta apenas o `eventCountMap`, que é montado a partir de `postagem_eventos` (linhas 395–427). Não há consulta ao `global_flow_eventos`, então o total para envios globais cai sempre nos 16 do Nacional.
 
-Migration adicionando ao `global_flow_config`:
-- `confirm_email_template_en jsonb` — template personalizado em inglês (nullable = usa padrão)
-- `confirm_email_template_es jsonb` — template personalizado em espanhol (nullable = usa padrão)
+## Mudanças
 
-Cada JSON guarda os campos editáveis:
-```
-{ header, preview, greeting, intro, product_label, value_label, cta, footer, accent_color }
-```
-Variáveis dinâmicas suportadas: `{{nome}}`, `{{produto}}`, `{{valor}}`, `{{empresa}}`, `{{origem}}`, `{{tracking_url}}`.
+### `src/pages/Envios.tsx`
 
-### 2. Edge Function — usar o template salvo
+1. **Nova query `globalFlowCount`** (irmã da query `eventCountMap`, condicionada à loja existir):
+   - `SELECT count` em `public.global_flow_eventos` com `loja_id = loja.id` e `ativo = true`.
+   - Retorna um número (ex.: `10`). Cacheia por loja.
 
-Atualizar `supabase/functions/send-payment-confirmation/index.ts`:
-- Ler `global_flow_config.confirm_email_template_{lang}` da loja.
-- Se existir, mesclar sobre os defaults (`GLOBAL_CONFIRM_I18N[lang]`) antes de renderizar `buildGlobalConfirmationEmail`.
-- Se nulo, comportamento atual (template padrão) — nenhum envio é quebrado.
+2. **Atualizar `getTotalEventos(envio)`** (linha 856):
+   - Se `envio.is_international === true` (ou `envio.global_flow_lang` preenchido), retornar `globalFlowCount` quando disponível (fallback `10`).
+   - Caso contrário, manter a lógica atual via `eventCountMap`.
 
-### 3. UI — Editor com Preview lado a lado
+3. **`getProgress` / `canAdvance`** continuam usando `getTotalEventos`, então passam a refletir corretamente `ordem / 10` para envios globais.
 
-Novo componente `src/components/global/GlobalPaymentEmailEditor.tsx`, aberto por **Dialog** a partir do card "Email de Confirmação de Pagamento" em `src/pages/Global.tsx`.
+4. **Exibição (`linha 1232`)** já usa `getTotalEventos`, então mostrará `X/10` automaticamente.
 
-Layout do Dialog (responsivo, em telas grandes 2 colunas):
-```text
-┌────────────── Personalizar Email de Confirmação ──────────────┐
-│ [Tabs: 🇺🇸 English | 🇪🇸 Español]                              │
-├──────────────────────────┬────────────────────────────────────┤
-│ FORMULÁRIO               │ PREVIEW (iframe sandbox)           │
-│ • Cabeçalho              │  ┌──────────────────────────────┐  │
-│ • Preview text           │  │ Payment Confirmed            │  │
-│ • Saudação               │  │ Acme Corp · Shipped from CN  │  │
-│ • Intro                  │  │                              │  │
-│ • Label Produto/Valor    │  │ Hi John,                     │  │
-│ • Texto do botão         │  │ Your payment...              │  │
-│ • Rodapé                 │  │ [Track your order]           │  │
-│ • Cor de destaque        │  │ Thank you...                 │  │
-│ Variáveis: {{nome}}...   │  └──────────────────────────────┘  │
-│ [Restaurar padrão]       │                                    │
-├──────────────────────────┴────────────────────────────────────┤
-│                              [Cancelar]  [Salvar alterações]  │
-└────────────────────────────────────────────────────────────────┘
-```
+### Sem mudanças em backend
 
-- O preview é renderizado em `<iframe srcDoc>` usando a **mesma função de build do edge function** — extraída para `src/lib/global-confirm-email.ts` (compartilhada). Garante 1:1 entre preview e envio real.
-- Dados de exemplo (`nome: "John Doe"`, `produto: "Wireless Earbuds"`, `valor: "199,90"`, etc.) são usados no preview.
-- Botão **"Restaurar padrão"** por idioma — limpa o template daquele idioma (volta a usar o default `GLOBAL_CONFIRM_I18N`).
-- **Salvar** chama upsert em `global_flow_config` (RLS já cobre via `user_owns_loja`).
+`ultimo_evento_ordem` já é incrementado de 1 a 10 pelo avanço do Fluxo Global (a tabela `global_flow_eventos` tem `step_order` 1..10). Apenas o total exibido estava errado.
 
-### 4. Botão no card existente
+## Validação
 
-No card "Email de Confirmação de Pagamento" de `src/pages/Global.tsx`, adicionar um botão sutil "Personalizar" (ícone `Pencil`) ao lado do switch que abre o Dialog. Não muda o resto da estrutura do card.
-
-## Arquivos afetados
-
-- **Novo:** `supabase/migrations/<timestamp>_global_confirm_templates.sql`
-- **Novo:** `src/lib/global-confirm-email.ts` (renderer compartilhado FE/BE — versão TS pura)
-- **Novo:** `supabase/functions/_shared/global-confirm-email.ts` (mesmo renderer para Deno)
-- **Novo:** `src/components/global/GlobalPaymentEmailEditor.tsx`
-- **Editado:** `src/pages/Global.tsx` (botão Personalizar no card)
-- **Editado:** `supabase/functions/send-payment-confirmation/index.ts` (carregar template custom)
-- **Editado:** `src/integrations/supabase/types.ts` (após migration)
-
-## Fora do escopo (manter para depois se quiser)
-
-- Editor visual rich-text (será baseado em campos estruturados + cor — mais previsível e seguro).
-- Upload de logo dentro do email (usa logo da loja já cadastrado, se houver).
-- Edição do template de Email de Rastreio (apenas Confirmação por enquanto, conforme pedido).
+Após aplicar:
+- Loja com Fluxo Global ATIVO e envio internacional → cartão mostra `0/10` (ou `n/10` conforme avança).
+- Envio Nacional na mesma loja continua `X/16` (ou o que o template definir).
