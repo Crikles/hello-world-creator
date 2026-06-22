@@ -267,10 +267,12 @@ Deno.serve(async (req) => {
               hint: tplRows.hint ? interpolate(tplRows.hint, interpVars) : undefined,
               ctaLabel: interpolate(tplRows.cta_label, interpVars),
               closing: interpolate(tplRows.closing, interpVars),
+              product: step === 1 && ctx.produto ? ctx.produto : undefined,
             };
           } else {
             content = EMAIL_TEMPLATES[lang][step](ctx);
           }
+
           const html = buildEmailHtml(lang, step, content, link, ctx.empresa, ctx.originCountry);
           const fromName = empresaNome || "Tracking";
           const from = `${fromName} <noreply@holdingtransportesbr.com>`;
