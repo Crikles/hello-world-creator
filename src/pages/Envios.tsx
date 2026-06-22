@@ -89,6 +89,32 @@ const statusColors: Record<string, string> = {
   "Entregue": "bg-primary/15 text-primary",
 };
 
+// Fluxo Global (internacional) — 10 etapas EN/ES
+const GLOBAL_STEPS_EN = [
+  "Order Received","Order Prepared","Shipped by Sender","Left Country of Origin",
+  "In International Transit","Arrived at Destination Country","In Customs Processing",
+  "In Local Transit","Out for Delivery","Delivered",
+];
+const GLOBAL_STEPS_ES = [
+  "Pedido Recibido","Pedido Preparado","Enviado por el Remitente","Salió del País de Origen",
+  "En Tránsito Internacional","Llegó al País de Destino","En Procesamiento Aduanero",
+  "En Tránsito Local","Salió para Entrega","Entregado",
+];
+GLOBAL_STEPS_EN.forEach((l, i) => {
+  statusColors[l] = i === 9
+    ? "bg-primary/15 text-primary"
+    : i === 8
+      ? "bg-primary/30 text-primary"
+      : "bg-accent text-accent-foreground";
+});
+GLOBAL_STEPS_ES.forEach((l, i) => {
+  statusColors[l] = i === 9
+    ? "bg-primary/15 text-primary"
+    : i === 8
+      ? "bg-primary/30 text-primary"
+      : "bg-accent text-accent-foreground";
+});
+
 // Os values batem 1:1 com `envios.status` (enum) ou `envios.status_label` (texto).
 // A RPC get_envios_paginated aceita ambos via `OR e.status::text=p_status OR e.status_label=p_status`.
 const statusOptions: { value: string; label: string; group?: string }[] = [
