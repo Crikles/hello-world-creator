@@ -927,6 +927,13 @@ export default function Envios() {
   };
 
   const getDisplayStatus = (envio: any) => {
+    if (envio?.is_international || envio?.global_flow_lang) {
+      const ordem = envio.ultimo_evento_ordem ?? 0;
+      const isEs = (envio.global_flow_lang || "en").toLowerCase() === "es";
+      const arr = isEs ? GLOBAL_STEPS_ES : GLOBAL_STEPS_EN;
+      if (ordem >= 1 && ordem <= arr.length) return arr[ordem - 1];
+      return isEs ? "Pendiente" : "Pending";
+    }
     return (envio as any).status_label || statusLabels[envio.status] || envio.status;
   };
 
