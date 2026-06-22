@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getTrackingUrl, resolveMarca } from "../_shared/tracking-url.ts";
+import { mergeTemplate, renderGlobalConfirmEmail, getEmailSubject, type GlobalLang as GLang } from "../_shared/global-confirm-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
