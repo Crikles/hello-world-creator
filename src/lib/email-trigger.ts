@@ -34,6 +34,11 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             if (fallbackEmpresa) (shipment as any).empresas = fallbackEmpresa;
         }
 
+        // ── Roteamento Fluxo GLOBAL (envios internacionais) ──
+        if ((shipment as any).is_international) {
+            return await triggerGlobalFlowNext(shipment, lojaId, forceAdvance);
+        }
+
         // 1.5. Check delay constraint — block if proximo_avanco_em is in the future
         const proximoAvanco = (shipment as any).proximo_avanco_em;
         if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
