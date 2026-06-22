@@ -713,6 +713,18 @@ export default function Global() {
           </Button>
         </div>
       </div>
+
+      {loja?.id && (
+        <GlobalPaymentEmailEditor
+          open={emailEditorOpen}
+          onOpenChange={setEmailEditorOpen}
+          lojaId={loja.id}
+          initialEn={(config as any)?.confirm_email_template_en ?? null}
+          initialEs={(config as any)?.confirm_email_template_es ?? null}
+          empresaNome={loja?.nome}
+          origemNome={local.pais_origem_nome}
+        />
+      )}
     </div>
   );
 }
