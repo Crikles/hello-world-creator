@@ -796,6 +796,11 @@ async function advanceShipment(
 
     if (sErr || !shipment) return false;
 
+    // ── Roteamento Fluxo GLOBAL (envios internacionais) ──
+    if ((shipment as any).is_international) {
+      return await advanceGlobalFlowShipment(supabase, shipment, lojaId);
+    }
+
     // ── RACE GUARD: respeita o delay mesmo se a query do caller estiver desatualizada ──
     const proximoAvancoCheck = (shipment as any).proximo_avanco_em;
     if (proximoAvancoCheck && new Date(proximoAvancoCheck) > new Date()) {
