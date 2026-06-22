@@ -12,6 +12,7 @@ export interface EmailContent {
   hint?: string;           // optional secondary note (callout)
   ctaLabel: string;        // tracking button
   closing: string;         // line above signature
+  product?: string;        // optional product name (shown only in step 1)
 }
 
 export interface StepCtx {
@@ -19,7 +20,9 @@ export interface StepCtx {
   empresa: string;         // store name
   originCountry: string;   // country of origin label
   tracking: string;        // tracking code (may be empty)
+  produto?: string;        // product name (used only by step 1)
 }
+
 
 type EmailFn = (ctx: StepCtx) => EmailContent;
 type SmsFn = (ctx: StepCtx & { link: string }) => string;
@@ -37,7 +40,9 @@ const EMAIL_EN: Record<number, EmailFn> = {
     hint: "Average international delivery: 12–25 business days.",
     ctaLabel: "Track my order",
     closing: "Welcome aboard,",
+    product: c.produto || undefined,
   }),
+
   2: (c) => ({
     subject: `Your order is packed and ready to ship`,
     preview: `Good news ${c.name} — packing is done.`,
@@ -154,7 +159,9 @@ const EMAIL_ES: Record<number, EmailFn> = {
     hint: "Tiempo promedio de entrega internacional: 12–25 días hábiles.",
     ctaLabel: "Rastrear pedido",
     closing: "Bienvenido,",
+    product: c.produto || undefined,
   }),
+
   2: (c) => ({
     subject: `Tu pedido está empacado y listo para enviar`,
     preview: `Buenas noticias ${c.name} — empacado terminado.`,
