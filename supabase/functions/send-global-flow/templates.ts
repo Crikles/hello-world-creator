@@ -40,7 +40,9 @@ const EMAIL_EN: Record<number, EmailFn> = {
     hint: "Average international delivery: 12–25 business days.",
     ctaLabel: "Track my order",
     closing: "Welcome aboard,",
+    product: c.produto || undefined,
   }),
+
   2: (c) => ({
     subject: `Your order is packed and ready to ship`,
     preview: `Good news ${c.name} — packing is done.`,
