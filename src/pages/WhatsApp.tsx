@@ -20,7 +20,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const SUPABASE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`;
-const TRACKING_BASE_URL = "https://atlas-cargo.org/r";
+import { getTrackingUrl, resolveMarca } from "@/lib/tracking-url";
+// Link curto roteado pela edge function `redirect`, que escolhe o domínio da marca.
+const SHORT_REDIRECT_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/redirect`;
 
 const AVAILABLE_VARS = [
     { key: "{{nome}}", label: "Nome", desc: "Nome do cliente" },
@@ -637,7 +639,13 @@ export default function WhatsApp() {
         setSendingIds((prev) => new Set(prev).add(envio.id));
         try {
             const text = replaceVars(msgTemplate, envio);
-            const trackingUrl = `${TRACKING_BASE_URL}/${envio.codigo_rastreio || ""}`;
+            const marca = resolveMarca({
+              marca: envio.marca,
+              is_international: envio.is_international,
+              global_flow_lang: envio.global_flow_lang,
+              codigo_rastreio: envio.codigo_rastreio,
+            });
+            const trackingUrl = getTrackingUrl(marca, envio.codigo_rastreio || "");
 
             // Pick a specific instance if only one selected, otherwise let backend rotate
             const instanceIdsArray = Array.from(selectedInstanceIds);
@@ -689,7 +697,7 @@ export default function WhatsApp() {
                     envio_ids: selected.map((e) => e.id),
                     msg_template: msgTemplate,
                     btn_text: btnText,
-                    btn_url_template: `${TRACKING_BASE_URL}/{{codigo_rastreio}}`,
+                    btn_url_template: `${SHORT_REDIRECT_BASE}?c={{codigo_rastreio}}`,
                     footer: footerText,
                     btn2_text: btn2Text || undefined,
                     btn2_url: btn2Url || undefined,
