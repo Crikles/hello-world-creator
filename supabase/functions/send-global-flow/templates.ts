@@ -12,6 +12,7 @@ export interface EmailContent {
   hint?: string;           // optional secondary note (callout)
   ctaLabel: string;        // tracking button
   closing: string;         // line above signature
+  product?: string;        // optional product name (shown only in step 1)
 }
 
 export interface StepCtx {
@@ -19,7 +20,9 @@ export interface StepCtx {
   empresa: string;         // store name
   originCountry: string;   // country of origin label
   tracking: string;        // tracking code (may be empty)
+  produto?: string;        // product name (used only by step 1)
 }
+
 
 type EmailFn = (ctx: StepCtx) => EmailContent;
 type SmsFn = (ctx: StepCtx & { link: string }) => string;

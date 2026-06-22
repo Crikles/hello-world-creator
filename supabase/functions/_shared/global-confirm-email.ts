@@ -58,9 +58,24 @@ function escapeHtml(s: string): string {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
+export function formatGlobalCurrency(value: string | number, lang: GlobalLang): string {
+  // Normaliza "199,90" / "199.90" / 199.9 → número
+  const num = typeof value === "number"
+    ? value
+    : parseFloat(String(value).replace(/\./g, "").replace(",", "."));
+  if (!isFinite(num)) return String(value);
+  if (lang === "es") {
+    // EUR — formato pt-BR-like: €199,90
+    return `€${num.toFixed(2).replace(".", ",")}`;
+  }
+  // en (default) — USD: $199.90
+  return `$${num.toFixed(2)}`;
+}
+
 function interpolate(tpl: string, vars: GlobalConfirmVars): string {
   return tpl.replace(/\{\{\s*(nome|produto|valor|empresa|origem|tracking_url)\s*\}\}/g, (_, k) => String((vars as any)[k] ?? ""));
 }
+
 
 export function mergeTemplate(
   lang: GlobalLang,
@@ -112,7 +127,7 @@ export function renderGlobalConfirmEmail(
   <tr><td style="padding:8px 32px;">
     <table width="100%" cellpadding="8" cellspacing="0" style="background:#f9f9f9;border-radius:6px;border:1px solid #eee;">
       <tr><td style="color:#666;font-size:13px;">${e(template.product_label)}</td><td style="color:#222;font-size:13px;font-weight:600;text-align:right;">${escapeHtml(vars.produto)}</td></tr>
-      <tr><td style="color:#666;font-size:13px;border-top:1px solid #eee;">${e(template.value_label)}</td><td style="color:${accent};font-size:13px;font-weight:600;text-align:right;border-top:1px solid #eee;">R$ ${escapeHtml(vars.valor)}</td></tr>
+      <tr><td style="color:#666;font-size:13px;border-top:1px solid #eee;">${e(template.value_label)}</td><td style="color:${accent};font-size:13px;font-weight:600;text-align:right;border-top:1px solid #eee;">${escapeHtml(formatGlobalCurrency(vars.valor, lang))}</td></tr>
     </table>
   </td></tr>
   <tr><td style="padding:20px 32px;text-align:center;">
