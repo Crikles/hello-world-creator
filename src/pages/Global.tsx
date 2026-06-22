@@ -26,9 +26,11 @@ import {
   Clock,
   GripVertical,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { GlobalPaymentEmailEditor } from "@/components/global/GlobalPaymentEmailEditor";
 import { COUNTRIES, type Country } from "@/lib/countries";
 
 type Lang = "en" | "es";
@@ -331,6 +333,8 @@ export default function Global() {
   if (isLoading || !local) {
     return <div className="p-8 text-sm text-muted-foreground">Carregando…</div>;
   }
+  const [emailEditorOpen, setEmailEditorOpen] = useState(false);
+
 
   
 
@@ -368,6 +372,11 @@ export default function Global() {
       total: custoConfEmail,
       checked: local.confirmacao_email,
       toggle: () => setLocal({ ...local, confirmacao_email: !local.confirmacao_email }),
+      action: {
+        label: "Personalizar",
+        icon: Pencil,
+        onClick: () => setEmailEditorOpen(true),
+      } as { label: string; icon: typeof Pencil; onClick: () => void } | undefined,
     },
   ];
 
@@ -657,6 +666,17 @@ export default function Global() {
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Total</p>
                   <p className="text-sm font-bold text-primary tabular-nums">{formatMoedas(ch.total)}</p>
                 </div>
+                {(ch as any).action && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(ch as any).action.onClick}
+                    className="gap-1.5 shrink-0"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{(ch as any).action.label}</span>
+                  </Button>
+                )}
                 <Switch checked={ch.checked} onCheckedChange={ch.toggle} />
               </div>
             </Card>
@@ -693,6 +713,18 @@ export default function Global() {
           </Button>
         </div>
       </div>
+
+      {loja?.id && (
+        <GlobalPaymentEmailEditor
+          open={emailEditorOpen}
+          onOpenChange={setEmailEditorOpen}
+          lojaId={loja.id}
+          initialEn={(config as any)?.confirm_email_template_en ?? null}
+          initialEs={(config as any)?.confirm_email_template_es ?? null}
+          empresaNome={loja?.nome}
+          origemNome={local.pais_origem_nome}
+        />
+      )}
     </div>
   );
 }

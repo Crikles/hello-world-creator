@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getTrackingUrl, resolveMarca } from "../_shared/tracking-url.ts";
+import { mergeTemplate, renderGlobalConfirmEmail, getEmailSubject, type GlobalLang as GLang } from "../_shared/global-confirm-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -274,7 +275,7 @@ Deno.serve(async (req) => {
         envioGlobal = envio;
         const { data: gcfg } = await supabase
           .from("global_flow_config")
-          .select("ativo, idioma, confirmacao_email, pais_origem_nome")
+          .select("ativo, idioma, confirmacao_email, pais_origem_nome, confirm_email_template_en, confirm_email_template_es")
           .eq("loja_id", loja_id)
           .maybeSingle();
         globalConfig = gcfg;
@@ -366,7 +367,17 @@ Deno.serve(async (req) => {
             console.warn("[payment-confirmation/global] Insufficient credits for email");
             results.email = "skipped_no_credits";
           } else {
-            const html = buildGlobalConfirmationEmail(lang, templateVars, empresa, originCountry, trackingLink);
+            const customTpl = lang === "es" ? globalConfig.confirm_email_template_es : globalConfig.confirm_email_template_en;
+            const mergedTpl = mergeTemplate(lang as GLang, customTpl || null);
+            const empresaNome = empresa?.nome_fantasia || empresa?.razao_social || "";
+            const html = renderGlobalConfirmEmail(lang as GLang, mergedTpl, {
+              nome: templateVars.nome,
+              produto: templateVars.produto,
+              valor: templateVars.valor,
+              empresa: empresaNome,
+              origem: originCountry,
+              tracking_url: trackingLink,
+            });
             const remetenteNome = empresa?.nome_fantasia || empresa?.razao_social || "Store";
             const fromEmail = `${remetenteNome} <contato@recuperacaodenegocios.com>`;
             try {
@@ -376,7 +387,7 @@ Deno.serve(async (req) => {
                 body: JSON.stringify({
                   from: fromEmail,
                   to: [pedido.customer_email],
-                  subject: GLOBAL_CONFIRM_I18N[lang].header,
+                  subject: getEmailSubject(lang as GLang, mergedTpl),
                   html,
                 }),
               });

@@ -632,6 +632,8 @@ export type Database = {
       global_flow_config: {
         Row: {
           ativo: boolean
+          confirm_email_template_en: Json | null
+          confirm_email_template_es: Json | null
           confirmacao_email: boolean
           confirmacao_sms: boolean
           created_at: string
@@ -645,6 +647,8 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          confirm_email_template_en?: Json | null
+          confirm_email_template_es?: Json | null
           confirmacao_email?: boolean
           confirmacao_sms?: boolean
           created_at?: string
@@ -658,6 +662,8 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          confirm_email_template_en?: Json | null
+          confirm_email_template_es?: Json | null
           confirmacao_email?: boolean
           confirmacao_sms?: boolean
           created_at?: string
