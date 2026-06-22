@@ -35,12 +35,17 @@ export function getLogisticsProvider(): string | null {
   const host = getHost();
   if (isMagnusDomain()) return null;
 
+  // TrackMaster — fluxo global por idioma
+  if (host === 'us.tracker-master.com') return 'trackmaster_us';
+  if (host === 'es.tracker-master.com') return 'trackmaster_es';
+  if (host.endsWith('.tracker-master.com')) return 'trackmaster_us';
+
   // JetLine — domínio próprio de rastreio.
   if (host === 'app.jetlinetransportes.com' || host.endsWith('.jetlinetransportes.com')) return 'jetline';
 
   if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return 'vetor';
   if (host === 'rastreio.jltransportelogistica.com' || host.endsWith('.jltransportelogistica.com')) return 'atlas';
-  if (host === 'atlas-cargo.org' || host === 'www.atlas-cargo.org' || host.includes('atlas')) return 'atlas';
+  if (host === 'atlas-cargo.org' || host === 'www.atlas-cargo.org' || host === 'app.atlas-cargo.org' || host.includes('atlas')) return 'atlas';
   if (host.includes('vetor')) return 'vetor';
   if (host.includes('jltransporte')) return 'atlas';
 

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getTrackingUrl, resolveMarca } from "../_shared/tracking-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,7 +78,7 @@ Deno.serve(async (req) => {
 
     const { data: envio, error: envioErr } = await supabase
       .from("envios")
-      .select("cliente_nome, cliente_telefone, codigo_rastreio, transportadora, loja_id")
+      .select("cliente_nome, cliente_telefone, codigo_rastreio, transportadora, loja_id, marca, is_international, global_flow_lang")
       .eq("id", envio_id)
       .single();
 
@@ -98,9 +99,17 @@ Deno.serve(async (req) => {
     const firstName = (envio.cliente_nome || "").split(" ")[0];
     const code = envio.codigo_rastreio || "";
 
-    // JL e Vetor descontinuados — todo link aponta para Atlas.
-    const baseUrl = "https://atlas-cargo.org";
-    const link = `${baseUrl}/r/${code}`;
+    // Link aponta para o domínio correto da marca do envio.
+    const { data: lojaRow } = await supabase
+      .from("lojas").select("logistica_provider").eq("id", envio.loja_id).maybeSingle();
+    const marca = resolveMarca({
+      marca: (envio as any).marca,
+      is_international: (envio as any).is_international,
+      global_flow_lang: (envio as any).global_flow_lang,
+      logistica_provider: lojaRow?.logistica_provider,
+      codigo_rastreio: code,
+    });
+    const link = getTrackingUrl(marca, code);
 
     const message = removeAccents(
       await getMessageFromDB(supabase, status_label, firstName, link)

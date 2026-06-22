@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getTrackingUrl, resolveMarca } from "../_shared/tracking-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -266,7 +267,7 @@ Deno.serve(async (req) => {
     if (pedido.envio_id) {
       const { data: envio } = await supabase
         .from("envios")
-        .select("id, is_international, global_flow_lang, codigo_rastreio")
+        .select("id, is_international, global_flow_lang, codigo_rastreio, marca")
         .eq("id", pedido.envio_id)
         .maybeSingle();
       if (envio?.is_international) {
@@ -321,7 +322,15 @@ Deno.serve(async (req) => {
         produto: produtoNome,
         valor: (pedido.total_price / 100).toFixed(2).replace(".", ","),
       };
-      const trackingLink = `https://atlas-cargo.org/r/${envioGlobal.codigo_rastreio || ""}`;
+      const trackingLink = getTrackingUrl(
+        resolveMarca({
+          marca: envioGlobal.marca,
+          is_international: envioGlobal.is_international,
+          global_flow_lang: lang,
+          codigo_rastreio: envioGlobal.codigo_rastreio,
+        }),
+        envioGlobal.codigo_rastreio || "",
+      );
       const originCountry = globalConfig.pais_origem_nome || "";
 
       const results: { email?: string } = {};

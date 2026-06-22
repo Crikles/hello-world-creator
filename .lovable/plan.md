@@ -1,59 +1,61 @@
-# Fluxo Global — Emails e SMS por Etapa (EN + ES)
-
-## Situação atual
-O `send-global-flow` hoje usa **um único template HTML genérico** que apenas marca qual das 10 etapas é a "atual" numa checklist. O SMS é uma frase só (`"estado de tu pedido: X"`). Isto significa que as 10 etapas, na prática, mandam o **mesmo email** com título diferente — não é o nível que queremos.
-
 ## Objetivo
-Construir conteúdo único, escrito à mão, para cada uma das 10 etapas, em **EN (US)** e **ES**, totalizando:
-- 20 emails HTML (10 EN + 10 ES) com copy, headline, corpo e CTA próprios da etapa
-- 20 mensagens SMS curtas (10 EN + 10 ES), cada uma com tom adequado à etapa (ex.: "saiu para entrega" tem urgência; "entregue" tem agradecimento)
 
-Mantemos o visual base (header com cor, checklist de progresso, botão de rastreio, rodapé com nome da empresa e país de origem) — o que muda por etapa é **título, parágrafo intro, parágrafo de contexto e SMS**.
+Alinhar este projeto (painel/back-end) ao spec do projeto de logística: cada envio passa a ter uma **marca** explícita, e todo link enviado ao cliente (email/SMS/WhatsApp) usa o **domínio correto da marca**, no formato `https://<dominio>/r/<codigo_rastreio>`.
 
-## Etapas e tom de cada uma
+## Mapeamento oficial
 
-| # | Etapa (EN / ES) | Tom do email |
-|---|---|---|
-| 1 | Order Received / Pedido Recibido | Boas-vindas, confirmação, prazo estimado |
-| 2 | Order Prepared / Pedido Preparado | Embalagem concluída, próximo passo |
-| 3 | Shipped by Sender / Enviado por el Remitente | Saiu da loja, código de rastreio em destaque |
-| 4 | Left Country of Origin / Salió del País de Origen | Despachado internacionalmente, menciona país de origem |
-| 5 | In International Transit / En Tránsito Internacional | A caminho, tempo de voo/transporte |
-| 6 | Arrived at Destination Country / Llegó al País de Destino | Chegada confirmada, próximo: alfândega |
-| 7 | In Customs Processing / En Procesamiento Aduanero | Tranquilizador, processo normal, sem ação do cliente |
-| 8 | In Local Transit / En Tránsito Local | Liberado, indo para centro de distribuição local |
-| 9 | Out for Delivery / Salió para Entrega | Urgência positiva — "hoje!", pede alguém em casa |
-| 10 | Delivered / Entregado | Agradecimento, pedido de feedback/avaliação |
+| Marca | Valor no banco | Domínio | Idioma | Sufixo do código |
+|---|---|---|---|---|
+| JET LINE | `jetline` | app.jetlinetransportes.com | PT-BR | `JL` (ex.: `BRxxxxJL`) |
+| ATLAS | `atlas` | app.atlas-cargo.org | PT-BR | `AT` |
+| TrackMaster US | `trackmaster_us` | us.tracker-master.com | EN | `TM` + final `US` |
+| TrackMaster ES | `trackmaster_es` | es.tracker-master.com | ES | `TM` + final `ES` |
 
-## Arquitetura técnica
+## Como a marca é decidida
 
-### Novo arquivo: `supabase/functions/send-global-flow/templates.ts`
-Exporta dois objetos tipados:
-```ts
-export const EMAIL_TEMPLATES: Record<Lang, Record<1..10, {
-  subject: (ctx) => string;
-  preview: string;
-  headline: string;
-  intro: (name) => string;
-  body: string;        // parágrafo principal da etapa
-  hint?: string;       // dica opcional (ex.: "tenha alguém em casa")
-  ctaLabel: string;
-}>>
+- **Envio nacional** (`is_international = false`): herda da loja → `lojas.logistica_provider` (`atlas` ou `jetline`).
+- **Envio global** (`is_international = true`): pelo idioma do fluxo global
+  - `global_flow_lang = 'en'` (ou config padrão) → `trackmaster_us`
+  - `global_flow_lang = 'es'` → `trackmaster_es`
+  - `pt` em envio internacional cai em `trackmaster_us` (fallback) — confirmar abaixo.
 
-export const SMS_TEMPLATES: Record<Lang, Record<1..10, (ctx) => string>>
-```
+## Mudanças
 
-### `supabase/functions/send-global-flow/index.ts`
-- Substituir `I18N.subject/preview/intro/...` e `I18N.sms` por leitura de `EMAIL_TEMPLATES[lang][step]` e `SMS_TEMPLATES[lang][step]`.
-- Manter `buildEmailHtml` mas receber agora um objeto `content` da etapa (headline, intro, body, hint, ctaLabel) em vez do label fixo.
-- A checklist visual das 10 etapas continua igual (mantém senso de progresso).
-- Nada muda em custos, débito de créditos, RLS, ou na tabela `global_flow_eventos`.
+### 1. Banco
+- Migration para adicionar `envios.marca text` (nullable, mas preenchida por trigger).
+- Atualizar `generate_tracking_code()`:
+  - Detectar marca em `BEFORE INSERT` usando `is_international` + `global_flow_lang` + `lojas.logistica_provider`.
+  - Gerar sufixo conforme tabela (TM…US, TM…ES, …JL, …AT).
+  - Gravar `NEW.marca` e `NEW.transportadora` coerentes.
+- Backfill: preencher `marca` em envios existentes a partir do sufixo do `codigo_rastreio` atual + `is_international`.
 
-### Sem mudanças em
-- Frontend (`Global.tsx`)
-- Migrations
-- `send-payment-confirmation`
-- Admin / custos
+### 2. Helper único de URL de rastreio
+Criar `getTrackingUrl(marca, codigo)` em dois lugares espelhados:
+- `src/lib/tracking-url.ts` (front)
+- `supabase/functions/_shared/tracking-url.ts` (edge functions)
 
-## Entrega
-Um único PR: cria `templates.ts` com os 20 emails + 20 SMS escritos por extenso, e refatora `index.ts` para consumir. Deploy do `send-global-flow`.
+Único ponto de verdade — todo email/SMS/WhatsApp passa a importar daqui.
+
+### 3. Edge functions que mandam link ao cliente
+Trocar o domínio fixo pelo helper:
+- `send-global-flow/index.ts` — hoje hardcoda `https://atlas-cargo.org/r/...` mesmo em envio internacional. Passar a usar `trackmaster_us` / `trackmaster_es` conforme `lang`.
+- `send-email`, `send-sms`, `send-whatsapp`, `send-payment-confirmation`, `send-recovery-email`, `send-recovery-sms`, `auto-whatsapp-new-order`, `bulk-send-status-email`, `backfill-missed-emails`, `resend-daily-emails`, `retry-failed-sends` — auditar e trocar qualquer link `atlas-cargo.org/r/...` ou similar pelo helper baseado na `marca` do envio.
+- `redirect/index.ts` (link curto) — passar a resolver o domínio destino pela `marca` do envio/pedido em vez de `BASE_URL` fixo no Atlas.
+
+### 4. Frontend
+- `src/lib/domain-config.ts`: adicionar `us.tracker-master.com` e `es.tracker-master.com` como domínios de logística reconhecidos, com `getLogisticsProvider` retornando `trackmaster_us` / `trackmaster_es`.
+- Página `Global.tsx` e qualquer botão "Ver rastreio" que monta URL: usar o helper.
+
+### 5. Validação / entrega ao outro projeto
+Não precisa endpoint novo — o outro projeto lê a tabela `envios` direto. Garantimos só que:
+- `codigo_rastreio` segue o padrão por marca
+- `marca` está sempre preenchida
+- `status`, `status_label`, `eventos`, etc. continuam atualizados em tempo real
+
+Após implementar, gero uma amostra de 4 códigos (um por marca) para você validar manualmente nos 4 domínios.
+
+## Perguntas rápidas antes de implementar
+
+1. **Envio internacional com `global_flow_lang = 'pt'`** (raro mas existe) → cai em `trackmaster_us` ou `atlas`?
+2. **Backfill**: reescrevo o sufixo dos códigos antigos para o novo padrão (TM…US/ES nos internacionais) ou mantenho os códigos antigos como estão e só preencho a coluna `marca`?
+3. Quer que eu adicione um campo na UI da loja para **forçar manualmente** a marca de um envio (override), ou a decisão automática basta?

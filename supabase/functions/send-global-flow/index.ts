@@ -6,6 +6,7 @@ import {
   type EmailContent,
   type Lang,
 } from "./templates.ts";
+import { getTrackingUrl, resolveMarca } from "../_shared/tracking-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,7 +114,7 @@ Deno.serve(async (req) => {
 
     const { data: envio } = await supabase
       .from("envios")
-      .select("id, loja_id, cliente_nome, cliente_email, cliente_telefone, codigo_rastreio, is_international, global_flow_lang")
+      .select("id, loja_id, cliente_nome, cliente_email, cliente_telefone, codigo_rastreio, is_international, global_flow_lang, marca")
       .eq("id", envio_id)
       .single();
 
@@ -146,7 +147,13 @@ Deno.serve(async (req) => {
 
     const lang: Lang = (envio.global_flow_lang || config.idioma || "en") as Lang;
     const firstName = (envio.cliente_nome || (lang === "es" ? "Cliente" : "Customer")).split(" ")[0];
-    const link = `https://atlas-cargo.org/r/${envio.codigo_rastreio || ""}`;
+    const marca = resolveMarca({
+      marca: (envio as any).marca,
+      is_international: envio.is_international,
+      global_flow_lang: lang,
+      codigo_rastreio: envio.codigo_rastreio,
+    });
+    const link = getTrackingUrl(marca, envio.codigo_rastreio || "");
 
     const { data: loja } = await supabase.from("lojas").select("user_id").eq("id", envio.loja_id).single();
     const { data: empresa } = await supabase
