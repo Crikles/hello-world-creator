@@ -666,6 +666,17 @@ export default function Global() {
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Total</p>
                   <p className="text-sm font-bold text-primary tabular-nums">{formatMoedas(ch.total)}</p>
                 </div>
+                {(ch as any).action && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(ch as any).action.onClick}
+                    className="gap-1.5 shrink-0"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{(ch as any).action.label}</span>
+                  </Button>
+                )}
                 <Switch checked={ch.checked} onCheckedChange={ch.toggle} />
               </div>
             </Card>
