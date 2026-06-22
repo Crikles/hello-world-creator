@@ -265,6 +265,7 @@ Deno.serve(async (req) => {
       .eq("loja_id", loja_id)
       .gte("ultimo_evento_ordem", nfeEvent.ordem)
       .is("deleted_at", null)
+      .or("is_international.is.null,is_international.eq.false")
       .order("created_at", { ascending: true })
       .range(offset, offset + batch_size - 1);
 
