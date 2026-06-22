@@ -26,9 +26,11 @@ import {
   Clock,
   GripVertical,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { GlobalPaymentEmailEditor } from "@/components/global/GlobalPaymentEmailEditor";
 import { COUNTRIES, type Country } from "@/lib/countries";
 
 type Lang = "en" | "es";
