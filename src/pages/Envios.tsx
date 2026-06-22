@@ -1242,20 +1242,42 @@ export default function Envios() {
                     {getDisplayStatus(envio)}
                   </Badge>
                   {/* Transportadora tag */}
-                  <Badge
-                    variant="outline"
-                    className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${
-                      isJadlog(envio)
-                        ? 'bg-destructive/10 text-destructive border-destructive/30'
-                        : isVetor(envio)
-                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
-                          : isAtlas(envio)
-                            ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700'
-                            : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
-                    }`}
-                  >
-                    {isJadlog(envio) ? 'JADLOG' : isVetor(envio) ? 'VETOR' : 'ATLAS'}
-                  </Badge>
+                  {(() => {
+                    const jadlog = isJadlog(envio);
+                    const vetor = isVetor(envio);
+                    const marca = resolveMarca({
+                      marca: envio.marca,
+                      is_international: envio.is_international,
+                      global_flow_lang: envio.global_flow_lang,
+                      codigo_rastreio: envio.codigo_rastreio,
+                    });
+                    let label = "ATLAS";
+                    let cls = "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700";
+                    if (jadlog) {
+                      label = "JADLOG";
+                      cls = "bg-destructive/10 text-destructive border-destructive/30";
+                    } else if (vetor) {
+                      label = "VETOR";
+                      cls = "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700";
+                    } else if (marca === "jetline") {
+                      label = "JETLINE";
+                      cls = "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700";
+                    } else if (marca === "trackmaster_us") {
+                      label = "GLOBAL US";
+                      cls = "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700";
+                    } else if (marca === "trackmaster_es") {
+                      label = "GLOBAL ES";
+                      cls = "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-700";
+                    }
+                    return (
+                      <Badge
+                        variant="outline"
+                        className={`text-[8px] px-1.5 py-0 h-4 whitespace-nowrap shrink-0 font-bold ${cls}`}
+                      >
+                        {label}
+                      </Badge>
+                    );
+                  })()}
                   {/* Código de rastreio */}
                   {envio.codigo_rastreio && (
                     <button
