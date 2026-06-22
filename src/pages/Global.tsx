@@ -165,6 +165,7 @@ export default function Global() {
   const [activeTab, setActiveTab] = useState("visao");
   const [local, setLocal] = useState<GlobalConfig | null>(null);
   const [localDelays, setLocalDelays] = useState<Record<string, number>>({});
+  const [emailEditorOpen, setEmailEditorOpen] = useState(false);
 
 
   const { data: config, isLoading } = useQuery({
