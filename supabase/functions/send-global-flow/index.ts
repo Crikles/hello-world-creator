@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
           }
           const html = buildEmailHtml(lang, step, content, link, ctx.empresa, ctx.originCountry);
           const fromName = empresaNome || "Tracking";
-          const from = `${fromName} <contato@recuperacaodenegocios.com>`;
+          const from = `${fromName} <noreply@holdingtransportesbr.com>`;
           try {
             const r = await fetch("https://api.resend.com/emails", {
               method: "POST",
