@@ -23,6 +23,7 @@ import logoCorvex from "@/assets/logo-corvex.ico";
 import logoAdoorei from "@/assets/logo-adoorei.png";
 import logoNuvorafy from "@/assets/logo-nuvorafy.png";
 import logoAlphazz from "@/assets/logo-alphazz.png";
+import logoCloudfy from "@/assets/logo-cloudfy.png";
 
 const WEBHOOK_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -35,6 +36,7 @@ const checkouts = [
   { id: "adoorei", name: "Adoorei Checkout", description: "Integração com Adoorei Checkout", logo: logoAdoorei, webhookFn: "webhook-adoorei" },
   { id: "nuvorafy", name: "Nuvorafy Checkout", description: "Integração com Nuvorafy Checkout", logo: logoNuvorafy, webhookFn: "webhook-nuvorafy" },
   { id: "alphazz", name: "Alphazz Checkout", description: "Integração com Alphazz Checkout", logo: logoAlphazz, webhookFn: "webhook-alphazz" },
+  { id: "cloudfy", name: "Cloudfy Checkout", description: "Integração com Cloudfy Checkout", logo: logoCloudfy, webhookFn: "webhook-cloudfy" },
 ];
 
 export default function Integracoes() {
