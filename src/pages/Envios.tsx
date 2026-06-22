@@ -868,6 +868,9 @@ export default function Envios() {
   };
 
   const getTotalEventos = (envio: any) => {
+    if (envio?.is_international || envio?.global_flow_lang) {
+      return globalFlowCount || 10;
+    }
     const tid = envio.postagem_template_id;
     if (tid && eventCountMap[tid] !== undefined) return eventCountMap[tid];
     // Fallback: try any available count
