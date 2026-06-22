@@ -426,6 +426,21 @@ export default function Envios() {
     enabled: !!loja && paginatedEnvios.length > 0,
   });
 
+  // Total de etapas do Fluxo Global (para envios internacionais)
+  const { data: globalFlowCount = 0 } = useQuery({
+    queryKey: ["global-flow-count", loja?.id],
+    queryFn: async () => {
+      if (!loja) return 0;
+      const { count } = await supabase
+        .from("global_flow_eventos")
+        .select("id", { count: "exact", head: true })
+        .eq("loja_id", loja.id)
+        .eq("ativo", true);
+      return count ?? 0;
+    },
+    enabled: !!loja,
+  });
+
   // Realtime listener for envios updates
   useEffect(() => {
     if (!loja?.id) return;
