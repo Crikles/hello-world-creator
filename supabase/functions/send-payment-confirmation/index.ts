@@ -377,6 +377,7 @@ Deno.serve(async (req) => {
               empresa: empresaNome,
               origem: originCountry,
               tracking_url: trackingLink,
+              logo_url: empresa?.logo_url || null,
             });
             const remetenteNome = empresa?.nome_fantasia || empresa?.razao_social || "Store";
             const fromEmail = `${remetenteNome} <contato@recuperacaodenegocios.com>`;
