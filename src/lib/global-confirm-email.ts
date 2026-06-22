@@ -97,8 +97,13 @@ export function renderGlobalConfirmEmail(
 <tr><td align="center">
 <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
   <tr><td style="padding:24px 32px 16px;border-bottom:2px solid ${accent};">
-    <p style="margin:0;font-size:15px;font-weight:700;color:${accent};">${e(template.header)}</p>
-    <p style="margin:2px 0 0;font-size:12px;color:#888;">${escapeHtml(vars.empresa)} · ${shippedFrom} ${escapeHtml(vars.origem)}</p>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      ${vars.logo_url ? `<td style="width:48px;vertical-align:middle;"><img src="${escapeHtml(vars.logo_url)}" alt="${escapeHtml(vars.empresa)}" style="max-height:40px;max-width:40px;border-radius:6px;display:block;" /></td>` : ""}
+      <td style="vertical-align:middle;${vars.logo_url ? "padding-left:12px;" : ""}">
+        <p style="margin:0;font-size:15px;font-weight:700;color:${accent};">${e(template.header)}</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#888;">${escapeHtml(vars.empresa)} · ${shippedFrom} ${escapeHtml(vars.origem)}</p>
+      </td>
+    </tr></table>
   </td></tr>
   <tr><td style="padding:24px 32px 8px;">
     <p style="font-size:15px;color:#222;margin:0 0 8px;">${e(template.greeting)}</p>
