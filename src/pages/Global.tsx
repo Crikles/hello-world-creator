@@ -165,6 +165,7 @@ export default function Global() {
   const [activeTab, setActiveTab] = useState("visao");
   const [local, setLocal] = useState<GlobalConfig | null>(null);
   const [localDelays, setLocalDelays] = useState<Record<string, number>>({});
+  const [emailEditorOpen, setEmailEditorOpen] = useState(false);
 
 
   const { data: config, isLoading } = useQuery({
@@ -333,7 +334,6 @@ export default function Global() {
   if (isLoading || !local) {
     return <div className="p-8 text-sm text-muted-foreground">Carregando…</div>;
   }
-  const [emailEditorOpen, setEmailEditorOpen] = useState(false);
 
 
   
