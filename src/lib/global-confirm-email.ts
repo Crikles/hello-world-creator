@@ -51,6 +51,7 @@ export interface GlobalConfirmVars {
   empresa: string;
   origem: string;
   tracking_url: string;
+  logo_url?: string | null;
 }
 
 function escapeHtml(s: string): string {
