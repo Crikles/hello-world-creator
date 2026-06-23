@@ -21,9 +21,18 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing envio_id or loja_id" }), { status: 400 });
     }
 
+    // Auth: service-role OR loja owner OR admin
+    const { getAuthContext, userOwnsLoja, unauthorized, forbidden } = await import("../_shared/auth.ts");
+    const auth = await getAuthContext(req);
+    if (!auth.isServiceRole) {
+      if (!auth.userId) return unauthorized();
+      if (!auth.isAdmin && !(await userOwnsLoja(auth.userId, loja_id))) return forbidden();
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
 
     // 1. Check if whatsapp_auto_send is ON and get delay config
     const { data: config } = await supabase
