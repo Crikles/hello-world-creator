@@ -112,10 +112,13 @@ export function LiveActivityTable({ rows }: Props) {
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-zinc-200 text-sm font-medium">
-                    {r.customerName}
-                  </span>
-                  <span className="font-mono text-xs text-zinc-500">{timeAgo(r.at, now)}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-zinc-200 text-sm font-medium truncate">
+                      {r.customerName}
+                    </span>
+                    <ScopeBadge scope={r.scope} />
+                  </div>
+                  <span className="font-mono text-xs text-zinc-500 shrink-0">{timeAgo(r.at, now)}</span>
                 </div>
                 <div className="font-mono text-xs text-blue-400 mb-1">{r.trackingCode}</div>
                 <div className="flex items-center justify-between">
