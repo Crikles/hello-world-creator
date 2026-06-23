@@ -15,6 +15,21 @@ function timeAgo(ts: number, now: number): string {
   return `há ${h}h`;
 }
 
+function ScopeBadge({ scope }: { scope: "global" | "nacional" }) {
+  const isGlobal = scope === "global";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+        isGlobal
+          ? "bg-blue-500/15 border-blue-500/40 text-blue-300"
+          : "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+      }`}
+    >
+      {isGlobal ? "Global" : "Nacional"}
+    </span>
+  );
+}
+
 export function LiveActivityTable({ rows }: Props) {
   const [now, setNow] = useState(Date.now());
 
@@ -61,7 +76,10 @@ export function LiveActivityTable({ rows }: Props) {
                   >
                     <TableCell className="font-mono text-xs text-zinc-400">{timeAgo(r.at, now)}</TableCell>
                     <TableCell className="text-zinc-200 text-sm">
-                      {r.customerName}
+                      <div className="flex items-center gap-2">
+                        <span>{r.customerName}</span>
+                        <ScopeBadge scope={r.scope} />
+                      </div>
                     </TableCell>
                     <TableCell className="font-mono text-xs text-blue-400">{r.trackingCode}</TableCell>
                     <TableCell>
@@ -94,10 +112,13 @@ export function LiveActivityTable({ rows }: Props) {
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-zinc-200 text-sm font-medium">
-                    {r.customerName}
-                  </span>
-                  <span className="font-mono text-xs text-zinc-500">{timeAgo(r.at, now)}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-zinc-200 text-sm font-medium truncate">
+                      {r.customerName}
+                    </span>
+                    <ScopeBadge scope={r.scope} />
+                  </div>
+                  <span className="font-mono text-xs text-zinc-500 shrink-0">{timeAgo(r.at, now)}</span>
                 </div>
                 <div className="font-mono text-xs text-blue-400 mb-1">{r.trackingCode}</div>
                 <div className="flex items-center justify-between">
