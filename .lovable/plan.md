@@ -1,44 +1,66 @@
-## Problema
+## Objetivo
 
-No e-mail (ex.: "Nota Fiscal Emitida"), o campo **TRANSPORTADORA** mostra "ATLAS Transportes" mesmo quando o código de rastreio é da **JETLINE** (sufixo `JL`, ex.: `BR308EE00E05JL`).
+Remover toda dependência de `atlas-cargo.org` (raiz) e `www.atlas-cargo.org` para que você possa **excluí-los do painel Lovable** sem quebrar nada. O subdomínio `app.atlas-cargo.org` continua como **único host público de rastreio Atlas**.
 
-## Causa raiz
+## Trocas no código
 
-Em `supabase/functions/send-email/index.ts`, a função `resolveTransportadora` está com dois bugs:
-
+### 1. `src/lib/domain-config.ts`
+Linha 48 — remover hosts raiz/www, manter só `app.atlas-cargo.org`:
 ```ts
-// linha 186
-if (code.endsWith("JL")) return "ATLAS Transportes";   // ❌ deveria ser JETLINE
-// linha 188
-if (stored.toUpperCase().includes("JL")) return DEFAULT_TRANSPORTADORA; // ❌ sobrescreve qualquer "JETLINE" salvo
+if (host === 'app.atlas-cargo.org') return 'atlas';
+if (host.includes('jltransporte')) return 'atlas';
+```
+Tira também o catch‑all `host.includes('atlas')` (genérico demais) e o comentário sobre `atlas-cargo.org` no topo do arquivo.
+
+### 2. `index.html` (linha 27)
+Redirect dos domínios antigos (JL/Vetor) passa a apontar para `app.atlas-cargo.org`:
+```js
+location.replace('https://app.atlas-cargo.org' + location.pathname + ...);
 ```
 
-Ou seja, mesmo a `envios.transportadora` já vindo gravada como `JETLINE Logística` (o trigger `generate_tracking_code` faz isso corretamente no banco), o `send-email` sobrescreve para ATLAS.
+### 3. `supabase/functions/send-email/index.ts` (linha 403)
+Default `appBaseUrl` muda para `https://app.atlas-cargo.org`.
 
-## Correção
-
-Editar `supabase/functions/send-email/index.ts` — função `resolveTransportadora`:
-
-1. Linha 186: trocar para `return "JETLINE Logística";`
-2. Linha 188: remover a regra que descarta valores contendo "JL" (essa regra estava forçando ATLAS quando o valor armazenado mencionava JL).
-
-Resultado final:
-
-```ts
-function resolveTransportadora(envio: Record<string, unknown>): string {
-  const code = ((envio.codigo_rastreio as string) || "").toUpperCase();
-  if (code.endsWith("AT")) return "ATLAS Transportes";
-  if (code.endsWith("VT")) return "Vetor Transportes";
-  if (code.endsWith("JD")) return "Jadlog";
-  if (code.endsWith("JL")) return "JETLINE Logística";
-  const stored = (envio.transportadora as string) || "";
-  if (stored.trim()) return stored;
-  return DEFAULT_TRANSPORTADORA;
-}
+### 4. `src/pages/Integracoes.tsx` (linha 342) — script do widget
+```html
+<script src="https://app.atlas-cargo.org/widget/tracking.js" async></script>
 ```
 
-## Escopo
+### 5. `public/widget/tracking.js` (comentário linha 5)
+Atualizar exemplo no comentário do header para `app.atlas-cargo.org`.
 
-- Não altera banco, RLS, frontend, nem fluxo global — só esse único helper na edge function de e-mails.
-- `rastreio-info` e `pagamento-info` já usam `envio.transportadora` armazenada (que o trigger preenche corretamente), então não precisam mudar.
-- E-mails novos passam a exibir "JETLINE Logística" para códigos `…JL`; e-mails já enviados não são afetados.
+### 6. `src/pages/Postagens.tsx` (linha 883)
+Provider "atlas" → `site: "https://app.atlas-cargo.org"`.
+
+### 7. Admin placeholders (cosmético)
+- `src/pages/admin/AdminSMS.tsx` linha 94 → `https://app.atlas-cargo.org/r/...`
+- `src/pages/admin/AdminPush.tsx` linhas 413 e 525 → idem.
+
+### 8. `src/data/tutorials.ts` (linha 371)
+Texto do tutorial: substituir "atlas-cargo.org" por "app.atlas-cargo.org".
+
+### 9. E‑mails/contato (sem mudança de domínio, só checagem)
+- `contato@atlas-cargo.org` em `TermosPrivacidade.tsx`, `Rastreio.tsx` e `send-push-notification/index.ts` — **manter**. É e‑mail no domínio raiz, independente de o site raiz estar publicado; o MX continua válido mesmo se o domínio for excluído do Lovable, **desde que o DNS no registrar siga existindo**. Se você for excluir o domínio também do registrar, esse e‑mail morre — me avise que eu troco para `contato@magnusfrete.net` ou outro.
+
+## Migração no banco (opcional, recomendado)
+
+Lojas com `logistica_provider='atlas'` que tenham `app_base_url`/links já gravados apontando para `atlas-cargo.org` continuariam expondo o domínio antigo nos e‑mails antigos. Não há schema novo, é só um UPDATE de dados:
+
+```sql
+UPDATE postagem_config
+SET <campo_que_armazena_link> = REPLACE(<campo>, 'https://atlas-cargo.org', 'https://app.atlas-cargo.org')
+WHERE <campo> ILIKE '%atlas-cargo.org%';
+```
+
+Como não tenho certeza de quais colunas guardam URL hardcoded, na etapa de build vou listar primeiro com um SELECT, mostro o resultado, e só rodo o UPDATE depois.
+
+## Fora de escopo
+
+- Não mexo nos guardas que tratam JL/Vetor como logística — eles continuam redirecionando para Atlas.
+- Não mexo em `magnusfrete.net` (painel) nem em outros providers (`trackmaster_*`, `jetline`, `vetor`).
+
+## O que você faz depois do deploy
+
+1. Confirmar que `https://app.atlas-cargo.org/r/<codigo>` abre o rastreio normalmente.
+2. No painel Lovable → **Project Settings → Domains**, remover `atlas-cargo.org` e `www.atlas-cargo.org`.
+3. (Opcional) No registrar, apagar os registros A de `@` e `www` se também não for mais usar o raiz — mas mantenha os registros MX se quiser preservar `contato@atlas-cargo.org`.

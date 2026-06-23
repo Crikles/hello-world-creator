@@ -339,7 +339,7 @@ export default function Integracoes() {
 function WidgetRastreioCard({ lojaId }: { lojaId?: string }) {
   const [copied, setCopied] = useState<string | null>(null);
   const snippet = lojaId
-    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"></div>\n<script src="https://atlas-cargo.org/widget/tracking.js" async></script>`
+    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"></div>\n<script src="https://app.atlas-cargo.org/widget/tracking.js" async></script>`
     : `<!-- Selecione uma loja primeiro -->`;
 
   const copy = async (key: string, text: string) => {

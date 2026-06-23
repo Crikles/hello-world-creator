@@ -880,7 +880,7 @@ function LogisticaTab({ lojaId }: { lojaId?: string }) {
   });
 
   const providers = [
-    { id: "atlas", label: "Atlas Transportes", short: "ATLAS", site: "https://atlas-cargo.org" },
+    { id: "atlas", label: "Atlas Transportes", short: "ATLAS", site: "https://app.atlas-cargo.org" },
     { id: "jetline", label: "JetLine Logística", short: "JETLINE", site: "https://jetline-log.com" },
   ];
 
