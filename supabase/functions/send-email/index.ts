@@ -183,9 +183,8 @@ function resolveTransportadora(envio: Record<string, unknown>): string {
   if (code.endsWith("AT")) return "ATLAS Transportes";
   if (code.endsWith("VT")) return "Vetor Transportes";
   if (code.endsWith("JD")) return "Jadlog";
-  if (code.endsWith("JL")) return "ATLAS Transportes";
+  if (code.endsWith("JL")) return "JETLINE Logística";
   const stored = (envio.transportadora as string) || "";
-  if (stored.toUpperCase().includes("JL")) return DEFAULT_TRANSPORTADORA;
   if (stored.trim()) return stored;
   return DEFAULT_TRANSPORTADORA;
 }
