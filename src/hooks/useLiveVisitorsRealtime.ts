@@ -15,6 +15,7 @@ export interface RecentActivity {
   trackingCode: string;
   customerName: string;
   status: string;
+  scope: "global" | "nacional";
   at: number;
 }
 
