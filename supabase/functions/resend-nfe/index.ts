@@ -218,6 +218,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Auth: service-role OR loja owner OR admin
+    const { getAuthContext, userOwnsLoja, unauthorized, forbidden } = await import("../_shared/auth.ts");
+    const auth = await getAuthContext(req);
+    if (!auth.isServiceRole) {
+      if (!auth.userId) return unauthorized();
+      if (!auth.isAdmin && !(await userOwnsLoja(auth.userId, loja_id))) return forbidden();
+    }
+
+
     // Get config + template
     const { data: config } = await supabase
       .from("postagem_config")
