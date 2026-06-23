@@ -15,6 +15,21 @@ function timeAgo(ts: number, now: number): string {
   return `há ${h}h`;
 }
 
+function ScopeBadge({ scope }: { scope: "global" | "nacional" }) {
+  const isGlobal = scope === "global";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+        isGlobal
+          ? "bg-blue-500/15 border-blue-500/40 text-blue-300"
+          : "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+      }`}
+    >
+      {isGlobal ? "Global" : "Nacional"}
+    </span>
+  );
+}
+
 export function LiveActivityTable({ rows }: Props) {
   const [now, setNow] = useState(Date.now());
 
