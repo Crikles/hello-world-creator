@@ -235,11 +235,12 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
           new Set(newOnes.map((r) => r.codigo_rastreio).filter(Boolean) as string[]),
         );
         const nameMap = new Map<string, string>();
+        const scopeMap = new Map<string, "global" | "nacional">();
         const cityMap = new Map<string, { city: string | null; state: string | null; name: string | null }>();
         if (codes.length > 0) {
           const { data: envios } = await supabase
             .from("envios")
-            .select("codigo_rastreio, cliente_nome, cliente_cidade, cliente_estado")
+            .select("codigo_rastreio, cliente_nome, cliente_cidade, cliente_estado, is_international")
             .eq("loja_id", lojaId)
             .in("codigo_rastreio", codes);
           if (envios) {
@@ -248,9 +249,11 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
               cliente_nome: string | null;
               cliente_cidade: string | null;
               cliente_estado: string | null;
+              is_international: boolean | null;
             }>) {
               if (!e.codigo_rastreio) continue;
               if (e.cliente_nome) nameMap.set(e.codigo_rastreio, e.cliente_nome);
+              scopeMap.set(e.codigo_rastreio, e.is_international ? "global" : "nacional");
               cityMap.set(e.codigo_rastreio, {
                 city: e.cliente_cidade,
                 state: e.cliente_estado,
@@ -273,6 +276,8 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
           const adds: RecentActivity[] = newOnes.map((r) => {
             const envioInfo = r.codigo_rastreio ? cityMap.get(r.codigo_rastreio) : undefined;
             const displayCity = envioInfo?.city || r.cidade || "Localização desconhecida";
+            const scope: "global" | "nacional" =
+              (r.codigo_rastreio && scopeMap.get(r.codigo_rastreio)) || "nacional";
             return {
               id: r.id,
               city: displayCity,
@@ -282,6 +287,7 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
               customerName:
                 (r.codigo_rastreio && nameMap.get(r.codigo_rastreio)) || "Cliente anônimo",
               status: "Visualizando rastreio",
+              scope,
               at: new Date(r.last_seen_at).getTime(),
             };
           });
