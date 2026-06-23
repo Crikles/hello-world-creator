@@ -222,10 +222,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Auth: service-role OR loja owner OR admin
+    const { getAuthContext, userOwnsLoja, unauthorized, forbidden } = await import("../_shared/auth.ts");
+    const auth = await getAuthContext(req);
+    if (!auth.isServiceRole) {
+      if (!auth.userId) return unauthorized();
+      if (!auth.isAdmin && !(await userOwnsLoja(auth.userId, loja_id))) return forbidden();
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
 
     // 1. Get pedido data
     const { data: pedido } = await supabase

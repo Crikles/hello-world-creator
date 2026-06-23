@@ -20,8 +20,10 @@ Deno.serve(async (req) => {
     const internalKey = req.headers.get("x-internal-key") || "";
     const cronKey = req.headers.get("x-cron-key") || "";
     let isServiceRole = false;
-    if (cronKey && cronKey === "drain-phantom-emails-2026") {
+    const cronSecret = Deno.env.get("CRON_SECRET") || "";
+    if (cronKey && cronSecret && cronKey === cronSecret) {
       isServiceRole = true;
+
     } else if (internalKey && internalKey === serviceRoleKey) {
       isServiceRole = true;
     } else if (token && token === serviceRoleKey) {

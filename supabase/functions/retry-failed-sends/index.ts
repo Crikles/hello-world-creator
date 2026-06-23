@@ -394,8 +394,28 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     let { loja_id, user_id } = body as { loja_id?: string; user_id?: string };
 
-    // Internal rechain: continue an in-flight execution in a fresh invocation
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+
+    // Detect service-role caller (raw key or signed JWT)
+    let isServiceRole = !!token && token === serviceRoleKey;
+    if (!isServiceRole && token) {
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload?.role === "service_role") isServiceRole = true;
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Internal rechain: ONLY allowed for service-role callers
     if ((body as any).__rechain && (body as any).execucao_id && Array.isArray((body as any).loja_ids)) {
+      if (!isServiceRole) {
+        return new Response(JSON.stringify({ error: "Não autorizado" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const execucaoId = (body as any).execucao_id as string;
       const lojaIdsR = (body as any).loja_ids as string[];
       await processInBackground({ supabaseUrl, serviceRoleKey, lojaIds: lojaIdsR, execucaoId });
@@ -405,13 +425,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    const authHeader = req.headers.get("authorization") || "";
-    if (!user_id && authHeader && authHeader !== `Bearer ${anonKey}`) {
+    if (!user_id && authHeader && authHeader !== `Bearer ${anonKey}` && !isServiceRole) {
       const supabaseAuth = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
       });
       const { data: { user } } = await supabaseAuth.auth.getUser();
       if (user) user_id = user.id;
+    }
+
+    if (!isServiceRole && !user_id) {
+      return new Response(
+        JSON.stringify({ error: "Não autorizado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (!loja_id && !user_id) {
@@ -420,6 +446,7 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
     let lojaIds: string[] = [];
     if (loja_id) {
