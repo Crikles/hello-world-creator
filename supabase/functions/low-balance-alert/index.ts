@@ -20,6 +20,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Auth: service-role OR the same user OR admin
+    const { getAuthContext, unauthorized, forbidden } = await import("../_shared/auth.ts");
+    const auth = await getAuthContext(req);
+    if (!auth.isServiceRole) {
+      if (!auth.userId) return unauthorized();
+      if (!auth.isAdmin && auth.userId !== user_id) return forbidden();
+    }
+
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
