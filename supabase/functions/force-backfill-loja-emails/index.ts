@@ -22,7 +22,9 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     const cronKey = req.headers.get("x-cron-key") || "";
-    let isServiceRole = token === serviceRoleKey || cronKey === "force-backfill-loja-2026";
+    const cronSecret = Deno.env.get("CRON_SECRET") || "";
+    let isServiceRole = token === serviceRoleKey || (!!cronKey && !!cronSecret && cronKey === cronSecret);
+
     if (!isServiceRole) {
       try {
         const parts = token.split(".");
