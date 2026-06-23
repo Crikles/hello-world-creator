@@ -368,7 +368,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       "Abra 'Configurações' → aba 'Postagens'.",
       "A transportadora ativa é ATLAS.",
-      "Salve. Próximos envios já sairão com o sufixo AT e o domínio atlas-cargo.org nos links.",
+      "Salve. Próximos envios já sairão com o sufixo AT e o domínio app.atlas-cargo.org nos links.",
     ],
     tips: [
       "A transportadora afeta domínio, branding dos e-mails e código de rastreio.",

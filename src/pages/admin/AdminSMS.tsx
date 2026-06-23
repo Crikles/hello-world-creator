@@ -91,7 +91,7 @@ function SmsTemplates() {
     editedMessages[template.id] ?? template.mensagem;
 
   const getPreview = (msg: string) =>
-    msg.replace(/\{nome\}/g, "João").replace(/\{link\}/g, "https://atlas-cargo.org/r/BR1234ABCDEF");
+    msg.replace(/\{nome\}/g, "João").replace(/\{link\}/g, "https://app.atlas-cargo.org/r/BR1234ABCDEF");
 
   const hasChanges = Object.keys(editedMessages).length > 0;
 

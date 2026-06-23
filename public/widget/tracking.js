@@ -2,7 +2,7 @@
  * Atlas Cargo — Widget de Rastreio embutível
  * Uso:
  *   <div class="atlas-order-tracking" data-loja="LOJA_UUID"></div>
- *   <script src="https://atlas-cargo.org/widget/tracking.js" async></script>
+ *   <script src="https://app.atlas-cargo.org/widget/tracking.js" async></script>
  *
  * Opcional:
  *   data-cor="#0066ff"     -> sobrescreve a cor primária (senão usa a da loja)

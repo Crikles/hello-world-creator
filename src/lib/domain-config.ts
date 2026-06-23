@@ -1,5 +1,5 @@
 // Allowlist restrita: APENAS estes hosts servem o painel Magnus.
-// Qualquer outro host (atlas-cargo.org, domínios antigos, hosts desconhecidos, etc.)
+// Qualquer outro host (domínios antigos, hosts desconhecidos, etc.)
 // é tratado como rota pública de rastreio. Default seguro = logística.
 const MAGNUS_DOMAINS = [
   'magnusfrete.net',
@@ -45,7 +45,7 @@ export function getLogisticsProvider(): string | null {
 
   if (host === 'vetortransportesltda.com' || host === 'www.vetortransportesltda.com') return 'vetor';
   if (host === 'rastreio.jltransportelogistica.com' || host.endsWith('.jltransportelogistica.com')) return 'atlas';
-  if (host === 'atlas-cargo.org' || host === 'www.atlas-cargo.org' || host === 'app.atlas-cargo.org' || host.includes('atlas')) return 'atlas';
+  if (host === 'app.atlas-cargo.org') return 'atlas';
   if (host.includes('vetor')) return 'vetor';
   if (host.includes('jltransporte')) return 'atlas';
 
