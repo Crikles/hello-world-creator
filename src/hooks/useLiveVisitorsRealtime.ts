@@ -284,14 +284,14 @@ export function useLiveVisitorsRealtime(opts: UseLiveVisitorsRealtimeOptions) {
               at: new Date(r.last_seen_at).getTime(),
             };
           });
-          // Dedupe by tracking code (fallback to id) keeping the most recent entry
+          // Dedupe by session id (each unique visitor session = 1 row),
+          // so múltiplas sessões no mesmo código aparecem separadamente.
           const merged = [...adds, ...prev];
           const seen = new Set<string>();
           const deduped: RecentActivity[] = [];
           for (const item of merged) {
-            const key = item.trackingCode && item.trackingCode !== "—" ? item.trackingCode : item.id;
-            if (seen.has(key)) continue;
-            seen.add(key);
+            if (seen.has(item.id)) continue;
+            seen.add(item.id);
             deduped.push(item);
           }
           return deduped.slice(0, 30);
