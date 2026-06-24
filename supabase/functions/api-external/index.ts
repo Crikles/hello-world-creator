@@ -212,11 +212,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    const newEnvio = {
-      id: (dedupeResult as any).envio_id,
-      codigo_rastreio: (dedupeResult as any).codigo_rastreio,
-    };
+    const envioId = (dedupeResult as any).envio_id;
     const wasDuplicate = (dedupeResult as any).was_duplicate === true;
+
+    // Fetch codigo_rastreio (RPC doesn't return it)
+    const { data: envioRow } = await supabase
+      .from("envios")
+      .select("codigo_rastreio")
+      .eq("id", envioId)
+      .maybeSingle();
+
+    const newEnvio = {
+      id: envioId,
+      codigo_rastreio: envioRow?.codigo_rastreio || null,
+    };
+
 
     if (wasDuplicate) {
       console.log("[api-external] Duplicate envio blocked atomically:", newEnvio.id);
