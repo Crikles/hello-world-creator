@@ -1,21 +1,26 @@
-Adicionar uma tag **GLOBAL** ou **NACIONAL** em cada linha da tabela "Atividade ao Vivo" do Live View, na coluna Cliente (logo abaixo ou ao lado do nome).
+# Remover Push Web do painel MagnusFrete
 
-## Como determinar
+A funcionalidade de Push Notification tem duas faces no projeto:
 
-Para cada visitante novo, ao buscar dados do envio em `useLiveVisitorsRealtime`, vou ler também o campo `is_international` da tabela `envios` (já existe). Regra:
-- `is_international = true` → tag **GLOBAL** (azul)
-- caso contrário → tag **NACIONAL** (verde)
+1. **Painel Admin Magnus** — uma página `/admin/push` (AdminPush) usada para enviar push manualmente / gerenciar templates.
+2. **Rastreio público** (`/rastreio`) — onde o cliente final recebe o prompt para aceitar notificações sobre o pedido (`NotificationPrompt`), service worker (`/sw.js`) e edge functions (`save-push-subscription`, `send-push-notification`).
 
-## Mudanças
+A solicitação é tirar o Push **da MagnusFrete**, ou seja, da parte administrativa. O recurso para o cliente final na página de rastreio continua intacto (ele não roda em domínio Magnus de qualquer forma).
 
-1. **`src/hooks/useLiveVisitorsRealtime.ts`**
-   - Adicionar `scope: "global" | "nacional"` ao tipo `RecentActivity`.
-   - No SELECT de `envios`, incluir `is_international`.
-   - Popular `scope` para cada novo visitante.
+## O que será removido
 
-2. **`src/components/live-view/LiveActivityTable.tsx`**
-   - Renderizar um pequeno badge ao lado do nome do cliente, tanto no desktop quanto no mobile:
-     - GLOBAL: fundo `bg-blue-500/15`, borda `border-blue-500/40`, texto `text-blue-300`.
-     - NACIONAL: fundo `bg-emerald-500/15`, borda `border-emerald-500/40`, texto `text-emerald-300`.
+- Item de menu **"Push Web"** em `src/components/admin/AdminSidebar.tsx`.
+- Rota `/admin/push` e import em `src/App.tsx`.
+- Arquivo `src/pages/admin/AdminPush.tsx`.
 
-Nada mais é alterado (contadores, globo, controles permanecem iguais).
+## O que NÃO será mexido (intencional)
+
+- `src/components/NotificationPrompt.tsx` e uso em `src/pages/Rastreio.tsx` — é o prompt para o cliente final, sem relação com Magnus.
+- `public/sw.js`, `src/main.tsx` (registro do SW) — necessários para o push do rastreio.
+- Edge functions `save-push-subscription` e `send-push-notification` — usadas pelo rastreio.
+- Tabelas `push_subscriptions`, `push_notification_log`, `push_notification_settings`, `push_templates` — mantidas (o rastreio depende delas; remover quebraria assinaturas existentes).
+- Segredos `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — continuam necessários para o push do cliente final.
+
+## Confirmação
+
+Quer manter o `PushNotificationPrompt.tsx` (componente antigo/duplicado, não referenciado em lugar nenhum) ou aproveito e apago junto? Posso deletar — está órfão.
