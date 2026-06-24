@@ -150,8 +150,10 @@ export default function AdminSuporte() {
     mutationFn: async (template: string) => {
       const { error } = await supabase
         .from("system_config")
-        .update({ text_value: template, updated_at: new Date().toISOString() } as any)
-        .eq("key", "verificacao_whatsapp_template");
+        .upsert(
+          { key: "verificacao_whatsapp_template", text_value: template, updated_at: new Date().toISOString() } as any,
+          { onConflict: "key" }
+        );
       if (error) throw error;
     },
     onSuccess: () => {
