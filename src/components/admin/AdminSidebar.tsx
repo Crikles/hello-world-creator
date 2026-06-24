@@ -25,7 +25,7 @@ const menuItems = [
   { title: "Valores", url: "/admin/valores", icon: DollarSign },
   { title: "SMS", url: "/admin/sms", icon: MessageSquare },
   { title: "Leads", url: "/admin/leads", icon: Contact },
-  { title: "Push Web", url: "/admin/push", icon: Bell },
+  
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
   { title: "WhatsApp", url: "/admin/whatsapp", icon: Smartphone },
   { title: "Emails", url: "/admin/emails", icon: Mail },

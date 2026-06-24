@@ -32,7 +32,7 @@ import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminValores from "./pages/admin/AdminValores";
 import AdminSMS from "./pages/admin/AdminSMS";
 import AdminLeads from "./pages/admin/AdminLeads";
-import AdminPush from "./pages/admin/AdminPush";
+
 import AdminPagamentos from "./pages/admin/AdminPagamentos";
 import AdminSuporte from "./pages/admin/AdminSuporte";
 import AdminWhatsApp from "./pages/admin/AdminWhatsApp";
@@ -165,10 +165,6 @@ function PanelRoutes() {
         <Route
           path="/admin/leads"
           element={<AdminRoute><AdminLeads /></AdminRoute>}
-        />
-        <Route
-          path="/admin/push"
-          element={<AdminRoute><AdminPush /></AdminRoute>}
         />
         <Route
           path="/admin/pagamentos"
