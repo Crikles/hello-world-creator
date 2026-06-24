@@ -173,7 +173,39 @@ Deno.serve(async (req) => {
         }
 
         const whatsMessage = template.replace(/\{\{codigo\}\}/gi, code);
-        console.log("Sending verification WhatsApp to:", formattedPhone);
+
+        // Resolve o chatid real no WhatsApp para evitar que o UAZAPI estripe
+        // o "9" de números BR. Tentamos: número original, sem 9, com 9.
+        const candidates = new Set<string>([formattedPhone]);
+        if (formattedPhone.startsWith("55") && formattedPhone.length === 13) {
+          // 55 + DDD(2) + 9 + 8 dígitos → tenta sem o 9
+          candidates.add(formattedPhone.slice(0, 4) + formattedPhone.slice(5));
+        }
+        if (formattedPhone.startsWith("55") && formattedPhone.length === 12) {
+          // 55 + DDD(2) + 8 dígitos → tenta com o 9
+          candidates.add(formattedPhone.slice(0, 4) + "9" + formattedPhone.slice(4));
+        }
+
+        let resolvedNumber = formattedPhone;
+        try {
+          const checkRes = await fetch("https://rushsend.uazapi.com/chat/check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", token: uazapiToken },
+            body: JSON.stringify({ numbers: Array.from(candidates) }),
+          });
+          const { body: checkBody } = await parseJsonResponse(checkRes);
+          const arr = Array.isArray(checkBody) ? checkBody : (checkBody?.numbers || checkBody?.data || []);
+          const found = (arr as any[]).find((r) => r?.isInWhatsapp === true || r?.exists === true || r?.status === "valid");
+          if (found) {
+            const jid = String(found.jid || found.chatid || found.number || "").replace(/@.*$/, "").replace(/\D/g, "");
+            if (jid) resolvedNumber = jid;
+          }
+          console.log("WhatsApp check result:", JSON.stringify(checkBody), "→ resolved:", resolvedNumber);
+        } catch (checkErr) {
+          console.error("WhatsApp /chat/check failed (non-blocking):", checkErr);
+        }
+
+        console.log("Sending verification WhatsApp to:", resolvedNumber);
         const whatsRes = await fetch("https://rushsend.uazapi.com/send/text", {
           method: "POST",
           headers: {
@@ -181,7 +213,7 @@ Deno.serve(async (req) => {
             token: uazapiToken,
           },
           body: JSON.stringify({
-            number: formattedPhone,
+            number: resolvedNumber,
             text: whatsMessage,
           }),
         });
