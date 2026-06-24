@@ -162,10 +162,11 @@ const SmsCodeInput: React.FC<{
   phone: string;
   onVerified: () => void;
   onBack: () => void;
-  onResendSms: () => Promise<void>;
+  onResendSms: () => Promise<boolean>;
 }> = ({ phone, onVerified, onBack, onResendSms }) => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
   const [resendCooldown, setResendCooldown] = useState(60);
   const inputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
@@ -244,14 +245,19 @@ const SmsCodeInput: React.FC<{
   };
 
   const handleResend = async () => {
+    if (resending || resendCooldown > 0) return;
+    setResending(true);
     try {
-      await onResendSms();
+      const sent = await onResendSms();
+      if (!sent) return;
       setResendCooldown(60);
       setCode(['', '', '', '', '', '']);
       setError('');
       toast.success('Novo código enviado!');
     } catch {
       toast.error('Erro ao reenviar SMS');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -349,10 +355,10 @@ const SmsCodeInput: React.FC<{
         <button
           type="button"
           onClick={handleResend}
-          disabled={resendCooldown > 0}
+          disabled={resendCooldown > 0 || resending}
           className="w-full py-2.5 border border-input rounded-xl text-sm font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
         >
-          {resendCooldown > 0 ? `Reenviar SMS (${resendCooldown}s)` : 'Reenviar SMS'}
+          {resending ? 'Reenviando...' : resendCooldown > 0 ? `Reenviar SMS (${resendCooldown}s)` : 'Reenviar SMS'}
         </button>
         <button
           type="button"
@@ -518,7 +524,7 @@ export function AuthForm({
   };
 
   const handleResendSms = async () => {
-    await sendSmsCode();
+    return sendSmsCode();
   };
 
   // Show SMS verification step
