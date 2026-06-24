@@ -255,7 +255,7 @@ const SmsCodeInput: React.FC<{
       setError('');
       toast.success('Novo código enviado!');
     } catch {
-      toast.error('Erro ao reenviar SMS');
+      toast.error('Erro ao reenviar WhatsApp');
     } finally {
       setResending(false);
     }
@@ -312,9 +312,9 @@ const SmsCodeInput: React.FC<{
     <div className="space-y-5 text-center">
       <div className="space-y-2">
         <MessageSquare className="h-10 w-10 text-primary mx-auto" />
-        <h3 className="text-lg font-semibold text-foreground">Verificação SMS</h3>
+        <h3 className="text-lg font-semibold text-foreground">Verificação WhatsApp</h3>
         <p className="text-sm text-muted-foreground">
-          Enviamos um código de 6 dígitos via SMS para <strong className="text-foreground">{maskedPhone}</strong>
+          Enviamos um código de 6 dígitos via WhatsApp para <strong className="text-foreground">{maskedPhone}</strong>
         </p>
       </div>
 
@@ -358,7 +358,7 @@ const SmsCodeInput: React.FC<{
           disabled={resendCooldown > 0 || resending}
           className="w-full py-2.5 border border-input rounded-xl text-sm font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
         >
-          {resending ? 'Reenviando...' : resendCooldown > 0 ? `Reenviar SMS (${resendCooldown}s)` : 'Reenviar SMS'}
+          {resending ? 'Reenviando...' : resendCooldown > 0 ? `Reenviar WhatsApp (${resendCooldown}s)` : 'Reenviar WhatsApp'}
         </button>
         <button
           type="button"
@@ -486,10 +486,10 @@ export function AuthForm({
         return false;
       }
 
-      toast.success('Código SMS enviado!');
+      toast.success('Código WhatsApp enviado!');
       return true;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao enviar SMS';
+      const msg = err instanceof Error ? err.message : 'Erro ao enviar WhatsApp';
       toast.error(msg);
       return false;
     } finally {
