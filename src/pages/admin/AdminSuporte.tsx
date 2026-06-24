@@ -10,13 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   HeadphonesIcon, Save, MessageSquare, Send, Loader2,
-  QrCode, Wifi, WifiOff, Trash2, Power, Plug, Phone, RefreshCw
+  QrCode, Wifi, WifiOff, Trash2, Power, Plug, Phone, RefreshCw, AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 
 const SUPABASE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-verification-whatsapp`;
 
-async function callVerificationFn(action: string) {
+async function callVerificationFn(action: string, payload: Record<string, unknown> = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Não autenticado");
 
@@ -27,7 +27,7 @@ async function callVerificationFn(action: string) {
       Authorization: `Bearer ${session.access_token}`,
       apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
     },
-    body: JSON.stringify({ action }),
+    body: JSON.stringify({ action, ...payload }),
   });
 
   const data = await res.json();
@@ -73,6 +73,8 @@ export default function AdminSuporte() {
           "verificacao_whatsapp_status",
           "verificacao_whatsapp_phone",
           "verificacao_whatsapp_template",
+          "verificacao_whatsapp_last_disconnect_reason",
+          "verificacao_whatsapp_last_checked_at",
         ]);
       if (error) throw error;
       const map: Record<string, string | null> = {};
@@ -90,8 +92,14 @@ export default function AdminSuporte() {
   const instanceName = verConfig?.verificacao_whatsapp_instance || null;
   const instanceStatus = verConfig?.verificacao_whatsapp_status || "disconnected";
   const instancePhone = verConfig?.verificacao_whatsapp_phone || null;
+  const instanceDisconnectReason = verConfig?.verificacao_whatsapp_last_disconnect_reason || null;
   const hasInstance = !!instanceToken;
   const isConnected = instanceStatus === "connected" || instanceStatus === "open";
+  const friendlyDisconnectReason = instanceDisconnectReason === "same number connected"
+    ? "Este WhatsApp foi conectado em outra sessão. Remova sessões antigas em Aparelhos conectados e conecte novamente aqui."
+    : instanceDisconnectReason?.includes("not reconnectable")
+      ? "A sessão caiu e não pode ser reconectada automaticamente. Gere um novo QR Code e conecte novamente."
+      : instanceDisconnectReason;
 
   // ── Polling for status while connecting ──
   const checkStatus = useCallback(async () => {
@@ -106,6 +114,8 @@ export default function AdminSuporte() {
       } else if (data.qrcode) {
         setQrCode(data.qrcode);
         setPairingCode(data.pairingCode || null);
+      } else if (data.disconnectReason) {
+        queryClient.invalidateQueries({ queryKey: ["admin-verificacao-config"] });
       }
     } catch {
       // silent
@@ -223,35 +233,9 @@ export default function AdminSuporte() {
       const cleaned = testNumber.replace(/\D/g, "");
       const phone = cleaned.startsWith("55") ? cleaned : "55" + cleaned;
 
-      const { data: tokenRow } = await supabase
-        .from("system_config")
-        .select("text_value")
-        .eq("key", "verificacao_whatsapp_token")
-        .maybeSingle();
-
-      if (!tokenRow?.text_value) {
-        toast.error("Token não configurado.");
-        return;
-      }
-
-      const res = await fetch("https://rushsend.uazapi.com/send/text", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          token: tokenRow.text_value,
-        },
-        body: JSON.stringify({
-          number: phone,
-          text: whatsTemplate.replace(/\{\{codigo\}\}/gi, "123456") + " (teste)",
-        }),
-      });
-
-      if (res.ok) {
-        toast.success("Mensagem de teste enviada com sucesso!");
-      } else {
-        const body = await res.text();
-        toast.error(`Erro ao enviar: ${res.status} - ${body.slice(0, 100)}`);
-      }
+      await callVerificationFn("test", { phone });
+      await queryClient.invalidateQueries({ queryKey: ["admin-verificacao-config"] });
+      toast.success("Mensagem de teste enviada com sucesso!");
     } catch (err: any) {
       toast.error(err.message || "Erro na conexão.");
     } finally {
@@ -363,6 +347,13 @@ export default function AdminSuporte() {
                   </div>
                 )}
 
+                {!isConnected && friendlyDisconnectReason && friendlyDisconnectReason !== "manual_disconnect" && (
+                  <div className="border border-destructive/30 bg-destructive/5 rounded-lg p-3 text-xs text-destructive flex gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>{friendlyDisconnectReason}</span>
+                  </div>
+                )}
+
                 {/* QR Code display */}
                 {(qrCode || (instanceStatus === "connecting" && !isConnected)) && (
                   <div className="border rounded-lg p-4 text-center space-y-3">
@@ -442,7 +433,7 @@ export default function AdminSuporte() {
                       try {
                         const data = await callVerificationFn("status");
                         queryClient.invalidateQueries({ queryKey: ["admin-verificacao-config"] });
-                        toast.success(`Status: ${data.status}`);
+                        toast.success(data.disconnectReason ? `Status: ${data.status} — ${data.disconnectReason}` : `Status: ${data.status}`);
                       } catch (err: any) {
                         toast.error(err.message);
                       }

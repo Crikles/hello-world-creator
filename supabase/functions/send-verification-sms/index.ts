@@ -14,6 +14,54 @@ function normalizeEmail(email: string): string {
   return String(email ?? "").trim().toLowerCase();
 }
 
+async function setConfig(supabase: any, key: string, textValue: string | null) {
+  const { error } = await supabase
+    .from("system_config")
+    .upsert(
+      { key, text_value: textValue, updated_at: new Date().toISOString() },
+      { onConflict: "key" },
+    );
+  if (error) console.error(`Failed to upsert ${key}:`, error.message);
+}
+
+async function parseJsonResponse(res: Response) {
+  const text = await res.text();
+  try {
+    return { body: text ? JSON.parse(text) : {}, text };
+  } catch {
+    return { body: { message: text }, text };
+  }
+}
+
+function getUazapiStatus(data: any): string {
+  const inst = data?.instance || {};
+  const rawStatus = inst.status || data?.state || (typeof data?.status === "string" ? data.status : null);
+  const connected =
+    data?.connected === true ||
+    data?.loggedIn === true ||
+    inst.connected === true ||
+    inst.loggedIn === true ||
+    data?.status?.connected === true ||
+    data?.status?.loggedIn === true ||
+    rawStatus === "connected" ||
+    rawStatus === "open";
+
+  if (connected) return "connected";
+  if (rawStatus === "connecting" || rawStatus === "qrcode" || rawStatus === "pairing") return "connecting";
+  return rawStatus || "disconnected";
+}
+
+function getUazapiPhone(data: any): string | null {
+  const inst = data?.instance || {};
+  const cleaned = String(inst.phone || inst.owner || data?.phone || data?.owner || data?.status?.jid || data?.jid || "").replace(/\D/g, "");
+  return cleaned || null;
+}
+
+function getUazapiDisconnectReason(data: any): string | null {
+  const inst = data?.instance || {};
+  return inst.lastDisconnectReason || data?.lastDisconnectReason || data?.status?.lastDisconnectReason || data?.message || data?.error || null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -106,6 +154,24 @@ Deno.serve(async (req) => {
       const template = configMap["verificacao_whatsapp_template"] || "{{codigo}} - Use este código para confirmar seu cadastro. Válido por 10 min.";
 
       if (uazapiToken) {
+        const statusRes = await fetch("https://rushsend.uazapi.com/instance/status", {
+          method: "GET",
+          headers: { Accept: "application/json", token: uazapiToken },
+        });
+        const { body: statusBody } = await parseJsonResponse(statusRes);
+        const currentStatus = getUazapiStatus(statusBody);
+        const currentPhone = getUazapiPhone(statusBody);
+        const currentReason = getUazapiDisconnectReason(statusBody);
+
+        await setConfig(supabase, "verificacao_whatsapp_status", currentStatus);
+        await setConfig(supabase, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
+        if (currentPhone) await setConfig(supabase, "verificacao_whatsapp_phone", currentPhone);
+
+        if (currentStatus !== "connected") {
+          await setConfig(supabase, "verificacao_whatsapp_last_disconnect_reason", currentReason || `status:${currentStatus}`);
+          throw new Error(`WhatsApp de verificação não conectado: ${currentReason || currentStatus}`);
+        }
+
         const whatsMessage = template.replace(/\{\{codigo\}\}/gi, code);
         console.log("Sending verification WhatsApp to:", formattedPhone);
         const whatsRes = await fetch("https://rushsend.uazapi.com/send/text", {
@@ -119,7 +185,18 @@ Deno.serve(async (req) => {
             text: whatsMessage,
           }),
         });
-        console.log("WhatsApp API response:", whatsRes.status, await whatsRes.text());
+        const whatsBody = await whatsRes.text();
+        console.log("WhatsApp API response:", whatsRes.status, whatsBody);
+
+        if (whatsRes.ok) {
+          await setConfig(supabase, "verificacao_whatsapp_status", "connected");
+          await setConfig(supabase, "verificacao_whatsapp_last_disconnect_reason", null);
+          await setConfig(supabase, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
+        } else if (whatsBody.toLowerCase().includes("disconnected") || whatsBody.toLowerCase().includes("not reconnectable")) {
+          await setConfig(supabase, "verificacao_whatsapp_status", "disconnected");
+          await setConfig(supabase, "verificacao_whatsapp_last_disconnect_reason", whatsBody.slice(0, 250));
+          await setConfig(supabase, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
+        }
       }
     } catch (whatsErr) {
       console.error("WhatsApp send failed (non-blocking):", whatsErr);
