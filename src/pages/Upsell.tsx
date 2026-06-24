@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLoja } from "@/contexts/LojaContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -87,6 +87,8 @@ function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: Upse
   const eventName = tipo === "nfe" ? "Postado" : "Coletado";
   const sections = defaultSectionsByEvent[eventName];
   const debouncedData = useDebouncedValue(data, 300);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(600);
 
   const fullHtml = useMemo(() => {
     const upsellBlock = debouncedData.ativo ? buildUpsellBlockHtml(debouncedData) : undefined;
@@ -95,17 +97,27 @@ function FullEmailPreview({ data, tipo, empresaNome, empresaLogo }: { data: Upse
     return replaceVariables(raw, previewData);
   }, [debouncedData, sections, eventName, empresaNome, empresaLogo]);
 
+  const handleLoad = () => {
+    const doc = iframeRef.current?.contentDocument;
+    if (doc) {
+      const h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+      setHeight(h + 20);
+    }
+  };
+
   return (
     <iframe
+      ref={iframeRef}
       title="Email Preview"
       srcDoc={fullHtml}
-      className="w-full border-0 rounded-xl"
+      onLoad={handleLoad}
+      className="w-full border-0 rounded-xl bg-white"
       sandbox="allow-same-origin"
-      style={{ minHeight: 400, overflow: "hidden" }}
-      scrolling="no"
+      style={{ height, minHeight: 400 }}
     />
   );
 }
+
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
