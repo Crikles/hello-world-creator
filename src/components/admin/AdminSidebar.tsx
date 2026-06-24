@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Coins, Store, LogOut, Mail, FileText, DollarSign, MessageSquare, Contact, Bell, CreditCard, HeadphonesIcon, Smartphone, HeartPulse, Undo2, Cloud } from "lucide-react";
+import { LayoutDashboard, Users, Coins, Store, LogOut, Mail, FileText, DollarSign, MessageSquare, Contact, CreditCard, HeadphonesIcon, Smartphone, HeartPulse, Undo2, Cloud } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
