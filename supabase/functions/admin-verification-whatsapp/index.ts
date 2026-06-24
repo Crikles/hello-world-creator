@@ -34,6 +34,80 @@ async function setConfig(supabase: any, key: string, textValue: string | null) {
   if (error) console.error(`Failed to upsert ${key}:`, error.message);
 }
 
+function normalizePhone(phone: unknown): string | null {
+  const cleaned = String(phone ?? "").replace(/\D/g, "");
+  return cleaned || null;
+}
+
+function getUazapiInstance(data: any) {
+  return data?.instance || {};
+}
+
+function getUazapiStatus(data: any): string {
+  const inst = getUazapiInstance(data);
+  const rawStatus = inst.status || data?.state || (typeof data?.status === "string" ? data.status : null);
+  const connected =
+    data?.connected === true ||
+    data?.loggedIn === true ||
+    inst.connected === true ||
+    inst.loggedIn === true ||
+    data?.status?.connected === true ||
+    data?.status?.loggedIn === true ||
+    rawStatus === "connected" ||
+    rawStatus === "open";
+
+  if (connected) return "connected";
+  if (rawStatus === "connecting" || rawStatus === "qrcode" || rawStatus === "pairing") return "connecting";
+  return rawStatus || "disconnected";
+}
+
+function getUazapiPhone(data: any): string | null {
+  const inst = getUazapiInstance(data);
+  return normalizePhone(inst.phone || inst.owner || data?.phone || data?.owner || data?.status?.jid || data?.jid);
+}
+
+function getUazapiDisconnectReason(data: any): string | null {
+  const inst = getUazapiInstance(data);
+  const message = data?.message || data?.error || data?.response || data?.status?.message;
+  return inst.lastDisconnectReason || data?.lastDisconnectReason || data?.status?.lastDisconnectReason || message || null;
+}
+
+function getUazapiQr(data: any): string | null {
+  const inst = getUazapiInstance(data);
+  return inst.qrcode || data?.qrcode || data?.qr_code || null;
+}
+
+function getUazapiPairingCode(data: any): string | null {
+  const inst = getUazapiInstance(data);
+  return inst.paircode || data?.pairingCode || data?.pairing_code || null;
+}
+
+async function syncUazapiState(supabase: any, data: any) {
+  const status = getUazapiStatus(data);
+  const phone = getUazapiPhone(data);
+  const disconnectReason = getUazapiDisconnectReason(data);
+
+  await setConfig(supabase, "verificacao_whatsapp_status", status);
+  await setConfig(supabase, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
+  if (phone) await setConfig(supabase, "verificacao_whatsapp_phone", phone);
+  if (status === "connected") {
+    await setConfig(supabase, "verificacao_whatsapp_last_disconnect_reason", null);
+  } else if (disconnectReason) {
+    await setConfig(supabase, "verificacao_whatsapp_last_disconnect_reason", disconnectReason);
+  }
+
+  return { status, phone, disconnectReason };
+}
+
+async function parseJsonResponse(res: Response) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { message: text };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -68,7 +142,8 @@ Deno.serve(async (req) => {
 
     if (!roleData) return jsonResp({ error: "Forbidden: admin only" }, 403);
 
-    const { action } = await req.json();
+    const body = await req.json();
+    const { action } = body;
     if (!action) return jsonResp({ error: "action is required" }, 400);
 
     const ADMIN_TOKEN = Deno.env.get("UAZAPI_ADMIN_TOKEN")!;
@@ -108,6 +183,8 @@ Deno.serve(async (req) => {
       await setConfig(adminClient, "verificacao_whatsapp_instance", instanceName);
       await setConfig(adminClient, "verificacao_whatsapp_status", "disconnected");
       await setConfig(adminClient, "verificacao_whatsapp_phone", null);
+      await setConfig(adminClient, "verificacao_whatsapp_last_disconnect_reason", null);
+      await setConfig(adminClient, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
 
       return jsonResp({ success: true, token, instance_name: instanceName });
     }
@@ -130,15 +207,14 @@ Deno.serve(async (req) => {
         body: JSON.stringify({}),
       });
 
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
       console.log("UAZAPI connect response:", JSON.stringify(data));
 
-      const qrCode = data.instance?.qrcode || data.qrcode || data.qr_code || null;
-      const pairingCode = data.instance?.paircode || data.pairingCode || data.pairing_code || null;
+      const qrCode = getUazapiQr(data);
+      const pairingCode = getUazapiPairingCode(data);
+      const state = await syncUazapiState(adminClient, data);
 
-      await setConfig(adminClient, "verificacao_whatsapp_status", "connecting");
-
-      return jsonResp({ success: true, qrcode: qrCode, pairingCode });
+      return jsonResp({ success: true, qrcode: qrCode, pairingCode, ...state });
     }
 
     // ── STATUS: Check connection status ──
@@ -151,17 +227,12 @@ Deno.serve(async (req) => {
         },
       });
 
-      const data = await res.json();
-      const inst = data.instance || {};
-      const newStatus = inst.status || data.status || data.state || "disconnected";
-      const qrCode = inst.qrcode || data.qrcode || data.qr_code || null;
-      const pairingCode = inst.paircode || data.pairingCode || data.pairing_code || null;
-      const phone = inst.phone || data.phone || null;
+      const data = await parseJsonResponse(res);
+      const qrCode = getUazapiQr(data);
+      const pairingCode = getUazapiPairingCode(data);
+      const state = await syncUazapiState(adminClient, data);
 
-      await setConfig(adminClient, "verificacao_whatsapp_status", newStatus);
-      if (phone) await setConfig(adminClient, "verificacao_whatsapp_phone", phone);
-
-      return jsonResp({ success: true, status: newStatus, qrcode: qrCode, pairingCode, phone });
+      return jsonResp({ success: true, qrcode: qrCode, pairingCode, ...state });
     }
 
     // ── DISCONNECT ──
@@ -178,6 +249,8 @@ Deno.serve(async (req) => {
 
       await setConfig(adminClient, "verificacao_whatsapp_status", "disconnected");
       await setConfig(adminClient, "verificacao_whatsapp_phone", null);
+      await setConfig(adminClient, "verificacao_whatsapp_last_disconnect_reason", "manual_disconnect");
+      await setConfig(adminClient, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
 
       return jsonResp({ success: true });
     }
@@ -196,12 +269,17 @@ Deno.serve(async (req) => {
       await setConfig(adminClient, "verificacao_whatsapp_instance", null);
       await setConfig(adminClient, "verificacao_whatsapp_status", "disconnected");
       await setConfig(adminClient, "verificacao_whatsapp_phone", null);
+      await setConfig(adminClient, "verificacao_whatsapp_last_disconnect_reason", null);
+      await setConfig(adminClient, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
 
       return jsonResp({ success: true });
     }
 
     // ── TEST: Send test message ──
     if (action === "test") {
+      const testPhone = normalizePhone(body.phone);
+      if (!testPhone) return jsonResp({ error: "Número de teste inválido" }, 400);
+
       const res = await fetch(`${UAZAPI_BASE}/send/text`, {
         method: "POST",
         headers: {
@@ -209,15 +287,23 @@ Deno.serve(async (req) => {
           token: instanceToken!,
         },
         body: JSON.stringify({
-          number: "5511999999999",
+          number: testPhone,
           text: "123456 - Mensagem de teste de verificação. Ignore.",
         }),
       });
 
       if (res.ok) {
+        await setConfig(adminClient, "verificacao_whatsapp_status", "connected");
+        await setConfig(adminClient, "verificacao_whatsapp_last_disconnect_reason", null);
+        await setConfig(adminClient, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
         return jsonResp({ success: true, message: "Mensagem de teste enviada!" });
       } else {
         const body = await res.text();
+        if (body.toLowerCase().includes("disconnected") || body.toLowerCase().includes("not reconnectable")) {
+          await setConfig(adminClient, "verificacao_whatsapp_status", "disconnected");
+          await setConfig(adminClient, "verificacao_whatsapp_last_disconnect_reason", body.slice(0, 250));
+          await setConfig(adminClient, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
+        }
         return jsonResp({ error: `Erro: ${res.status} - ${body.slice(0, 100)}` }, 500);
       }
     }
