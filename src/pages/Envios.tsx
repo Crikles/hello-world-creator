@@ -184,6 +184,7 @@ export default function Envios() {
   const queryClient = useQueryClient();
   const { loja } = useLoja();
   const [downloadingNfe, setDownloadingNfe] = useState<string | null>(null);
+  const [nfeConfirm, setNfeConfirm] = useState<any | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(() => {
     const saved = localStorage.getItem('envios_per_page');
