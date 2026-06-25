@@ -26,7 +26,7 @@ type SignupStep = 'form' | 'sms' | 'email';
 
 interface AuthFormProps {
   onLogin?: (email: string, password: string) => Promise<void>;
-  onSignup?: (email: string, password: string, name: string, phone: string) => Promise<void>;
+  onSignup?: (email: string, password: string, name: string, phone: string) => Promise<boolean | void>;
   onReset?: (email: string) => Promise<void>;
   initialMode?: AuthMode;
   loading?: boolean;
