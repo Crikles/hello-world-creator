@@ -259,7 +259,30 @@ export default function Integracoes() {
       </div>
 
       {/* Widget de Rastreio Embutível */}
-      <WidgetRastreioCard lojaId={loja?.id} />
+      <WidgetRastreioCard
+        lojaId={loja?.id}
+        titulo="Widget de Rastreio ATLAS (Shopify / qualquer site)"
+        descricao="Cole na página de rastreio da sua loja e os clientes consultam os pedidos sem sair do site."
+        scriptUrl="https://app.atlas-cargo.org/widget/tracking.js"
+        cardKey="atlas"
+      />
+      <WidgetRastreioCard
+        lojaId={loja?.id}
+        titulo="Widget de Rastreio JETLINE (Shopify / qualquer site)"
+        descricao="Use este widget se a sua loja opera com a logística JETLINE."
+        scriptUrl="https://app.jetlinetransportes.com/widget/tracking.js"
+        cardKey="jetline"
+      />
+      <WidgetRastreioCard
+        lojaId={loja?.id}
+        titulo="Widget de Rastreio GLOBAL (Shopify / qualquer site)"
+        descricao="Para envios internacionais. Escolha o idioma da página de rastreio."
+        cardKey="global"
+        globalLangs={{
+          us: "https://us.tracker-master.com/widget/tracking.js",
+          es: "https://es.tracker-master.com/widget/tracking.js",
+        }}
+      />
 
       {/* API Externa Card */}
       <div className="mt-6 glass glow-border rounded-xl p-5 animate-stagger-in" style={{ animationDelay: "0.4s" }}>
@@ -336,10 +359,27 @@ export default function Integracoes() {
   );
 }
 
-function WidgetRastreioCard({ lojaId }: { lojaId?: string }) {
+function WidgetRastreioCard({
+  lojaId,
+  titulo,
+  descricao,
+  scriptUrl,
+  cardKey,
+  globalLangs,
+}: {
+  lojaId?: string;
+  titulo: string;
+  descricao: string;
+  scriptUrl?: string;
+  cardKey: string;
+  globalLangs?: { us: string; es: string };
+}) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [lang, setLang] = useState<"us" | "es">("us");
+
+  const resolvedScript = globalLangs ? globalLangs[lang] : scriptUrl!;
   const snippet = lojaId
-    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"></div>\n<script src="https://app.atlas-cargo.org/widget/tracking.js" async></script>`
+    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"></div>\n<script src="${resolvedScript}" async></script>`
     : `<!-- Selecione uma loja primeiro -->`;
 
   const copy = async (key: string, text: string) => {
@@ -357,14 +397,38 @@ function WidgetRastreioCard({ lojaId }: { lojaId?: string }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="font-semibold text-sm text-foreground">Widget de Rastreio (Shopify / qualquer site)</h3>
+            <h3 className="font-semibold text-sm text-foreground">{titulo}</h3>
             <Badge variant="outline" className="border-primary/30 text-primary text-[10px]">EMBED</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Cole na página de rastreio da sua loja e os clientes consultam os pedidos sem sair do site.
-          </p>
+          <p className="text-xs text-muted-foreground">{descricao}</p>
         </div>
       </div>
+
+      {globalLangs && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Idioma:</span>
+          <Button
+            type="button"
+            size="sm"
+            variant={lang === "us" ? "default" : "outline"}
+            className="h-7 px-3 text-xs gap-1.5"
+            onClick={() => setLang("us")}
+          >
+            <img src="https://flagcdn.com/w20/us.png" alt="EN" className="h-3 w-auto" />
+            Inglês
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={lang === "es" ? "default" : "outline"}
+            className="h-7 px-3 text-xs gap-1.5"
+            onClick={() => setLang("es")}
+          >
+            <img src="https://flagcdn.com/w20/es.png" alt="ES" className="h-3 w-auto" />
+            Espanhol
+          </Button>
+        </div>
+      )}
 
       <div className="mb-3">
         <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Código para colar</label>
@@ -376,10 +440,10 @@ function WidgetRastreioCard({ lojaId }: { lojaId?: string }) {
             variant="outline"
             size="icon"
             className="shrink-0 glass border-primary/20 hover:border-primary/40 h-9 w-9"
-            onClick={() => lojaId && copy("widget", snippet)}
+            onClick={() => lojaId && copy(cardKey, snippet)}
             disabled={!lojaId}
           >
-            {copied === "widget" ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+            {copied === cardKey ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
           </Button>
         </div>
       </div>
