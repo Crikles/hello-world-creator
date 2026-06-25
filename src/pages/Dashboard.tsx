@@ -199,6 +199,20 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
+  const { data: globalAtivo = false } = useQuery({
+    queryKey: ["global-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return false;
+      const { data } = await supabase
+        .from("global_flow_config")
+        .select("ativo")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      return !!data?.ativo;
+    },
+    enabled: !!loja,
+  });
+
   const clearLogsMutation = useMutation({
     mutationFn: async () => {
       if (!loja) throw new Error("Sem loja");
