@@ -1,15 +1,16 @@
 ## Objetivo
-Adicionar o canal **Global** ao card "Canais de Notificação" no Dashboard, refletindo o status ativo/inativo do fluxo global da loja.
+Adicionar um terceiro card de template **"Envio Intermediário"** na aba Postagens, apenas visual (placeholder), marcado como **EM BREVE** e desabilitado para clique.
 
 ## Alterações
 
-### 1. `src/pages/Dashboard.tsx`
-- Adicionar query `useQuery` para buscar `ativo` da tabela `global_flow_config` filtrando por `loja_id`.
-- Incluir o ícone `Globe` do Lucide na importação.
-- Inserir o item `{ icon: Globe, label: "Global", ... }` no array de canais de notificação (logo após "Email" ou no final, conforme preferir).
-- O status ativo/inativo será baseado no campo `ativo` retornado da query.
+### `src/pages/Postagens.tsx` (bloco "Templates Pré-configurados")
+- Após o `.map()` dos `systemTemplates`, renderizar um card estático com:
+  - Nome: **Envio Intermediário**
+  - Descrição: "Fluxo intermediário com 11 eventos."
+  - Badge "11 eventos"
+  - 11 chips placeholder em cinza (NF-e, Postado, Coletado, Em Trânsito, Centro de Distribuição, Passando por triagem, Em redistribuição, Unidade final, Saiu para Entrega, Em rota final, Entregue)
+  - Badge **EM BREVE** no canto superior direito (estilo igual ao "Ativo" mas em cor muted/secondary)
+  - `cursor-not-allowed opacity-60`, sem `onClick`
+  - Rodapé com ícone de relógio: "Disponível em breve"
 
-### 2. Ícone
-- Usar o ícone `Globe` da biblioteca `lucide-react` para manter consistência visual com os demais canais.
-
-Nenhuma alteração de backend ou banco de dados é necessária — a tabela `global_flow_config` já existe.
+Nenhuma alteração no banco ou backend — é apenas um item visual fixo para ocupar o espaço.
