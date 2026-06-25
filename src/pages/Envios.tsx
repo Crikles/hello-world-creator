@@ -287,6 +287,10 @@ export default function Envios() {
     }
   }, [loja?.id]);
 
+  const handleDownloadNfe = useCallback((envio: any) => {
+    setNfeConfirm(envio);
+  }, []);
+
   // Load auto_envio from DB
   useEffect(() => {
     if (!loja?.id) return;
