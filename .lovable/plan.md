@@ -1,16 +1,15 @@
 ## Objetivo
-Adicionar um terceiro card de template **"Envio Intermediário"** na aba Postagens, apenas visual (placeholder), marcado como **EM BREVE** e desabilitado para clique.
+Mostrar no topo do Dashboard (logo abaixo do título "Bem-vindo de volta…") um banner indicando se a loja está usando **Rastreio Nacional** ou **Rastreio Global**, com bandeiras.
 
 ## Alterações
 
-### `src/pages/Postagens.tsx` (bloco "Templates Pré-configurados")
-- Após o `.map()` dos `systemTemplates`, renderizar um card estático com:
-  - Nome: **Envio Intermediário**
-  - Descrição: "Fluxo intermediário com 11 eventos."
-  - Badge "11 eventos"
-  - 11 chips placeholder em cinza (NF-e, Postado, Coletado, Em Trânsito, Centro de Distribuição, Passando por triagem, Em redistribuição, Unidade final, Saiu para Entrega, Em rota final, Entregue)
-  - Badge **EM BREVE** no canto superior direito (estilo igual ao "Ativo" mas em cor muted/secondary)
-  - `cursor-not-allowed opacity-60`, sem `onClick`
-  - Rodapé com ícone de relógio: "Disponível em breve"
+### `src/pages/Dashboard.tsx`
+- Estender a query existente `global-dashboard` para também retornar `idioma` (além de `ativo`) de `global_flow_config`.
+- Adicionar um card compacto novo entre o header e a grid de stat cards:
+  - Se `globalAtivo = false` → **Rastreio Nacional** com bandeira do Brasil (🇧🇷 via `https://flagcdn.com/br.svg`) e subtítulo "Envios processados pela logística nacional".
+  - Se `globalAtivo = true` → **Rastreio Global** com a bandeira correspondente:
+    - `idioma = "en"` → bandeira US + "Global Logistics (US)"
+    - `idioma = "es"` → bandeira ES + "Logística Global (ES)"
+  - Visual: card `glass glow-border rounded-2xl p-4`, flex com bandeira (h-10 w-14 rounded shadow), título e subtítulo, e badge "Ativo" à direita.
 
-Nenhuma alteração no banco ou backend — é apenas um item visual fixo para ocupar o espaço.
+Sem alterações de backend ou banco.

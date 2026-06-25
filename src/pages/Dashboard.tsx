@@ -199,19 +199,21 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
-  const { data: globalAtivo = false } = useQuery({
+  const { data: globalConfig } = useQuery({
     queryKey: ["global-dashboard", loja?.id],
     queryFn: async () => {
-      if (!loja) return false;
+      if (!loja) return null;
       const { data } = await supabase
         .from("global_flow_config")
-        .select("ativo")
+        .select("ativo, idioma")
         .eq("loja_id", loja.id)
         .maybeSingle();
-      return !!data?.ativo;
+      return data;
     },
     enabled: !!loja,
   });
+  const globalAtivo = !!globalConfig?.ativo;
+  const globalIdioma = (globalConfig?.idioma as string) || "en";
 
   const clearLogsMutation = useMutation({
     mutationFn: async () => {
