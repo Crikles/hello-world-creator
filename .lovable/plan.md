@@ -1,57 +1,36 @@
-# Cobrança do download manual da NF-e
+## Diagnóstico
 
-## Entendimento
+Revisei o caminho do clique em **Baixar NF-e** e o que ele de fato executa hoje:
 
-Hoje na aba **Envios** o botão "Baixar NF-e" gera o PDF 100% no navegador (`generateDanfePdfBase64` em `src/pages/Envios.tsx`), sem passar pelo backend e sem debitar saldo. A cobrança de `custo_nfe_email` (0,50) só acontece quando o fluxo de email atinge o evento marcado como `enviar_nfe_pdf` (`send-email`, `advance-shipments`, `email-trigger`).
+- `handleDownloadNfe` abre o `AlertDialog` (`setNfeConfirm(envio)`).
+- Ao confirmar, `executeDownloadNfe` chama **apenas** a edge function `download-nfe`.
+- A edge function `download-nfe` faz só duas coisas: `debit_user_credits` e `UPDATE envios SET nfe_cobrado = true`. Não chama `email-trigger`, `advance-shipments`, `send-email`, nem nenhuma RPC que avance o envio.
+- Triggers da tabela `envios`: `aa_apply_global_flow_on_envio` (BEFORE INSERT), `trigger_generate_tracking_code` (BEFORE INSERT), `update_envios_updated_at` (BEFORE UPDATE, só timestamp) e `envios_to_leads_trg` (sincroniza tabela `leads`). Nenhuma inicia fluxo de e-mail.
 
-Resultado: o usuário pode baixar a DANFE manualmente e enviar por fora, nunca pagando os 0,50.
+Ou seja, o clique em "Baixar NF-e" **não tem caminho de código** que dispare o fluxo. O que provavelmente ocorreu: o cron `advance-shipments` rodou no mesmo instante (executa a cada minuto e auto-inicia pendentes quando `postagem_config.auto_envio = true`), dando a impressão de ter sido o clique.
 
-Objetivo:
-- Se o usuário **ainda não pagou** pela NF-e desse envio → cobra 0,50 no download manual e marca como pago.
-- Se o usuário **já pagou** (porque o fluxo de email já cobrou OU porque ele já baixou antes) → download liberado sem nova cobrança.
-- O fluxo de email também não pode cobrar de novo se o download manual já tiver cobrado.
+Os logs recentes de `advance-shipments` confirmam que ele está processando pendentes a cada minuto.
 
-## Como vai funcionar (resumido para o usuário)
+## Plano de correção (defensivo e verificável)
 
-1. Clica em "Baixar NF-e" no envio:
-   - Primeira vez e ainda não cobrado pelo email → desconta 0,50 do saldo, gera o PDF e marca como pago.
-   - Já cobrado anteriormente (pelo email ou por download anterior) → baixa de graça.
-2. Se o fluxo de email enviar a NF-e por email, ele cobra os 0,50 normalmente e marca como pago — então qualquer download posterior é gratuito.
-3. Sem saldo? Toast amigável ("Saldo insuficiente para baixar a NF-e") e nada acontece.
+### 1. Blindar `download-nfe` contra qualquer efeito de fluxo
+Adicionar comentário e um `console.log` explícito ("download-nfe NÃO avança o envio") logo após o débito, para auditoria futura nos logs. Garante que qualquer regressão futura fique rastreável.
 
-## Mudanças técnicas
+### 2. Garantir que o botão "Baixar" do diálogo não cause side-effects de UI
+Trocar `AlertDialogAction` por um `Button` comum com `type="button"` dentro do `AlertDialogFooter`, e fechar o diálogo manualmente. Isso elimina qualquer possibilidade do Radix re-disparar a tecla Enter no botão original (a NF-e), e impede submit acidental caso alguém embrulhe a página num `<form>` no futuro.
 
-### 1. Banco (migração)
-- Coluna nova em `envios`: `nfe_cobrado boolean NOT NULL DEFAULT false`.
-  - Marca quando a NF-e daquele envio já foi cobrada (por email ou por download).
-- (Sem nova policy — segue as policies atuais de `envios`.)
+### 3. Validar `auto_envio` da loja afetada
+Conferir se `postagem_config.auto_envio = true` na loja em questão. Se estiver, o cron seguirá iniciando pendentes mesmo sem clique. Caso o usuário **não** queira esse comportamento automático, a solução real é desativar o toggle "Auto-envio" na aba Envios.
 
-### 2. Edge function nova: `supabase/functions/download-nfe/index.ts`
-- Recebe `{ envio_id }`. Valida JWT do usuário e checa `user_owns_loja`.
-- Carrega o envio + empresa.
-- Decide cobrança:
-  - Se `envios.nfe_cobrado = true` → pula débito.
-  - Senão → lê `custo_nfe_email` em `system_config` (default 0,5), chama `debit_user_credits` com descrição `"Download manual NF-e <envio_id>"`. Se falhar por saldo, retorna 402 com mensagem. Em sucesso, faz `UPDATE envios SET nfe_cobrado = true WHERE id = ...`.
-- Gera o PDF server-side reutilizando a função `generateDanfePdf` que já existe em `resend-nfe/index.ts` (copiada para a nova função, já que edge functions não compartilham módulos além de `_shared/`).
-- Retorna o PDF como `application/pdf` base64 no JSON (mesmo formato que o client já consome) para evitar mexer no fluxo de download do browser.
+### 4. Verificar comportamento real
+- Olhar os logs de `download-nfe` após o próximo clique do usuário (com o `console.log` novo) para confirmar que **só** o débito é executado.
+- Comparar com os timestamps de `advance-shipments` para validar a hipótese de coincidência com o cron.
 
-### 3. `src/pages/Envios.tsx` (handleDownloadNfe)
-- Troca a geração local por `supabase.functions.invoke("download-nfe", { body: { envio_id } })`.
-- Trata erros: saldo insuficiente (402), sem permissão, etc.
-- Mantém o `link.click()` com o base64 retornado.
-- Remove o import não usado de `generateDanfePdfBase64` se não houver mais consumidor.
+## Pergunta antes de implementar
 
-### 4. `supabase/functions/send-email/index.ts` e `supabase/functions/advance-shipments/index.ts`
-- Quando o evento corrente tem `enviar_nfe_pdf` e a cobrança do email inclui `custo_nfe_email`, marcar `envios.nfe_cobrado = true` no mesmo passo do débito (apenas se o débito foi bem-sucedido). Idempotente: se já era `true`, nada muda.
-- Se já estava `true` (usuário baixou antes), **não cobrar de novo** o `custo_nfe_email`, mas continuar enviando o email normalmente (o PDF segue anexado). Isso requer descontar `custo_nfe_email` do total quando `nfe_cobrado=true`.
+Você quer que eu **bloqueie o auto-início pelo cron** quando o usuário só baixa a NF-e (sem nunca clicar em Iniciar)? Hoje, se `auto_envio` estiver ativo, o cron começa o fluxo sozinho — independentemente do download. Posso:
 
-### 5. Segurança / anti-burla
-- A geração do PDF passa a ser exclusivamente server-side; o client não consegue mais montar a DANFE sem invocar a edge function autenticada.
-- A função valida posse da loja antes de qualquer débito ou geração.
-- A flag `nfe_cobrado` é atualizada na mesma transação lógica do débito (após `debit_user_credits` retornar `true`), evitando cobrar e não marcar.
-- `lib/nfe-utils.ts` (`generateDanfePdfBase64`) deixa de ser chamado pelo client; opcionalmente removo o arquivo para não permitir reuso futuro inadvertido.
+- (a) Manter como está: `auto_envio` controla tudo, download não influencia.
+- (b) Adicionar regra: cron só auto-inicia se `auto_envio = true` **e** o envio ainda não teve NF-e baixada manualmente (`nfe_cobrado = false`), para que o download manual "congele" o envio até você clicar em Iniciar.
 
-## Pontos de confirmação
-
-- Valor de 0,50 vem de `system_config.custo_nfe_email` (mesmo já usado pelo email). Confirma que devemos usar exatamente esse valor para o download manual?
-- Quando o admin (impersonando) baixa a NF-e: cobrar do dono da loja igualmente, ou liberar sem débito? (proponho cobrar do dono, igual ao fluxo normal).
+Me confirme a opção (a) ou (b) — e se quiser que eu já desative o `auto_envio` da sua loja agora.
