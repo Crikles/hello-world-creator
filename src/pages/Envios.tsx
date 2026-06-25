@@ -276,10 +276,12 @@ export default function Envios() {
       link.click();
 
       if (data.charged) {
+        queryClient.invalidateQueries({ queryKey: ["meu-saldo"] });
         toast.success("DANFE baixada. 0,50 moedas debitadas.");
       } else {
         toast.success("DANFE baixada com sucesso!");
       }
+
     } catch (err: any) {
       toast.error("Erro ao gerar DANFE: " + (err.message || "erro desconhecido"));
     } finally {
