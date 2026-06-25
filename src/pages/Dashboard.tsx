@@ -396,6 +396,7 @@ export default function Dashboard() {
               { icon: Sparkles, label: "Upsell", sub: upsellAtivo ? "Ofertas ativas" : "Não configurado", active: upsellAtivo },
               { icon: RefreshCw, label: "Recuperação", sub: recoveryAtivo ? "Recuperação ativa" : "Não configurado", active: recoveryAtivo },
               { icon: CreditCard, label: "Confirmação de Pagamento", sub: confirmacaoAtivo ? "Confirmação ativa" : "Não configurado", active: confirmacaoAtivo },
+              { icon: Globe, label: "Global", sub: globalAtivo ? "Fluxo global ativo" : "Não configurado", active: globalAtivo },
             ].map((ch) => (
               <div
                 key={ch.label}
