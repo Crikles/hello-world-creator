@@ -2388,6 +2388,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      refund_user_credits: {
+        Args: { _descricao: string; _quantidade: number; _user_id: string }
+        Returns: boolean
+      }
       seed_global_flow_eventos: {
         Args: { _loja_id: string }
         Returns: undefined
