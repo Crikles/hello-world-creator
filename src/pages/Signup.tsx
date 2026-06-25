@@ -21,7 +21,24 @@ export default function Signup() {
     }
   }, [searchParams]);
 
-  const handleSignup = async (emailVal: string, password: string, name: string, phone: string) => {
+  const translateAuthError = (msg: string): string => {
+    const m = msg.toLowerCase();
+    if (m.includes("already registered") || m.includes("user already")) {
+      return "Este e-mail já está cadastrado. Faça login.";
+    }
+    if (m.includes("password") && m.includes("6")) {
+      return "A senha precisa ter no mínimo 6 caracteres.";
+    }
+    if (m.includes("invalid") && m.includes("email")) {
+      return "E-mail inválido.";
+    }
+    if (m.includes("rate") || m.includes("too many")) {
+      return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
+    }
+    return msg;
+  };
+
+  const handleSignup = async (emailVal: string, password: string, name: string, phone: string): Promise<boolean> => {
     setLoading(true);
     const refCode = localStorage.getItem("referral_code") || "";
     const { error } = await supabase.auth.signUp({
@@ -34,12 +51,13 @@ export default function Signup() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
-    } else {
-      setEmail(emailVal);
-      setSuccess(true);
-      localStorage.removeItem("referral_code");
+      toast.error(translateAuthError(error.message));
+      return false;
     }
+    setEmail(emailVal);
+    setSuccess(true);
+    localStorage.removeItem("referral_code");
+    return true;
   };
 
   const handleResend = async () => {
