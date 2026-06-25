@@ -691,6 +691,38 @@ export default function Postagens() {
                   </div>
                 );
               })}
+
+              {/* Placeholder: Envio Intermediário (Em Breve) */}
+              <div
+                className="glass rounded-xl p-4 relative overflow-hidden border border-border/30 opacity-60 cursor-not-allowed animate-stagger-in"
+                style={{ animationDelay: `${((systemTemplates?.length ?? 0) + 4) * 0.06}s` }}
+              >
+                <div className="absolute top-0 right-0">
+                  <div className="bg-muted text-muted-foreground text-[8px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">
+                    Em Breve
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-foreground">Envio Intermediário</p>
+                  <Badge variant="secondary" className="text-[10px]">11 eventos</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">Fluxo intermediário com 11 eventos.</p>
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    "NF-e","Postado","Coletado","Em Trânsito","Centro de Distribuição",
+                    "Passando por triagem","Em redistribuição","Unidade final",
+                    "Saiu para Entrega","Em rota final","Entregue",
+                  ].map((label) => (
+                    <span key={label} className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-muted/40 text-muted-foreground">
+                      {label}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
+                  <Clock className="h-2.5 w-2.5" />
+                  Disponível em breve
+                </p>
+              </div>
             </div>
           </div>
 
