@@ -893,13 +893,16 @@ async function advanceShipment(
     // Se outro processo avançar antes de nós (lock falha abaixo), estornamos o débito.
     let debitedTotal = 0;
     let debitedDescricao = "";
+    let chargedNfeNow = false;
+    const nfeJaCobrado = (shipment as any).nfe_cobrado === true;
     if (currentOrdem === 0 && !(shipment as any).sem_cobranca) {
       let total = 0;
       const activeServices: string[] = [];
 
-      if (config.enviar_nfe_email && costMap["custo_nfe_email"]) {
+      if (config.enviar_nfe_email && costMap["custo_nfe_email"] && !nfeJaCobrado) {
         total += costMap["custo_nfe_email"];
         activeServices.push("NF-e");
+        chargedNfeNow = true;
       }
       if (config.enviar_emails && costMap["custo_email_rastreio"]) {
         total += costMap["custo_email_rastreio"];
@@ -931,14 +934,16 @@ async function advanceShipment(
 
     // ── OPTIMISTIC LOCK: só atualiza se ninguém mais avançou nesse meio tempo ──
     // Se outro processo já avançou, estornamos o débito (se houve) para evitar dupla cobrança.
+    const updatePayload: Record<string, unknown> = {
+      ultimo_evento_ordem: nextEvent.ordem,
+      status: newStatus,
+      status_label: nextEvent.status_label,
+      proximo_avanco_em: proximoAvancoEm,
+    };
+    if (chargedNfeNow) updatePayload.nfe_cobrado = true;
     const { data: updatedRows, error: uErr } = await supabase
       .from("envios")
-      .update({
-        ultimo_evento_ordem: nextEvent.ordem,
-        status: newStatus,
-        status_label: nextEvent.status_label,
-        proximo_avanco_em: proximoAvancoEm,
-      })
+      .update(updatePayload)
       .eq("id", envioId)
       .eq("ultimo_evento_ordem", currentOrdem)
       .select("id");

@@ -33,9 +33,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
 import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
-import { generateDanfePdfBase64 } from "@/lib/nfe-utils";
 import { useBatchProgress } from "@/contexts/BatchProgressContext";
-import type { EmpresaData, EnvioData } from "@/components/danfe/DanfePreview";
 
 import { formatProduto } from "@/lib/format-produto";
 
@@ -239,42 +237,48 @@ export default function Envios() {
     if (!loja?.id) return;
     setDownloadingNfe(envio.id);
     try {
-      const { data: empresa } = await supabase
-        .from("empresas")
-        .select("*")
-        .eq("loja_id", loja.id)
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke("download-nfe", {
+        body: { envio_id: envio.id },
+      });
 
-      const empresaData: EmpresaData = empresa || {
-        razao_social: "Empresa",
-        cnpj: "00.000.000/0000-00",
-      };
+      if (error) {
+        // Try to parse structured error from edge function
+        const ctx: any = (error as any).context;
+        let msg = error.message || "Erro ao gerar DANFE";
+        let status: number | undefined;
+        try {
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            if (body?.error) msg = body.error;
+            status = ctx.status;
+          } else if (ctx?.status) {
+            status = ctx.status;
+          }
+        } catch { /* ignore */ }
 
-      const envioData: EnvioData = {
-        cliente_nome: envio.cliente_nome,
-        cliente_cpf: envio.cliente_cpf,
-        cliente_endereco: envio.cliente_endereco,
-        cliente_numero: envio.cliente_numero,
-        cliente_bairro: envio.cliente_bairro,
-        cliente_cidade: envio.cliente_cidade,
-        cliente_estado: envio.cliente_estado,
-        cliente_cep: envio.cliente_cep,
-        cliente_telefone: envio.cliente_telefone,
-        produto: envio.produto,
-        quantidade: envio.quantidade,
-        valor: envio.valor,
-        cfop: envio.cfop,
-        ncm_sh: envio.ncm_sh,
-        cst: envio.cst,
-        unidade: envio.unidade,
-      };
+        if (status === 402) {
+          toast.error("Saldo insuficiente para baixar a NF-e (custo: 0,50 moedas).");
+        } else {
+          toast.error(msg);
+        }
+        return;
+      }
 
-      const base64 = await generateDanfePdfBase64(empresaData, envioData);
+      if (!data?.pdf_base64) {
+        toast.error("Resposta inválida ao gerar DANFE");
+        return;
+      }
+
       const link = document.createElement("a");
-      link.href = `data:application/pdf;base64,${base64}`;
-      link.download = `DANFE_${envio.cliente_nome.replace(/\s+/g, "_")}.pdf`;
+      link.href = `data:application/pdf;base64,${data.pdf_base64}`;
+      link.download = data.filename || `DANFE_${envio.cliente_nome.replace(/\s+/g, "_")}.pdf`;
       link.click();
-      toast.success("DANFE baixada com sucesso!");
+
+      if (data.charged) {
+        toast.success("DANFE baixada. 0,50 moedas debitadas.");
+      } else {
+        toast.success("DANFE baixada com sucesso!");
+      }
     } catch (err: any) {
       toast.error("Erro ao gerar DANFE: " + (err.message || "erro desconhecido"));
     } finally {

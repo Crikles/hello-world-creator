@@ -151,13 +151,16 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         }
 
         // 4.5. Debit credits on first event (currentOrdem == 0) — SMS excluded, charged per-send
+        const nfeJaCobrado = (shipment as any).nfe_cobrado === true;
         if (currentOrdem === 0) {
             let total = 0;
             const activeServices: string[] = [];
+            let chargingNfe = false;
 
-            if (config.enviar_nfe_email && costMap["custo_nfe_email"]) {
+            if (config.enviar_nfe_email && costMap["custo_nfe_email"] && !nfeJaCobrado) {
                 total += costMap["custo_nfe_email"];
                 activeServices.push("NF-e");
+                chargingNfe = true;
             }
             if (config.enviar_emails && costMap["custo_email_rastreio"]) {
                 total += costMap["custo_email_rastreio"];
@@ -185,6 +188,11 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 }
 
                 console.log(`Debited ${total} credits for envio ${envioId}:`, descricao);
+
+                // Marca NF-e como cobrada para evitar dupla cobrança em download manual
+                if (chargingNfe) {
+                    await supabase.from("envios").update({ nfe_cobrado: true }).eq("id", envioId);
+                }
             }
         }
 
