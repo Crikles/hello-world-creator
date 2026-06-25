@@ -219,6 +219,11 @@ Deno.serve(async (req) => {
     }
 
     // Gera PDF server-side
+    // IMPORTANTE: download-nfe NÃO avança o envio, NÃO chama email-trigger,
+    // NÃO chama advance-shipments e NÃO inicia o fluxo. Apenas debita (uma vez)
+    // e devolve o PDF. Qualquer avanço observado vem do cron advance-shipments
+    // quando postagem_config.auto_envio = true.
+    console.log(`download-nfe: envio ${envio_id} processado (charged=${!jaCobrado}). Nenhum avanço de fluxo executado.`);
     const pdfBytes = await generateDanfePdf(empresa, envio);
     const base64 = bytesToBase64(pdfBytes);
     const filename = `DANFE_${(envio as any).cliente_nome?.replace(/\s+/g, "_") || envio_id}.pdf`;
