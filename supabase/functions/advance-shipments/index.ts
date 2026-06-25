@@ -893,13 +893,16 @@ async function advanceShipment(
     // Se outro processo avançar antes de nós (lock falha abaixo), estornamos o débito.
     let debitedTotal = 0;
     let debitedDescricao = "";
+    let chargedNfeNow = false;
+    const nfeJaCobrado = (shipment as any).nfe_cobrado === true;
     if (currentOrdem === 0 && !(shipment as any).sem_cobranca) {
       let total = 0;
       const activeServices: string[] = [];
 
-      if (config.enviar_nfe_email && costMap["custo_nfe_email"]) {
+      if (config.enviar_nfe_email && costMap["custo_nfe_email"] && !nfeJaCobrado) {
         total += costMap["custo_nfe_email"];
         activeServices.push("NF-e");
+        chargedNfeNow = true;
       }
       if (config.enviar_emails && costMap["custo_email_rastreio"]) {
         total += costMap["custo_email_rastreio"];
