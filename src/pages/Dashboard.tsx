@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { formatProduto } from "@/lib/format-produto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2, Sparkles, RefreshCw, CreditCard } from "lucide-react";
+import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2, Sparkles, RefreshCw, CreditCard, Globe } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
