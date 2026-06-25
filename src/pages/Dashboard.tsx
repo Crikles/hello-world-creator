@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { formatProduto } from "@/lib/format-produto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2, Sparkles, RefreshCw, CreditCard } from "lucide-react";
+import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2, Sparkles, RefreshCw, CreditCard, Globe } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -199,6 +199,20 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
+  const { data: globalAtivo = false } = useQuery({
+    queryKey: ["global-dashboard", loja?.id],
+    queryFn: async () => {
+      if (!loja) return false;
+      const { data } = await supabase
+        .from("global_flow_config")
+        .select("ativo")
+        .eq("loja_id", loja.id)
+        .maybeSingle();
+      return !!data?.ativo;
+    },
+    enabled: !!loja,
+  });
+
   const clearLogsMutation = useMutation({
     mutationFn: async () => {
       if (!loja) throw new Error("Sem loja");
@@ -382,6 +396,7 @@ export default function Dashboard() {
               { icon: Sparkles, label: "Upsell", sub: upsellAtivo ? "Ofertas ativas" : "Não configurado", active: upsellAtivo },
               { icon: RefreshCw, label: "Recuperação", sub: recoveryAtivo ? "Recuperação ativa" : "Não configurado", active: recoveryAtivo },
               { icon: CreditCard, label: "Confirmação de Pagamento", sub: confirmacaoAtivo ? "Confirmação ativa" : "Não configurado", active: confirmacaoAtivo },
+              { icon: Globe, label: "Global", sub: globalAtivo ? "Fluxo global ativo" : "Não configurado", active: globalAtivo },
             ].map((ch) => (
               <div
                 key={ch.label}
