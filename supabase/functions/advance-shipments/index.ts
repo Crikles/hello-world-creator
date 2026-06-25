@@ -934,14 +934,16 @@ async function advanceShipment(
 
     // ── OPTIMISTIC LOCK: só atualiza se ninguém mais avançou nesse meio tempo ──
     // Se outro processo já avançou, estornamos o débito (se houve) para evitar dupla cobrança.
+    const updatePayload: Record<string, unknown> = {
+      ultimo_evento_ordem: nextEvent.ordem,
+      status: newStatus,
+      status_label: nextEvent.status_label,
+      proximo_avanco_em: proximoAvancoEm,
+    };
+    if (chargedNfeNow) updatePayload.nfe_cobrado = true;
     const { data: updatedRows, error: uErr } = await supabase
       .from("envios")
-      .update({
-        ultimo_evento_ordem: nextEvent.ordem,
-        status: newStatus,
-        status_label: nextEvent.status_label,
-        proximo_avanco_em: proximoAvancoEm,
-      })
+      .update(updatePayload)
       .eq("id", envioId)
       .eq("ultimo_evento_ordem", currentOrdem)
       .select("id");
