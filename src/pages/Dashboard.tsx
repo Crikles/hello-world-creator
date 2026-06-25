@@ -199,19 +199,21 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
-  const { data: globalAtivo = false } = useQuery({
+  const { data: globalConfig } = useQuery({
     queryKey: ["global-dashboard", loja?.id],
     queryFn: async () => {
-      if (!loja) return false;
+      if (!loja) return null;
       const { data } = await supabase
         .from("global_flow_config")
-        .select("ativo")
+        .select("ativo, idioma")
         .eq("loja_id", loja.id)
         .maybeSingle();
-      return !!data?.ativo;
+      return data;
     },
     enabled: !!loja,
   });
+  const globalAtivo = !!globalConfig?.ativo;
+  const globalIdioma = (globalConfig?.idioma as string) || "en";
 
   const clearLogsMutation = useMutation({
     mutationFn: async () => {
@@ -275,6 +277,31 @@ export default function Dashboard() {
           </Button>
         )}
       </div>
+
+      {/* Rastreio mode banner */}
+      {(() => {
+        const iso = globalAtivo ? (globalIdioma === "es" ? "es" : "us") : "br";
+        const title = globalAtivo ? "Rastreio Global" : "Rastreio Nacional";
+        const sub = globalAtivo
+          ? globalIdioma === "es"
+            ? "Logística Global (ES) — envios internacionais"
+            : "Global Logistics (US) — envios internacionais"
+          : "Envios processados pela logística nacional";
+        return (
+          <div className="glass glow-border rounded-2xl p-4 flex items-center gap-4 animate-stagger-in">
+            <img
+              src={`https://flagcdn.com/w160/${iso}.png`}
+              alt={iso}
+              className="h-10 w-14 rounded-md object-cover shadow-md ring-1 ring-border/40"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">{title}</p>
+              <p className="text-xs text-muted-foreground truncate">{sub}</p>
+            </div>
+            <Badge className="bg-primary/15 text-primary border-primary/25">Ativo</Badge>
+          </div>
+        );
+      })()}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
