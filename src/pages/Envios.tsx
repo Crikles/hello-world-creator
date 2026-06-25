@@ -1607,8 +1607,15 @@ export default function Envios() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setNfeConfirm(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
                 onClick={() => {
                   const envio = nfeConfirm;
                   setNfeConfirm(null);
@@ -1616,7 +1623,7 @@ export default function Envios() {
                 }}
               >
                 Baixar
-              </AlertDialogAction>
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
