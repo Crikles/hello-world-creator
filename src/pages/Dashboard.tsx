@@ -278,6 +278,31 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Rastreio mode banner */}
+      {(() => {
+        const iso = globalAtivo ? (globalIdioma === "es" ? "es" : "us") : "br";
+        const title = globalAtivo ? "Rastreio Global" : "Rastreio Nacional";
+        const sub = globalAtivo
+          ? globalIdioma === "es"
+            ? "Logística Global (ES) — envios internacionais"
+            : "Global Logistics (US) — envios internacionais"
+          : "Envios processados pela logística nacional";
+        return (
+          <div className="glass glow-border rounded-2xl p-4 flex items-center gap-4 animate-stagger-in">
+            <img
+              src={`https://flagcdn.com/w160/${iso}.png`}
+              alt={iso}
+              className="h-10 w-14 rounded-md object-cover shadow-md ring-1 ring-border/40"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">{title}</p>
+              <p className="text-xs text-muted-foreground truncate">{sub}</p>
+            </div>
+            <Badge className="bg-primary/15 text-primary border-primary/25">Ativo</Badge>
+          </div>
+        );
+      })()}
+
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
