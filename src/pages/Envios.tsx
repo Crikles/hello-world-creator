@@ -234,13 +234,8 @@ export default function Envios() {
   // Batch advance state (global context)
   const { progress: batchProgress, cancelRef: batchCancelRef, startBatch, updateProgress, finishBatch, cancelBatch, interruptibleSleep, checkCancelled } = useBatchProgress();
 
-  const handleDownloadNfe = useCallback(async (envio: any) => {
+  const executeDownloadNfe = useCallback(async (envio: any) => {
     if (!loja?.id) return;
-    const jaCobrado = !!envio.nfe_cobrado;
-    const aviso = jaCobrado
-      ? `Você vai baixar a NF-e de ${envio.cliente_nome}.\n\nEsta NF-e já foi cobrada anteriormente, então nenhum valor adicional será debitado.\n\nDeseja continuar?`
-      : `Você vai baixar a NF-e de ${envio.cliente_nome}.\n\nSerá debitado 0,50 moedas do seu saldo por este download.\nCaso depois você inicie o fluxo de e-mails, não haverá cobrança duplicada.\n\nDeseja continuar?`;
-    if (!window.confirm(aviso)) return;
     setDownloadingNfe(envio.id);
     try {
       const { data, error } = await supabase.functions.invoke("download-nfe", {
