@@ -1,0 +1,1 @@
+ALTER TABLE public.global_flow_eventos ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEFAULT true;
