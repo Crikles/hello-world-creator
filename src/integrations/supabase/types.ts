@@ -517,6 +517,7 @@ export type Database = {
           marca: string | null
           ncm_sh: string | null
           nfe_chave_acesso: string | null
+          nfe_cobrado: boolean
           nfe_numero: string | null
           nfe_serie: string | null
           postagem_template_id: string | null
@@ -557,6 +558,7 @@ export type Database = {
           marca?: string | null
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
+          nfe_cobrado?: boolean
           nfe_numero?: string | null
           nfe_serie?: string | null
           postagem_template_id?: string | null
@@ -597,6 +599,7 @@ export type Database = {
           marca?: string | null
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
+          nfe_cobrado?: boolean
           nfe_numero?: string | null
           nfe_serie?: string | null
           postagem_template_id?: string | null
