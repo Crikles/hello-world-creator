@@ -1582,6 +1582,44 @@ export default function Envios() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <AlertDialog open={!!nfeConfirm} onOpenChange={(open) => { if (!open) setNfeConfirm(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Baixar NF-e</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2">
+                  <p>
+                    Você vai baixar a NF-e de <strong>{nfeConfirm?.cliente_nome}</strong>.
+                  </p>
+                  {nfeConfirm?.nfe_cobrado ? (
+                    <p className="text-muted-foreground">
+                      Esta NF-e já foi cobrada anteriormente, então <strong>nenhum valor adicional</strong> será debitado.
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Será debitado <strong>0,50 moedas</strong> do seu saldo por este download.
+                      Caso depois você inicie o fluxo de e-mails, não haverá cobrança duplicada.
+                    </p>
+                  )}
+                  <p>Deseja continuar?</p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  const envio = nfeConfirm;
+                  setNfeConfirm(null);
+                  if (envio) executeDownloadNfe(envio);
+                }}
+              >
+                Baixar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );
