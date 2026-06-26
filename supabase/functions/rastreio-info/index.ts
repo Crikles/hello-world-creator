@@ -15,6 +15,19 @@ function maskName(name: string): string {
     }).join(" ");
 }
 
+function resolveTransportadora(envio: Record<string, unknown>): string {
+    const code = ((envio.codigo_rastreio as string) || "").toUpperCase();
+    if (code.endsWith("AT")) return "ATLAS Transportes";
+    if (code.endsWith("VT")) return "Vetor Transportes";
+    if (code.endsWith("JD")) return "Jadlog";
+    if (code.endsWith("JL")) return "JETLINE Logística";
+    if (code.endsWith("GL") || code.endsWith("US") || code.endsWith("ES")) return "Global Express";
+    const stored = (envio.transportadora as string) || "";
+    if (stored.trim()) return stored;
+    return "ATLAS Transportes";
+}
+
+
 type LivePingArgs = {
     lojaId: string;
     sessionId: string;
@@ -384,7 +397,7 @@ Deno.serve(async (req) => {
                             produto: envio.produto,
                             codigo_rastreio: envio.codigo_rastreio,
                             cliente_nome: maskName(envio.cliente_nome),
-                            transportadora: envio.transportadora || "ATLAS Transportes",
+                            transportadora: resolveTransportadora(envio),
                             status: envio.status,
                             ultimo_evento_ordem: envio.ultimo_evento_ordem,
                             created_at: envio.created_at,
@@ -420,7 +433,7 @@ Deno.serve(async (req) => {
                     produto: envio.produto,
                     codigo_rastreio: envio.codigo_rastreio,
                     cliente_nome: maskName(envio.cliente_nome),
-                    transportadora: envio.transportadora || "ATLAS Transportes",
+                    transportadora: resolveTransportadora(envio),
                     status: envio.status,
                     ultimo_evento_ordem: envio.ultimo_evento_ordem,
                     created_at: envio.created_at,
