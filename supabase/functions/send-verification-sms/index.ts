@@ -122,6 +122,13 @@ Deno.serve(async (req) => {
       ? new Date("2099-12-31T23:59:59Z").toISOString()
       : new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
+    // Supersede any previous pending verifications for this phone so only the newest is valid
+    await supabase
+      .from("signup_verifications")
+      .update({ status: "expirado" })
+      .eq("phone", normalizedPhone)
+      .eq("status", "pendente");
+
     const { error: insertErr } = await supabase
       .from("signup_verifications")
       .insert({
@@ -137,6 +144,10 @@ Deno.serve(async (req) => {
       console.error("Insert error:", insertErr);
       throw new Error("Erro ao salvar verificação");
     }
+
+    // Track whether at least one delivery channel actually succeeded
+    let deliverySucceeded = false;
+    let deliveryError: string | null = null;
 
     // Send via WhatsApp (UAZAPI) — primary channel
     const formattedPhone = normalizedPhone;
