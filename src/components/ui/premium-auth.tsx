@@ -479,10 +479,21 @@ export function AuthForm({
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // FunctionsHttpError esconde o body real em error.context — extrair a mensagem
+        let realMsg = error.message || 'Erro ao enviar WhatsApp';
+        try {
+          const ctx = (error as { context?: Response }).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.clone().json();
+            if (body?.error) realMsg = body.error;
+          }
+        } catch { /* ignore */ }
+        toast.error(realMsg);
+        return false;
+      }
       if (data?.error) {
         toast.error(data.error);
-        setSendingSms(false);
         return false;
       }
 
