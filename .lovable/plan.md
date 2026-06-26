@@ -1,54 +1,53 @@
-# Bug no fluxo de cadastro — UI trava após validar WhatsApp
+## Problema
 
-## Diagnóstico
+No cadastro novo, o cliente recebe o código WhatsApp mas:
+1. **"Código inválido"** — mesmo digitando o código que recebeu
+2. **"Fica parado"** — digita o código certo e a tela não avança para a etapa de confirmação de e-mail
 
-Após reproduzir o fluxo nos logs (4 tentativas seguidas de `babebr8@gmail.com` com SMS verificado mas `/signup` retornando **422** até finalmente passar), o problema **não está no envio nem na validação do código WhatsApp** — esses passos funcionam. O bug está no que acontece **depois** que o código é aceito:
+## Causa raiz (após auditar `verify-sms-code` + `send-verification-sms` + `SmsCodeInput`)
 
-1. Usuário digita os 6 dígitos → `verify-sms-code` marca `signup_verifications.status='verificado'`.
-2. `SmsCodeInput` dispara `onVerified()` e seta `hasAdvancedRef.current = true` (trava qualquer nova tentativa).
-3. `handleSmsVerified` chama `supabase.auth.signUp(...)`.
-4. Se o `signUp` falha (ex.: `User already registered` porque o e-mail já foi usado numa tentativa anterior, senha fraca, e-mail fora dos domínios permitidos pelo trigger `validate_signup_email_domain`, etc.):
-   - O `Signup.tsx` apenas exibe `toast.error(error.message)`.
-   - `signupSuccess` permanece `false`, então a UI **continua na tela de "Verificação WhatsApp"** com `hasAdvancedRef=true`.
-   - O usuário fica travado: o código já foi consumido, não há botão pra avançar, e re-digitar não faz nada porque o ref já está bloqueado.
+### Bug 1 — Corrida de múltiplos códigos pendentes (causa o "código inválido")
+Toda chamada ao `send-verification-sms` **insere uma nova linha** em `signup_verifications` com status `pendente`. Quando o cliente clica em "Reenviar" (ou o front-end dispara o envio duas vezes por race), ficam **várias linhas pendentes** para o mesmo telefone.
 
-Resultado visível pro usuário: "validei o WhatsApp e nada acontece, a conta não é criada e o e-mail de confirmação nunca chega".
+O `verify-sms-code` busca `.order(created_at desc).limit(1)` — ou seja, só aceita o **código MAIS NOVO**. Se o WhatsApp do cliente entregou o código antigo primeiro (ou ele digitou o que chegou primeiro), o sistema responde "Código incorreto".
 
-## Causa secundária
+Pior: existe um auto-verify no front (`useEffect` quando `code.length === 6`) que dispara **enquanto o usuário ainda está colando** dígito por dígito em alguns navegadores → marca tentativa como errada → loop.
 
-`handle_new_user` (trigger no `auth.users`) busca a verificação pelo `phone` do `raw_user_meta_data`. Como o front-end normaliza o telefone com `replace(/\D/g, '')` antes do `signUp`, o match funciona — mas se o usuário trocou o número entre tentativas, o cadastro novo pode acabar com `whatsapp_verified=false` silenciosamente (não é a causa principal do travamento, mas vale tratar).
+### Bug 2 — Trava silenciosa após verificação OK (causa o "fica parado")
+No `SmsCodeInput.handleVerify`, quando a resposta é `verified: true`:
+- `hasAdvancedRef.current = true` → `onVerified()` é chamado **uma vez**
+- `onVerified` → `handleSmsVerified` → `await onSignup(...)` (Supabase `auth.signUp`)
 
-## Correção
+Se o `signUp` falhar silenciosamente (ex.: e-mail já cadastrado de tentativa anterior, rate-limit do Supabase auth, erro de rede), `handleSignup` em `Signup.tsx` retorna `false` e volta para o `form`. Mas se o `signUp` **resolve sem error e sem session** (caso "Email already exists" virou `data.user = null` sem erro — comportamento padrão do Supabase para evitar enumeration), nada acontece: nem toast, nem mudança de tela. Usuário fica preso no passo SMS com o código já validado.
 
-### 1. `src/components/ui/premium-auth.tsx` — propagar falha do signUp pra UI
+Além disso, o `verifying` state vira `false` no finally, então a UI fica idêntica à inicial — sem qualquer pista de que algo aconteceu.
 
-- `handleSmsVerified`: aguardar o resultado de `onSignup` e, se falhar, **resetar** `hasAdvancedRef`, voltar para `signupStep='form'` e exibir mensagem clara ("Não foi possível concluir o cadastro. Verifique seus dados e tente novamente.").
-- Adicionar estado `signupError` no `SmsCodeInput` para mostrar inline (e não só toast) quando o pai informar que falhou.
+### Bug 3 — Falha silenciosa do envio WhatsApp
+Quando UAZAPI está desconectado, o envio falha mas a função retorna `success: true` (o catch do bloco WhatsApp é não-bloqueante). Cliente nunca recebe código e pensa que o sistema está bugado.
 
-### 2. `src/pages/Signup.tsx` — devolver sucesso/erro
+## Correções
 
-- Mudar `handleSignup` para retornar `boolean` (ou lançar) em vez de só setar state, para que `premium-auth.tsx` saiba se deve voltar pro form.
-- Em caso de erro, **não consumir** a verificação: como o status já foi marcado `verificado` no banco, o próximo `signUp` com o mesmo telefone ainda casa no trigger `handle_new_user` (sem efeito colateral negativo).
+### 1. Em `supabase/functions/send-verification-sms/index.ts`
+- Antes de inserir nova linha, marcar todas as `pendentes` do mesmo telefone como `superseded` (ou simplesmente deletar/expirar) — garante uma única "fonte da verdade".
+- Se UAZAPI retornar status ≠ `connected` ou o `/send/text` falhar, **retornar erro 503** ao front em vez de `success: true`. Assim o usuário vê "WhatsApp temporariamente indisponível, tente novamente" e não fica esperando.
 
-### 3. Melhoria de robustez no `SmsCodeInput`
+### 2. Em `supabase/functions/verify-sms-code/index.ts`
+- Mudar a busca: aceitar **qualquer linha pendente e não expirada** do telefone cujo `code` bate (em vez de pegar só a `latest`). Resolve o caso de múltiplos códigos válidos.
+- Após verificação OK, marcar todas as outras pendentes do telefone como `expirado` para limpar.
 
-- Parar o polling (`setInterval`) imediatamente após `onVerified()` ser chamado (já é feito, mas garantir cleanup em re-render quando voltarmos para o form).
-- Permitir resetar `hasAdvancedRef` quando o componente recebe sinal de erro do pai (via nova prop opcional `resetSignal`).
+### 3. Em `src/components/ui/premium-auth.tsx` (`SmsCodeInput` + `handleSmsVerified`)
+- Remover auto-verify por `useEffect` (causa disparo precoce) → verificar **apenas no `onPaste` completo** ou via botão. Manter typing manual sem auto-submit.
+- Em `handleSmsVerified`: mostrar estado de loading ("Criando conta...") enquanto `onSignup` roda, e se voltar para o form, exibir toast explicando o motivo.
+- Em `Signup.tsx handleSignup`: tratar o caso `data.user && !data.session && data.user.identities?.length === 0` (assinatura típica de "e-mail já existe") com mensagem clara "Este e-mail já está cadastrado, faça login".
 
-### 4. Mensagens de erro amigáveis em PT
+### 4. Diagnóstico imediato (antes da correção definitiva)
+Vou primeiro puxar os logs de `send-verification-sms` e `verify-sms-code` do cliente afetado (telefone do screenshot: 5581992093310) para confirmar qual dos 3 bugs ele bateu — assim aplico exatamente o fix necessário sem chutar.
 
-Mapear erros comuns do Supabase pro português antes de exibir:
-- `User already registered` → "Este e-mail já está cadastrado. Faça login."
-- `Password should be at least 6 characters` → "A senha precisa ter no mínimo 6 caracteres."
-- `Apenas emails Gmail, Hotmail, Outlook ou Proton são permitidos` → manter (já vem em PT do trigger).
+## Resumo do que será alterado
 
-## Fora de escopo
+- `supabase/functions/send-verification-sms/index.ts` — supersede de pendentes + retorno de erro real quando WhatsApp falha
+- `supabase/functions/verify-sms-code/index.ts` — aceitar qualquer pending+code válido + cleanup
+- `src/components/ui/premium-auth.tsx` — remover auto-verify, mostrar loading no `handleSmsVerified`
+- `src/pages/Signup.tsx` — tratar caso "e-mail já existe" silencioso do Supabase
 
-- Não vou mexer no `verify-sms-code`, `send-verification-sms` nem no `handle_new_user` — os logs mostram que estão funcionando.
-- Não vou alterar política de domínios de e-mail permitidos.
-
-## Validação após implementar
-
-1. Tentar cadastrar com e-mail já existente → deve voltar pro form com mensagem clara, em vez de travar na tela do WhatsApp.
-2. Cadastrar normalmente → SMS → conta criada → tela "Verifique seu e-mail" aparece → e-mail de confirmação enviado.
-3. Inspecionar `auth.users` e confirmar que `profiles.whatsapp_verified=true` para o novo usuário.
+Quer que eu siga com esse plano, ou prefere que eu rode primeiro o diagnóstico nos logs do telefone do print para confirmar antes de mexer?

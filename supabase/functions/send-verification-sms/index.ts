@@ -122,6 +122,13 @@ Deno.serve(async (req) => {
       ? new Date("2099-12-31T23:59:59Z").toISOString()
       : new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
+    // Supersede any previous pending verifications for this phone so only the newest is valid
+    await supabase
+      .from("signup_verifications")
+      .update({ status: "expirado" })
+      .eq("phone", normalizedPhone)
+      .eq("status", "pendente");
+
     const { error: insertErr } = await supabase
       .from("signup_verifications")
       .insert({
@@ -137,6 +144,10 @@ Deno.serve(async (req) => {
       console.error("Insert error:", insertErr);
       throw new Error("Erro ao salvar verificação");
     }
+
+    // Track whether at least one delivery channel actually succeeded
+    let deliverySucceeded = false;
+    let deliveryError: string | null = null;
 
     // Send via WhatsApp (UAZAPI) — primary channel
     const formattedPhone = normalizedPhone;
@@ -224,14 +235,19 @@ Deno.serve(async (req) => {
           await setConfig(supabase, "verificacao_whatsapp_status", "connected");
           await setConfig(supabase, "verificacao_whatsapp_last_disconnect_reason", null);
           await setConfig(supabase, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
+          deliverySucceeded = true;
         } else if (whatsBody.toLowerCase().includes("disconnected") || whatsBody.toLowerCase().includes("not reconnectable")) {
           await setConfig(supabase, "verificacao_whatsapp_status", "disconnected");
           await setConfig(supabase, "verificacao_whatsapp_last_disconnect_reason", whatsBody.slice(0, 250));
           await setConfig(supabase, "verificacao_whatsapp_last_checked_at", new Date().toISOString());
+          deliveryError = "WhatsApp temporariamente desconectado";
+        } else {
+          deliveryError = `WhatsApp falhou (${whatsRes.status})`;
         }
       }
     } catch (whatsErr) {
-      console.error("WhatsApp send failed (non-blocking):", whatsErr);
+      console.error("WhatsApp send failed:", whatsErr);
+      deliveryError = whatsErr instanceof Error ? whatsErr.message : "Falha no WhatsApp";
     }
 
     // Also send SMS as fallback for Brazilian numbers
@@ -257,9 +273,25 @@ Deno.serve(async (req) => {
 
         const smsResult = await smsResponse.text();
         console.log("SMS API response:", smsResponse.status, smsResult);
+        if (smsResponse.ok) deliverySucceeded = true;
       } catch (smsErr) {
         console.error("SMS send failed (non-blocking):", smsErr);
       }
+    }
+
+    // If no channel delivered the code, mark the pending verification as failed and return 503
+    if (!deliverySucceeded) {
+      await supabase
+        .from("signup_verifications")
+        .update({ status: "expirado" })
+        .eq("phone", normalizedPhone)
+        .eq("status", "pendente")
+        .eq("code", code);
+
+      return new Response(
+        JSON.stringify({ error: deliveryError || "Não conseguimos enviar o código. Tente novamente em instantes." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(

@@ -41,7 +41,7 @@ export default function Signup() {
   const handleSignup = async (emailVal: string, password: string, name: string, phone: string): Promise<boolean> => {
     setLoading(true);
     const refCode = localStorage.getItem("referral_code") || "";
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: emailVal,
       password,
       options: {
@@ -52,6 +52,12 @@ export default function Signup() {
     setLoading(false);
     if (error) {
       toast.error(translateAuthError(error.message));
+      return false;
+    }
+    // Supabase returns 200 with empty identities when the e-mail already exists
+    // (to avoid user enumeration). Detect and surface a clear error.
+    if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      toast.error("Este e-mail já está cadastrado. Faça login.");
       return false;
     }
     setEmail(emailVal);

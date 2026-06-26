@@ -64,42 +64,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    // First try exact normalized phone match (new records)
-    const { data: exactVerification, error: exactErr } = await supabase
+    // Accept ANY pending verification for this phone whose code matches (handles
+    // multiple resends — user may type any code that arrived first).
+    const { data: candidates, error: candErr } = await supabase
       .from("signup_verifications")
       .select("*")
-      .eq("phone", normalizedPhone)
       .eq("status", "pendente")
+      .eq("code", trimmedCode)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(30);
 
-    if (exactErr) {
-      console.error("Fetch error (exact):", exactErr);
+    if (candErr) {
+      console.error("Fetch error:", candErr);
       throw new Error("Erro ao buscar verificação");
     }
 
-    let verification = exactVerification;
-
-    // Fallback for legacy records with formatted phones (spaces, symbols)
-    if (!verification) {
-      const { data: codeCandidates, error: codeErr } = await supabase
-        .from("signup_verifications")
-        .select("*")
-        .eq("status", "pendente")
-        .eq("code", trimmedCode)
-        .order("created_at", { ascending: false })
-        .limit(30);
-
-      if (codeErr) {
-        console.error("Fetch error (fallback):", codeErr);
-        throw new Error("Erro ao buscar verificação");
-      }
-
-      verification = (codeCandidates || []).find(
-        (row: any) => normalizePhone(row.phone) === normalizedPhone
-      );
-    }
+    let verification = (candidates || []).find(
+      (row: any) => normalizePhone(row.phone) === normalizedPhone
+    );
 
     if (!verification) {
       return new Response(
