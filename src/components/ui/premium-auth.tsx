@@ -514,8 +514,11 @@ export function AuthForm({
     }
   };
 
+  const [creatingAccount, setCreatingAccount] = useState(false);
+
   const handleSmsVerified = async () => {
     // SMS verified, now create the account
+    setCreatingAccount(true);
     try {
       const result = await onSignup?.(formData.email, formData.password, formData.name, formData.phone.replace(/\D/g, ''));
       // If signup failed (returned false), go back to the form so the user can fix and retry
@@ -525,6 +528,8 @@ export function AuthForm({
     } catch {
       // On unexpected error, go back to form
       setSignupStep('form');
+    } finally {
+      setCreatingAccount(false);
     }
   };
 
