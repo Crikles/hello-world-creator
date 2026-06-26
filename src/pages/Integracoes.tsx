@@ -258,30 +258,30 @@ export default function Integracoes() {
         })}
       </div>
 
-      {/* Widget de Rastreio Embutível */}
+      {/* Widget de Rastreio Embutível — mesmo script, marcas identificadas via data-marca */}
       <WidgetRastreioCard
         lojaId={loja?.id}
         titulo="Widget de Rastreio ATLAS (Shopify / qualquer site)"
         descricao="Cole na página de rastreio da sua loja e os clientes consultam os pedidos sem sair do site."
-        scriptUrl="https://app.atlas-cargo.org/widget/tracking.js"
+        scriptUrl="https://atlas-cargo.org/widget/tracking.js"
+        marca="atlas"
         cardKey="atlas"
       />
       <WidgetRastreioCard
         lojaId={loja?.id}
         titulo="Widget de Rastreio JETLINE (Shopify / qualquer site)"
         descricao="Use este widget se a sua loja opera com a logística JETLINE."
-        scriptUrl="https://app.jetlinetransportes.com/widget/tracking.js"
+        scriptUrl="https://atlas-cargo.org/widget/tracking.js"
+        marca="jetline"
         cardKey="jetline"
       />
       <WidgetRastreioCard
         lojaId={loja?.id}
         titulo="Widget de Rastreio GLOBAL (Shopify / qualquer site)"
         descricao="Para envios internacionais. Escolha o idioma da página de rastreio."
+        scriptUrl="https://atlas-cargo.org/widget/tracking.js"
         cardKey="global"
-        globalLangs={{
-          us: "https://us.tracker-master.com/widget/tracking.js",
-          es: "https://es.tracker-master.com/widget/tracking.js",
-        }}
+        globalLangs={{ us: "global-us", es: "global-es" }}
       />
 
       {/* API Externa Card */}
@@ -365,6 +365,7 @@ function WidgetRastreioCard({
   descricao,
   scriptUrl,
   cardKey,
+  marca,
   globalLangs,
 }: {
   lojaId?: string;
@@ -372,14 +373,16 @@ function WidgetRastreioCard({
   descricao: string;
   scriptUrl?: string;
   cardKey: string;
+  marca?: string;
   globalLangs?: { us: string; es: string };
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [lang, setLang] = useState<"us" | "es">("us");
 
-  const resolvedScript = globalLangs ? globalLangs[lang] : scriptUrl!;
+  const resolvedMarca = globalLangs ? globalLangs[lang] : marca;
+  const dataMarcaAttr = resolvedMarca ? ` data-marca="${resolvedMarca}"` : "";
   const snippet = lojaId
-    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"></div>\n<script src="${resolvedScript}" async></script>`
+    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"${dataMarcaAttr}></div>\n<script src="${scriptUrl}" async></script>`
     : `<!-- Selecione uma loja primeiro -->`;
 
   const copy = async (key: string, text: string) => {
