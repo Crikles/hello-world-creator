@@ -15,6 +15,17 @@ function maskName(name: string): string {
     }).join(" ");
 }
 
+function resolveTransportadora(envio: Record<string, unknown>): string {
+    const code = ((envio.codigo_rastreio as string) || "").toUpperCase();
+    if (code.endsWith("AT")) return "ATLAS Transportes";
+    if (code.endsWith("VT")) return "Vetor Transportes";
+    if (code.endsWith("JD")) return "Jadlog";
+    if (code.endsWith("JL")) return "JETLINE Logística";
+    if (code.endsWith("GL") || code.endsWith("US") || code.endsWith("ES")) return "Global Express";
+    const stored = (envio.transportadora as string) || "";
+    if (stored.trim()) return stored;
+    return "ATLAS Transportes";
+
 type LivePingArgs = {
     lojaId: string;
     sessionId: string;
