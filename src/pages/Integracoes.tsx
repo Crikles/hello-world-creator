@@ -365,6 +365,7 @@ function WidgetRastreioCard({
   descricao,
   scriptUrl,
   cardKey,
+  marca,
   globalLangs,
 }: {
   lojaId?: string;
@@ -372,14 +373,16 @@ function WidgetRastreioCard({
   descricao: string;
   scriptUrl?: string;
   cardKey: string;
+  marca?: string;
   globalLangs?: { us: string; es: string };
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [lang, setLang] = useState<"us" | "es">("us");
 
-  const resolvedScript = globalLangs ? globalLangs[lang] : scriptUrl!;
+  const resolvedMarca = globalLangs ? globalLangs[lang] : marca;
+  const dataMarcaAttr = resolvedMarca ? ` data-marca="${resolvedMarca}"` : "";
   const snippet = lojaId
-    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"></div>\n<script src="${resolvedScript}" async></script>`
+    ? `<div class="atlas-order-tracking" data-loja="${lojaId}"${dataMarcaAttr}></div>\n<script src="${scriptUrl}" async></script>`
     : `<!-- Selecione uma loja primeiro -->`;
 
   const copy = async (key: string, text: string) => {
