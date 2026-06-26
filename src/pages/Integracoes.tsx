@@ -258,30 +258,30 @@ export default function Integracoes() {
         })}
       </div>
 
-      {/* Widget de Rastreio Embutível */}
+      {/* Widget de Rastreio Embutível — mesmo script, marcas identificadas via data-marca */}
       <WidgetRastreioCard
         lojaId={loja?.id}
         titulo="Widget de Rastreio ATLAS (Shopify / qualquer site)"
         descricao="Cole na página de rastreio da sua loja e os clientes consultam os pedidos sem sair do site."
-        scriptUrl="https://app.atlas-cargo.org/widget/tracking.js"
+        scriptUrl="https://atlas-cargo.org/widget/tracking.js"
+        marca="atlas"
         cardKey="atlas"
       />
       <WidgetRastreioCard
         lojaId={loja?.id}
         titulo="Widget de Rastreio JETLINE (Shopify / qualquer site)"
         descricao="Use este widget se a sua loja opera com a logística JETLINE."
-        scriptUrl="https://app.jetlinetransportes.com/widget/tracking.js"
+        scriptUrl="https://atlas-cargo.org/widget/tracking.js"
+        marca="jetline"
         cardKey="jetline"
       />
       <WidgetRastreioCard
         lojaId={loja?.id}
         titulo="Widget de Rastreio GLOBAL (Shopify / qualquer site)"
         descricao="Para envios internacionais. Escolha o idioma da página de rastreio."
+        scriptUrl="https://atlas-cargo.org/widget/tracking.js"
         cardKey="global"
-        globalLangs={{
-          us: "https://us.tracker-master.com/widget/tracking.js",
-          es: "https://es.tracker-master.com/widget/tracking.js",
-        }}
+        globalLangs={{ us: "global-us", es: "global-es" }}
       />
 
       {/* API Externa Card */}
