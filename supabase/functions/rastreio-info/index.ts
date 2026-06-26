@@ -384,7 +384,7 @@ Deno.serve(async (req) => {
                             produto: envio.produto,
                             codigo_rastreio: envio.codigo_rastreio,
                             cliente_nome: maskName(envio.cliente_nome),
-                            transportadora: envio.transportadora || "ATLAS Transportes",
+                            transportadora: resolveTransportadora(envio),
                             status: envio.status,
                             ultimo_evento_ordem: envio.ultimo_evento_ordem,
                             created_at: envio.created_at,
