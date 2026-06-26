@@ -25,6 +25,8 @@ function resolveTransportadora(envio: Record<string, unknown>): string {
     const stored = (envio.transportadora as string) || "";
     if (stored.trim()) return stored;
     return "ATLAS Transportes";
+}
+
 
 type LivePingArgs = {
     lojaId: string;
