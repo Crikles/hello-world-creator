@@ -547,12 +547,20 @@ export function AuthForm({
           </div>
         )}
         <div className="bg-card border border-border rounded-2xl p-6 shadow-xl">
-          <SmsCodeInput
-            phone={formData.phone.replace(/\D/g, '')}
-            onVerified={handleSmsVerified}
-            onBack={() => setSignupStep('form')}
-            onResendSms={handleResendSms}
-          />
+          {creatingAccount ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-foreground font-medium">Criando sua conta...</p>
+              <p className="text-xs text-muted-foreground">Aguarde, isso leva alguns segundos.</p>
+            </div>
+          ) : (
+            <SmsCodeInput
+              phone={formData.phone.replace(/\D/g, '')}
+              onVerified={handleSmsVerified}
+              onBack={() => setSignupStep('form')}
+              onResendSms={handleResendSms}
+            />
+          )}
         </div>
       </div>
     );
