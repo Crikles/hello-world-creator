@@ -508,6 +508,28 @@ export function AuthForm({
     }
   };
 
+  // Verifica senha contra HIBP usando k-anonymity (envia só os 5 primeiros chars do SHA-1)
+  const checkPasswordPwned = async (password: string): Promise<boolean> => {
+    try {
+      const buf = new TextEncoder().encode(password);
+      const hashBuf = await crypto.subtle.digest('SHA-1', buf);
+      const hash = Array.from(new Uint8Array(hashBuf))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase();
+      const prefix = hash.slice(0, 5);
+      const suffix = hash.slice(5);
+      const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+        headers: { 'Add-Padding': 'true' },
+      });
+      if (!res.ok) return false; // se a API falhar, não bloqueia
+      const text = await res.text();
+      return text.split('\n').some((line) => line.split(':')[0].trim() === suffix);
+    } catch {
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -515,6 +537,20 @@ export function AuthForm({
     if (authMode === 'login') {
       await onLogin?.(formData.email, formData.password);
     } else if (authMode === 'signup') {
+      // Pré-checagem: senha em vazamentos? Avisa ANTES do WhatsApp para não perder tempo
+      const pwned = await checkPasswordPwned(formData.password);
+      if (pwned) {
+        setErrors((prev) => ({
+          ...prev,
+          password:
+            'Esta senha apareceu em vazamentos públicos. Escolha uma senha única e mais forte antes de continuar.',
+        }));
+        toast.error(
+          'Senha insegura: já apareceu em vazamentos. Escolha outra antes de prosseguir.'
+        );
+        return;
+      }
+
       // Step 1: Send SMS code first
       const sent = await sendSmsCode();
       if (sent) {
