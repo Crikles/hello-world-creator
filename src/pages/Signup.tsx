@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isLogisticsDomain } from "@/lib/domain-config";
 import { AuthForm } from "@/components/ui/premium-auth";
+import { translateAuthError } from "@/lib/auth-errors";
 
 export default function Signup() {
   const [loading, setLoading] = useState(false);
