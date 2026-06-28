@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isLogisticsDomain } from "@/lib/domain-config";
 import { AuthForm } from "@/components/ui/premium-auth";
+import { translateAuthError } from "@/lib/auth-errors";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -22,14 +23,7 @@ export default function Login() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setLoading(false);
-      const msg = error.message?.toLowerCase() || "";
-      // Banimento (banned_until) — sincronizado via trigger quando profile.blocked = true
-      if (msg.includes("banned") || msg.includes("blocked")) {
-        toast.error("Sua conta foi bloqueada. Entre em contato com o suporte.");
-      } else {
-        // Mensagem genérica para evitar enumeração de usuários
-        toast.error("Email ou senha inválidos.");
-      }
+      toast.error(translateAuthError(error.message));
       return;
     }
     // Double-check blocked flag in profiles
@@ -57,7 +51,7 @@ export default function Login() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateAuthError(error.message));
     } else {
       toast.success("Link de redefinição enviado! Verifique seu email.");
     }
@@ -75,7 +69,7 @@ export default function Login() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateAuthError(error.message));
     } else {
       setSignupEmail(email);
       setSignupSuccess(true);
