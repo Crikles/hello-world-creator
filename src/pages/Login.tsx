@@ -51,7 +51,7 @@ export default function Login() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateAuthError(error.message));
     } else {
       toast.success("Link de redefinição enviado! Verifique seu email.");
     }
@@ -69,7 +69,7 @@ export default function Login() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateAuthError(error.message));
     } else {
       setSignupEmail(email);
       setSignupSuccess(true);
