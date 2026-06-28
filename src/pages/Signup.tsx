@@ -22,22 +22,7 @@ export default function Signup() {
     }
   }, [searchParams]);
 
-  const translateAuthError = (msg: string): string => {
-    const m = msg.toLowerCase();
-    if (m.includes("already registered") || m.includes("user already")) {
-      return "Este e-mail já está cadastrado. Faça login.";
-    }
-    if (m.includes("password") && m.includes("6")) {
-      return "A senha precisa ter no mínimo 6 caracteres.";
-    }
-    if (m.includes("invalid") && m.includes("email")) {
-      return "E-mail inválido.";
-    }
-    if (m.includes("rate") || m.includes("too many")) {
-      return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
-    }
-    return msg;
-  };
+  // translateAuthError agora vem de @/lib/auth-errors
 
   const handleSignup = async (emailVal: string, password: string, name: string, phone: string): Promise<boolean> => {
     setLoading(true);
