@@ -23,14 +23,7 @@ export default function Login() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setLoading(false);
-      const msg = error.message?.toLowerCase() || "";
-      // Banimento (banned_until) — sincronizado via trigger quando profile.blocked = true
-      if (msg.includes("banned") || msg.includes("blocked")) {
-        toast.error("Sua conta foi bloqueada. Entre em contato com o suporte.");
-      } else {
-        // Mensagem genérica para evitar enumeração de usuários
-        toast.error("Email ou senha inválidos.");
-      }
+      toast.error(translateAuthError(error.message));
       return;
     }
     // Double-check blocked flag in profiles
