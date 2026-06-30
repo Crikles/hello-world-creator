@@ -4,6 +4,7 @@
 const MAGNUS_DOMAINS = [
   'magnusfrete.net',
   'www.magnusfrete.net',
+  'lp.magnusfrete.net',
 ];
 
 function getHost(): string {

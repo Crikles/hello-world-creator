@@ -54,6 +54,8 @@ import RecuperacaoVendas from "./pages/RecuperacaoVendas";
 import ConfirmacaoPagamento from "./pages/ConfirmacaoPagamento";
 import Global from "./pages/Global";
 import Tutorial from "./pages/Tutorial";
+import LandingPage from "./pages/LandingPage";
+import TermosUso from "./pages/TermosUso";
 
 const LiveView = lazy(() => import("./pages/LiveView"));
 
@@ -198,11 +200,21 @@ function PanelRoutes() {
         <Route path="/r/:codigoParam" element={<Rastreio />} />
         <Route path="/p/:envioId" element={<Pagamento />} />
         <Route path="/documentacao" element={<DocumentacaoPublica />} />
-        <Route path="/" element={<Navigate to="/lojas" replace />} />
+        <Route path="/lp" element={<LandingPage />} />
+        <Route path="/termos-de-uso" element={<TermosUso />} />
+        <Route path="/" element={<RootRoute />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>
   );
+}
+
+function RootRoute() {
+  // Em lp.magnusfrete.net exibe a landing direto.
+  // Nos outros domínios Magnus, mantém o comportamento de painel (/lojas).
+  const host = typeof window !== "undefined" ? window.location.hostname.toLowerCase() : "";
+  if (host.startsWith("lp.")) return <LandingPage />;
+  return <Navigate to="/lojas" replace />;
 }
 
 const App = () => {
