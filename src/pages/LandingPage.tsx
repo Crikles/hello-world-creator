@@ -538,19 +538,19 @@ function FinalCTA() {
         </Reveal>
         <Reveal delay={0.18}>
           <div className="mt-10 flex items-center justify-center gap-3 flex-wrap">
-            <Link
-              to="/signup"
+            <a
+              href="https://magnusfrete.net/signup"
               className="group inline-flex items-center gap-2 rounded-md bg-gold px-7 py-4 text-sm font-medium text-noir hover:bg-gold-soft transition"
             >
               Começar agora
               <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
-            </Link>
-            <Link
-              to="/login"
+            </a>
+            <a
+              href="https://magnusfrete.net/login"
               className="inline-flex items-center gap-2 rounded-md border border-gold/25 px-7 py-4 text-sm text-foreground/85 hover:border-gold/50 hover:text-gold transition"
             >
               Acessar painel
-            </Link>
+            </a>
           </div>
         </Reveal>
       </div>
