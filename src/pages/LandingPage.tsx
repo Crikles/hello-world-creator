@@ -705,6 +705,9 @@ function Footer() {
 }
 
 export default function LandingPage() {
+  useEffect(() => {
+    document.title = "Magnus Frete — Rastreio inteligente para e-commerce";
+  }, []);
   return (
     <main className="min-h-screen bg-background text-foreground antialiased">
       <Header />
