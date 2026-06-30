@@ -361,12 +361,12 @@ function TrackingRoutesCard() {
       </div>
       <div className="space-y-2">
         {routes.map((route) => (
-          <div key={route.label} className="flex items-center justify-between border border-border/80 bg-secondary/20 px-3 py-2.5">
-            <div className="flex items-center gap-3">
-              <img src={`https://flagcdn.com/w40/${route.flag}.png`} alt={route.label} className="h-5 w-7 rounded-sm object-cover" />
-              <span className="text-sm text-foreground/78">{route.label}</span>
+          <div key={route.label} className="flex items-center justify-between gap-3 border border-border/80 bg-secondary/20 px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-3">
+              <img src={`https://flagcdn.com/w40/${route.flag}.png`} alt={route.label} className="h-5 w-7 shrink-0 rounded-sm object-cover" />
+              <span className="truncate whitespace-nowrap text-sm text-foreground/78">{route.label}</span>
             </div>
-            <span className="font-mono text-xs text-primary">{route.value}</span>
+            <span className="shrink-0 whitespace-nowrap font-mono text-xs text-primary">{route.value}</span>
           </div>
         ))}
       </div>
