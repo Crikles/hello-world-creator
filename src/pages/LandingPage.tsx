@@ -380,7 +380,7 @@ const CHANNELS = [
   { label: "E-mail", icon: Mail, active: true, text: "Confirmação de pagamento, atualizações de rastreio e comunicações por etapa." },
   { label: "SMS", icon: Smartphone, active: true, text: "Alertas rápidos de status para o cliente final no canal mais direto." },
   { label: "WhatsApp", icon: MessageCircle, active: true, text: "Mensagens automáticas de rastreio e recuperação de carrinho." },
-  { label: "Webhook", icon: Webhook, active: false, text: "Notificações em tempo real para sua operação ou sistema externo." },
+  { label: "Webhook", icon: Webhook, active: true, text: "Notificações em tempo real para sua operação ou sistema externo." },
   { label: "Upsell", icon: TrendingUp, active: true, text: "Ofertas estratégicas na página de rastreio para aumentar ticket." },
   { label: "Global", icon: Globe2, active: true, text: "Fluxos internacionais em inglês e espanhol com identificação por país." },
   { label: "Recuperação", icon: RefreshCcw, active: true, text: "Reengajamento automático de pedidos parados ou abandonados." },
