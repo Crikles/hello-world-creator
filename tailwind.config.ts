@@ -71,7 +71,9 @@ export default {
       fontFamily: {
         serif: ['"Instrument Serif"', "serif"],
         sans: ['"Inter"', "system-ui", "sans-serif"],
+        mono: ['"JetBrains Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
       },
+
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
