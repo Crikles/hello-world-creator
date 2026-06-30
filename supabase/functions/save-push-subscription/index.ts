@@ -20,6 +20,22 @@ serve(async (req) => {
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
+        // Validate endpoint host to prevent SSRF / abusive subscriptions
+        const ep = String(subscription.endpoint);
+        const allowed = /^https:\/\/(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|.*\.notify\.windows\.com|.*\.push\.apple\.com)\//.test(ep);
+        if (!allowed) {
+            return new Response(
+                JSON.stringify({ error: "Endpoint not allowed" }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+        // Validate code format if present
+        if (codigoRastreio && !/^[A-Z0-9]{6,30}$/.test(String(codigoRastreio))) {
+            return new Response(
+                JSON.stringify({ error: "Invalid tracking code" }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

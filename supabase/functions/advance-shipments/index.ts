@@ -346,6 +346,16 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Auth: cron secret OR service-role OR loja owner / admin (para envio_id pontual)
+  const { getAuthContext, userOwnsLoja, unauthorized, forbidden } = await import("../_shared/auth.ts");
+  const cronSecret = Deno.env.get("CRON_SECRET") || "";
+  const headerSecret = req.headers.get("x-cron-secret") || "";
+  const auth = await getAuthContext(req);
+  const isCron = !!cronSecret && headerSecret === cronSecret;
+  if (!isCron && !auth.isServiceRole && !auth.isAdmin && !auth.userId) {
+    return unauthorized();
+  }
+
   let targetLojaId: string | null = null;
   let targetEnvioId: string | null = null;
   try {
@@ -357,6 +367,13 @@ Deno.serve(async (req) => {
   } catch {
     targetLojaId = null;
     targetEnvioId = null;
+  }
+
+  // Usuário comum só pode disparar para a própria loja
+  if (!isCron && !auth.isServiceRole && !auth.isAdmin) {
+    if (!targetLojaId || !(await userOwnsLoja(auth.userId!, targetLojaId))) {
+      return forbidden();
+    }
   }
 
   const supabase = createClient(
