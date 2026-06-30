@@ -419,8 +419,7 @@ function FakeChart() {
     </svg>
   );
 }
-  );
-}
+
 
 /* ---------- numbers strip ---------- */
 
