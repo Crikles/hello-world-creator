@@ -1,81 +1,69 @@
 import { useEffect, useRef, useState } from "react";
+import type { ElementType } from "react";
 import { motion, useInView, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
+  ArrowRight,
   ArrowUpRight,
-  Globe,
-  Infinity as InfinityIcon,
-  Zap,
-  ShieldCheck,
-  Mail,
-  MessageSquare,
-  Webhook,
-  Languages,
+  BadgeCheck,
+  BellRing,
+  Boxes,
+  Check,
   CreditCard,
-  RotateCcw,
-  Sparkles,
+  Globe2,
+  Infinity as InfinityIcon,
+  Languages,
   LineChart,
-  Layers,
-  Activity,
+  MailCheck,
+  MessageCircle,
+  PackageCheck,
+  PlugZap,
+  Radar,
+  ShieldCheck,
+  Sparkles,
+  Truck,
+  Webhook,
+  Zap,
 } from "lucide-react";
 
-import logoShopify from "@/assets/logo-shopify.png";
-import logoCloudfy from "@/assets/logo-cloudfy.png";
-import logoZedy from "@/assets/logo-zedy.png";
-import logoVega from "@/assets/logo-vega.png";
-import logoLuna from "@/assets/logo-luna.png";
 import logoAdoorei from "@/assets/logo-adoorei.png";
 import logoAlphazz from "@/assets/logo-alphazz.png";
+import logoCloudfy from "@/assets/logo-cloudfy.png";
+import logoCorvex from "@/assets/logo-corvex.ico";
+import logoLuna from "@/assets/logo-luna.png";
 import logoNuvorafy from "@/assets/logo-nuvorafy.png";
-
-/* ============================================================
-   MAGNUS FRETE — Data-Room / Terminal LP
-   ============================================================ */
-
-const GOLD = "#c9a84c";
-const GOLD_DIM = "#8a7635";
-const LIVE = "#22c55e";
+import logoShopify from "@/assets/logo-shopify.png";
+import logoVega from "@/assets/logo-vega.png";
+import logoZedy from "@/assets/logo-zedy.png";
 
 const LOGIN_URL = "https://magnusfrete.net/login";
 const SIGNUP_URL = "https://magnusfrete.net/signup";
 
-/* ---------------- helpers ---------------- */
-
-function useNow() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
-
-function fmtTime(d: Date) {
-  return d.toTimeString().slice(0, 8);
-}
-
 function AnimatedNumber({
   value,
-  suffix = "",
   prefix = "",
+  suffix = "",
   decimals = 0,
 }: {
   value: number;
-  suffix?: string;
   prefix?: string;
+  suffix?: string;
   decimals?: number;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: "-80px" });
   const mv = useMotionValue(0);
-  const spring = useSpring(mv, { stiffness: 50, damping: 20 });
+  const spring = useSpring(mv, { stiffness: 48, damping: 18 });
   const text = useTransform(spring, (v) =>
-    decimals === 0
-      ? Math.round(v).toLocaleString("pt-BR")
-      : v.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }),
+    v.toLocaleString("pt-BR", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }),
   );
+
   useEffect(() => {
     if (inView) mv.set(value);
-  }, [inView, value, mv]);
+  }, [inView, mv, value]);
+
   return (
     <span ref={ref} className="tabular-nums">
       {prefix}
@@ -85,404 +73,272 @@ function AnimatedNumber({
   );
 }
 
-function LiveDot({ color = LIVE }: { color?: string }) {
+function LiveDot() {
   return (
-    <span className="relative inline-flex h-2 w-2 items-center justify-center">
-      <span
-        className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-        style={{ background: color }}
-      />
-      <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: color }} />
+    <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
     </span>
   );
 }
 
-/* ---------------- top bar ---------------- */
+function Header() {
+  const links = [
+    { label: "Dashboard", href: "#dashboard" },
+    { label: "Benefícios", href: "#beneficios" },
+    { label: "Integrações", href: "#integracoes" },
+    { label: "Preços", href: "#precos" },
+    { label: "Termos", href: "/termos-de-uso" },
+  ];
 
-function TerminalTopBar() {
-  const now = useNow();
   return (
-    <div className="sticky top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-3 font-mono text-[11px] uppercase tracking-[0.18em] text-white/70">
-        <div className="flex items-center gap-4">
-          <img src="/logo-magnus.png" alt="Magnus Frete" className="h-6 w-auto" />
-          <span className="hidden text-white/30 md:inline">/</span>
-          <span className="hidden md:inline">data-room v2026.06</span>
-        </div>
-        <div className="hidden items-center gap-6 md:flex">
-          <span className="flex items-center gap-2">
-            <LiveDot /> system online
-          </span>
-          <span>uptime 99.98%</span>
-          <span>{fmtTime(now)} UTC-3</span>
-        </div>
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-6 px-5 py-4 lg:px-8">
+        <a href="#top" className="flex items-center" aria-label="Magnus Frete">
+          <img src="/logo-magnus.png" alt="Magnus Frete" className="h-12 w-auto object-contain md:h-16" />
+        </a>
+
+        <nav className="hidden items-center gap-7 font-sans text-sm text-foreground/68 lg:flex">
+          {links.map((link) => (
+            <a key={link.label} href={link.href} className="transition hover:text-primary">
+              {link.label}
+            </a>
+          ))}
+        </nav>
+
         <div className="flex items-center gap-3">
           <a
             href={LOGIN_URL}
-            className="rounded-sm border border-white/15 px-3 py-1.5 text-white/80 transition hover:border-white/40 hover:text-white"
+            className="hidden rounded-sm border border-border px-4 py-2.5 text-sm font-medium text-foreground/80 transition hover:border-primary/50 hover:text-primary sm:inline-flex"
           >
             Login
           </a>
           <a
             href={SIGNUP_URL}
-            className="rounded-sm px-3 py-1.5 text-black transition hover:opacity-90"
-            style={{ background: GOLD }}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
           >
             Criar conta
+            <ArrowUpRight className="h-4 w-4" />
           </a>
         </div>
       </div>
-    </div>
+    </header>
   );
 }
 
-/* ---------------- price hero ---------------- */
-
-function PriceHero() {
+function Hero() {
   return (
-    <section className="relative overflow-hidden border-b border-white/10">
-      {/* grid background */}
-      <div
-        className="absolute inset-0 opacity-[0.12]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
-        }}
-      />
-      <div
-        className="absolute inset-0 opacity-40"
-        style={{
-          background:
-            "radial-gradient(900px 500px at 20% 20%, rgba(201,168,76,0.18), transparent 60%), radial-gradient(700px 400px at 90% 80%, rgba(201,168,76,0.10), transparent 60%)",
-        }}
-      />
+    <section id="top" className="relative overflow-hidden border-b border-border/70">
+      <div className="absolute inset-0 bg-grid-pattern opacity-35" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_10%,hsl(var(--primary)/0.18),transparent_55%),radial-gradient(ellipse_at_85%_40%,hsl(var(--primary)/0.08),transparent_45%)]" />
 
-      <div className="relative mx-auto grid max-w-[1400px] gap-12 px-6 py-24 lg:grid-cols-[1.4fr_1fr] lg:py-32">
-        {/* left: headline */}
+      <div className="relative mx-auto grid max-w-[1440px] items-center gap-12 px-5 py-16 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-20 xl:py-24">
         <div>
-          <div className="mb-6 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.25em] text-white/50">
-            <span className="h-px w-8 bg-white/30" />
-            <span>pricing · live</span>
+          <div className="mb-7 inline-flex items-center gap-3 border border-primary/25 bg-primary/5 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-primary">
+            <LiveDot /> pós-venda de alta escala
           </div>
 
-          <h1 className="font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.95] tracking-tight text-white">
-            Menos de
-            <br />
-            <span style={{ color: GOLD }}>R$ 2,00</span>
-            <br />
-            por envio.
+          <h1 className="font-serif text-[clamp(3.35rem,7vw,7.4rem)] leading-[0.9] text-foreground">
+            Magnus Frete
+            <span className="mt-3 block text-primary">R$ 1,50</span>
+            <span className="block">por envio.</span>
           </h1>
 
-          <div className="mt-8 grid max-w-2xl gap-3 font-mono text-sm text-white/70 sm:grid-cols-3">
-            <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-3 py-2.5">
-              <InfinityIcon className="h-4 w-4" style={{ color: GOLD }} />
-              <span>Envios ilimitados</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-3 py-2.5">
-              <ShieldCheck className="h-4 w-4" style={{ color: GOLD }} />
-              <span>Sem plano mensal</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-3 py-2.5">
-              <Zap className="h-4 w-4" style={{ color: GOLD }} />
-              <span>Pague pelo uso</span>
-            </div>
-          </div>
-
-          <p className="mt-8 max-w-xl text-base leading-relaxed text-white/55">
-            Você só paga pelo que envia. Sem mínimos, sem assinatura, sem letras miúdas. A plataforma de
-            pós-venda e rastreamento usada por lojas que transacionam{" "}
-            <span className="text-white">50.000+ pedidos por mês</span>.
+          <p className="mt-7 max-w-2xl text-lg leading-8 text-foreground/64">
+            Rastreamento, e-mails automáticos, SMS, WhatsApp, integração com checkouts e fluxos globais para lojas que
+            precisam operar milhares de pedidos sem mensalidade e sem limite mensal de envios.
           </p>
+
+          <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+            <HeroPill icon={InfinityIcon} label="Envios ilimitados" />
+            <HeroPill icon={ShieldCheck} label="Sem plano mensal" />
+            <HeroPill icon={Zap} label="Só paga se usar" />
+          </div>
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
             <a
               href={SIGNUP_URL}
-              className="group inline-flex items-center gap-2 rounded-sm px-6 py-3.5 font-mono text-sm uppercase tracking-[0.18em] text-black transition"
-              style={{ background: GOLD }}
+              className="inline-flex items-center gap-2 rounded-sm bg-primary px-7 py-4 font-mono text-sm font-semibold uppercase tracking-[0.16em] text-primary-foreground transition hover:bg-primary/90"
             >
-              Acessar plataforma
-              <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              Começar agora
+              <ArrowRight className="h-4 w-4" />
             </a>
             <a
-              href={LOGIN_URL}
-              className="inline-flex items-center gap-2 rounded-sm border border-white/20 px-6 py-3.5 font-mono text-sm uppercase tracking-[0.18em] text-white/80 transition hover:border-white/60 hover:text-white"
+              href="#dashboard"
+              className="inline-flex items-center gap-2 rounded-sm border border-border px-7 py-4 font-mono text-sm uppercase tracking-[0.16em] text-foreground/75 transition hover:border-primary/50 hover:text-primary"
             >
-              Entrar
+              Ver a plataforma
             </a>
           </div>
         </div>
 
-        {/* right: KPI panel */}
-        <KpiPanel />
+        <DashboardPreview />
       </div>
     </section>
   );
 }
 
-function KpiPanel() {
+function HeroPill({ icon: Icon, label }: { icon: ElementType; label: string }) {
   return (
-    <div className="relative">
-      <div className="rounded-sm border border-white/10 bg-black/40 backdrop-blur-sm">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">
-          <span className="flex items-center gap-2">
-            <LiveDot /> live metrics
-          </span>
-          <span>~/magnus</span>
-        </div>
-        <div className="divide-y divide-white/10">
-          <KpiRow label="Pedidos hoje" value={<AnimatedNumber value={3284} />} delta="+12.4%" />
-          <KpiRow label="Pedidos no mês" value={<AnimatedNumber value={52480} />} delta="+8.1%" />
-          <KpiRow label="Lojas ativas" value={<AnimatedNumber value={1847} />} delta="+24" />
-          <KpiRow
-            label="Países atendidos"
-            value={
-              <span className="tabular-nums">
-                <AnimatedNumber value={3} />
-              </span>
-            }
-            delta="BR · US · ES"
-            deltaMuted
-          />
-          <KpiRow
-            label="Custo por envio"
-            value={
-              <span style={{ color: GOLD }}>
-                R$ <AnimatedNumber value={1.89} decimals={2} />
-              </span>
-            }
-            delta="-58% vs mercado"
-          />
-        </div>
-        <div className="border-t border-white/10 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
-          <span className="text-white/60">$</span> stream connected · last_update 0.4s
-        </div>
-      </div>
+    <div className="flex items-center gap-2 border border-border bg-card/50 px-3 py-3 text-sm text-foreground/75">
+      <Icon className="h-4 w-4 text-primary" />
+      <span>{label}</span>
     </div>
   );
 }
-
-function KpiRow({
-  label,
-  value,
-  delta,
-  deltaMuted,
-}: {
-  label: string;
-  value: React.ReactNode;
-  delta: string;
-  deltaMuted?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3.5">
-      <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">{label}</div>
-      <div className="flex items-center gap-4">
-        <span className="font-serif text-2xl text-white">{value}</span>
-        <span
-          className="rounded-sm border px-2 py-0.5 font-mono text-[10px]"
-          style={{
-            borderColor: deltaMuted ? "rgba(255,255,255,0.15)" : "rgba(34,197,94,0.3)",
-            color: deltaMuted ? "rgba(255,255,255,0.5)" : LIVE,
-          }}
-        >
-          {delta}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- orders ticker ---------------- */
-
-const SAMPLE_ORDERS = [
-  { id: "48211", status: "PAID", from: "BR", to: "US", src: "Shopify" },
-  { id: "48212", status: "DELIVERED", from: "BR", to: "BR", src: "Cloudfy" },
-  { id: "48213", status: "SHIPPED", from: "ES", to: "ES", src: "Zedy" },
-  { id: "48214", status: "PAID", from: "BR", to: "BR", src: "Adoorei" },
-  { id: "48215", status: "OUT_FOR_DELIVERY", from: "US", to: "US", src: "Shopify" },
-  { id: "48216", status: "PAID", from: "BR", to: "ES", src: "Cloudfy" },
-  { id: "48217", status: "IN_TRANSIT", from: "BR", to: "US", src: "Vega" },
-  { id: "48218", status: "DELIVERED", from: "ES", to: "ES", src: "Luna" },
-  { id: "48219", status: "PAID", from: "BR", to: "BR", src: "Nuvorafy" },
-  { id: "48220", status: "SHIPPED", from: "BR", to: "US", src: "Alphazz" },
-];
-
-function statusColor(s: string) {
-  if (s === "PAID") return GOLD;
-  if (s === "DELIVERED") return LIVE;
-  return "#7dd3fc";
-}
-
-function OrdersTicker() {
-  const items = [...SAMPLE_ORDERS, ...SAMPLE_ORDERS];
-  return (
-    <section className="border-b border-white/10 bg-black">
-      <div className="flex items-center gap-3 border-b border-white/10 px-6 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">
-        <LiveDot /> orders feed · realtime
-      </div>
-      <div className="relative overflow-hidden">
-        <div className="flex animate-[ticker_60s_linear_infinite] whitespace-nowrap py-3 font-mono text-[12px] text-white/70">
-          {items.map((o, i) => (
-            <div key={i} className="flex items-center gap-3 px-6">
-              <span className="text-white/40">#{o.id}</span>
-              <span style={{ color: statusColor(o.status) }}>{o.status}</span>
-              <span className="text-white/50">
-                {o.from} <span className="text-white/30">→</span> {o.to}
-              </span>
-              <span className="text-white/40">· {o.src}</span>
-              <span className="text-white/20">|</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <style>{`@keyframes ticker {from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
-    </section>
-  );
-}
-
-/* ---------------- data room ---------------- */
 
 const CHART_DATA = [
-  { m: "Jan", v: 18420 },
-  { m: "Fev", v: 22180 },
-  { m: "Mar", v: 27940 },
-  { m: "Abr", v: 31260 },
-  { m: "Mai", v: 42870 },
-  { m: "Jun", v: 52480 },
+  { month: "Jan", value: 18210 },
+  { month: "Fev", value: 21980 },
+  { month: "Mar", value: 25944 },
+  { month: "Abr", value: 33760 },
+  { month: "Mai", value: 41890 },
+  { month: "Jun", value: 52480 },
 ];
 
-function DataRoomPanel() {
+function DashboardPreview() {
   return (
-    <section className="border-b border-white/10 py-24">
-      <div className="mx-auto max-w-[1400px] px-6">
-        <SectionHeader index="02" title="Data-room ao vivo" subtitle="Tudo que sua loja precisa em um único console." />
-
-        <div className="mt-12 grid gap-4 lg:grid-cols-3">
-          {/* Big chart */}
-          <div className="rounded-sm border border-white/10 bg-white/[0.02] lg:col-span-2">
-            <PanelHeader label="Pedidos · últimos 6 meses" right="+185% YoY" />
-            <div className="p-6">
-              <BigChart />
+    <div id="dashboard" className="relative">
+      <div className="absolute -inset-4 border border-primary/10 bg-primary/5 blur-2xl" />
+      <div className="relative overflow-hidden rounded-sm border border-border bg-card shadow-2xl shadow-primary/10">
+        <div className="flex items-center justify-between border-b border-border bg-secondary/35 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
+              <span className="h-2.5 w-2.5 rounded-full bg-primary/70" />
+              <span className="h-2.5 w-2.5 rounded-full bg-primary/40" />
             </div>
+            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Magnus dashboard</span>
+          </div>
+          <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-primary">
+            <LiveDot /> online
+          </span>
+        </div>
+
+        <div className="grid gap-4 p-4 lg:grid-cols-[0.78fr_1.22fr]">
+          <div className="space-y-4">
+            <KpiCard label="Pedidos no mês" value="52.480" note="+26% em 30 dias" icon={PackageCheck} highlight />
+            <KpiCard label="Receita monitorada" value="R$ 4.892.730" note="25.944 pedidos no pico" icon={LineChart} />
+            <KpiCard label="Custo médio" value="R$ 1,50" note="sem plano mensal" icon={CreditCard} />
           </div>
 
-          {/* Events log */}
-          <div className="rounded-sm border border-white/10 bg-white/[0.02]">
-            <PanelHeader label="Eventos recentes" right={<LiveDot />} />
-            <EventLog />
-          </div>
+          <div className="space-y-4">
+            <div className="border border-border bg-background/45 p-4">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Pedidos nos últimos 6 meses</p>
+                  <h3 className="mt-1 font-serif text-3xl text-foreground">crescimento visível</h3>
+                </div>
+                <span className="border border-primary/25 bg-primary/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-primary">
+                  +188%
+                </span>
+              </div>
+              <SalesChart />
+            </div>
 
-          {/* Routes map */}
-          <div className="rounded-sm border border-white/10 bg-white/[0.02]">
-            <PanelHeader label="Rotas ativas" right="BR · US · ES" />
-            <RoutesMap />
-          </div>
-
-          {/* Checkout distribution */}
-          <div className="rounded-sm border border-white/10 bg-white/[0.02] lg:col-span-2">
-            <PanelHeader label="Distribuição por checkout" right="9 integrações" />
-            <CheckoutDistribution />
+            <div className="grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
+              <TrackingRoutesCard />
+              <ActiveChannelsCard />
+            </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
-function SectionHeader({ index, title, subtitle }: { index: string; title: string; subtitle: string }) {
+function KpiCard({
+  label,
+  value,
+  note,
+  icon: Icon,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  icon: ElementType;
+  highlight?: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-3 border-b border-white/10 pb-6 md:flex-row md:items-end md:justify-between">
-      <div className="flex items-baseline gap-4">
-        <span className="font-mono text-xs text-white/40">[{index}]</span>
-        <h2 className="font-serif text-4xl text-white md:text-5xl">{title}</h2>
+    <div className={`border p-4 ${highlight ? "border-primary/35 bg-primary/10" : "border-border bg-background/45"}`}>
+      <div className="mb-5 flex items-center justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
+        <Icon className="h-4 w-4 text-primary" />
       </div>
-      <p className="max-w-md text-sm text-white/50">{subtitle}</p>
+      <div className="font-serif text-4xl leading-none text-foreground">{value}</div>
+      <div className="mt-3 text-xs text-foreground/55">{note}</div>
     </div>
   );
 }
 
-function PanelHeader({ label, right }: { label: string; right?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
-      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">{label}</span>
-      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">{right}</span>
-    </div>
-  );
-}
+function SalesChart() {
+  const width = 720;
+  const height = 260;
+  const padX = 52;
+  const padTop = 22;
+  const padBottom = 38;
+  const max = Math.max(...CHART_DATA.map((d) => d.value)) * 1.12;
+  const step = (width - padX * 2) / (CHART_DATA.length - 1);
 
-function BigChart() {
-  const W = 720;
-  const H = 280;
-  const PAD_L = 48;
-  const PAD_R = 24;
-  const PAD_T = 20;
-  const PAD_B = 36;
-  const max = Math.max(...CHART_DATA.map((d) => d.v)) * 1.1;
-  const stepX = (W - PAD_L - PAD_R) / (CHART_DATA.length - 1);
-
-  const pts = CHART_DATA.map((d, i) => ({
-    x: PAD_L + i * stepX,
-    y: PAD_T + (H - PAD_T - PAD_B) * (1 - d.v / max),
-    v: d.v,
-    m: d.m,
+  const points = CHART_DATA.map((item, index) => ({
+    x: padX + index * step,
+    y: padTop + (height - padTop - padBottom) * (1 - item.value / max),
+    ...item,
   }));
 
-  // Catmull-Rom to bezier
-  const path = pts.reduce((acc, p, i, arr) => {
-    if (i === 0) return `M ${p.x} ${p.y}`;
-    const p0 = arr[i - 2] || arr[i - 1];
-    const p1 = arr[i - 1];
-    const p2 = p;
-    const p3 = arr[i + 1] || p;
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
-    return `${acc} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+  const path = points.reduce((acc, point, index, arr) => {
+    if (index === 0) return `M ${point.x} ${point.y}`;
+    const prev2 = arr[index - 2] || arr[index - 1];
+    const prev = arr[index - 1];
+    const next = arr[index + 1] || point;
+    const c1x = prev.x + (point.x - prev2.x) / 6;
+    const c1y = prev.y + (point.y - prev2.y) / 6;
+    const c2x = point.x - (next.x - prev.x) / 6;
+    const c2y = point.y - (next.y - prev.y) / 6;
+    return `${acc} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${point.x} ${point.y}`;
   }, "");
 
-  const area = `${path} L ${pts[pts.length - 1].x} ${H - PAD_B} L ${pts[0].x} ${H - PAD_B} Z`;
-
-  const gridYs = [0, 0.25, 0.5, 0.75, 1].map((t) => PAD_T + (H - PAD_T - PAD_B) * t);
-  const gridVals = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(max * (1 - t)));
+  const area = `${path} L ${points[points.length - 1].x} ${height - padBottom} L ${points[0].x} ${height - padBottom} Z`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Gráfico de pedidos dos últimos seis meses">
       <defs>
-        <linearGradient id="bcArea" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={GOLD} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
+        <linearGradient id="salesArea" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
         </linearGradient>
-        <filter id="bcGlow">
-          <feGaussianBlur stdDeviation="3" result="b" />
+        <filter id="salesGlow">
+          <feGaussianBlur stdDeviation="3" result="blur" />
           <feMerge>
-            <feMergeNode in="b" />
+            <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
 
-      {gridYs.map((y, i) => (
-        <g key={i}>
-          <line x1={PAD_L} x2={W - PAD_R} y1={y} y2={y} stroke="rgba(255,255,255,0.06)" strokeDasharray="2 4" />
-          <text x={PAD_L - 8} y={y + 4} textAnchor="end" fill="rgba(255,255,255,0.35)" fontSize="10" fontFamily="JetBrains Mono">
-            {gridVals[i].toLocaleString("pt-BR")}
-          </text>
-        </g>
+      {[0.2, 0.4, 0.6, 0.8].map((fraction) => (
+        <line
+          key={fraction}
+          x1={padX}
+          x2={width - padX}
+          y1={padTop + (height - padTop - padBottom) * fraction}
+          y2={padTop + (height - padTop - padBottom) * fraction}
+          stroke="hsl(var(--border))"
+          strokeDasharray="4 8"
+        />
       ))}
+      <path d={area} fill="url(#salesArea)" />
+      <path d={path} fill="none" stroke="hsl(var(--primary))" strokeWidth="3" filter="url(#salesGlow)" />
 
-      <path d={area} fill="url(#bcArea)" />
-      <path d={path} fill="none" stroke={GOLD} strokeWidth="2" filter="url(#bcGlow)" />
-
-      {pts.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r="4" fill="#0a0a0a" stroke={GOLD} strokeWidth="1.5" />
-          <text x={p.x} y={H - PAD_B + 18} textAnchor="middle" fill="rgba(255,255,255,0.55)" fontSize="10" fontFamily="JetBrains Mono">
-            {p.m}
+      {points.map((point) => (
+        <g key={point.month}>
+          <circle cx={point.x} cy={point.y} r="5" fill="hsl(var(--card))" stroke="hsl(var(--primary))" strokeWidth="2" />
+          <text x={point.x} y={height - 14} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="12" fontFamily="JetBrains Mono">
+            {point.month}
           </text>
-          <text x={p.x} y={p.y - 12} textAnchor="middle" fill="rgba(255,255,255,0.65)" fontSize="10" fontFamily="JetBrains Mono">
-            {p.v.toLocaleString("pt-BR")}
+          <text x={point.x} y={point.y - 13} textAnchor="middle" fill="hsl(var(--foreground))" fillOpacity="0.72" fontSize="11" fontFamily="JetBrains Mono">
+            {point.value.toLocaleString("pt-BR")}
           </text>
         </g>
       ))}
@@ -490,174 +346,231 @@ function BigChart() {
   );
 }
 
-const EVENTS = [
-  { t: "14:22:08", k: "ORDER", c: GOLD, m: "#48221 paid · Shopify · BR" },
-  { t: "14:22:04", k: "EMAIL", c: "#7dd3fc", m: "Confirmação enviada · pt-BR" },
-  { t: "14:21:58", k: "TRACK", c: LIVE, m: "#48198 delivered · Atlas" },
-  { t: "14:21:51", k: "ORDER", c: GOLD, m: "#48220 paid · Cloudfy · ES" },
-  { t: "14:21:47", k: "EMAIL", c: "#7dd3fc", m: "Confirmación · es-ES" },
-  { t: "14:21:39", k: "WEBHK", c: "#a78bfa", m: "Magnus → Loja · 200 OK" },
-  { t: "14:21:33", k: "TRACK", c: LIVE, m: "#48201 out_for_delivery · Jetline" },
-  { t: "14:21:28", k: "ORDER", c: GOLD, m: "#48219 paid · Adoorei · BR" },
-];
+function TrackingRoutesCard() {
+  const routes = [
+    { flag: "br", label: "Nacional", value: "21.943" },
+    { flag: "us", label: "Global US", value: "18.420" },
+    { flag: "es", label: "Global ES", value: "12.117" },
+  ];
 
-function EventLog() {
   return (
-    <div className="px-2 py-2 font-mono text-[11px]">
-      {EVENTS.map((e, i) => (
-        <div key={i} className="flex items-center gap-3 px-2 py-1.5">
-          <span className="text-white/30">{e.t}</span>
-          <span className="rounded-sm px-1.5 py-0.5 text-[9px]" style={{ background: `${e.c}22`, color: e.c }}>
-            {e.k}
-          </span>
-          <span className="truncate text-white/65">{e.m}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RoutesMap() {
-  // simple stylized world
-  const nodes = {
-    BR: { x: 200, y: 170, label: "BR" },
-    US: { x: 100, y: 90, label: "US" },
-    ES: { x: 260, y: 90, label: "ES" },
-  };
-  return (
-    <div className="p-4">
-      <svg viewBox="0 0 340 240" className="w-full">
-        <defs>
-          <linearGradient id="route" x1="0" x2="1">
-            <stop offset="0%" stopColor={GOLD} stopOpacity="0" />
-            <stop offset="50%" stopColor={GOLD} stopOpacity="1" />
-            <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        {/* connections */}
-        {[
-          [nodes.BR, nodes.US],
-          [nodes.BR, nodes.ES],
-          [nodes.US, nodes.ES],
-        ].map(([a, b], i) => (
-          <g key={i}>
-            <path
-              d={`M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${(a.y + b.y) / 2 - 40} ${b.x} ${b.y}`}
-              stroke="url(#route)"
-              strokeWidth="1.2"
-              fill="none"
-            />
-          </g>
+    <div className="border border-border bg-background/45 p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Rastreios</p>
+        <Truck className="h-4 w-4 text-primary" />
+      </div>
+      <div className="space-y-2">
+        {routes.map((route) => (
+          <div key={route.label} className="flex items-center justify-between border border-border/80 bg-secondary/20 px-3 py-2.5">
+            <div className="flex items-center gap-3">
+              <img src={`https://flagcdn.com/w40/${route.flag}.png`} alt={route.label} className="h-5 w-7 rounded-sm object-cover" />
+              <span className="text-sm text-foreground/78">{route.label}</span>
+            </div>
+            <span className="font-mono text-xs text-primary">{route.value}</span>
+          </div>
         ))}
-
-        {Object.values(nodes).map((n) => (
-          <g key={n.label}>
-            <circle cx={n.x} cy={n.y} r="20" fill="rgba(201,168,76,0.08)" stroke={GOLD} strokeOpacity="0.4" />
-            <circle cx={n.x} cy={n.y} r="5" fill={GOLD} />
-            <text
-              x={n.x}
-              y={n.y + 38}
-              textAnchor="middle"
-              fill="rgba(255,255,255,0.7)"
-              fontSize="11"
-              fontFamily="JetBrains Mono"
-            >
-              {n.label}
-            </text>
-          </g>
-        ))}
-      </svg>
-
-      <div className="mt-2 grid grid-cols-3 gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/50">
-        <div className="rounded-sm border border-white/10 px-2 py-1.5">
-          <div className="text-white/40">BR→US</div>
-          <div className="text-white/80">18.420</div>
-        </div>
-        <div className="rounded-sm border border-white/10 px-2 py-1.5">
-          <div className="text-white/40">BR→ES</div>
-          <div className="text-white/80">12.117</div>
-        </div>
-        <div className="rounded-sm border border-white/10 px-2 py-1.5">
-          <div className="text-white/40">BR→BR</div>
-          <div className="text-white/80">21.943</div>
-        </div>
       </div>
     </div>
   );
 }
 
-const CHECKOUTS = [
-  { name: "Shopify", logo: logoShopify, pct: 38 },
-  { name: "Cloudfy", logo: logoCloudfy, pct: 21 },
-  { name: "Zedy", logo: logoZedy, pct: 12 },
-  { name: "Adoorei", logo: logoAdoorei, pct: 10 },
-  { name: "Vega", logo: logoVega, pct: 8 },
-  { name: "Luna", logo: logoLuna, pct: 5 },
-  { name: "Alphazz", logo: logoAlphazz, pct: 4 },
-  { name: "Nuvorafy", logo: logoNuvorafy, pct: 2 },
-];
+function ActiveChannelsCard() {
+  const channels = ["E-mail", "SMS", "WhatsApp", "Webhook", "Upsell", "Global"];
 
-function CheckoutDistribution() {
   return (
-    <div className="grid gap-2 p-4 sm:grid-cols-2">
-      {CHECKOUTS.map((c) => (
-        <div key={c.name} className="flex items-center gap-3 rounded-sm border border-white/5 bg-white/[0.02] p-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-white/90 p-1.5">
-            <img src={c.logo} alt={c.name} className="max-h-full max-w-full object-contain" />
+    <div className="border border-border bg-background/45 p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Canais ativos</p>
+        <Radar className="h-4 w-4 text-primary" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {channels.map((channel) => (
+          <div key={channel} className="flex items-center gap-2 border border-primary/15 bg-primary/5 px-2.5 py-2 text-xs text-foreground/75">
+            <Check className="h-3.5 w-3.5 text-primary" />
+            {channel}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between font-mono text-[11px]">
-              <span className="text-white/80">{c.name}</span>
-              <span className="text-white/50">{c.pct}%</span>
-            </div>
-            <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/5">
-              <div className="h-full" style={{ width: `${c.pct * 2.5}%`, background: GOLD }} />
-            </div>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
 
-/* ---------------- routes / flags section ---------------- */
+function ProofStrip() {
+  return (
+    <section className="border-b border-border/70 bg-secondary/20">
+      <div className="mx-auto grid max-w-[1440px] gap-px border-x border-border/60 bg-border/60 md:grid-cols-4">
+        <ProofItem label="Pedidos/mês" value={<AnimatedNumber value={50000} suffix="+" />} />
+        <ProofItem label="Custo por envio" value="R$ 1,50" />
+        <ProofItem label="Mensalidade" value="R$ 0" />
+        <ProofItem label="Limite mensal" value="Ilimitado" />
+      </div>
+    </section>
+  );
+}
 
-const FLAGS = [
-  { code: "br", name: "Brasil", logistic: "Atlas · Jetline · Jadlog" },
-  { code: "us", name: "United States", logistic: "Magnus Global US" },
-  { code: "es", name: "España", logistic: "Magnus Global ES" },
+function ProofItem({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="bg-background px-6 py-7">
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+      <div className="mt-2 font-serif text-4xl text-foreground">{value}</div>
+    </div>
+  );
+}
+
+function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
+  return (
+    <div className="mx-auto max-w-3xl text-center">
+      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-primary">{eyebrow}</p>
+      <h2 className="mt-4 font-serif text-[clamp(2.4rem,5vw,5rem)] leading-[0.98] text-foreground">{title}</h2>
+      <p className="mt-5 text-base leading-8 text-foreground/60">{subtitle}</p>
+    </div>
+  );
+}
+
+const BENEFITS = [
+  {
+    icon: MailCheck,
+    title: "Fluxos automáticos de e-mail",
+    text: "Envie confirmação de pagamento, atualizações de rastreio e comunicações por etapa sem operação manual.",
+  },
+  {
+    icon: MessageCircle,
+    title: "SMS e WhatsApp integrados",
+    text: "Acompanhe o cliente no canal certo, reduzindo tickets e aumentando a confiança depois da compra.",
+  },
+  {
+    icon: Globe2,
+    title: "Global em inglês e espanhol",
+    text: "Fluxos internacionais com idioma, país de origem e experiência de rastreio correta para cada operação.",
+  },
+  {
+    icon: BadgeCheck,
+    title: "Rastreio white-label",
+    text: "Página de rastreio com identidade da operação, status claro e espaço para ofertas de upsell.",
+  },
+  {
+    icon: Webhook,
+    title: "Webhooks e API Magnus",
+    text: "Conecte sua loja, checkout ou operação própria com uma ponte preparada para alto volume.",
+  },
+  {
+    icon: BellRing,
+    title: "Pós-venda que escala",
+    text: "Centralize envios, notificações, eventos e acompanhamento para mais de 50 mil pedidos mensais.",
+  },
+];
+
+function BenefitsSection() {
+  return (
+    <section id="beneficios" className="border-b border-border/70 py-24 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-5 lg:px-8">
+        <SectionHeader
+          eyebrow="Tudo que sua loja precisa"
+          title="Benefícios claros para operação, atendimento e escala."
+          subtitle="A Magnus não é só uma tela de rastreio: é uma camada completa de pós-venda para conectar checkout, logística, mensagens e experiência do cliente."
+        />
+
+        <div className="mt-14 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {BENEFITS.map((benefit) => {
+            const Icon = benefit.icon;
+            return (
+              <div key={benefit.title} className="border border-border bg-card/70 p-6 transition hover:border-primary/40 hover:bg-card">
+                <div className="mb-8 flex h-12 w-12 items-center justify-center border border-primary/25 bg-primary/10">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-serif text-3xl text-foreground">{benefit.title}</h3>
+                <p className="mt-4 leading-7 text-foreground/58">{benefit.text}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const INTEGRATIONS = [
+  { name: "Shopify", logo: logoShopify },
+  { name: "Cloudfy", logo: logoCloudfy },
+  { name: "Zedy", logo: logoZedy },
+  { name: "Vega", logo: logoVega },
+  { name: "Luna", logo: logoLuna },
+  { name: "Adoorei", logo: logoAdoorei },
+  { name: "Alphazz", logo: logoAlphazz },
+  { name: "Nuvorafy", logo: logoNuvorafy },
+  { name: "Corvex", logo: logoCorvex },
+];
+
+function MagnusApiIcon() {
+  return (
+    <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden border border-primary/25 bg-primary/10">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,hsl(var(--primary)/0.25),transparent_55%)]" />
+      <PlugZap className="relative h-7 w-7 text-primary" />
+    </div>
+  );
+}
+
+function IntegrationsSection() {
+  return (
+    <section id="integracoes" className="border-b border-border/70 bg-secondary/10 py-24 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-5 lg:px-8">
+        <SectionHeader
+          eyebrow="Checkouts e integrações"
+          title="Conecte os pedidos onde sua loja já vende."
+          subtitle="Temos integração com os principais checkouts e também uma API própria para operações que precisam de uma ponte personalizada."
+        />
+
+        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {INTEGRATIONS.map((integration) => (
+            <div key={integration.name} className="border border-border bg-card/80 p-5 transition hover:border-primary/40">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center border border-border bg-foreground p-2">
+                <img src={integration.logo} alt={integration.name} className="max-h-full max-w-full object-contain" />
+              </div>
+              <h3 className="font-serif text-2xl text-foreground">{integration.name}</h3>
+              <p className="mt-2 text-sm text-foreground/55">Integração disponível na Magnus Frete.</p>
+            </div>
+          ))}
+
+          <div className="border border-primary/30 bg-primary/10 p-5 transition hover:border-primary/60">
+            <div className="mb-5">
+              <MagnusApiIcon />
+            </div>
+            <h3 className="font-serif text-2xl text-foreground">Magnus API</h3>
+            <p className="mt-2 text-sm text-foreground/65">Integração direta para lojas, ERPs e checkouts próprios.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const COUNTRIES = [
+  { code: "br", name: "Brasil", title: "Rastreio nacional", text: "Operação nacional com identificação por bandeira, status claros e fluxo em português." },
+  { code: "us", name: "United States", title: "Global US", text: "Comunicação em inglês para pedidos internacionais com experiência alinhada ao país." },
+  { code: "es", name: "España", title: "Global ES", text: "Fluxos em espanhol, origem global e templates preparados para o cliente final." },
 ];
 
 function CountriesSection() {
   return (
-    <section className="border-b border-white/10 py-24">
-      <div className="mx-auto max-w-[1400px] px-6">
+    <section className="border-b border-border/70 py-24 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-5 lg:px-8">
         <SectionHeader
-          index="03"
-          title="Cobertura global"
-          subtitle="Logística própria em três países, com templates de e-mail e rastreio no idioma certo."
+          eyebrow="Nacional e global"
+          title="Cada pedido com o país, idioma e logística correta."
+          subtitle="A experiência identifica Brasil, Global US e Global ES para facilitar leitura, suporte e confiança do cliente final."
         />
 
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
-          {FLAGS.map((f) => (
-            <div key={f.code} className="rounded-sm border border-white/10 bg-white/[0.02] p-6">
-              <div className="flex items-center gap-4">
-                <img
-                  src={`https://flagcdn.com/w80/${f.code}.png`}
-                  alt={f.name}
-                  className="h-10 w-14 rounded-sm border border-white/10 object-cover"
-                />
-                <div>
-                  <div className="font-serif text-2xl text-white">{f.name}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-                    {f.code.toUpperCase()} · live
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 border-t border-white/10 pt-4 font-mono text-[11px] text-white/60">
-                <span className="text-white/40">logistics →</span> {f.logistic}
-              </div>
+        <div className="mt-14 grid gap-4 md:grid-cols-3">
+          {COUNTRIES.map((country) => (
+            <div key={country.code} className="border border-border bg-card/70 p-7">
+              <img
+                src={`https://flagcdn.com/w160/${country.code}.png`}
+                alt={`Bandeira: ${country.name}`}
+                className="h-16 w-24 rounded-sm border border-border object-cover"
+              />
+              <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.2em] text-primary">{country.name}</p>
+              <h3 className="mt-2 font-serif text-3xl text-foreground">{country.title}</h3>
+              <p className="mt-4 leading-7 text-foreground/58">{country.text}</p>
             </div>
           ))}
         </div>
@@ -666,173 +579,96 @@ function CountriesSection() {
   );
 }
 
-/* ---------------- price comparison ---------------- */
-
 const COMPARE = [
-  { name: "Magnus Frete", price: "R$ 1,89", monthly: "Sem mensalidade", limit: "Ilimitado", us: true },
-  { name: "Concorrente A", price: "R$ 4,90", monthly: "R$ 197/mês", limit: "5.000/mês" },
-  { name: "Concorrente B", price: "R$ 3,80", monthly: "R$ 297/mês", limit: "10.000/mês" },
-  { name: "Concorrente C", price: "R$ 2,40", monthly: "R$ 497/mês", limit: "Ilimitado" },
+  { platform: "Magnus Frete", cost: "R$ 1,50", monthly: "R$ 0", limit: "Ilimitado", featured: true },
+  { platform: "Concorrente A", cost: "R$ 2,00", monthly: "Plano mensal", limit: "1.000 pedidos/mês" },
+  { platform: "Concorrente B", cost: "R$ 2,50", monthly: "Plano mensal", limit: "2.000 pedidos/mês" },
+  { platform: "Concorrente C", cost: "Acima de R$ 2,00", monthly: "Plano mensal", limit: "Limite por faixa" },
 ];
 
-function PriceCompareTable() {
+function PriceSection() {
   return (
-    <section className="border-b border-white/10 py-24">
-      <div className="mx-auto max-w-[1400px] px-6">
+    <section id="precos" className="border-b border-border/70 py-24 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-5 lg:px-8">
         <SectionHeader
-          index="04"
-          title="Por que somos diferentes"
-          subtitle="Pague apenas pelo que envia. Sem mensalidade. Sem teto de envios."
+          eyebrow="Por que somos diferentes"
+          title="R$ 1,50 por envio, sem plano mensal e sem travar seu crescimento."
+          subtitle="Enquanto outras plataformas cobram mensalidade, preço maior por pedido e limitam o volume, a Magnus foi pensada para escala real."
         />
 
-        <div className="mt-12 overflow-hidden rounded-sm border border-white/10">
-          <table className="w-full font-mono text-sm">
+        <div className="mt-14 overflow-hidden border border-border bg-card">
+          <table className="w-full min-w-[760px] text-left">
             <thead>
-              <tr className="border-b border-white/10 bg-white/[0.03] text-left text-[10px] uppercase tracking-[0.2em] text-white/50">
-                <th className="px-5 py-3">Plataforma</th>
-                <th className="px-5 py-3">Custo / envio</th>
-                <th className="px-5 py-3">Mensalidade</th>
-                <th className="px-5 py-3">Limite</th>
+              <tr className="border-b border-border bg-secondary/35 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                <th className="px-5 py-4">Plataforma</th>
+                <th className="px-5 py-4">Custo por pedido</th>
+                <th className="px-5 py-4">Mensalidade</th>
+                <th className="px-5 py-4">Limite de envios</th>
               </tr>
             </thead>
             <tbody>
-              {COMPARE.map((c) => (
-                <tr
-                  key={c.name}
-                  className={`border-b border-white/5 last:border-0 ${
-                    c.us ? "bg-[rgba(201,168,76,0.06)]" : ""
-                  }`}
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      {c.us && <Sparkles className="h-3.5 w-3.5" style={{ color: GOLD }} />}
-                      <span className={c.us ? "text-white" : "text-white/70"}>{c.name}</span>
+              {COMPARE.map((row) => (
+                <tr key={row.platform} className={`border-b border-border last:border-b-0 ${row.featured ? "bg-primary/10" : ""}`}>
+                  <td className="px-5 py-5">
+                    <div className="flex items-center gap-3">
+                      {row.featured ? <Sparkles className="h-4 w-4 text-primary" /> : <span className="h-4 w-4" />}
+                      <span className={`font-medium ${row.featured ? "text-foreground" : "text-foreground/68"}`}>{row.platform}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-4" style={{ color: c.us ? GOLD : "rgba(255,255,255,0.65)" }}>
-                    {c.price}
-                  </td>
-                  <td className="px-5 py-4 text-white/65">{c.monthly}</td>
-                  <td className="px-5 py-4 text-white/65">{c.limit}</td>
+                  <td className={`px-5 py-5 font-serif text-2xl ${row.featured ? "text-primary" : "text-foreground/72"}`}>{row.cost}</td>
+                  <td className="px-5 py-5 text-foreground/68">{row.monthly}</td>
+                  <td className="px-5 py-5 text-foreground/68">{row.limit}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-          * valores médios de mercado coletados em jun/2026 — sem assinatura, sem fidelidade.
+
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <PriceNote icon={CreditCard} title="Sem assinatura" text="Não existe plano mensal obrigatório para manter a conta rodando." />
+          <PriceNote icon={InfinityIcon} title="Sem teto mensal" text="Se sua loja vender 1.000 ou 50.000 pedidos, o fluxo continua disponível." />
+          <PriceNote icon={Boxes} title="Custo previsível" text="R$ 1,50 por envio para o lojista calcular margem sem surpresa." />
         </div>
       </div>
     </section>
   );
 }
 
-/* ---------------- feature console ---------------- */
-
-const FEATURES = [
-  { name: "tracking_widget", label: "Widget de rastreio white-label", tag: "ENABLED", icon: LineChart },
-  { name: "email_flows", label: "Fluxos de e-mail (BR · EN · ES)", tag: "LIVE", icon: Mail },
-  { name: "sms_notifications", label: "Notificações SMS automáticas", tag: "ENABLED", icon: MessageSquare },
-  { name: "webhooks", label: "Webhooks para sua stack", tag: "ENABLED", icon: Webhook },
-  { name: "upsell_engine", label: "Upsell no rastreio", tag: "BETA", icon: CreditCard },
-  { name: "global_flows", label: "Fluxo internacional automático", tag: "LIVE", icon: Globe },
-  { name: "multi_lang", label: "Templates por idioma", tag: "ENABLED", icon: Languages },
-  { name: "reverse_logistics", label: "Logística reversa integrada", tag: "ENABLED", icon: RotateCcw },
-  { name: "live_view", label: "Live view de clientes na loja", tag: "LIVE", icon: Activity },
-  { name: "checkout_bridge", label: "Bridge para checkouts (9+)", tag: "ENABLED", icon: Layers },
-];
-
-function tagColor(t: string) {
-  if (t === "LIVE") return LIVE;
-  if (t === "BETA") return "#a78bfa";
-  return GOLD;
-}
-
-function FeatureConsole() {
+function PriceNote({ icon: Icon, title, text }: { icon: ElementType; title: string; text: string }) {
   return (
-    <section className="border-b border-white/10 py-24">
-      <div className="mx-auto max-w-[1400px] px-6">
-        <SectionHeader
-          index="05"
-          title="Tudo que sua loja precisa"
-          subtitle="Recursos prontos para ativar — sem código, sem fricção."
-        />
-
-        <div className="mt-12 overflow-hidden rounded-sm border border-white/10 bg-black">
-          <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
-            <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
-            <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
-            <span className="ml-3">magnus@features ~ % ls --all</span>
-          </div>
-          <div className="divide-y divide-white/5 font-mono text-[13px]">
-            {FEATURES.map((f) => {
-              const Icon = f.icon;
-              return (
-                <div key={f.name} className="flex items-center justify-between gap-4 px-5 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="text-white/30">{">"}</span>
-                    <Icon className="h-3.5 w-3.5 text-white/40" />
-                    <span className="text-white/80">{f.name}</span>
-                    <span className="hidden truncate text-white/40 md:inline">··· {f.label}</span>
-                  </div>
-                  <span
-                    className="rounded-sm border px-2 py-0.5 text-[10px] uppercase tracking-[0.15em]"
-                    style={{
-                      borderColor: `${tagColor(f.tag)}55`,
-                      color: tagColor(f.tag),
-                      background: `${tagColor(f.tag)}10`,
-                    }}
-                  >
-                    [{f.tag}]
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </section>
+    <div className="border border-border bg-card/60 p-5">
+      <Icon className="h-5 w-5 text-primary" />
+      <h3 className="mt-4 font-serif text-2xl text-foreground">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-foreground/58">{text}</p>
+    </div>
   );
 }
-
-/* ---------------- final CTA ---------------- */
 
 function FinalCTA() {
   return (
-    <section className="relative overflow-hidden border-b border-white/10 py-32">
-      <div
-        className="absolute inset-0 opacity-30"
-        style={{
-          background:
-            "radial-gradient(700px 400px at 50% 50%, rgba(201,168,76,0.25), transparent 70%)",
-        }}
-      />
-      <div className="relative mx-auto max-w-[1400px] px-6 text-center">
-        <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/50">
-          [06] · começar agora
-        </div>
-        <h2 className="mx-auto mt-6 max-w-4xl font-serif text-[clamp(2.5rem,6vw,5rem)] leading-[1.05] text-white">
-          Menos de <span style={{ color: GOLD }}>R$ 2,00</span> por envio.
-          <br />
-          Sem mensalidade. Ilimitado.
+    <section className="relative overflow-hidden py-24 lg:py-32">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.18),transparent_62%)]" />
+      <div className="relative mx-auto max-w-5xl px-5 text-center lg:px-8">
+        <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-primary">comece com estrutura de grande operação</p>
+        <h2 className="mt-5 font-serif text-[clamp(2.8rem,6vw,6rem)] leading-[0.96] text-foreground">
+          50 mil pedidos por mês não cabem em pós-venda manual.
         </h2>
-        <p className="mx-auto mt-6 max-w-xl text-white/55">
-          Crie sua conta agora. Conecte seu checkout em minutos. Pague apenas pelos envios que rodarem.
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-foreground/62">
+          Conecte sua loja, ative os fluxos e deixe a Magnus cuidar do rastreio, mensagens e integrações por R$ 1,50 por envio.
         </p>
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-10 flex flex-wrap justify-center gap-4">
           <a
             href={SIGNUP_URL}
-            className="inline-flex items-center gap-2 rounded-sm px-8 py-4 font-mono text-sm uppercase tracking-[0.18em] text-black"
-            style={{ background: GOLD }}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-8 py-4 font-mono text-sm font-semibold uppercase tracking-[0.16em] text-primary-foreground transition hover:bg-primary/90"
           >
-            Criar minha conta <ArrowUpRight className="h-4 w-4" />
+            Criar conta
+            <ArrowUpRight className="h-4 w-4" />
           </a>
           <a
             href={LOGIN_URL}
-            className="inline-flex items-center gap-2 rounded-sm border border-white/20 px-8 py-4 font-mono text-sm uppercase tracking-[0.18em] text-white/80 transition hover:border-white/60 hover:text-white"
+            className="inline-flex items-center gap-2 rounded-sm border border-border px-8 py-4 font-mono text-sm uppercase tracking-[0.16em] text-foreground/75 transition hover:border-primary/50 hover:text-primary"
           >
-            Já tenho conta
+            Acessar login
           </a>
         </div>
       </div>
@@ -840,51 +676,46 @@ function FinalCTA() {
   );
 }
 
-/* ---------------- footer ---------------- */
-
-function TerminalFooter() {
-  const now = useNow();
+function Footer() {
   return (
-    <footer className="bg-black">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-6 py-8 font-mono text-[11px] uppercase tracking-[0.18em] text-white/40 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <img src="/logo-magnus.png" alt="Magnus Frete" className="h-5 w-auto opacity-80" />
-          <span>© {new Date().getFullYear()} Magnus Frete</span>
+    <footer className="border-t border-border bg-background">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-8 px-5 py-10 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="flex items-center gap-4">
+          <img src="/logo-magnus.png" alt="Magnus Frete" className="h-12 w-auto object-contain" />
+          <div>
+            <p className="font-semibold text-foreground">Magnus Frete</p>
+            <p className="mt-1 text-sm text-muted-foreground">Pós-venda, rastreio e integrações para lojas de alta escala.</p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-5">
-          <a href="/termos" className="transition hover:text-white">
+
+        <div className="flex flex-wrap items-center gap-5 text-sm text-foreground/62">
+          <a href="/termos-de-uso" className="transition hover:text-primary">
             Termos de uso
           </a>
-          <a href={LOGIN_URL} className="transition hover:text-white">
+          <a href={LOGIN_URL} className="transition hover:text-primary">
             Login
           </a>
-          <a href={SIGNUP_URL} className="transition hover:text-white">
+          <a href={SIGNUP_URL} className="transition hover:text-primary">
             Criar conta
           </a>
-        </div>
-        <div className="flex items-center gap-3">
-          <LiveDot />
-          <span>build 2026.06 · {fmtTime(now)}</span>
         </div>
       </div>
     </footer>
   );
 }
 
-/* ---------------- page ---------------- */
-
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white antialiased">
-      <TerminalTopBar />
-      <PriceHero />
-      <OrdersTicker />
-      <DataRoomPanel />
+    <main className="min-h-screen bg-background text-foreground antialiased">
+      <Header />
+      <Hero />
+      <ProofStrip />
+      <BenefitsSection />
+      <IntegrationsSection />
       <CountriesSection />
-      <PriceCompareTable />
-      <FeatureConsole />
+      <PriceSection />
       <FinalCTA />
-      <TerminalFooter />
+      <Footer />
     </main>
   );
 }
