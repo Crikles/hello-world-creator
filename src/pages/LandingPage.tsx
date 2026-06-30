@@ -74,14 +74,14 @@ function Nav() {
           <Link to="/termos-de-uso" className="hover:text-gold transition">Termos</Link>
         </nav>
         <div className="flex items-center gap-3">
-          <Link to="/login" className="text-sm text-foreground/80 hover:text-gold transition hidden sm:inline">Entrar</Link>
-          <Link
-            to="/signup"
+          <a href="https://magnusfrete.net/login" className="text-sm text-foreground/80 hover:text-gold transition hidden sm:inline">Entrar</a>
+          <a
+            href="https://magnusfrete.net/signup"
             className="group inline-flex items-center gap-1.5 rounded-md bg-gold text-noir px-4 py-2 text-sm font-medium hover:bg-gold-soft transition"
           >
             Começar agora
             <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition" />
-          </Link>
+          </a>
         </div>
       </div>
     </header>
@@ -132,19 +132,19 @@ function Hero() {
         </Reveal>
         <Reveal delay={0.2}>
           <div className="mt-10 flex items-center justify-center gap-3 flex-wrap">
-            <Link
-              to="/signup"
+            <a
+              href="https://magnusfrete.net/signup"
               className="group inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3.5 text-sm font-medium text-noir hover:bg-gold-soft transition"
             >
               Criar minha conta
               <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
-            </Link>
-            <Link
-              to="/login"
+            </a>
+            <a
+              href="https://magnusfrete.net/login"
               className="inline-flex items-center gap-2 rounded-md border border-gold/25 px-6 py-3.5 text-sm text-foreground/85 hover:border-gold/50 hover:text-gold transition"
             >
               Já sou cliente
-            </Link>
+            </a>
           </div>
         </Reveal>
 
@@ -538,19 +538,19 @@ function FinalCTA() {
         </Reveal>
         <Reveal delay={0.18}>
           <div className="mt-10 flex items-center justify-center gap-3 flex-wrap">
-            <Link
-              to="/signup"
+            <a
+              href="https://magnusfrete.net/signup"
               className="group inline-flex items-center gap-2 rounded-md bg-gold px-7 py-4 text-sm font-medium text-noir hover:bg-gold-soft transition"
             >
               Começar agora
               <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
-            </Link>
-            <Link
-              to="/login"
+            </a>
+            <a
+              href="https://magnusfrete.net/login"
               className="inline-flex items-center gap-2 rounded-md border border-gold/25 px-7 py-4 text-sm text-foreground/85 hover:border-gold/50 hover:text-gold transition"
             >
               Acessar painel
-            </Link>
+            </a>
           </div>
         </Reveal>
       </div>
