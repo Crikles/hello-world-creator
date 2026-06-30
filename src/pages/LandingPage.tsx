@@ -1,26 +1,23 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useInView, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
-  ArrowRight,
   ArrowUpRight,
-  Box,
-  Clock,
-  Truck,
   CheckCircle2,
+  Circle,
+  Globe,
+  Infinity as InfinityIcon,
+  Zap,
+  ShieldCheck,
   Mail,
   MessageSquare,
   Webhook,
-  Sparkles,
-  RotateCcw,
-  CreditCard,
-  Globe,
-  ShieldCheck,
-  LineChart,
-  Zap,
   Languages,
-  FileText,
+  CreditCard,
+  RotateCcw,
+  Sparkles,
+  LineChart,
   Layers,
+  Activity,
 } from "lucide-react";
 import logoShopify from "@/assets/logo-shopify.png";
 import logoCloudfy from "@/assets/logo-cloudfy.png";
@@ -28,708 +25,867 @@ import logoZedy from "@/assets/logo-zedy.png";
 import logoVega from "@/assets/logo-vega.png";
 import logoLuna from "@/assets/logo-luna.png";
 import logoAdoorei from "@/assets/logo-adoorei.png";
-import logoCorvex from "@/assets/logo-corvex.ico";
 import logoAlphazz from "@/assets/logo-alphazz.png";
 import logoNuvorafy from "@/assets/logo-nuvorafy.png";
 
-/* ---------- helpers ---------- */
+/* ============================================================
+   MAGNUS FRETE — Data-Room / Terminal LP
+   ============================================================ */
 
-function AnimatedNumber({ value, suffix = "", prefix = "" }: { value: number; suffix?: string; prefix?: string }) {
+const GOLD = "#c9a84c";
+const GOLD_DIM = "#8a7635";
+const LIVE = "#22c55e";
+
+const LOGIN_URL = "https://magnusfrete.net/login";
+const SIGNUP_URL = "https://magnusfrete.net/signup";
+
+/* ---------------- helpers ---------------- */
+
+function useNow() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function fmtTime(d: Date) {
+  return d.toTimeString().slice(0, 8);
+}
+
+function AnimatedNumber({
+  value,
+  suffix = "",
+  prefix = "",
+  decimals = 0,
+}: {
+  value: number;
+  suffix?: string;
+  prefix?: string;
+  decimals?: number;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
+  const inView = useInView(ref, { once: true, margin: "-60px" });
   const mv = useMotionValue(0);
-  const spring = useSpring(mv, { stiffness: 60, damping: 18 });
-  const rounded = useTransform(spring, (v) => {
-    if (value >= 1000) return Math.round(v).toLocaleString("pt-BR");
-    return v.toFixed(value % 1 === 0 ? 0 : 1);
-  });
-  useEffect(() => { if (inView) mv.set(value); }, [inView, value, mv]);
+  const spring = useSpring(mv, { stiffness: 50, damping: 20 });
+  const text = useTransform(spring, (v) =>
+    decimals === 0
+      ? Math.round(v).toLocaleString("pt-BR")
+      : v.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }),
+  );
+  useEffect(() => {
+    if (inView) mv.set(value);
+  }, [inView, value, mv]);
   return (
     <span ref={ref} className="tabular-nums">
-      {prefix}<motion.span>{rounded}</motion.span>{suffix}
+      {prefix}
+      <motion.span>{text}</motion.span>
+      {suffix}
     </span>
   );
 }
 
-function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+function LiveDot({ color = LIVE }: { color?: string }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 28 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
-    >
-      {children}
-    </motion.div>
+    <span className="relative inline-flex h-2 w-2 items-center justify-center">
+      <span
+        className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+        style={{ background: color }}
+      />
+      <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: color }} />
+    </span>
   );
 }
 
-/* ---------- top nav ---------- */
+/* ---------------- top bar ---------------- */
 
-function Nav() {
+function TerminalTopBar() {
+  const now = useNow();
   return (
-    <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-md bg-[#0a0a0a]/70 border-b border-gold/10">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
-        <Link to="/lp" className="flex items-center gap-2.5">
-          <img src="/logo-magnus.png" alt="Magnus Frete" className="h-9 w-auto" />
-        </Link>
-        <nav className="hidden md:flex items-center gap-8 text-sm text-foreground/70">
-          <a href="#dashboard" className="hover:text-gold transition">Plataforma</a>
-          <a href="#recursos" className="hover:text-gold transition">Recursos</a>
-          <a href="#integracoes" className="hover:text-gold transition">Integrações</a>
-          <Link to="/termos-de-uso" className="hover:text-gold transition">Termos</Link>
-        </nav>
+    <div className="sticky top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-md">
+      <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-3 font-mono text-[11px] uppercase tracking-[0.18em] text-white/70">
+        <div className="flex items-center gap-4">
+          <img src="/logo-magnus.png" alt="Magnus Frete" className="h-6 w-auto" />
+          <span className="hidden text-white/30 md:inline">/</span>
+          <span className="hidden md:inline">data-room v2026.06</span>
+        </div>
+        <div className="hidden items-center gap-6 md:flex">
+          <span className="flex items-center gap-2">
+            <LiveDot /> system online
+          </span>
+          <span>uptime 99.98%</span>
+          <span>{fmtTime(now)} UTC-3</span>
+        </div>
         <div className="flex items-center gap-3">
-          <a href="https://magnusfrete.net/login" className="text-sm text-foreground/80 hover:text-gold transition hidden sm:inline">Entrar</a>
           <a
-            href="https://magnusfrete.net/signup"
-            className="group inline-flex items-center gap-1.5 rounded-md bg-gold text-noir px-4 py-2 text-sm font-medium hover:bg-gold-soft transition"
+            href={LOGIN_URL}
+            className="rounded-sm border border-white/15 px-3 py-1.5 text-white/80 transition hover:border-white/40 hover:text-white"
           >
-            Começar agora
-            <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition" />
+            Login
+          </a>
+          <a
+            href={SIGNUP_URL}
+            className="rounded-sm px-3 py-1.5 text-black transition hover:opacity-90"
+            style={{ background: GOLD }}
+          >
+            Criar conta
           </a>
         </div>
       </div>
-    </header>
+    </div>
   );
 }
 
-/* ---------- hero ---------- */
+/* ---------------- price hero ---------------- */
 
-function Hero() {
+function PriceHero() {
   return (
-    <section className="relative pt-40 pb-24 overflow-hidden">
-      {/* radial gold glow */}
+    <section className="relative overflow-hidden border-b border-white/10">
+      {/* grid background */}
       <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(900px 500px at 50% -10%, rgba(201,168,76,0.18), transparent 60%), radial-gradient(700px 400px at 80% 120%, rgba(201,168,76,0.10), transparent 60%)",
-        }}
-      />
-      {/* fine grain */}
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-[0.04] mix-blend-overlay pointer-events-none"
+        className="absolute inset-0 opacity-[0.12]"
         style={{
           backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>\")",
+            "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
         }}
       />
-      <div className="relative max-w-7xl mx-auto px-6 lg:px-10 text-center">
-        <Reveal>
-          <div className="inline-flex items-center gap-2 rounded-full border border-gold/25 bg-noir-elevated/60 px-3.5 py-1.5 text-[12px] uppercase tracking-[0.18em] text-gold-soft">
-            <span className="size-1.5 rounded-full bg-gold animate-pulse" />
-            Operação ativa · Brasil · Estados Unidos · Espanha
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          background:
+            "radial-gradient(900px 500px at 20% 20%, rgba(201,168,76,0.18), transparent 60%), radial-gradient(700px 400px at 90% 80%, rgba(201,168,76,0.10), transparent 60%)",
+        }}
+      />
+
+      <div className="relative mx-auto grid max-w-[1400px] gap-12 px-6 py-24 lg:grid-cols-[1.4fr_1fr] lg:py-32">
+        {/* left: headline */}
+        <div>
+          <div className="mb-6 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.25em] text-white/50">
+            <span className="h-px w-8 bg-white/30" />
+            <span>pricing · live</span>
           </div>
-        </Reveal>
-        <Reveal delay={0.05}>
-          <h1 className="mt-7 font-serif text-[clamp(3rem,7vw,6.5rem)] leading-[0.98] text-foreground">
-            Logística silenciosa.<br />
-            <span className="italic text-gold-soft">Operação implacável.</span>
+
+          <h1 className="font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.95] tracking-tight text-white">
+            Menos de
+            <br />
+            <span style={{ color: GOLD }}>R$ 2,00</span>
+            <br />
+            por envio.
           </h1>
-        </Reveal>
-        <Reveal delay={0.12}>
-          <p className="mt-7 mx-auto max-w-2xl text-foreground/65 text-[17px] leading-relaxed">
-            A Magnus Frete orquestra rastreamento, notificações e cobrança para e-commerces
-            que vendem em três continentes — sem caos, sem planilhas, sem retrabalho.
+
+          <div className="mt-8 grid max-w-2xl gap-3 font-mono text-sm text-white/70 sm:grid-cols-3">
+            <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-3 py-2.5">
+              <InfinityIcon className="h-4 w-4" style={{ color: GOLD }} />
+              <span>Envios ilimitados</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-3 py-2.5">
+              <ShieldCheck className="h-4 w-4" style={{ color: GOLD }} />
+              <span>Sem plano mensal</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.02] px-3 py-2.5">
+              <Zap className="h-4 w-4" style={{ color: GOLD }} />
+              <span>Pague pelo uso</span>
+            </div>
+          </div>
+
+          <p className="mt-8 max-w-xl text-base leading-relaxed text-white/55">
+            Você só paga pelo que envia. Sem mínimos, sem assinatura, sem letras miúdas. A plataforma de
+            pós-venda e rastreamento usada por lojas que transacionam{" "}
+            <span className="text-white">50.000+ pedidos por mês</span>.
           </p>
-        </Reveal>
-        <Reveal delay={0.2}>
-          <div className="mt-10 flex items-center justify-center gap-3 flex-wrap">
-            <a
-              href="https://magnusfrete.net/signup"
-              className="group inline-flex items-center gap-2 rounded-md bg-gold px-6 py-3.5 text-sm font-medium text-noir hover:bg-gold-soft transition"
-            >
-              Criar minha conta
-              <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
-            </a>
-            <a
-              href="https://magnusfrete.net/login"
-              className="inline-flex items-center gap-2 rounded-md border border-gold/25 px-6 py-3.5 text-sm text-foreground/85 hover:border-gold/50 hover:text-gold transition"
-            >
-              Já sou cliente
-            </a>
-          </div>
-        </Reveal>
 
-        {/* flags row */}
-        <Reveal delay={0.28}>
-          <div className="mt-14 flex items-center justify-center gap-8 sm:gap-14 flex-wrap">
-            {[
-              { code: "br", label: "Brasil", note: "Rede nacional" },
-              { code: "us", label: "Estados Unidos", note: "Fluxo internacional EN" },
-              { code: "es", label: "Espanha", note: "Fluxo internacional ES" },
-            ].map((f) => (
-              <div key={f.label} className="flex items-center gap-3 text-left">
-                <img
-                  src={`https://flagcdn.com/w80/${f.code}.png`}
-                  srcSet={`https://flagcdn.com/w160/${f.code}.png 2x`}
-                  alt={f.label}
-                  className="h-8 w-12 object-cover rounded-sm ring-1 ring-gold/25 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
-                  loading="lazy"
-                />
-                <div>
-                  <div className="text-sm text-foreground">{f.label}</div>
-                  <div className="text-[11px] uppercase tracking-wider text-foreground/45">{f.note}</div>
-                </div>
-              </div>
-            ))}
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <a
+              href={SIGNUP_URL}
+              className="group inline-flex items-center gap-2 rounded-sm px-6 py-3.5 font-mono text-sm uppercase tracking-[0.18em] text-black transition"
+              style={{ background: GOLD }}
+            >
+              Acessar plataforma
+              <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </a>
+            <a
+              href={LOGIN_URL}
+              className="inline-flex items-center gap-2 rounded-sm border border-white/20 px-6 py-3.5 font-mono text-sm uppercase tracking-[0.18em] text-white/80 transition hover:border-white/60 hover:text-white"
+            >
+              Entrar
+            </a>
           </div>
-        </Reveal>
+        </div>
+
+        {/* right: KPI panel */}
+        <KpiPanel />
       </div>
     </section>
   );
 }
 
-/* ---------- dashboard mock ---------- */
-
-function DashboardMock() {
-  const stats = [
-    { label: "Total de Pedidos", value: "52.480", icon: Box },
-    { label: "Pendentes", value: "0", icon: Clock },
-    { label: "Em Trânsito", value: "48.120", icon: Truck },
-    { label: "Entregues", value: "46.905", icon: CheckCircle2 },
-  ];
-  const channels = [
-    { name: "Email", desc: "Notificações ativas", icon: Mail, active: true },
-    { name: "SMS", desc: "WhatsApp + SMS ativos", icon: MessageSquare, active: true },
-    { name: "Webhook", desc: "Cloudfy + Shopify", icon: Webhook, active: true },
-    { name: "Upsell", desc: "Pós-compra ativo", icon: Sparkles, active: true },
-    { name: "Recuperação", desc: "Carrinho abandonado", icon: RotateCcw, active: true },
-    { name: "Confirmação de Pagamento", desc: "Ativo", icon: CreditCard, active: true },
-    { name: "Global", desc: "Ativo · EN/ES", icon: Globe, active: true },
-  ];
+function KpiPanel() {
   return (
-    <section id="dashboard" className="relative py-24">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <Reveal>
-          <div className="mb-10 flex items-end justify-between flex-wrap gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.22em] text-gold/80">Painel</div>
-              <h2 className="mt-3 font-serif text-4xl md:text-5xl text-foreground">O centro de comando dos seus envios</h2>
+    <div className="relative">
+      <div className="rounded-sm border border-white/10 bg-black/40 backdrop-blur-sm">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">
+          <span className="flex items-center gap-2">
+            <LiveDot /> live metrics
+          </span>
+          <span>~/magnus</span>
+        </div>
+        <div className="divide-y divide-white/10">
+          <KpiRow label="Pedidos hoje" value={<AnimatedNumber value={3284} />} delta="+12.4%" />
+          <KpiRow label="Pedidos no mês" value={<AnimatedNumber value={52480} />} delta="+8.1%" />
+          <KpiRow label="Lojas ativas" value={<AnimatedNumber value={1847} />} delta="+24" />
+          <KpiRow
+            label="Países atendidos"
+            value={
+              <span className="tabular-nums">
+                <AnimatedNumber value={3} />
+              </span>
+            }
+            delta="BR · US · ES"
+            deltaMuted
+          />
+          <KpiRow
+            label="Custo por envio"
+            value={
+              <span style={{ color: GOLD }}>
+                R$ <AnimatedNumber value={1.89} decimals={2} />
+              </span>
+            }
+            delta="-58% vs mercado"
+          />
+        </div>
+        <div className="border-t border-white/10 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
+          <span className="text-white/60">$</span> stream connected · last_update 0.4s
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiRow({
+  label,
+  value,
+  delta,
+  deltaMuted,
+}: {
+  label: string;
+  value: React.ReactNode;
+  delta: string;
+  deltaMuted?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3.5">
+      <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/50">{label}</div>
+      <div className="flex items-center gap-4">
+        <span className="font-serif text-2xl text-white">{value}</span>
+        <span
+          className="rounded-sm border px-2 py-0.5 font-mono text-[10px]"
+          style={{
+            borderColor: deltaMuted ? "rgba(255,255,255,0.15)" : "rgba(34,197,94,0.3)",
+            color: deltaMuted ? "rgba(255,255,255,0.5)" : LIVE,
+          }}
+        >
+          {delta}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- orders ticker ---------------- */
+
+const SAMPLE_ORDERS = [
+  { id: "48211", status: "PAID", from: "BR", to: "US", src: "Shopify" },
+  { id: "48212", status: "DELIVERED", from: "BR", to: "BR", src: "Cloudfy" },
+  { id: "48213", status: "SHIPPED", from: "ES", to: "ES", src: "Zedy" },
+  { id: "48214", status: "PAID", from: "BR", to: "BR", src: "Adoorei" },
+  { id: "48215", status: "OUT_FOR_DELIVERY", from: "US", to: "US", src: "Shopify" },
+  { id: "48216", status: "PAID", from: "BR", to: "ES", src: "Cloudfy" },
+  { id: "48217", status: "IN_TRANSIT", from: "BR", to: "US", src: "Vega" },
+  { id: "48218", status: "DELIVERED", from: "ES", to: "ES", src: "Luna" },
+  { id: "48219", status: "PAID", from: "BR", to: "BR", src: "Nuvorafy" },
+  { id: "48220", status: "SHIPPED", from: "BR", to: "US", src: "Alphazz" },
+];
+
+function statusColor(s: string) {
+  if (s === "PAID") return GOLD;
+  if (s === "DELIVERED") return LIVE;
+  return "#7dd3fc";
+}
+
+function OrdersTicker() {
+  const items = [...SAMPLE_ORDERS, ...SAMPLE_ORDERS];
+  return (
+    <section className="border-b border-white/10 bg-black">
+      <div className="flex items-center gap-3 border-b border-white/10 px-6 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">
+        <LiveDot /> orders feed · realtime
+      </div>
+      <div className="relative overflow-hidden">
+        <div className="flex animate-[ticker_60s_linear_infinite] whitespace-nowrap py-3 font-mono text-[12px] text-white/70">
+          {items.map((o, i) => (
+            <div key={i} className="flex items-center gap-3 px-6">
+              <span className="text-white/40">#{o.id}</span>
+              <span style={{ color: statusColor(o.status) }}>{o.status}</span>
+              <span className="text-white/50">
+                {o.from} <span className="text-white/30">→</span> {o.to}
+              </span>
+              <span className="text-white/40">· {o.src}</span>
+              <span className="text-white/20">|</span>
             </div>
-            <div className="text-sm text-foreground/55 max-w-md">
-              Dashboard real da plataforma Magnus. Cada métrica é atualizada em tempo
-              real conforme seus pedidos avançam pelos fluxos.
+          ))}
+        </div>
+      </div>
+      <style>{`@keyframes ticker {from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
+    </section>
+  );
+}
+
+/* ---------------- data room ---------------- */
+
+const CHART_DATA = [
+  { m: "Jan", v: 18420 },
+  { m: "Fev", v: 22180 },
+  { m: "Mar", v: 27940 },
+  { m: "Abr", v: 31260 },
+  { m: "Mai", v: 42870 },
+  { m: "Jun", v: 52480 },
+];
+
+function DataRoomPanel() {
+  return (
+    <section className="border-b border-white/10 py-24">
+      <div className="mx-auto max-w-[1400px] px-6">
+        <SectionHeader index="02" title="Data-room ao vivo" subtitle="Tudo que sua loja precisa em um único console." />
+
+        <div className="mt-12 grid gap-4 lg:grid-cols-3">
+          {/* Big chart */}
+          <div className="rounded-sm border border-white/10 bg-white/[0.02] lg:col-span-2">
+            <PanelHeader label="Pedidos · últimos 6 meses" right="+185% YoY" />
+            <div className="p-6">
+              <BigChart />
             </div>
           </div>
-        </Reveal>
 
-        <Reveal delay={0.1}>
-          <div className="relative rounded-2xl border border-gold/15 bg-noir-elevated overflow-hidden shadow-[0_60px_120px_-40px_rgba(0,0,0,0.8)]">
-            {/* top bar */}
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-gold/10 bg-noir/60">
-              <span className="size-2.5 rounded-full bg-red-500/60" />
-              <span className="size-2.5 rounded-full bg-yellow-500/60" />
-              <span className="size-2.5 rounded-full bg-green-500/60" />
-              <span className="ml-3 text-xs text-foreground/40">app.magnusfrete.net · Dashboard</span>
-            </div>
-
-            <div className="p-6 lg:p-8">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <h3 className="font-serif text-2xl text-foreground">Dashboard</h3>
-                  <p className="text-sm text-foreground/50">Bem-vindo de volta. Aqui está o resumo dos seus envios.</p>
-                </div>
-              </div>
-
-              {/* brazil banner */}
-              <div className="mt-6 rounded-xl border border-gold/15 bg-noir/40 px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">🇧🇷</span>
-                  <div>
-                    <div className="text-sm font-medium text-foreground">Rastreio Nacional</div>
-                    <div className="text-xs text-foreground/50">Envios processados pela logística nacional</div>
-                  </div>
-                </div>
-                <span className="text-[11px] uppercase tracking-wider text-gold border border-gold/30 rounded-full px-2.5 py-0.5">Ativo</span>
-              </div>
-
-              {/* stat cards */}
-              <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((s) => (
-                  <div key={s.label} className="rounded-xl border border-gold/10 bg-noir/40 p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="text-xs text-foreground/55">{s.label}</div>
-                      <div className="size-9 rounded-md border border-gold/15 grid place-items-center text-gold/80">
-                        <s.icon className="size-4" />
-                      </div>
-                    </div>
-                    <div className="mt-3 font-serif text-3xl text-foreground">{s.value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* chart + channels */}
-              <div className="mt-5 grid lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2 rounded-xl border border-gold/10 bg-noir/40 p-5">
-                  <div className="flex items-start justify-between flex-wrap gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 text-sm text-foreground/80">
-                        <LineChart className="size-4 text-gold" /> Faturamento
-                      </div>
-                      <div className="text-[11px] text-foreground/45 mt-1">Últimos 6 meses · 25.944 pedidos</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-serif text-3xl text-gold-soft leading-none">R$ 4.892.730,50</div>
-                      <div className="text-[11px] text-emerald-400/80 mt-1">▲ 32,4% vs. semestre anterior</div>
-                    </div>
-                  </div>
-                  <FakeChart />
-                </div>
-                <div className="rounded-xl border border-gold/10 bg-noir/40 p-5">
-                  <div className="text-sm text-foreground/80 mb-3">Canais de Notificação</div>
-                  <div className="space-y-2">
-                    {channels.map((c) => (
-                      <div
-                        key={c.name}
-                        className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
-                          c.active ? "border-gold/30 bg-gold/[0.04]" : "border-gold/8"
-                        }`}
-                      >
-                        <c.icon className={`size-4 ${c.active ? "text-gold" : "text-foreground/40"}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] text-foreground truncate">{c.name}</div>
-                          <div className="text-[11px] text-foreground/45 truncate">{c.desc}</div>
-                        </div>
-                        <span
-                          className={`text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 border ${
-                            c.active
-                              ? "border-gold/40 text-gold"
-                              : "border-foreground/15 text-foreground/40"
-                          }`}
-                        >
-                          {c.active ? "Ativo" : "Inativo"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Events log */}
+          <div className="rounded-sm border border-white/10 bg-white/[0.02]">
+            <PanelHeader label="Eventos recentes" right={<LiveDot />} />
+            <EventLog />
           </div>
-        </Reveal>
+
+          {/* Routes map */}
+          <div className="rounded-sm border border-white/10 bg-white/[0.02]">
+            <PanelHeader label="Rotas ativas" right="BR · US · ES" />
+            <RoutesMap />
+          </div>
+
+          {/* Checkout distribution */}
+          <div className="rounded-sm border border-white/10 bg-white/[0.02] lg:col-span-2">
+            <PanelHeader label="Distribuição por checkout" right="9 integrações" />
+            <CheckoutDistribution />
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function FakeChart() {
-  // 6-month polished area chart with smooth curve, gridlines, value labels and month axis
-  const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"];
-  const values = [412, 528, 690, 905, 1180, 1424]; // R$ x 1.000
-  const w = 640;
-  const h = 220;
-  const padL = 44, padR = 16, padT = 18, padB = 30;
-  const cw = w - padL - padR;
-  const ch = h - padT - padB;
-  const max = 1600;
-  const xs = values.map((_, i) => padL + (cw * i) / (values.length - 1));
-  const ys = values.map((v) => padT + ch - (v / max) * ch);
+function SectionHeader({ index, title, subtitle }: { index: string; title: string; subtitle: string }) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-white/10 pb-6 md:flex-row md:items-end md:justify-between">
+      <div className="flex items-baseline gap-4">
+        <span className="font-mono text-xs text-white/40">[{index}]</span>
+        <h2 className="font-serif text-4xl text-white md:text-5xl">{title}</h2>
+      </div>
+      <p className="max-w-md text-sm text-white/50">{subtitle}</p>
+    </div>
+  );
+}
 
-  // Catmull-Rom -> Bezier for a smooth curve
-  const smooth = (pts: { x: number; y: number }[]) => {
-    if (pts.length < 2) return "";
-    let d = `M ${pts[0].x} ${pts[0].y}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
-      const c1x = p1.x + (p2.x - p0.x) / 6;
-      const c1y = p1.y + (p2.y - p0.y) / 6;
-      const c2x = p2.x - (p3.x - p1.x) / 6;
-      const c2y = p2.y - (p3.y - p1.y) / 6;
-      d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
-    }
-    return d;
-  };
+function PanelHeader({ label, right }: { label: string; right?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">{right}</span>
+    </div>
+  );
+}
 
-  const pts = xs.map((x, i) => ({ x, y: ys[i] }));
-  const linePath = smooth(pts);
-  const areaPath = `${linePath} L ${xs[xs.length - 1]} ${padT + ch} L ${xs[0]} ${padT + ch} Z`;
-  const yTicks = [0, 400, 800, 1200, 1600];
-  const fmt = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1).replace(".", ",")}M` : `${v}k`);
+function BigChart() {
+  const W = 720;
+  const H = 280;
+  const PAD_L = 48;
+  const PAD_R = 24;
+  const PAD_T = 20;
+  const PAD_B = 36;
+  const max = Math.max(...CHART_DATA.map((d) => d.v)) * 1.1;
+  const stepX = (W - PAD_L - PAD_R) / (CHART_DATA.length - 1);
+
+  const pts = CHART_DATA.map((d, i) => ({
+    x: PAD_L + i * stepX,
+    y: PAD_T + (H - PAD_T - PAD_B) * (1 - d.v / max),
+    v: d.v,
+    m: d.m,
+  }));
+
+  // Catmull-Rom to bezier
+  const path = pts.reduce((acc, p, i, arr) => {
+    if (i === 0) return `M ${p.x} ${p.y}`;
+    const p0 = arr[i - 2] || arr[i - 1];
+    const p1 = arr[i - 1];
+    const p2 = p;
+    const p3 = arr[i + 1] || p;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    return `${acc} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+  }, "");
+
+  const area = `${path} L ${pts[pts.length - 1].x} ${H - PAD_B} L ${pts[0].x} ${H - PAD_B} Z`;
+
+  const gridYs = [0, 0.25, 0.5, 0.75, 1].map((t) => PAD_T + (H - PAD_T - PAD_B) * t);
+  const gridVals = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(max * (1 - t)));
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="mt-5 w-full h-56">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
       <defs>
-        <linearGradient id="gFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#c9a84c" stopOpacity="0.55" />
-          <stop offset="60%" stopColor="#c9a84c" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#c9a84c" stopOpacity="0" />
+        <linearGradient id="bcArea" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={GOLD} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
         </linearGradient>
-        <linearGradient id="gStroke" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0%" stopColor="#c9a84c" />
-          <stop offset="100%" stopColor="#f0d78c" />
-        </linearGradient>
-        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
+        <filter id="bcGlow">
+          <feGaussianBlur stdDeviation="3" result="b" />
           <feMerge>
-            <feMergeNode in="blur" />
+            <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
 
-      {/* horizontal gridlines + Y labels */}
-      {yTicks.map((t) => {
-        const y = padT + ch - (t / max) * ch;
-        return (
-          <g key={t}>
-            <line x1={padL} x2={w - padR} y1={y} y2={y} stroke="#c9a84c" strokeOpacity="0.08" strokeDasharray="2 4" />
-            <text x={padL - 8} y={y + 3} textAnchor="end" fontSize="10" fill="#c9a84c" fillOpacity="0.45">
-              {fmt(t)}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* area + line */}
-      <path d={areaPath} fill="url(#gFill)" />
-      <path d={linePath} fill="none" stroke="url(#gStroke)" strokeWidth="2.5" strokeLinecap="round" filter="url(#glow)" />
-
-      {/* data points + value labels */}
-      {pts.map((p, i) => (
+      {gridYs.map((y, i) => (
         <g key={i}>
-          <circle cx={p.x} cy={p.y} r="4" fill="#0f0f0f" stroke="#f0d78c" strokeWidth="1.5" />
-          <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="10" fill="#f0d78c" fillOpacity="0.85">
-            {fmt(values[i])}
+          <line x1={PAD_L} x2={W - PAD_R} y1={y} y2={y} stroke="rgba(255,255,255,0.06)" strokeDasharray="2 4" />
+          <text x={PAD_L - 8} y={y + 4} textAnchor="end" fill="rgba(255,255,255,0.35)" fontSize="10" fontFamily="JetBrains Mono">
+            {gridVals[i].toLocaleString("pt-BR")}
           </text>
         </g>
       ))}
 
-      {/* X axis labels */}
-      {months.map((m, i) => (
-        <text
-          key={m}
-          x={xs[i]}
-          y={h - 8}
-          textAnchor="middle"
-          fontSize="11"
-          fill="#ffffff"
-          fillOpacity="0.55"
-          style={{ letterSpacing: "0.08em" }}
-        >
-          {m}
-        </text>
+      <path d={area} fill="url(#bcArea)" />
+      <path d={path} fill="none" stroke={GOLD} strokeWidth="2" filter="url(#bcGlow)" />
+
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r="4" fill="#0a0a0a" stroke={GOLD} strokeWidth="1.5" />
+          <text x={p.x} y={H - PAD_B + 18} textAnchor="middle" fill="rgba(255,255,255,0.55)" fontSize="10" fontFamily="JetBrains Mono">
+            {p.m}
+          </text>
+          <text x={p.x} y={p.y - 12} textAnchor="middle" fill="rgba(255,255,255,0.65)" fontSize="10" fontFamily="JetBrains Mono">
+            {p.v.toLocaleString("pt-BR")}
+          </text>
+        </g>
       ))}
     </svg>
   );
 }
 
+const EVENTS = [
+  { t: "14:22:08", k: "ORDER", c: GOLD, m: "#48221 paid · Shopify · BR" },
+  { t: "14:22:04", k: "EMAIL", c: "#7dd3fc", m: "Confirmação enviada · pt-BR" },
+  { t: "14:21:58", k: "TRACK", c: LIVE, m: "#48198 delivered · Atlas" },
+  { t: "14:21:51", k: "ORDER", c: GOLD, m: "#48220 paid · Cloudfy · ES" },
+  { t: "14:21:47", k: "EMAIL", c: "#7dd3fc", m: "Confirmación · es-ES" },
+  { t: "14:21:39", k: "WEBHK", c: "#a78bfa", m: "Magnus → Loja · 200 OK" },
+  { t: "14:21:33", k: "TRACK", c: LIVE, m: "#48201 out_for_delivery · Jetline" },
+  { t: "14:21:28", k: "ORDER", c: GOLD, m: "#48219 paid · Adoorei · BR" },
+];
 
-/* ---------- numbers strip ---------- */
-
-function NumbersStrip() {
+function EventLog() {
   return (
-    <section className="border-y border-gold/10 bg-noir-elevated/40 py-16">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 grid grid-cols-2 md:grid-cols-4 gap-10">
+    <div className="px-2 py-2 font-mono text-[11px]">
+      {EVENTS.map((e, i) => (
+        <div key={i} className="flex items-center gap-3 px-2 py-1.5">
+          <span className="text-white/30">{e.t}</span>
+          <span className="rounded-sm px-1.5 py-0.5 text-[9px]" style={{ background: `${e.c}22`, color: e.c }}>
+            {e.k}
+          </span>
+          <span className="truncate text-white/65">{e.m}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RoutesMap() {
+  // simple stylized world
+  const nodes = {
+    BR: { x: 200, y: 170, label: "BR" },
+    US: { x: 100, y: 90, label: "US" },
+    ES: { x: 260, y: 90, label: "ES" },
+  };
+  return (
+    <div className="p-4">
+      <svg viewBox="0 0 340 240" className="w-full">
+        <defs>
+          <linearGradient id="route" x1="0" x2="1">
+            <stop offset="0%" stopColor={GOLD} stopOpacity="0" />
+            <stop offset="50%" stopColor={GOLD} stopOpacity="1" />
+            <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* connections */}
         {[
-          { v: 50000, l: "Envios processados / mês", suffix: "+" },
-          { v: 99.4, l: "Uptime da plataforma", suffix: "%" },
-          { v: 14, l: "Checkouts integrados", suffix: "" },
-          { v: 3, l: "Continentes em operação", suffix: "" },
-        ].map((n) => (
-          <Reveal key={n.l}>
-            <div>
-              <div className="font-serif text-5xl md:text-6xl text-gold-soft leading-none">
-                <AnimatedNumber value={n.v} suffix={n.suffix} />
-              </div>
-              <div className="mt-3 text-[12px] uppercase tracking-[0.18em] text-foreground/50">{n.l}</div>
-            </div>
-          </Reveal>
+          [nodes.BR, nodes.US],
+          [nodes.BR, nodes.ES],
+          [nodes.US, nodes.ES],
+        ].map(([a, b], i) => (
+          <g key={i}>
+            <path
+              d={`M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${(a.y + b.y) / 2 - 40} ${b.x} ${b.y}`}
+              stroke="url(#route)"
+              strokeWidth="1.2"
+              fill="none"
+            />
+          </g>
         ))}
+
+        {Object.values(nodes).map((n) => (
+          <g key={n.label}>
+            <circle cx={n.x} cy={n.y} r="20" fill="rgba(201,168,76,0.08)" stroke={GOLD} strokeOpacity="0.4" />
+            <circle cx={n.x} cy={n.y} r="5" fill={GOLD} />
+            <text
+              x={n.x}
+              y={n.y + 38}
+              textAnchor="middle"
+              fill="rgba(255,255,255,0.7)"
+              fontSize="11"
+              fontFamily="JetBrains Mono"
+            >
+              {n.label}
+            </text>
+          </g>
+        ))}
+      </svg>
+
+      <div className="mt-2 grid grid-cols-3 gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/50">
+        <div className="rounded-sm border border-white/10 px-2 py-1.5">
+          <div className="text-white/40">BR→US</div>
+          <div className="text-white/80">18.420</div>
+        </div>
+        <div className="rounded-sm border border-white/10 px-2 py-1.5">
+          <div className="text-white/40">BR→ES</div>
+          <div className="text-white/80">12.117</div>
+        </div>
+        <div className="rounded-sm border border-white/10 px-2 py-1.5">
+          <div className="text-white/40">BR→BR</div>
+          <div className="text-white/80">21.943</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CHECKOUTS = [
+  { name: "Shopify", logo: logoShopify, pct: 38 },
+  { name: "Cloudfy", logo: logoCloudfy, pct: 21 },
+  { name: "Zedy", logo: logoZedy, pct: 12 },
+  { name: "Adoorei", logo: logoAdoorei, pct: 10 },
+  { name: "Vega", logo: logoVega, pct: 8 },
+  { name: "Luna", logo: logoLuna, pct: 5 },
+  { name: "Alphazz", logo: logoAlphazz, pct: 4 },
+  { name: "Nuvorafy", logo: logoNuvorafy, pct: 2 },
+];
+
+function CheckoutDistribution() {
+  return (
+    <div className="grid gap-2 p-4 sm:grid-cols-2">
+      {CHECKOUTS.map((c) => (
+        <div key={c.name} className="flex items-center gap-3 rounded-sm border border-white/5 bg-white/[0.02] p-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-white/90 p-1.5">
+            <img src={c.logo} alt={c.name} className="max-h-full max-w-full object-contain" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between font-mono text-[11px]">
+              <span className="text-white/80">{c.name}</span>
+              <span className="text-white/50">{c.pct}%</span>
+            </div>
+            <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/5">
+              <div className="h-full" style={{ width: `${c.pct * 2.5}%`, background: GOLD }} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- routes / flags section ---------------- */
+
+const FLAGS = [
+  { code: "br", name: "Brasil", logistic: "Atlas · Jetline · Jadlog" },
+  { code: "us", name: "United States", logistic: "Magnus Global US" },
+  { code: "es", name: "España", logistic: "Magnus Global ES" },
+];
+
+function CountriesSection() {
+  return (
+    <section className="border-b border-white/10 py-24">
+      <div className="mx-auto max-w-[1400px] px-6">
+        <SectionHeader
+          index="03"
+          title="Cobertura global"
+          subtitle="Logística própria em três países, com templates de e-mail e rastreio no idioma certo."
+        />
+
+        <div className="mt-12 grid gap-4 md:grid-cols-3">
+          {FLAGS.map((f) => (
+            <div key={f.code} className="rounded-sm border border-white/10 bg-white/[0.02] p-6">
+              <div className="flex items-center gap-4">
+                <img
+                  src={`https://flagcdn.com/w80/${f.code}.png`}
+                  alt={f.name}
+                  className="h-10 w-14 rounded-sm border border-white/10 object-cover"
+                />
+                <div>
+                  <div className="font-serif text-2xl text-white">{f.name}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
+                    {f.code.toUpperCase()} · live
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 border-t border-white/10 pt-4 font-mono text-[11px] text-white/60">
+                <span className="text-white/40">logistics →</span> {f.logistic}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-/* ---------- features ---------- */
+/* ---------------- price comparison ---------------- */
+
+const COMPARE = [
+  { name: "Magnus Frete", price: "R$ 1,89", monthly: "Sem mensalidade", limit: "Ilimitado", us: true },
+  { name: "Concorrente A", price: "R$ 4,90", monthly: "R$ 197/mês", limit: "5.000/mês" },
+  { name: "Concorrente B", price: "R$ 3,80", monthly: "R$ 297/mês", limit: "10.000/mês" },
+  { name: "Concorrente C", price: "R$ 2,40", monthly: "R$ 497/mês", limit: "Ilimitado" },
+];
+
+function PriceCompareTable() {
+  return (
+    <section className="border-b border-white/10 py-24">
+      <div className="mx-auto max-w-[1400px] px-6">
+        <SectionHeader
+          index="04"
+          title="Por que somos diferentes"
+          subtitle="Pague apenas pelo que envia. Sem mensalidade. Sem teto de envios."
+        />
+
+        <div className="mt-12 overflow-hidden rounded-sm border border-white/10">
+          <table className="w-full font-mono text-sm">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/[0.03] text-left text-[10px] uppercase tracking-[0.2em] text-white/50">
+                <th className="px-5 py-3">Plataforma</th>
+                <th className="px-5 py-3">Custo / envio</th>
+                <th className="px-5 py-3">Mensalidade</th>
+                <th className="px-5 py-3">Limite</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARE.map((c) => (
+                <tr
+                  key={c.name}
+                  className={`border-b border-white/5 last:border-0 ${
+                    c.us ? "bg-[rgba(201,168,76,0.06)]" : ""
+                  }`}
+                >
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      {c.us && <Sparkles className="h-3.5 w-3.5" style={{ color: GOLD }} />}
+                      <span className={c.us ? "text-white" : "text-white/70"}>{c.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4" style={{ color: c.us ? GOLD : "rgba(255,255,255,0.65)" }}>
+                    {c.price}
+                  </td>
+                  <td className="px-5 py-4 text-white/65">{c.monthly}</td>
+                  <td className="px-5 py-4 text-white/65">{c.limit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
+          * valores médios de mercado coletados em jun/2026 — sem assinatura, sem fidelidade.
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------- feature console ---------------- */
 
 const FEATURES = [
-  { icon: Truck, title: "Rastreio com sua marca", desc: "Códigos próprios, página de rastreio sob domínio próprio e identidade visual da sua loja." },
-  { icon: Globe, title: "Operação internacional", desc: "Fluxos dedicados para Brasil, Estados Unidos e Espanha, com templates em três idiomas." },
-  { icon: Zap, title: "Automação ponta a ponta", desc: "Do webhook do checkout até a confirmação de entrega — sem clique manual no meio." },
-  { icon: Layers, title: "Multi-loja real", desc: "Gerencie várias operações na mesma conta com créditos, fluxos e métricas isolados." },
-  { icon: Languages, title: "Templates EN / ES / PT", desc: "Confirmação de pagamento, em trânsito e entrega — editáveis e versionados por idioma." },
-  { icon: ShieldCheck, title: "Segurança bancária", desc: "RLS no banco, isolamento por loja, autenticação verificada via WhatsApp e auditoria contínua." },
+  { name: "tracking_widget", label: "Widget de rastreio white-label", tag: "ENABLED", icon: LineChart },
+  { name: "email_flows", label: "Fluxos de e-mail (BR · EN · ES)", tag: "LIVE", icon: Mail },
+  { name: "sms_notifications", label: "Notificações SMS automáticas", tag: "ENABLED", icon: MessageSquare },
+  { name: "webhooks", label: "Webhooks para sua stack", tag: "ENABLED", icon: Webhook },
+  { name: "upsell_engine", label: "Upsell no rastreio", tag: "BETA", icon: CreditCard },
+  { name: "global_flows", label: "Fluxo internacional automático", tag: "LIVE", icon: Globe },
+  { name: "multi_lang", label: "Templates por idioma", tag: "ENABLED", icon: Languages },
+  { name: "reverse_logistics", label: "Logística reversa integrada", tag: "ENABLED", icon: RotateCcw },
+  { name: "live_view", label: "Live view de clientes na loja", tag: "LIVE", icon: Activity },
+  { name: "checkout_bridge", label: "Bridge para checkouts (9+)", tag: "ENABLED", icon: Layers },
 ];
 
-function Features() {
-  return (
-    <section id="recursos" className="py-28 relative">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <Reveal>
-          <div className="max-w-3xl">
-            <div className="text-[11px] uppercase tracking-[0.22em] text-gold/80">Capacidades</div>
-            <h2 className="mt-3 font-serif text-4xl md:text-5xl text-foreground">
-              Não é mais um rastreador. É a sua espinha dorsal logística.
-            </h2>
-            <p className="mt-5 text-foreground/60 text-lg">
-              Cada bloco da Magnus foi construído para suportar lojistas que operam em volume,
-              em múltiplas moedas e em múltiplos idiomas — sem perder a estética.
-            </p>
-          </div>
-        </Reveal>
+function tagColor(t: string) {
+  if (t === "LIVE") return LIVE;
+  if (t === "BETA") return "#a78bfa";
+  return GOLD;
+}
 
-        <div className="mt-14 grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-gold/10 border border-gold/10 rounded-2xl overflow-hidden">
-          {FEATURES.map((f, i) => (
-            <Reveal key={f.title} delay={i * 0.04}>
-              <div className="group bg-noir-elevated p-8 h-full hover:bg-[#181818] transition">
-                <div className="size-11 rounded-md border border-gold/25 grid place-items-center text-gold mb-6 group-hover:border-gold/60 transition">
-                  <f.icon className="size-5" />
+function FeatureConsole() {
+  return (
+    <section className="border-b border-white/10 py-24">
+      <div className="mx-auto max-w-[1400px] px-6">
+        <SectionHeader
+          index="05"
+          title="Tudo que sua loja precisa"
+          subtitle="Recursos prontos para ativar — sem código, sem fricção."
+        />
+
+        <div className="mt-12 overflow-hidden rounded-sm border border-white/10 bg-black">
+          <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
+            <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
+            <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
+            <span className="ml-3">magnus@features ~ % ls --all</span>
+          </div>
+          <div className="divide-y divide-white/5 font-mono text-[13px]">
+            {FEATURES.map((f) => {
+              const Icon = f.icon;
+              return (
+                <div key={f.name} className="flex items-center justify-between gap-4 px-5 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="text-white/30">{">"}</span>
+                    <Icon className="h-3.5 w-3.5 text-white/40" />
+                    <span className="text-white/80">{f.name}</span>
+                    <span className="hidden truncate text-white/40 md:inline">··· {f.label}</span>
+                  </div>
+                  <span
+                    className="rounded-sm border px-2 py-0.5 text-[10px] uppercase tracking-[0.15em]"
+                    style={{
+                      borderColor: `${tagColor(f.tag)}55`,
+                      color: tagColor(f.tag),
+                      background: `${tagColor(f.tag)}10`,
+                    }}
+                  >
+                    [{f.tag}]
+                  </span>
                 </div>
-                <div className="font-serif text-2xl text-foreground">{f.title}</div>
-                <p className="mt-3 text-sm text-foreground/55 leading-relaxed">{f.desc}</p>
-              </div>
-            </Reveal>
-          ))}
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-/* ---------- automation split ---------- */
-
-function AutomationSection() {
-  return (
-    <section className="py-28 relative">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 grid lg:grid-cols-2 gap-14 items-center">
-        <Reveal>
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-gold/80">Automação</div>
-            <h2 className="mt-3 font-serif text-4xl md:text-5xl text-foreground">
-              Seu cliente informado.<br /><span className="italic text-gold-soft">Sem você levantar do café.</span>
-            </h2>
-            <p className="mt-6 text-foreground/60 text-lg leading-relaxed">
-              Email transacional, SMS, WhatsApp e webhooks disparados em cascata conforme o
-              status real do pedido. Sem fila, sem cron caseiro, sem "esqueci de avisar".
-            </p>
-            <ul className="mt-8 space-y-3">
-              {[
-                "Templates editáveis com preview em tempo real",
-                "Logo e nome fantasia injetados em cada e-mail",
-                "Domínio remetente verificado (DKIM + SPF)",
-                "Fallback automático em falhas temporárias",
-              ].map((i) => (
-                <li key={i} className="flex items-start gap-3 text-foreground/75">
-                  <CheckCircle2 className="size-4 text-gold mt-0.5 shrink-0" />
-                  <span className="text-sm">{i}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </Reveal>
-
-        <Reveal delay={0.1}>
-          <div className="space-y-3">
-            {[
-              { icon: Mail, title: "Email de rastreio enviado", time: "agora", tag: "EN" },
-              { icon: MessageSquare, title: "Status atualizado: In transit", time: "2 min", tag: "EN" },
-              { icon: Mail, title: "Confirmación de pago enviada", time: "5 min", tag: "ES" },
-              { icon: CreditCard, title: "Webhook Cloudfy · PAID", time: "8 min", tag: "BR" },
-            ].map((n, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: 24 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08, duration: 0.5 }}
-                className="flex items-center gap-4 rounded-xl border border-gold/15 bg-noir-elevated px-5 py-4"
-              >
-                <div className="size-10 rounded-md border border-gold/25 grid place-items-center text-gold">
-                  <n.icon className="size-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-foreground truncate">{n.title}</div>
-                  <div className="text-[11px] text-foreground/45">há {n.time}</div>
-                </div>
-                <span className="text-[10px] uppercase tracking-wider text-gold border border-gold/30 rounded-full px-2 py-0.5">{n.tag}</span>
-              </motion.div>
-            ))}
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- integrations marquee ---------- */
-
-const CHECKOUTS: { name: string; logo?: string }[] = [
-  { name: "Shopify", logo: logoShopify },
-  { name: "Cloudfy", logo: logoCloudfy },
-  { name: "Zedy", logo: logoZedy },
-  { name: "Vega V1", logo: logoVega },
-  { name: "Vega V2", logo: logoVega },
-  { name: "Luna", logo: logoLuna },
-  { name: "Adoorei", logo: logoAdoorei },
-  { name: "Corvex", logo: logoCorvex },
-  { name: "Alphazz", logo: logoAlphazz },
-  { name: "Nuvorafy", logo: logoNuvorafy },
-  { name: "Recovery" },
-  { name: "Resend" },
-  { name: "Magnus API" },
-];
-
-function IntegrationsMarquee() {
-  const row = [...CHECKOUTS, ...CHECKOUTS];
-  return (
-    <section id="integracoes" className="py-28 border-y border-gold/10 bg-noir-elevated/40 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 text-center mb-14">
-        <Reveal>
-          <div className="text-[11px] uppercase tracking-[0.22em] text-gold/80">Integrações</div>
-          <h2 className="mt-3 font-serif text-4xl md:text-5xl text-foreground">
-            Conectado a todos os principais checkouts
-          </h2>
-          <p className="mt-5 max-w-2xl mx-auto text-foreground/60">
-            Webhook único, mapeamento automático de campos e suporte oficial para os
-            checkouts mais usados pelo ecossistema brasileiro e internacional.
-          </p>
-        </Reveal>
-      </div>
-
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#0a0a0a] to-transparent z-10" />
-        <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#0a0a0a] to-transparent z-10" />
-        <div className="flex gap-4 animate-[marquee_45s_linear_infinite] w-max">
-          {row.map((c, i) => (
-            <div
-              key={i}
-              className="shrink-0 w-56 rounded-xl border border-gold/15 bg-noir px-6 py-5 flex items-center gap-4"
-            >
-              <div className="size-10 rounded-md border border-gold/25 bg-white/95 grid place-items-center font-serif text-gold overflow-hidden shrink-0">
-                {c.logo ? (
-                  <img src={c.logo} alt={c.name} className="size-7 object-contain" />
-                ) : (
-                  <span className="text-gold">{c.name.charAt(0)}</span>
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm text-foreground truncate">{c.name}</div>
-                <div className="text-[10px] uppercase tracking-wider text-foreground/45">Checkout</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <style>{`@keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }`}</style>
-    </section>
-  );
-}
-
-/* ---------- final CTA ---------- */
+/* ---------------- final CTA ---------------- */
 
 function FinalCTA() {
   return (
-    <section className="py-32 relative">
+    <section className="relative overflow-hidden border-b border-white/10 py-32">
       <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 opacity-30"
         style={{
           background:
-            "radial-gradient(700px 300px at 50% 50%, rgba(201,168,76,0.18), transparent 70%)",
+            "radial-gradient(700px 400px at 50% 50%, rgba(201,168,76,0.25), transparent 70%)",
         }}
       />
-      <div className="relative max-w-4xl mx-auto px-6 text-center">
-        <Reveal>
-          <h2 className="font-serif text-5xl md:text-6xl text-foreground leading-[1.05]">
-            Pronto para operar como<br /><span className="italic text-gold-soft">uma transportadora de verdade?</span>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <p className="mt-7 text-foreground/65 text-lg max-w-xl mx-auto">
-            Crie sua conta em menos de dois minutos. Sem cartão, sem fricção, sem letras miúdas.
-          </p>
-        </Reveal>
-        <Reveal delay={0.18}>
-          <div className="mt-10 flex items-center justify-center gap-3 flex-wrap">
-            <a
-              href="https://magnusfrete.net/signup"
-              className="group inline-flex items-center gap-2 rounded-md bg-gold px-7 py-4 text-sm font-medium text-noir hover:bg-gold-soft transition"
-            >
-              Começar agora
-              <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
-            </a>
-            <a
-              href="https://magnusfrete.net/login"
-              className="inline-flex items-center gap-2 rounded-md border border-gold/25 px-7 py-4 text-sm text-foreground/85 hover:border-gold/50 hover:text-gold transition"
-            >
-              Acessar painel
-            </a>
-          </div>
-        </Reveal>
+      <div className="relative mx-auto max-w-[1400px] px-6 text-center">
+        <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/50">
+          [06] · começar agora
+        </div>
+        <h2 className="mx-auto mt-6 max-w-4xl font-serif text-[clamp(2.5rem,6vw,5rem)] leading-[1.05] text-white">
+          Menos de <span style={{ color: GOLD }}>R$ 2,00</span> por envio.
+          <br />
+          Sem mensalidade. Ilimitado.
+        </h2>
+        <p className="mx-auto mt-6 max-w-xl text-white/55">
+          Crie sua conta agora. Conecte seu checkout em minutos. Pague apenas pelos envios que rodarem.
+        </p>
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <a
+            href={SIGNUP_URL}
+            className="inline-flex items-center gap-2 rounded-sm px-8 py-4 font-mono text-sm uppercase tracking-[0.18em] text-black"
+            style={{ background: GOLD }}
+          >
+            Criar minha conta <ArrowUpRight className="h-4 w-4" />
+          </a>
+          <a
+            href={LOGIN_URL}
+            className="inline-flex items-center gap-2 rounded-sm border border-white/20 px-8 py-4 font-mono text-sm uppercase tracking-[0.18em] text-white/80 transition hover:border-white/60 hover:text-white"
+          >
+            Já tenho conta
+          </a>
+        </div>
       </div>
     </section>
   );
 }
 
-/* ---------- footer ---------- */
+/* ---------------- footer ---------------- */
 
-function Footer() {
+function TerminalFooter() {
+  const now = useNow();
   return (
-    <footer className="border-t border-gold/10 bg-noir py-14">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-4 gap-10">
-        <div className="md:col-span-2">
-          <div className="flex items-center gap-2.5">
-            <div className="size-8 rounded-md border border-gold/30 grid place-items-center bg-noir-elevated">
-              <span className="font-serif text-gold text-lg leading-none">M</span>
-            </div>
-            <span className="font-serif text-xl text-foreground">Magnus<span className="text-gold">·</span>Frete</span>
-          </div>
-          <p className="mt-5 max-w-sm text-sm text-foreground/55 leading-relaxed">
-            Plataforma de logística e rastreamento para operações de e-commerce em
-            múltiplos países, idiomas e moedas.
-          </p>
+    <footer className="bg-black">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-6 py-8 font-mono text-[11px] uppercase tracking-[0.18em] text-white/40 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <img src="/logo-magnus.png" alt="Magnus Frete" className="h-5 w-auto opacity-80" />
+          <span>© {new Date().getFullYear()} Magnus Frete</span>
         </div>
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-gold/80 mb-4">Institucional</div>
-          <ul className="space-y-2.5 text-sm text-foreground/65">
-            <li><Link to="/termos-de-uso" className="hover:text-gold transition">Termos de Uso</Link></li>
-            <li><a href="#recursos" className="hover:text-gold transition">Recursos</a></li>
-            <li><a href="#integracoes" className="hover:text-gold transition">Integrações</a></li>
-          </ul>
+        <div className="flex flex-wrap items-center gap-5">
+          <a href="/termos" className="transition hover:text-white">
+            Termos de uso
+          </a>
+          <a href={LOGIN_URL} className="transition hover:text-white">
+            Login
+          </a>
+          <a href={SIGNUP_URL} className="transition hover:text-white">
+            Criar conta
+          </a>
         </div>
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-gold/80 mb-4">Contato</div>
-          <ul className="space-y-2.5 text-sm text-foreground/65">
-            <li>denuncias@magnusfrete.net</li>
-            <li>Atendimento Seg–Sex · 09h–18h</li>
-          </ul>
+        <div className="flex items-center gap-3">
+          <LiveDot />
+          <span>build 2026.06 · {fmtTime(now)}</span>
         </div>
-      </div>
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-12 pt-6 border-t border-gold/10 flex items-center justify-between text-xs text-foreground/40 flex-wrap gap-3">
-        <span>© {new Date().getFullYear()} Magnus Frete. Todos os direitos reservados.</span>
-        <span>Sistema de gestão de rastreamento de envios</span>
       </div>
     </footer>
   );
 }
 
-/* ---------- page ---------- */
+/* ---------------- page ---------------- */
 
 export default function LandingPage() {
-  useEffect(() => {
-    document.title = "Magnus Frete — Logística & Rastreamento Inteligente";
-  }, []);
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-foreground font-sans antialiased selection:bg-gold/30 selection:text-foreground">
-      <Nav />
-      <main>
-        <Hero />
-        <DashboardMock />
-        <NumbersStrip />
-        <Features />
-        <AutomationSection />
-        <IntegrationsMarquee />
-        <FinalCTA />
-      </main>
-      <Footer />
-    </div>
+    <main className="min-h-screen bg-[#0a0a0a] text-white antialiased">
+      <TerminalTopBar />
+      <PriceHero />
+      <OrdersTicker />
+      <DataRoomPanel />
+      <CountriesSection />
+      <PriceCompareTable />
+      <FeatureConsole />
+      <FinalCTA />
+      <TerminalFooter />
+    </main>
   );
 }
