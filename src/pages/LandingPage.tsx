@@ -353,9 +353,9 @@ function SalesChart() {
 
 function TrackingRoutesCard() {
   const routes = [
-    { flag: "br", label: "Nacional", value: "21.943" },
-    { flag: "us", label: "Global US", value: "18.420" },
-    { flag: "es", label: "Global ES", value: "12.117" },
+    { flag: "br", label: "Nacional", value: "38.520" },
+    { flag: "us", label: "Global US", value: "9.840" },
+    { flag: "es", label: "Global ES", value: "4.120" },
   ];
 
   return (
