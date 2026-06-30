@@ -57,7 +57,6 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-      },
         gold: {
           DEFAULT: "#c9a84c",
           soft: "#f0d78c",
