@@ -247,7 +247,9 @@ Deno.serve(async (req) => {
     };
 
     // EMAIL
-    if (config.enviar_email && envio.cliente_email && loja?.user_id) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,24}$/;
+    const emailValid = !!envio.cliente_email && emailRegex.test(String(envio.cliente_email).trim());
+    if (config.enviar_email && emailValid && loja?.user_id) {
       const resendKey = Deno.env.get("RESEND_TRACKING_API_KEY") || Deno.env.get("RESEND_API_KEY");
       if (resendKey) {
         const { data: debited } = await supabase.rpc("debit_user_credits", {

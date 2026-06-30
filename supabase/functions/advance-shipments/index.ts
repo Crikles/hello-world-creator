@@ -1025,7 +1025,7 @@ async function advanceShipment(
     }
 
     // Send email (com retry em caso de rate limit do Functions)
-    if (isAtivo && nextEvent.enviar_email) {
+    if (isAtivo && nextEvent.enviar_email && !(shipment as any).email_invalid) {
       console.log(`Sending email for envio ${envioId}, event: ${nextEvent.nome}`);
       let funcErr: any = null;
       for (let attempt = 0; attempt < 4; attempt++) {

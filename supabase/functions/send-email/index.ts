@@ -1041,26 +1041,31 @@ Deno.serve(async (req) => {
       ? [{ filename: resolvedNfeFilename, content: pdfBase64ForAttachment }]
       : undefined;
 
-    // Validate email before sending
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Validate email before sending (TLD restrito a letras 2-24 para barrar typos tipo .com99 / .como9)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,24}$/;
     const recipientEmail = (envio.cliente_email || "").trim();
 
     if (!recipientEmail || !emailRegex.test(recipientEmail)) {
-      console.warn("Invalid recipient email, skipping send:", recipientEmail);
+      console.warn("Invalid recipient email, marking envio.email_invalid and skipping:", recipientEmail);
       await supabase.from("postagem_email_log").insert({
         loja_id,
         envio_id,
         evento_id,
         destinatario: recipientEmail || "(vazio)",
         assunto: subject,
-        status: "failed",
+        status: "invalid_email",
+        error_message: `Endereço de e-mail inválido: "${recipientEmail}"`,
         custo: 0,
       });
+      // Marca o envio para que o cron pare de tentar reenviar
+      await supabase.from("envios").update({ email_invalid: true }).eq("id", envio_id);
+      // Retorna 200 para que o cron NÃO reverta o avanço (não adianta retentar)
       return new Response(
-        JSON.stringify({ success: false, error: `E-mail do destinatário inválido: "${recipientEmail}"` }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, skipped: "invalid_email", recipient: recipientEmail }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
 
     // Send email via Resend
     const resendBody: Record<string, unknown> = {
