@@ -9,17 +9,22 @@ import {
   Boxes,
   Check,
   CreditCard,
+  Eye,
   Globe2,
   Infinity as InfinityIcon,
   Languages,
   LineChart,
+  Mail,
   MailCheck,
   MessageCircle,
   PackageCheck,
   PlugZap,
   Radar,
+  RefreshCcw,
   ShieldCheck,
+  Smartphone,
   Sparkles,
+  TrendingUp,
   Truck,
   Webhook,
   Zap,
@@ -348,9 +353,9 @@ function SalesChart() {
 
 function TrackingRoutesCard() {
   const routes = [
-    { flag: "br", label: "Nacional", value: "21.943" },
-    { flag: "us", label: "Global US", value: "18.420" },
-    { flag: "es", label: "Global ES", value: "12.117" },
+    { flag: "br", label: "Nacional", value: "38.520" },
+    { flag: "us", label: "Global US", value: "9.840" },
+    { flag: "es", label: "Global ES", value: "4.120" },
   ];
 
   return (
@@ -375,7 +380,16 @@ function TrackingRoutesCard() {
 }
 
 function ActiveChannelsCard() {
-  const channels = ["E-mail", "SMS", "WhatsApp", "Webhook", "Upsell", "Global", "Recuperação", "LiveView"];
+  const channels = [
+    { label: "E-mail", icon: Mail, active: true },
+    { label: "SMS", icon: Smartphone, active: true },
+    { label: "WhatsApp", icon: MessageCircle, active: true },
+    { label: "Webhook", icon: Webhook, active: false },
+    { label: "Upsell", icon: TrendingUp, active: true },
+    { label: "Global", icon: Globe2, active: true },
+    { label: "Recuperação", icon: RefreshCcw, active: true },
+    { label: "LiveView", icon: Eye, active: true },
+  ];
 
   return (
     <div className="border border-border bg-background/45 p-4">
@@ -384,12 +398,24 @@ function ActiveChannelsCard() {
         <Radar className="h-4 w-4 text-primary" />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {channels.map((channel) => (
-          <div key={channel} className="flex items-center gap-2 border border-primary/15 bg-primary/5 px-2.5 py-2 text-xs text-foreground/75">
-            <Check className="h-3.5 w-3.5 text-primary" />
-            {channel}
-          </div>
-        ))}
+        {channels.map((channel) => {
+          const Icon = channel.icon;
+          return (
+            <div
+              key={channel.label}
+              className={`flex items-center gap-2.5 border px-2.5 py-2.5 text-xs ${
+                channel.active
+                  ? "border-primary/25 bg-primary/8 text-foreground/90"
+                  : "border-border/80 bg-secondary/25 text-foreground/45"
+              }`}
+            >
+              <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border ${channel.active ? "border-primary/30 bg-primary/15" : "border-border/60 bg-secondary/40"}`}>
+                <Icon className={`h-3.5 w-3.5 ${channel.active ? "text-primary" : "text-muted-foreground/60"}`} />
+              </div>
+              <span className="truncate">{channel.label}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
