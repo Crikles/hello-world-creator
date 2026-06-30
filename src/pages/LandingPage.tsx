@@ -22,6 +22,15 @@ import {
   FileText,
   Layers,
 } from "lucide-react";
+import logoShopify from "@/assets/logo-shopify.png";
+import logoCloudfy from "@/assets/logo-cloudfy.png";
+import logoZedy from "@/assets/logo-zedy.png";
+import logoVega from "@/assets/logo-vega.png";
+import logoLuna from "@/assets/logo-luna.png";
+import logoAdoorei from "@/assets/logo-adoorei.png";
+import logoCorvex from "@/assets/logo-corvex.ico";
+import logoAlphazz from "@/assets/logo-alphazz.png";
+import logoNuvorafy from "@/assets/logo-nuvorafy.png";
 
 /* ---------- helpers ---------- */
 
@@ -466,10 +475,20 @@ function AutomationSection() {
 
 /* ---------- integrations marquee ---------- */
 
-const CHECKOUTS = [
-  "Shopify", "Cloudfy", "Zedy", "Vega V1", "Vega V2",
-  "Luna", "Adoorei", "Corvex", "Alphazz", "Nuvorafy",
-  "Recovery", "Resend", "Magnus API",
+const CHECKOUTS: { name: string; logo?: string }[] = [
+  { name: "Shopify", logo: logoShopify },
+  { name: "Cloudfy", logo: logoCloudfy },
+  { name: "Zedy", logo: logoZedy },
+  { name: "Vega V1", logo: logoVega },
+  { name: "Vega V2", logo: logoVega },
+  { name: "Luna", logo: logoLuna },
+  { name: "Adoorei", logo: logoAdoorei },
+  { name: "Corvex", logo: logoCorvex },
+  { name: "Alphazz", logo: logoAlphazz },
+  { name: "Nuvorafy", logo: logoNuvorafy },
+  { name: "Recovery" },
+  { name: "Resend" },
+  { name: "Magnus API" },
 ];
 
 function IntegrationsMarquee() {
@@ -498,11 +517,15 @@ function IntegrationsMarquee() {
               key={i}
               className="shrink-0 w-56 rounded-xl border border-gold/15 bg-noir px-6 py-5 flex items-center gap-4"
             >
-              <div className="size-10 rounded-md border border-gold/25 grid place-items-center font-serif text-gold">
-                {c.charAt(0)}
+              <div className="size-10 rounded-md border border-gold/25 bg-white/95 grid place-items-center font-serif text-gold overflow-hidden shrink-0">
+                {c.logo ? (
+                  <img src={c.logo} alt={c.name} className="size-7 object-contain" />
+                ) : (
+                  <span className="text-gold">{c.name.charAt(0)}</span>
+                )}
               </div>
-              <div>
-                <div className="text-sm text-foreground">{c}</div>
+              <div className="min-w-0">
+                <div className="text-sm text-foreground truncate">{c.name}</div>
                 <div className="text-[10px] uppercase tracking-wider text-foreground/45">Checkout</div>
               </div>
             </div>
