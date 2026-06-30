@@ -1,36 +1,65 @@
-## Ajustes na Landing Page (`src/pages/LandingPage.tsx`)
+## Objetivo
 
-### 1. Logo da Magnus Frete
-- Substituir o badge "M" do header pelo arquivo `/logo-magnus.png` (já existe em `public/`, usado em Login/Signup/Sidebar).
-- Manter o wordmark "Magnus·Frete" ao lado, ou removê-lo se a logo já contiver o nome — confirmar com você no preview.
+Refazer `src/pages/LandingPage.tsx` em um formato **Terminal / Data-room** — visual técnico, denso, ao vivo — completamente diferente do padrão DiaLog. Destacar no hero principal: **"Menos de R$2 por envio · Sem plano mensal · Envios ilimitados"**.
 
-### 2. Ícones reais das bandeiras (BR / US / ES)
-- Trocar os emojis 🇧🇷🇺🇸🇪🇸 (que renderizam como texto monocromático em alguns sistemas) por SVGs de bandeiras coloridas via `flagcdn.com` (`https://flagcdn.com/br.svg`, `us.svg`, `es.svg`).
-- Exibir em formato circular ou retângulo com borda dourada sutil, mantendo o layout atual (label + nota ao lado).
+## Direção visual
 
-### 3. Logos reais dos checkouts integrados
-- Substituir o monograma de uma letra (atual "A", "N", "R"...) pelos PNGs já existentes em `src/assets/`:
-  - Shopify → `logo-shopify.png`
-  - Cloudfy → `logo-cloudfy.png`
-  - Zedy → `logo-zedy.png`
-  - Vega V1/V2 → `logo-vega.png`
-  - Luna → `logo-luna.png`
-  - Adoorei → `logo-adoorei.png`
-  - Corvex → `logo-corvex.ico`
-  - Alphazz → `logo-alphazz.png`
-  - Nuvorafy → `logo-nuvorafy.png`
-- Para Recovery, Resend e Magnus API (sem asset) mantenho monograma estilizado em card dourado como fallback consistente.
-- Cards do marquee passam a exibir logo em quadrado branco translúcido + nome.
+- **Tema:** Noir & Gold mantido, mas com tratamento "command center": fundo `#0a0a0a`, grid de fundo sutil, monospace para dados, serif (Instrument Serif) só nas manchetes-chave, sans (Inter/Geist) no corpo.
+- **Acentos:** dourado `#c9a84c` para destaques, verde `#22c55e` para status "ao vivo", vermelho discreto `#ef4444` para variações negativas.
+- **Densidade:** alta — tickers, mini-gráficos, logs rolando, contadores incrementando.
 
-### 4. Ajuste de números
-- No bloco "Numbers Strip", trocar `Envios processados / mês` de **3.200+** para **50.000+** (renderizado pelo `AnimatedNumber` como "50.000+").
-- No `DashboardMock` (preview de painel), atualizar os stats fictícios para refletir o novo volume:
-  - Total de Pedidos: `3.200` → `52.480`
-  - Em Trânsito: `3.200` → `48.120`
-  - Entregues: `2.847` → `46.905`
-  - (Mantém estética do print original do dashboard, só escalando os números.)
+## Nova arquitetura de seções (ordem totalmente diferente da atual)
 
-### Técnico
-- Único arquivo alterado: `src/pages/LandingPage.tsx`.
-- Sem novas dependências (bandeiras via CDN público, logos via imports relativos de `src/assets/`).
-- Sem mudanças em rotas, backend ou design tokens.
+```text
+1. TopBar terminal       → relógio ao vivo · status "SYSTEM ONLINE" · logo Magnus
+2. HERO PREÇO            → manchete gigante "< R$2 / envio" + sub "sem mensalidade · ilimitado"
+                           ao lado: painel com 3 KPIs ao vivo (pedidos hoje, lojas ativas, países)
+3. Ticker de pedidos     → faixa horizontal rolando: "#48211 PAID · BR→US · Shopify · 14:22:08"
+4. Data-room dashboard   → grande painel central com gráfico 6 meses + tabela de eventos + mapa
+                           (substitui o DashboardMock atual, mais denso e "trader-style")
+5. Bandeiras + rotas     → BR / US / ES com linhas conectando + métricas por rota
+6. Grid de integrações   → checkout logos em cards monoespaçados estilo "connected nodes"
+7. Logística stack       → Atlas / Jetline / Global ES / Global US como "nodes" do sistema
+8. Comparativo de preço  → tabela densa: Magnus vs concorrentes (mensalidade, custo/envio, limite)
+9. Console de features   → lista estilo terminal com `> feature_name ... [ENABLED]`
+10. CTA final            → bloco preto com a manchete de preço repetida + botões para magnusfrete.net
+11. Footer técnico       → links + "build 2026.06 · uptime 99.98%"
+```
+
+## Componentes novos (inline no mesmo arquivo)
+
+- `TerminalTopBar` — relógio ao vivo + status pulsando
+- `PriceHero` — manchete editorial + painel lateral de KPIs animados (count-up)
+- `OrdersTicker` — marquee CSS infinito com pedidos fake plausíveis
+- `DataRoomPanel` — substitui `DashboardMock`/`FakeChart`: grid de 4 painéis (gráfico 6M, eventos recentes, mapa de rotas, distribuição por checkout)
+- `RoutesMap` — SVG simples com BR/US/ES e linhas pulsando
+- `PriceCompareTable` — tabela densa comparando Magnus (R$1,89 / sem mensalidade / ilimitado) vs faixas típicas do mercado
+- `FeatureConsole` — lista monospace com prompt `>` e tags `[ENABLED]`/`[LIVE]`
+
+## Conteúdo de preço (hero)
+
+- Manchete: **"Menos de R$ 2,00 por envio"**
+- Sub 1: **"Sem plano mensal."**
+- Sub 2: **"Envios ilimitados."**
+- Microcopy: "Você só paga pelo que envia. Sem mínimos, sem assinatura, sem surpresa."
+
+## Botões
+
+Mantém apontamento externo para `https://magnusfrete.net/login` e `/signup` (já configurado).
+
+## Fontes
+
+Adicionar `@fontsource/jetbrains-mono` para o visual terminal (mantendo Instrument Serif + Inter já instalados). Configurar `font-mono` no tailwind.
+
+## Fora de escopo
+
+- Não mexer em rotas, auth, backend.
+- Não alterar `TermosUso.tsx`.
+- Manter `lp.magnusfrete.net` como domínio.
+
+## Detalhes técnicos
+
+- Reescrever `src/pages/LandingPage.tsx` por completo (arquivo único, componentes internos).
+- Tokens de cor adicionados via classes Tailwind já existentes + utilitários inline quando preciso (gold já tokenizado).
+- Animações: CSS puro (keyframes para ticker, pulse, count-up via `useEffect` + `requestAnimationFrame`).
+- Sem novas dependências além do `@fontsource/jetbrains-mono`.
