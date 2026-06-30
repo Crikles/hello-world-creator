@@ -74,14 +74,14 @@ function Nav() {
           <Link to="/termos-de-uso" className="hover:text-gold transition">Termos</Link>
         </nav>
         <div className="flex items-center gap-3">
-          <Link to="/login" className="text-sm text-foreground/80 hover:text-gold transition hidden sm:inline">Entrar</Link>
-          <Link
-            to="/signup"
+          <a href="https://magnusfrete.net/login" className="text-sm text-foreground/80 hover:text-gold transition hidden sm:inline">Entrar</a>
+          <a
+            href="https://magnusfrete.net/signup"
             className="group inline-flex items-center gap-1.5 rounded-md bg-gold text-noir px-4 py-2 text-sm font-medium hover:bg-gold-soft transition"
           >
             Começar agora
             <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition" />
-          </Link>
+          </a>
         </div>
       </div>
     </header>
