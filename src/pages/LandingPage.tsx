@@ -618,7 +618,6 @@ const COMPARE = [
   { platform: "Magnus Frete", cost: "R$ 1,50", monthly: "R$ 0", limit: "Ilimitado", featured: true },
   { platform: "Concorrente A", cost: "R$ 2,00", monthly: "Plano mensal", limit: "1.000 pedidos/mês" },
   { platform: "Concorrente B", cost: "R$ 2,50", monthly: "Plano mensal", limit: "2.000 pedidos/mês" },
-  { platform: "Concorrente C", cost: "Acima de R$ 2,00", monthly: "Plano mensal", limit: "Limite por faixa" },
 ];
 
 function PriceSection() {
