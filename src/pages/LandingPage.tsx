@@ -194,10 +194,10 @@ function DashboardMock() {
   ];
   const channels = [
     { name: "Email", desc: "Notificações ativas", icon: Mail, active: true },
-    { name: "SMS", desc: "Não configurado", icon: MessageSquare },
-    { name: "Webhook", desc: "Não configurado", icon: Webhook },
-    { name: "Upsell", desc: "Não configurado", icon: Sparkles },
-    { name: "Recuperação", desc: "Não configurado", icon: RotateCcw },
+    { name: "SMS", desc: "WhatsApp + SMS ativos", icon: MessageSquare, active: true },
+    { name: "Webhook", desc: "Cloudfy + Shopify", icon: Webhook, active: true },
+    { name: "Upsell", desc: "Pós-compra ativo", icon: Sparkles, active: true },
+    { name: "Recuperação", desc: "Carrinho abandonado", icon: RotateCcw, active: true },
     { name: "Confirmação de Pagamento", desc: "Ativo", icon: CreditCard, active: true },
     { name: "Global", desc: "Ativo · EN/ES", icon: Globe, active: true },
   ];
@@ -265,11 +265,17 @@ function DashboardMock() {
               {/* chart + channels */}
               <div className="mt-5 grid lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2 rounded-xl border border-gold/10 bg-noir/40 p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-foreground/80">
-                      <LineChart className="size-4 text-gold" /> Faturamento
+                  <div className="flex items-start justify-between flex-wrap gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm text-foreground/80">
+                        <LineChart className="size-4 text-gold" /> Faturamento
+                      </div>
+                      <div className="text-[11px] text-foreground/45 mt-1">Últimos 6 meses · 25.944 pedidos</div>
                     </div>
-                    <div className="font-serif text-xl text-gold-soft">R$ 176.966,85</div>
+                    <div className="text-right">
+                      <div className="font-serif text-3xl text-gold-soft leading-none">R$ 4.892.730,50</div>
+                      <div className="text-[11px] text-emerald-400/80 mt-1">▲ 32,4% vs. semestre anterior</div>
+                    </div>
                   </div>
                   <FakeChart />
                 </div>
@@ -311,28 +317,108 @@ function DashboardMock() {
 }
 
 function FakeChart() {
-  // Smooth fake area chart in SVG
-  const pts = [12, 14, 10, 8, 6, 9, 14, 22, 38, 30, 22, 18, 20, 28, 32, 24, 18, 14];
-  const w = 600, h = 180, max = 40;
-  const step = w / (pts.length - 1);
-  const toY = (v: number) => h - (v / max) * h;
-  const path = pts.map((v, i) => `${i === 0 ? "M" : "L"} ${i * step} ${toY(v)}`).join(" ");
-  const area = `${path} L ${w} ${h} L 0 ${h} Z`;
+  // 6-month polished area chart with smooth curve, gridlines, value labels and month axis
+  const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"];
+  const values = [412, 528, 690, 905, 1180, 1424]; // R$ x 1.000
+  const w = 640;
+  const h = 220;
+  const padL = 44, padR = 16, padT = 18, padB = 30;
+  const cw = w - padL - padR;
+  const ch = h - padT - padB;
+  const max = 1600;
+  const xs = values.map((_, i) => padL + (cw * i) / (values.length - 1));
+  const ys = values.map((v) => padT + ch - (v / max) * ch);
+
+  // Catmull-Rom -> Bezier for a smooth curve
+  const smooth = (pts: { x: number; y: number }[]) => {
+    if (pts.length < 2) return "";
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
+  };
+
+  const pts = xs.map((x, i) => ({ x, y: ys[i] }));
+  const linePath = smooth(pts);
+  const areaPath = `${linePath} L ${xs[xs.length - 1]} ${padT + ch} L ${xs[0]} ${padT + ch} Z`;
+  const yTicks = [0, 400, 800, 1200, 1600];
+  const fmt = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1).replace(".", ",")}M` : `${v}k`);
+
   return (
-    <svg viewBox={`0 0 ${w} ${h + 30}`} className="mt-4 w-full h-44">
+    <svg viewBox={`0 0 ${w} ${h}`} className="mt-5 w-full h-56">
       <defs>
-        <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#c9a84c" stopOpacity="0.45" />
+        <linearGradient id="gFill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#c9a84c" stopOpacity="0.55" />
+          <stop offset="60%" stopColor="#c9a84c" stopOpacity="0.12" />
           <stop offset="100%" stopColor="#c9a84c" stopOpacity="0" />
         </linearGradient>
+        <linearGradient id="gStroke" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="#c9a84c" />
+          <stop offset="100%" stopColor="#f0d78c" />
+        </linearGradient>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
-      <path d={area} fill="url(#g1)" />
-      <path d={path} fill="none" stroke="#c9a84c" strokeWidth="2" />
-      <path d={path} fill="none" stroke="#f0d78c" strokeWidth="1" strokeDasharray="3 4" opacity="0.5" />
-      {[0, 10, 20, 30, 40].map((v) => (
-        <line key={v} x1="0" x2={w} y1={toY(v)} y2={toY(v)} stroke="#c9a84c" strokeOpacity="0.06" />
+
+      {/* horizontal gridlines + Y labels */}
+      {yTicks.map((t) => {
+        const y = padT + ch - (t / max) * ch;
+        return (
+          <g key={t}>
+            <line x1={padL} x2={w - padR} y1={y} y2={y} stroke="#c9a84c" strokeOpacity="0.08" strokeDasharray="2 4" />
+            <text x={padL - 8} y={y + 3} textAnchor="end" fontSize="10" fill="#c9a84c" fillOpacity="0.45">
+              {fmt(t)}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* area + line */}
+      <path d={areaPath} fill="url(#gFill)" />
+      <path d={linePath} fill="none" stroke="url(#gStroke)" strokeWidth="2.5" strokeLinecap="round" filter="url(#glow)" />
+
+      {/* data points + value labels */}
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r="4" fill="#0f0f0f" stroke="#f0d78c" strokeWidth="1.5" />
+          <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="10" fill="#f0d78c" fillOpacity="0.85">
+            {fmt(values[i])}
+          </text>
+        </g>
+      ))}
+
+      {/* X axis labels */}
+      {months.map((m, i) => (
+        <text
+          key={m}
+          x={xs[i]}
+          y={h - 8}
+          textAnchor="middle"
+          fontSize="11"
+          fill="#ffffff"
+          fillOpacity="0.55"
+          style={{ letterSpacing: "0.08em" }}
+        >
+          {m}
+        </text>
       ))}
     </svg>
+  );
+}
   );
 }
 
