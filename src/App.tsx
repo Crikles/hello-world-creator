@@ -200,7 +200,7 @@ function PanelRoutes() {
         <Route path="/r/:codigoParam" element={<Rastreio />} />
         <Route path="/p/:envioId" element={<Pagamento />} />
         <Route path="/documentacao" element={<DocumentacaoPublica />} />
-        <Route path="/lp" element={<LandingPage />} />
+        
         <Route path="/termos-de-uso" element={<TermosUso />} />
         <Route path="/" element={<RootRoute />} />
         <Route path="*" element={<NotFound />} />
