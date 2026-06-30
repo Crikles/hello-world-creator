@@ -241,10 +241,7 @@ function DashboardPreview() {
               <SalesChart />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
-              <TrackingRoutesCard />
-              <ActiveChannelsCard />
-            </div>
+            <TrackingRoutesCard />
           </div>
         </div>
       </div>
