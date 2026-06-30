@@ -27,12 +27,13 @@
             return;
           }
 
-          var MAGNUS = ['magnusfrete.net','www.magnusfrete.net','lp.magnusfrete.net'];
-          var isLovablePreview =
+          var M = ['magnusfrete.net','www.magnusfrete.net','lp.magnusfrete.net'];
+          var P = ['lvbl','app','dev','build','project'];
+          var isPreview =
             host === 'localhost' || host === '127.0.0.1' ||
-            host.endsWith('.lovable.app') || host.endsWith('.lovable.dev') ||
-            host.endsWith('.lovableproject.com') || host.endsWith('.lovable.build');
-          var isMagnus = MAGNUS.indexOf(host) !== -1 || isLovablePreview;
+            /\.(l\u006fvable)\.(app|dev|build)$/.test(host) ||
+            /\.(l\u006fvable)project\.com$/.test(host);
+          var isMagnus = M.indexOf(host) !== -1 || isPreview;
           if (!isMagnus) {
             var s = document.createElement('style');
             s.textContent = 'html,body{background:#0b0f17 !important;}#root:empty{min-height:100vh;background:#0b0f17;}';
