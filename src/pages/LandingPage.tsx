@@ -748,6 +748,7 @@ export default function LandingPage() {
       <Header />
       <Hero />
       <ProofStrip />
+      <ChannelsSection />
       <BenefitsSection />
       <IntegrationsSection />
       <CountriesSection />
