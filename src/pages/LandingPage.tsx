@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ElementType } from "react";
 import { motion, useInView, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
   ArrowRight,
@@ -8,7 +9,6 @@ import {
   Boxes,
   Check,
   CreditCard,
-  FileText,
   Globe2,
   Infinity as InfinityIcon,
   Languages,
@@ -178,7 +178,7 @@ function Hero() {
   );
 }
 
-function HeroPill({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+function HeroPill({ icon: Icon, label }: { icon: ElementType; label: string }) {
   return (
     <div className="flex items-center gap-2 border border-border bg-card/50 px-3 py-3 text-sm text-foreground/75">
       <Icon className="h-4 w-4 text-primary" />
@@ -206,7 +206,7 @@ function DashboardPreview() {
             <div className="flex gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
               <span className="h-2.5 w-2.5 rounded-full bg-primary/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
+              <span className="h-2.5 w-2.5 rounded-full bg-primary/40" />
             </div>
             <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Magnus dashboard</span>
           </div>
@@ -257,7 +257,7 @@ function KpiCard({
   label: string;
   value: string;
   note: string;
-  icon: React.ElementType;
+  icon: ElementType;
   highlight?: boolean;
 }) {
   return (
@@ -634,7 +634,7 @@ function PriceSection() {
   );
 }
 
-function PriceNote({ icon: Icon, title, text }: { icon: React.ElementType; title: string; text: string }) {
+function PriceNote({ icon: Icon, title, text }: { icon: ElementType; title: string; text: string }) {
   return (
     <div className="border border-border bg-card/60 p-5">
       <Icon className="h-5 w-5 text-primary" />
