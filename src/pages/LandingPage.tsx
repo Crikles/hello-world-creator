@@ -22,6 +22,15 @@ import {
   FileText,
   Layers,
 } from "lucide-react";
+import logoShopify from "@/assets/logo-shopify.png";
+import logoCloudfy from "@/assets/logo-cloudfy.png";
+import logoZedy from "@/assets/logo-zedy.png";
+import logoVega from "@/assets/logo-vega.png";
+import logoLuna from "@/assets/logo-luna.png";
+import logoAdoorei from "@/assets/logo-adoorei.png";
+import logoCorvex from "@/assets/logo-corvex.ico";
+import logoAlphazz from "@/assets/logo-alphazz.png";
+import logoNuvorafy from "@/assets/logo-nuvorafy.png";
 
 /* ---------- helpers ---------- */
 
@@ -62,10 +71,7 @@ function Nav() {
     <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-md bg-[#0a0a0a]/70 border-b border-gold/10">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
         <Link to="/lp" className="flex items-center gap-2.5">
-          <div className="size-8 rounded-md border border-gold/30 grid place-items-center bg-noir-elevated">
-            <span className="font-serif text-gold text-lg leading-none">M</span>
-          </div>
-          <span className="font-serif text-[22px] tracking-wide text-foreground">Magnus<span className="text-gold">·</span>Frete</span>
+          <img src="/logo-magnus.png" alt="Magnus Frete" className="h-9 w-auto" />
         </Link>
         <nav className="hidden md:flex items-center gap-8 text-sm text-foreground/70">
           <a href="#dashboard" className="hover:text-gold transition">Plataforma</a>
@@ -152,12 +158,18 @@ function Hero() {
         <Reveal delay={0.28}>
           <div className="mt-14 flex items-center justify-center gap-8 sm:gap-14 flex-wrap">
             {[
-              { flag: "🇧🇷", label: "Brasil", note: "Rede nacional" },
-              { flag: "🇺🇸", label: "Estados Unidos", note: "Fluxo internacional EN" },
-              { flag: "🇪🇸", label: "Espanha", note: "Fluxo internacional ES" },
+              { code: "br", label: "Brasil", note: "Rede nacional" },
+              { code: "us", label: "Estados Unidos", note: "Fluxo internacional EN" },
+              { code: "es", label: "Espanha", note: "Fluxo internacional ES" },
             ].map((f) => (
               <div key={f.label} className="flex items-center gap-3 text-left">
-                <div className="text-2xl">{f.flag}</div>
+                <img
+                  src={`https://flagcdn.com/w80/${f.code}.png`}
+                  srcSet={`https://flagcdn.com/w160/${f.code}.png 2x`}
+                  alt={f.label}
+                  className="h-8 w-12 object-cover rounded-sm ring-1 ring-gold/25 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
+                  loading="lazy"
+                />
                 <div>
                   <div className="text-sm text-foreground">{f.label}</div>
                   <div className="text-[11px] uppercase tracking-wider text-foreground/45">{f.note}</div>
@@ -175,10 +187,10 @@ function Hero() {
 
 function DashboardMock() {
   const stats = [
-    { label: "Total de Pedidos", value: "3.200", icon: Box },
+    { label: "Total de Pedidos", value: "52.480", icon: Box },
     { label: "Pendentes", value: "0", icon: Clock },
-    { label: "Em Trânsito", value: "3.200", icon: Truck },
-    { label: "Entregues", value: "2.847", icon: CheckCircle2 },
+    { label: "Em Trânsito", value: "48.120", icon: Truck },
+    { label: "Entregues", value: "46.905", icon: CheckCircle2 },
   ];
   const channels = [
     { name: "Email", desc: "Notificações ativas", icon: Mail, active: true },
@@ -331,7 +343,7 @@ function NumbersStrip() {
     <section className="border-y border-gold/10 bg-noir-elevated/40 py-16">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 grid grid-cols-2 md:grid-cols-4 gap-10">
         {[
-          { v: 3200, l: "Envios processados / mês", suffix: "+" },
+          { v: 50000, l: "Envios processados / mês", suffix: "+" },
           { v: 99.4, l: "Uptime da plataforma", suffix: "%" },
           { v: 14, l: "Checkouts integrados", suffix: "" },
           { v: 3, l: "Continentes em operação", suffix: "" },
@@ -463,10 +475,20 @@ function AutomationSection() {
 
 /* ---------- integrations marquee ---------- */
 
-const CHECKOUTS = [
-  "Shopify", "Cloudfy", "Zedy", "Vega V1", "Vega V2",
-  "Luna", "Adoorei", "Corvex", "Alphazz", "Nuvorafy",
-  "Recovery", "Resend", "Magnus API",
+const CHECKOUTS: { name: string; logo?: string }[] = [
+  { name: "Shopify", logo: logoShopify },
+  { name: "Cloudfy", logo: logoCloudfy },
+  { name: "Zedy", logo: logoZedy },
+  { name: "Vega V1", logo: logoVega },
+  { name: "Vega V2", logo: logoVega },
+  { name: "Luna", logo: logoLuna },
+  { name: "Adoorei", logo: logoAdoorei },
+  { name: "Corvex", logo: logoCorvex },
+  { name: "Alphazz", logo: logoAlphazz },
+  { name: "Nuvorafy", logo: logoNuvorafy },
+  { name: "Recovery" },
+  { name: "Resend" },
+  { name: "Magnus API" },
 ];
 
 function IntegrationsMarquee() {
@@ -495,11 +517,15 @@ function IntegrationsMarquee() {
               key={i}
               className="shrink-0 w-56 rounded-xl border border-gold/15 bg-noir px-6 py-5 flex items-center gap-4"
             >
-              <div className="size-10 rounded-md border border-gold/25 grid place-items-center font-serif text-gold">
-                {c.charAt(0)}
+              <div className="size-10 rounded-md border border-gold/25 bg-white/95 grid place-items-center font-serif text-gold overflow-hidden shrink-0">
+                {c.logo ? (
+                  <img src={c.logo} alt={c.name} className="size-7 object-contain" />
+                ) : (
+                  <span className="text-gold">{c.name.charAt(0)}</span>
+                )}
               </div>
-              <div>
-                <div className="text-sm text-foreground">{c}</div>
+              <div className="min-w-0">
+                <div className="text-sm text-foreground truncate">{c.name}</div>
                 <div className="text-[10px] uppercase tracking-wider text-foreground/45">Checkout</div>
               </div>
             </div>
