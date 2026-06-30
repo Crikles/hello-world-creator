@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
   ArrowUpRight,
-  CheckCircle2,
-  Circle,
   Globe,
   Infinity as InfinityIcon,
   Zap,
@@ -19,6 +17,7 @@ import {
   Layers,
   Activity,
 } from "lucide-react";
+
 import logoShopify from "@/assets/logo-shopify.png";
 import logoCloudfy from "@/assets/logo-cloudfy.png";
 import logoZedy from "@/assets/logo-zedy.png";
