@@ -162,7 +162,7 @@ export default function TermosUso() {
     <div className="min-h-screen bg-[#0a0a0a] text-foreground font-sans">
       <header className="border-b border-gold/10">
         <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link to="/lp" className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5">
             <div className="size-8 rounded-md border border-gold/30 grid place-items-center bg-noir-elevated">
               <span className="font-serif text-gold text-lg leading-none">M</span>
             </div>
@@ -170,7 +170,7 @@ export default function TermosUso() {
               Magnus<span className="text-gold">·</span>Frete
             </span>
           </Link>
-          <Link to="/lp" className="text-sm text-foreground/70 hover:text-gold transition">
+          <Link to="/" className="text-sm text-foreground/70 hover:text-gold transition">
             ← Voltar ao site
           </Link>
         </div>
@@ -199,7 +199,7 @@ export default function TermosUso() {
         </div>
 
         <div className="mt-20 pt-8 border-t border-gold/10 flex items-center justify-between text-sm text-foreground/50 flex-wrap gap-4">
-          <Link to="/lp" className="text-gold hover:text-gold-soft transition">← Voltar para a página inicial</Link>
+          <Link to="/" className="text-gold hover:text-gold-soft transition">← Voltar para a página inicial</Link>
           <span>© {new Date().getFullYear()} Magnus Frete. Todos os direitos reservados.</span>
         </div>
       </main>
