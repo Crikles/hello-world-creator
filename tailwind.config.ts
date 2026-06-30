@@ -58,6 +58,21 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+        gold: {
+          DEFAULT: "#c9a84c",
+          soft: "#f0d78c",
+          dim: "#8a7a3a",
+        },
+        noir: {
+          DEFAULT: "#0a0a0a",
+          elevated: "#141414",
+          line: "#1f1f1f",
+        },
+      },
+      fontFamily: {
+        serif: ['"Instrument Serif"', "serif"],
+        sans: ['"Inter"', "system-ui", "sans-serif"],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
