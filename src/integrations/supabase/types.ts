@@ -509,6 +509,7 @@ export type Database = {
           created_at: string
           cst: string | null
           deleted_at: string | null
+          email_invalid: boolean
           empresa_id: string | null
           global_flow_lang: string | null
           id: string
@@ -550,6 +551,7 @@ export type Database = {
           created_at?: string
           cst?: string | null
           deleted_at?: string | null
+          email_invalid?: boolean
           empresa_id?: string | null
           global_flow_lang?: string | null
           id?: string
@@ -591,6 +593,7 @@ export type Database = {
           created_at?: string
           cst?: string | null
           deleted_at?: string | null
+          email_invalid?: boolean
           empresa_id?: string | null
           global_flow_lang?: string | null
           id?: string
