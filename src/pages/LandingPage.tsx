@@ -376,45 +376,57 @@ function TrackingRoutesCard() {
   );
 }
 
-function ActiveChannelsCard() {
-  const channels = [
-    { label: "E-mail", icon: Mail, active: true },
-    { label: "SMS", icon: Smartphone, active: true },
-    { label: "WhatsApp", icon: MessageCircle, active: true },
-    { label: "Webhook", icon: Webhook, active: false },
-    { label: "Upsell", icon: TrendingUp, active: true },
-    { label: "Global", icon: Globe2, active: true },
-    { label: "Recuperação", icon: RefreshCcw, active: true },
-    { label: "LiveView", icon: Eye, active: true },
-  ];
+const CHANNELS = [
+  { label: "E-mail", icon: Mail, active: true, text: "Confirmação de pagamento, atualizações de rastreio e comunicações por etapa." },
+  { label: "SMS", icon: Smartphone, active: true, text: "Alertas rápidos de status para o cliente final no canal mais direto." },
+  { label: "WhatsApp", icon: MessageCircle, active: true, text: "Mensagens automáticas de rastreio e recuperação de carrinho." },
+  { label: "Webhook", icon: Webhook, active: false, text: "Notificações em tempo real para sua operação ou sistema externo." },
+  { label: "Upsell", icon: TrendingUp, active: true, text: "Ofertas estratégicas na página de rastreio para aumentar ticket." },
+  { label: "Global", icon: Globe2, active: true, text: "Fluxos internacionais em inglês e espanhol com identificação por país." },
+  { label: "Recuperação", icon: RefreshCcw, active: true, text: "Reengajamento automático de pedidos parados ou abandonados." },
+  { label: "LiveView", icon: Eye, active: true, text: "Visualização em tempo real de onde seus clientes estão no rastreio." },
+];
 
+function ChannelsSection() {
   return (
-    <div className="border border-border bg-background/45 p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Canais ativos</p>
-        <Radar className="h-4 w-4 text-primary" />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {channels.map((channel) => {
-          const Icon = channel.icon;
-          return (
-            <div
-              key={channel.label}
-              className={`flex items-center gap-2.5 border px-2.5 py-2.5 text-xs ${
-                channel.active
-                  ? "border-primary/25 bg-primary/8 text-foreground/90"
-                  : "border-border/80 bg-secondary/25 text-foreground/45"
-              }`}
-            >
-              <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border ${channel.active ? "border-primary/30 bg-primary/15" : "border-border/60 bg-secondary/40"}`}>
-                <Icon className={`h-3.5 w-3.5 ${channel.active ? "text-primary" : "text-muted-foreground/60"}`} />
+    <section className="border-b border-border/70 bg-secondary/10 py-24 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-5 lg:px-8">
+        <SectionHeader
+          eyebrow="Canais ativos"
+          title="Cada canal que sua loja precisa para escalar o pós-venda."
+          subtitle="E-mail, SMS, WhatsApp, recuperação, global, live view e mais. Tudo em um só painel, sem depender de múltiplas ferramentas."
+        />
+
+        <div className="mt-14 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {CHANNELS.map((channel) => {
+            const Icon = channel.icon;
+            return (
+              <div
+                key={channel.label}
+                className={`border p-6 transition ${
+                  channel.active
+                    ? "border-primary/25 bg-primary/8 hover:border-primary/50"
+                    : "border-border bg-card/60 hover:border-primary/30"
+                }`}
+              >
+                <div className={`flex h-12 w-12 items-center justify-center rounded-sm border ${channel.active ? "border-primary/25 bg-primary/15" : "border-border bg-secondary/40"}`}>
+                  <Icon className={`h-5 w-5 ${channel.active ? "text-primary" : "text-muted-foreground/60"}`} />
+                </div>
+                <div className="mt-5 flex items-center gap-2">
+                  <h3 className="font-serif text-2xl text-foreground">{channel.label}</h3>
+                  {channel.active && (
+                    <span className="inline-flex items-center gap-1 rounded-sm border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-primary">
+                      <LiveDot /> Ativo
+                    </span>
+                  )}
+                </div>
+                <p className="mt-3 text-sm leading-6 text-foreground/58">{channel.text}</p>
               </div>
-              <span className="truncate">{channel.label}</span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
