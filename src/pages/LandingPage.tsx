@@ -375,7 +375,7 @@ function TrackingRoutesCard() {
 }
 
 function ActiveChannelsCard() {
-  const channels = ["E-mail", "SMS", "WhatsApp", "Webhook", "Upsell", "Global"];
+  const channels = ["E-mail", "SMS", "WhatsApp", "Webhook", "Upsell", "Global", "Recuperação", "LiveView"];
 
   return (
     <div className="border border-border bg-background/45 p-4">
