@@ -2,15 +2,21 @@ import { supabase } from "@/integrations/supabase/client";
 
 type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entregue";
 
-/**
- * Triggers only the NEXT email event for a shipment.
- * Returns the new status and ultimo_evento_ordem, or null if nothing to send.
- */
 export class InsufficientBalanceError extends Error {
     constructor() {
         super("Saldo insuficiente de moedas para processar este envio.");
         this.name = "InsufficientBalanceError";
     }
+}
+
+// Última razão pela qual triggerNextEmail retornou null (para diagnóstico em lotes)
+let _lastSkipReason: string | null = null;
+export function getLastSkipReason(): string | null { return _lastSkipReason; }
+export function resetSkipReason() { _lastSkipReason = null; }
+function skip(reason: string, ctx?: any) {
+    _lastSkipReason = reason;
+    console.log("[triggerNextEmail] SKIP:", reason, ctx ?? "");
+    return null;
 }
 
 export async function triggerNextEmail(envioId: string, lojaId: string, forceSendEmail: boolean = false, forceAdvance: boolean = false): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
@@ -23,8 +29,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .single();
 
         if (sErr || !shipment) {
-            console.error("Trigger fail: shipment not found", envioId);
-            return null;
+            return skip("envio não encontrado (RLS ou id inválido)", { envioId, sErr: sErr?.message });
         }
 
         // Fallback: fetch empresa by loja_id if empresa_id was not set
@@ -42,8 +47,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // 1.5. Check delay constraint — block if proximo_avanco_em is in the future
         const proximoAvanco = (shipment as any).proximo_avanco_em;
         if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
-            console.log("Trigger skip: delay not elapsed yet for envio", envioId, "next advance at", proximoAvanco);
-            return null;
+            return skip(`delay ainda não expirou (próximo avanço ${proximoAvanco})`, { envioId });
         }
 
         // 2. Fetch store configuration
@@ -54,15 +58,13 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .maybeSingle();
 
         if (cErr || !config) {
-            console.log("Trigger skip: no config for loja", lojaId);
-            return null;
+            return skip("postagem_config não encontrada para a loja", { lojaId, cErr: cErr?.message });
         }
 
         const templateIdToUse = (shipment as any).postagem_template_id || config.template_ativo_id;
 
         if (!templateIdToUse) {
-            console.log("Trigger skip: no template defined for envio", envioId);
-            return null;
+            return skip("nenhum template ativo definido em Postagem → Templates", { lojaId });
         }
 
         // 3. Fetch ALL events for the active template, ordered
@@ -73,8 +75,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .order("ordem", { ascending: true });
 
         if (eErr || !allEvents || allEvents.length === 0) {
-            console.log("Trigger skip: no events in template");
-            return null;
+            return skip("template ativo não possui eventos cadastrados", { templateIdToUse, eErr: eErr?.message });
         }
 
         const filteredEvents = allEvents.filter(e => {
@@ -86,14 +87,10 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // 4. Find the NEXT event (ordem > ultimo_evento_ordem)
         const currentOrdem = (shipment as any).ultimo_evento_ordem ?? 0;
 
-        // Pause labels are filtered at SQL level in the cron function
-        // Manual triggers (forceSendEmail/forceAdvance) bypass this anyway
-
         const nextEvent = filteredEvents.find(e => e.ordem > currentOrdem);
 
         if (!nextEvent) {
-            console.log("Trigger skip: no more events to send");
-            return null;
+            return skip("não há próximo evento no template a partir da ordem atual", { currentOrdem });
         }
 
         // ── REGRA: Evento "Entregue" (último) é SEMPRE manual ──
@@ -103,8 +100,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
 
         if (isFinalDelivered && !forceAdvance) {
-            console.log("Trigger skip: 'Entregue' requires manual confirmation", envioId);
-            return null;
+            return skip("último evento 'Entregue' só pode ser marcado manualmente", { envioId });
         }
 
         // (Eventos Falha Entrega / Taxação / Pago foram removidos do sistema.)
@@ -118,8 +114,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .single();
 
         if (lojaErr || !lojaData) {
-            console.error("Failed to fetch loja user_id:", lojaErr);
-            return null;
+            return skip("não foi possível ler loja.user_id (RLS?)", { lojaId, lojaErr: lojaErr?.message });
         }
 
         const lojaUserId = lojaData.user_id;
@@ -141,8 +136,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .select("key, value");
 
         if (costsErr || !costs) {
-            console.error("Failed to fetch system_config costs:", costsErr);
-            return null;
+            return skip("falha ao ler system_config (custos)", { err: costsErr?.message });
         }
 
         const costMap: Record<string, number> = {};
@@ -178,8 +172,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 });
 
                 if (debitErr) {
-                    console.error("Debit RPC error:", debitErr);
-                    return null;
+                    return skip("RPC debit_user_credits falhou: " + (debitErr.message || "erro desconhecido"), { lojaUserId });
                 }
 
                 if (!debitOk) {
@@ -229,19 +222,12 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .select("id");
 
         if (uErr) {
-            console.error("Failed to update envio ordem/status:", uErr);
-            return null;
+            return skip("UPDATE envios falhou (RLS?): " + (uErr.message || "erro"), { envioId });
         }
 
         // Race condition: outro processo (cron ou outra aba) já avançou este envio
         if (!updatedRows || updatedRows.length === 0) {
-            console.log("Trigger skip: envio já avançado por outro processo (lock)", envioId);
-            // Nota: o débito feito acima (currentOrdem===0) NÃO é estornado aqui porque
-            // o outro processo (cron) avançou e provavelmente NÃO debitou (já estava em ordem 0
-            // antes do nosso update; o cron usa o mesmo lock e perderia também). Em prática,
-            // apenas um dos dois consegue debitar+avançar. Se ambos debitarem, o estorno
-            // seria necessário — mas isso é cobertura futura.
-            return null;
+            return skip("UPDATE não atingiu nenhuma linha (lock/race ou RLS bloqueou retorno)", { envioId });
         }
 
         // 7. Check if this event should actually send an email

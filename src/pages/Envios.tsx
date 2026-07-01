@@ -32,7 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
-import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
+import { triggerNextEmail, InsufficientBalanceError, getLastSkipReason, resetSkipReason } from "@/lib/email-trigger";
 import { useBatchProgress } from "@/contexts/BatchProgressContext";
 
 import { formatProduto } from "@/lib/format-produto";
@@ -679,6 +679,7 @@ export default function Envios() {
 
     let count = 0;
     let stopped = false;
+    resetSkipReason();
     await startBatch(pendentes.length);
     try {
       for (let i = 0; i < pendentes.length; i++) {
@@ -712,7 +713,8 @@ export default function Envios() {
       setBatchCooldown(Date.now() + 120000);
       toast.success(`${count} envio(s) iniciado(s)!`);
     } else if (!stopped) {
-      toast.error("Nenhum envio foi iniciado. Verifique template, saldo ou configurações.");
+      const reason = getLastSkipReason();
+      toast.error(reason ? `Nenhum envio iniciado. Motivo: ${reason}` : "Nenhum envio foi iniciado. Verifique template, saldo ou configurações.", { duration: 12000 });
     }
   };
 
