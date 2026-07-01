@@ -405,16 +405,22 @@ export default function Envios() {
   const getMetodoLabel = (method: string) => {
     const m = method.toLowerCase();
     if (m.includes("pix")) return "PIX";
+    if (m.includes("shopify_payment") || m === "shopify") return "Shopify Payments";
     if (m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit")) return "Cartão";
     if (m.includes("boleto")) return "Boleto";
+    if (m.includes("paypal")) return "PayPal";
+    if (m.includes("apple")) return "Apple Pay";
+    if (m.includes("google")) return "Google Pay";
     return method;
   };
 
   const getMetodoBadgeClass = (method: string) => {
     const m = method.toLowerCase();
     if (m.includes("pix")) return "bg-emerald-500/15 text-emerald-600 border-emerald-500/30";
+    if (m.includes("shopify_payment") || m === "shopify") return "bg-gradient-to-r from-[#5A31F4]/20 to-[#96BF48]/20 text-[#5A31F4] border-[#5A31F4]/40 font-semibold";
     if (m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit")) return "bg-blue-500/15 text-blue-600 border-blue-500/30";
     if (m.includes("boleto")) return "bg-amber-500/15 text-amber-600 border-amber-500/30";
+    if (m.includes("paypal")) return "bg-[#003087]/15 text-[#003087] border-[#003087]/30";
     return "bg-muted text-muted-foreground border-border/50";
   };
 
