@@ -656,25 +656,48 @@ export default function Envios() {
 
   // INICIAR PENDENTES: only starts envios at stage 0 (from current page)
   const handleIniciarPendentes = async () => {
+    if (!loja?.id) return toast.error("Loja não carregada.");
     const pendentes = paginatedEnvios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
-    if (pendentes.length === 0) return toast.info("Nenhum envio pendente na estaca zero.");
+    console.log("[iniciar-pendentes] pendentes encontrados:", pendentes.length, "loja:", loja.id);
+    if (pendentes.length === 0) return toast.info("Nenhum envio pendente na estaca zero nesta página.");
+
     let count = 0;
-    for (const envio of pendentes) {
-      if (!loja?.id) continue;
-      try {
-        const result = await triggerNextEmail(envio.id, loja.id);
-        if (result) count++;
-      } catch (err: any) {
-        if (err instanceof InsufficientBalanceError) {
-          toast.error("Saldo insuficiente. Parado.");
+    let stopped = false;
+    await startBatch(pendentes.length);
+    try {
+      for (let i = 0; i < pendentes.length; i++) {
+        const cancelled = await checkCancelled();
+        if (cancelled) {
+          toast.info(`Cancelado. ${count}/${pendentes.length} iniciados.`);
+          stopped = true;
           break;
         }
+        try {
+          const result = await triggerNextEmail(pendentes[i].id, loja.id);
+          if (result) count++;
+        } catch (err: any) {
+          if (err instanceof InsufficientBalanceError) {
+            toast.error("Saldo insuficiente. Recarregue para continuar.");
+            stopped = true;
+            break;
+          }
+          console.error("[iniciar-pendentes] erro no envio", pendentes[i].id, err);
+        }
+        await updateProgress(i + 1);
       }
+    } finally {
+      await finishBatch();
     }
+
     queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
     queryClient.invalidateQueries({ queryKey: ["envios-stats"] });
-    setBatchCooldown(Date.now() + 120000);
-    toast.success(`${count} envio(s) iniciado(s)!`);
+
+    if (count > 0) {
+      setBatchCooldown(Date.now() + 120000);
+      toast.success(`${count} envio(s) iniciado(s)!`);
+    } else if (!stopped) {
+      toast.error("Nenhum envio foi iniciado. Verifique template, saldo ou configurações.");
+    }
   };
 
   // Pre-click: show confirmation dialog
