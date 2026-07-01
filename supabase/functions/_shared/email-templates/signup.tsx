@@ -46,12 +46,6 @@ export const SignupEmail = ({
             Ativar minha conta
           </Button>
         </Section>
-        <Text style={fallback}>
-          O botão não funciona? Copie e cole este link no seu navegador:
-        </Text>
-        <Link href={confirmationUrl} style={link}>
-          {confirmationUrl}
-        </Link>
         <Text style={footer}>
           Se você não criou esta conta, ignore este email com segurança.
         </Text>
