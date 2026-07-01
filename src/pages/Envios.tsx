@@ -417,7 +417,7 @@ export default function Envios() {
   const getMetodoBadgeClass = (method: string) => {
     const m = method.toLowerCase();
     if (m.includes("pix")) return "bg-emerald-500/15 text-emerald-600 border-emerald-500/30";
-    if (m.includes("shopify_payment") || m === "shopify") return "bg-gradient-to-r from-[#5A31F4]/20 to-[#96BF48]/20 text-[#5A31F4] border-[#5A31F4]/40 font-semibold";
+    if (m.includes("shopify_payment") || m === "shopify") return "bg-gradient-to-r from-[#5A31F4]/50 to-[#96BF48]/50 text-white border-[#7B4DFF]/60 font-semibold shadow-sm";
     if (m.includes("card") || m.includes("cartao") || m.includes("cartão") || m.includes("credit")) return "bg-blue-500/15 text-blue-600 border-blue-500/30";
     if (m.includes("boleto")) return "bg-amber-500/15 text-amber-600 border-amber-500/30";
     if (m.includes("paypal")) return "bg-[#003087]/15 text-[#003087] border-[#003087]/30";
