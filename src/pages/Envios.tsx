@@ -665,6 +665,7 @@ export default function Envios() {
       .eq("loja_id", loja.id)
       .eq("status", "pendente")
       .eq("ultimo_evento_ordem", 0)
+      .is("deleted_at", null)
       .order("created_at", { ascending: true })
       .limit(2000);
 
