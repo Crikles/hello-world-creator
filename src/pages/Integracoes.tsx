@@ -24,6 +24,9 @@ import logoAdoorei from "@/assets/logo-adoorei.png";
 import logoNuvorafy from "@/assets/logo-nuvorafy.png";
 import logoAlphazz from "@/assets/logo-alphazz.png";
 import logoCloudfy from "@/assets/logo-cloudfy.png";
+import logoLpqvAsset from "@/assets/logo-lpqv.png.asset.json";
+
+const logoLpqv = logoLpqvAsset.url;
 
 const WEBHOOK_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -37,6 +40,7 @@ const checkouts = [
   { id: "nuvorafy", name: "Nuvorafy Checkout", description: "Integração com Nuvorafy Checkout", logo: logoNuvorafy, webhookFn: "webhook-nuvorafy" },
   { id: "alphazz", name: "Alphazz Checkout", description: "Integração com Alphazz Checkout", logo: logoAlphazz, webhookFn: "webhook-alphazz" },
   { id: "cloudfy", name: "Cloudfy Checkout", description: "Integração com Cloudfy Checkout", logo: logoCloudfy, webhookFn: "webhook-cloudfy" },
+  { id: "lpqv", name: "LPQV Checkout", description: "Integração com LPQV Checkout", logo: logoLpqv, webhookFn: "webhook-lpqv" },
 ];
 
 export default function Integracoes() {

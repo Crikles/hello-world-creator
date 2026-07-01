@@ -1,37 +1,59 @@
-## Contexto
 
-Hoje `envios.valor` é sempre exibido como **R$**, mesmo em vendas internacionais. O pedido `pedidos.raw_payload.currency` já contém a moeda real (nos 2 pedidos recentes da Velora é **GBP £**, não Euro). Precisamos guardar essa moeda no envio e formatar o símbolo dinamicamente.
+## Integração LPQV Checkout
 
-## O que será feito
+A LPQV envia webhooks para uma URL sua sempre que eventos acontecem (pedido criado, pago, cancelado, checkout abandonado). Vamos criar um endpoint no nosso sistema para receber esses eventos e gerar os pedidos/envios automaticamente — mesmo padrão dos outros checkouts (Cloudfy, Adoorei, Vega, etc.).
 
-### 1. Banco
-- Adicionar coluna `moeda` (text, default `'BRL'`) em `envios`.
-- Backfill dos envios internacionais existentes lendo `pedidos.raw_payload.currency` do pedido vinculado; se ausente, cai para `USD` (fluxo global US) ou `EUR` (fluxo global ES).
+### O que será entregue
 
-### 2. Webhooks (gravar moeda ao criar envio)
-- `shopify-webhook`: usar `payload.presentment_currency || payload.currency`.
-- `webhook-cloudfy` e demais webhooks internacionais: ler campo equivalente do payload.
-- Nacionais continuam `BRL` por padrão.
+**1. Edge Function `webhook-lpqv`** em `supabase/functions/webhook-lpqv/index.ts`
+- Endpoint público: `https://wzxfbejykayahnfdkdbl.supabase.co/functions/v1/webhook-lpqv?token={webhook_token_da_loja}`
+- Aceita POST com JSON no formato LPQV (com `signature`, `slug-landingpage`, `response`, `event`)
+- Valida assinatura HMAC-SHA1 opcional (se a loja salvar o `webhook_token` da LPQV)
+- Resolve a loja pelo `token` da query string (mesmo padrão dos outros webhooks)
+- Bifurca por evento:
+  - `order.paid` / `payment_accept` → cria `pedido` + `envio` (status pendente) e dispara fluxo de confirmação de pagamento
+  - `order.created` / `order_created` → cria `pedido` sem envio (aguardando pagamento)
+  - `order.canceled` → marca pedido como cancelado
+  - `checkout.abandoned` → registra na tabela de recuperação de vendas (mesmo fluxo do Cloudfy)
+  - `order.updated`, `product.*` → apenas loga
+- Deduplicação atômica via RPC `try_create_envio_dedupe` (padrão do projeto)
+- Salva raw payload em `webhook_logs`
+- Dispara `advance-shipments`, `auto-whatsapp-new-order` e `send-payment-confirmation` no final (fire-and-forget)
 
-### 3. Frontend — helper `formatMoney(valor, moeda)`
-Novo utilitário em `src/lib/format-money.ts`:
-- BRL → `R$ 1.234,56` (pt-BR)
-- USD → `$1,234.56`
-- EUR → `€1.234,56`
-- GBP → `£1,234.56`
+**2. Mapeamento de campos LPQV → nosso schema**
 
-### 4. Aba Envios (`src/pages/Envios.tsx`)
-- Substituir os locais onde aparece `R$ {valor}` (cards mobile, tabela desktop, export CSV) por `formatMoney(envio.valor, envio.moeda)`.
+```
+response.customer_name          → cliente_nome / customer_name
+response.customer_email         → cliente_email
+response.customer_cpf           → cliente_cpf
+response.phone_number/cell      → cliente_telefone
+response.orders_delivery_address[0]:
+  recipient                     → cliente_nome (fallback)
+  zip_code                      → cliente_cep
+  address                       → cliente_endereco
+  number                        → cliente_numero
+  complement                    → cliente_complemento
+  district                      → cliente_bairro
+  city                          → cliente_cidade
+  state                         → cliente_estado
+  country                       → address_country
+response.orders_products[]      → produto (JSON com nome + quantidade), quantidade total
+response.payment_total          → valor (em reais)
+response.token                  → transaction_token
+response.id                     → referência externa
+```
 
-### 5. Dashboard (`src/pages/Dashboard.tsx`)
-- Cards de faturamento e tooltip do gráfico passam a somar/exibir por moeda:
-  - Se a loja tem só uma moeda → mostra o total naquela moeda.
-  - Se tem múltiplas → mostra breakdown (ex.: `R$ 1.500,00 · £ 59,80`).
-- Ajustar RPC `get_loja_faturamento` e `get_loja_chart_data` para agrupar por moeda (ou fazer a agregação no client).
+**3. UI em `src/pages/Integracoes.tsx`**
+- Novo card "LPQV Checkout" com logo (branca sobre fundo escuro — vou salvar via lovable-assets a partir de `user-uploads://logo_white.png`)
+- Copiar URL do webhook com o `webhook_token` da loja
+- Instruções em português: onde criar o webhook no painel LPQV, quais eventos marcar (`order.paid`, `order.canceled`, `checkout.abandoned`, opcional `order.created`)
 
-## Fora de escopo
-- E-mails de fluxo já usam `formatGlobalCurrency` próprio — não mexer.
-- Conversão cambial (não converteremos GBP→BRL, só exibiremos cada moeda como veio).
+### Detalhes técnicos
 
-## Observação
-Os 2 pedidos recentes da Velora vieram em **GBP (£)** e não em Euro — a loja vende no Reino Unido. Após esse ajuste, aparecerão corretamente como `£ 29,90` na aba Envios.
+- Assinatura HMAC-SHA1: LPQV faz `hash_hmac('sha1', json_encode(response), webhook_token)`. Vamos validar apenas se a loja tiver salvo o `lpqv_webhook_token` (novo campo opcional, ou reaproveitar campo genérico). Para simplificar na 1ª versão, faremos a validação opcional — se o campo existir na config, valida; senão, aceita apenas pelo token da URL (mesmo padrão dos demais).
+- Sem migração necessária se reusarmos `webhook_token` da loja como autenticação de URL (padrão atual).
+- `verify_jwt = false` já é o default em edge functions do Lovable Cloud.
+
+### O que **não** faremos nessa etapa
+
+- Não vamos consumir a API REST da LPQV (GET/PUT orders) — apenas recebemos webhooks. A atualização de rastreio (PUT) pode virar um passo futuro se você quiser devolver código de rastreio pra LPQV.
