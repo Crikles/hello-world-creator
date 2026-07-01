@@ -654,7 +654,7 @@ export default function Envios() {
     return !pa || new Date(pa) <= new Date();
   };
 
-  // INICIAR PENDENTES: only starts envios at stage 0 (from current page)
+  // INICIAR PENDENTES: starts all stage-0 pending shipments through the backend
   const handleIniciarPendentes = async () => {
     if (!loja?.id) return toast.error("Loja não carregada.");
 
