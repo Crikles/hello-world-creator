@@ -66,30 +66,35 @@ export default function Dashboard() {
     enabled: !!loja,
   });
 
-  // Faturamento: server-side aggregation
-  const { data: faturamento = 0 } = useQuery({
-    queryKey: ["envios-faturamento", loja?.id],
+  // Faturamento por moeda (agrupado)
+  const { data: faturamentoPorMoeda = [] } = useQuery({
+    queryKey: ["envios-faturamento-moeda", loja?.id],
     queryFn: async () => {
-      if (!loja) return 0;
-      const { data, error } = await supabase.rpc("get_loja_faturamento", { p_loja_id: loja.id });
+      if (!loja) return [];
+      const { data, error } = await (supabase.rpc as any)("get_loja_faturamento_por_moeda", { p_loja_id: loja.id });
       if (error) throw error;
-      return Number(data) || 0;
+      return (data || []) as Array<{ moeda: string; total: number }>;
     },
     enabled: !!loja,
   });
 
-  // Chart data: server-side aggregation
+  // Chart data por moeda (soma cross-currency para o eixo, mas preserva breakdown para tooltip)
   const { data: chartData = [] } = useQuery({
-    queryKey: ["envios-chart", loja?.id],
+    queryKey: ["envios-chart-moeda", loja?.id],
     queryFn: async () => {
       if (!loja) return [];
-      const { data, error } = await supabase.rpc("get_loja_chart_data", { p_loja_id: loja.id });
+      const { data, error } = await (supabase.rpc as any)("get_loja_chart_data_por_moeda", { p_loja_id: loja.id });
       if (error) throw error;
-      return (data || []).map((row: { dia: string; receita: number; pedidos: number }) => ({
-        name: format(new Date(row.dia + "T00:00:00"), "dd/MM/yy"),
-        receita: Number(row.receita),
-        pedidos: Number(row.pedidos),
-      }));
+      const byDay = new Map<string, { name: string; receita: number; pedidos: number; breakdown: Record<string, number> }>();
+      for (const row of (data || []) as Array<{ dia: string; moeda: string; receita: number; pedidos: number }>) {
+        const name = format(new Date(row.dia + "T00:00:00"), "dd/MM/yy");
+        const cur = byDay.get(row.dia) || { name, receita: 0, pedidos: 0, breakdown: {} };
+        cur.receita += Number(row.receita);
+        cur.pedidos += Number(row.pedidos);
+        cur.breakdown[row.moeda] = (cur.breakdown[row.moeda] || 0) + Number(row.receita);
+        byDay.set(row.dia, cur);
+      }
+      return Array.from(byDay.values());
     },
     enabled: !!loja,
   });
