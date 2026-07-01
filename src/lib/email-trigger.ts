@@ -100,8 +100,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             filteredEvents.indexOf(nextEvent) === filteredEvents.length - 1;
 
         if (isFinalDelivered && !forceAdvance) {
-            console.log("Trigger skip: 'Entregue' requires manual confirmation", envioId);
-            return null;
+            return skip("último evento 'Entregue' só pode ser marcado manualmente", { envioId });
         }
 
         // (Eventos Falha Entrega / Taxação / Pago foram removidos do sistema.)
