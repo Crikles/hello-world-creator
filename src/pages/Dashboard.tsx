@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatProduto } from "@/lib/format-produto";
+import { formatMoney } from "@/lib/format-money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Package, Clock, Truck, CheckCircle, Mail, MessageSquare, TrendingUp, Trash2, Sparkles, RefreshCw, CreditCard, Globe } from "lucide-react";
@@ -232,8 +233,8 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios-counts", loja?.id] });
-      queryClient.invalidateQueries({ queryKey: ["envios-faturamento", loja?.id] });
-      queryClient.invalidateQueries({ queryKey: ["envios-chart", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-faturamento-moeda", loja?.id] });
+      queryClient.invalidateQueries({ queryKey: ["envios-chart-moeda", loja?.id] });
       queryClient.invalidateQueries({ queryKey: ["envios-recent", loja?.id] });
       queryClient.invalidateQueries({ queryKey: ["envios", loja?.id] });
       toast.success("Todos os registros de envios foram limpos.");
@@ -358,9 +359,17 @@ export default function Dashboard() {
               <TrendingUp className="h-4 w-4 text-primary" />
             </div>
             <h2 className="text-base font-semibold text-foreground">Faturamento</h2>
-            <span className="ml-auto text-2xl font-bold text-foreground">
-              R$ {faturamento.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </span>
+            <div className="ml-auto flex flex-wrap justify-end gap-x-3 gap-y-1">
+              {faturamentoPorMoeda.length === 0 ? (
+                <span className="text-2xl font-bold text-foreground">{formatMoney(0, "BRL")}</span>
+              ) : (
+                faturamentoPorMoeda.map((f) => (
+                  <span key={f.moeda} className="text-2xl font-bold text-foreground whitespace-nowrap">
+                    {formatMoney(f.total, f.moeda)}
+                  </span>
+                ))
+              )}
+            </div>
           </div>
           {chartData.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12">
@@ -388,9 +397,14 @@ export default function Dashboard() {
                     color: "hsl(45, 30%, 92%)",
                     fontSize: "12px",
                   }}
-                  formatter={(value: number, name: string) => {
+                  formatter={(value: number, name: string, props: any) => {
                     if (name === "pedidos") return [value, "Pedidos"];
-                    return [`R$ ${value.toFixed(2)}`, "Receita"];
+                    const bd = props?.payload?.breakdown as Record<string, number> | undefined;
+                    if (bd && Object.keys(bd).length > 0) {
+                      const parts = Object.entries(bd).map(([m, v]) => formatMoney(v, m));
+                      return [parts.join(" · "), "Receita"];
+                    }
+                    return [formatMoney(value, "BRL"), "Receita"];
                   }}
                 />
                 <Area
