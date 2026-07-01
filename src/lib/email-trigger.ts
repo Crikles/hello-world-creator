@@ -114,8 +114,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .single();
 
         if (lojaErr || !lojaData) {
-            console.error("Failed to fetch loja user_id:", lojaErr);
-            return null;
+            return skip("não foi possível ler loja.user_id (RLS?)", { lojaId, lojaErr: lojaErr?.message });
         }
 
         const lojaUserId = lojaData.user_id;
