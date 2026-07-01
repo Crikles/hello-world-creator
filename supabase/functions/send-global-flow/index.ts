@@ -21,9 +21,10 @@ function removeAccents(t: string): string {
   return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+// Global flow: preserve international format (E.164 without "+").
+// Do NOT force BR "55" prefix — recipient is in another country.
 function formatPhone(phone: string): string {
-  const c = phone.replace(/[\s\-\(\)\+\.]/g, "");
-  return c.startsWith("55") ? c : "55" + c;
+  return phone.replace(/[\s\-\(\)\+\.]/g, "");
 }
 
 function escapeHtml(s: string): string {
