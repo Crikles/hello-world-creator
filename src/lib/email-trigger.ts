@@ -136,8 +136,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .select("key, value");
 
         if (costsErr || !costs) {
-            console.error("Failed to fetch system_config costs:", costsErr);
-            return null;
+            return skip("falha ao ler system_config (custos)", { err: costsErr?.message });
         }
 
         const costMap: Record<string, number> = {};
