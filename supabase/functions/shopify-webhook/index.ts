@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
     const eventType = status === "paid" ? "sale" : status;
 
     const customerName = (`${customer.first_name || ""} ${customer.last_name || ""}`).trim() || null;
-    const customerEmail = payload.email || customer.email || null;
-    const customerPhone = shippingAddress.phone || customer.default_address?.phone || null;
+    const customerEmail = payload.email || payload.contact_email || customer.email || null;
+    const customerPhone = shippingAddress.phone || customer.phone || customer.default_address?.phone || payload.billing_address?.phone || payload.phone || null;
     const customerDocument = shippingAddress.company || null; // CPF in company field (BR)
 
     const totalPrice = Math.round(parseFloat(payload.current_total_price || "0") * 100);
