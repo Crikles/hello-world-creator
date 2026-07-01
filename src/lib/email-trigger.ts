@@ -172,8 +172,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
                 });
 
                 if (debitErr) {
-                    console.error("Debit RPC error:", debitErr);
-                    return null;
+                    return skip("RPC debit_user_credits falhou: " + (debitErr.message || "erro desconhecido"), { lojaUserId });
                 }
 
                 if (!debitOk) {
