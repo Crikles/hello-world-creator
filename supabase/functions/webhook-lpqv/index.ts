@@ -34,10 +34,14 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
-    // LPQV format: { signature, slug-landingpage, response: {...}, event? }
-    // Some payloads carry event inside response
-    const resp: any = body.response || body;
-    const eventType: string = body.event || resp.event || "";
+    // LPQV format: { signature, slug-landingpage, response: { event, result: [ {...pedido...} ], status_code } }
+    // Fallbacks para variações do payload
+    const respWrapper: any = body.response || body;
+    const resultArr: any[] = Array.isArray(respWrapper.result)
+      ? respWrapper.result
+      : (Array.isArray(respWrapper.results) ? respWrapper.results : []);
+    const resp: any = resultArr[0] || respWrapper;
+    const eventType: string = body.event || respWrapper.event || resp.event || "";
     const status = normalizeStatus(eventType || resp.status || "");
 
     const supabase = createClient(
@@ -82,13 +86,15 @@ Deno.serve(async (req) => {
     const addr = (resp.orders_delivery_address && resp.orders_delivery_address[0]) || {};
     const items: any[] = resp.orders_products || resp.produtos || [];
 
+    const firstTx = (resp.orders_transactions && resp.orders_transactions[0]) || {};
     const totalValue = Number(
-      resp.payment_total || resp.payment_in_cash ||
+      resp.payment_total || resp.payment_in_cash || resp.payment_subtotal ||
+      firstTx.amount ||
       items.reduce((s: number, it: any) => s + Number(it.product_price || it.sale_price || 0) * Number(it.product_qtdy || it.quantity || 1), 0) ||
       0
     );
     const totalPriceCents = Math.round(totalValue * 100);
-    const paymentMethod = (resp.orders_transactions && resp.orders_transactions[0]?.processor) || "";
+    const paymentMethod = firstTx.payment_method || firstTx.processor || "";
 
     const normalizedProducts = items.map((it: any) => ({
       code: String(it.product_id || it.id || it.product_variant_sku || ""),
