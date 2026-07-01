@@ -36,6 +36,7 @@ import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger"
 import { useBatchProgress } from "@/contexts/BatchProgressContext";
 
 import { formatProduto } from "@/lib/format-produto";
+import { formatMoney } from "@/lib/format-money";
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200, 300, 400, 500, 700, 800];
 
@@ -836,7 +837,7 @@ export default function Envios() {
         e.cliente_email,
         e.cliente_telefone || "",
         formatProduto(e.produto),
-        e.valor.toFixed(2).replace(".", ","),
+        formatMoney(e.valor, (e as any).moeda),
         e.codigo_rastreio || "",
         trackingUrl,
         displayStatus,
@@ -871,7 +872,7 @@ export default function Envios() {
         e.cliente_email,
         e.cliente_telefone || "",
         formatProduto(e.produto),
-        e.valor,
+        formatMoney(e.valor, (e as any).moeda),
         e.codigo_rastreio || "",
         trackingUrl,
         displayStatus,
@@ -1287,7 +1288,7 @@ export default function Envios() {
                   <p className="text-[11px] text-muted-foreground truncate hidden md:block w-28 shrink-0">{formatProduto(envio.produto)}</p>
 
                   {/* Value */}
-                  <span className="text-sm font-bold text-primary whitespace-nowrap shrink-0">R$ {Number(envio.valor).toFixed(2)}</span>
+                  <span className="text-sm font-bold text-primary whitespace-nowrap shrink-0">{formatMoney(envio.valor, (envio as any).moeda)}</span>
 
                   {/* Progress mini */}
                   <div className="flex items-center gap-1.5 shrink-0">

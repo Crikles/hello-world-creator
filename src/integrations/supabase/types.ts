@@ -516,6 +516,7 @@ export type Database = {
           is_international: boolean
           loja_id: string | null
           marca: string | null
+          moeda: string
           ncm_sh: string | null
           nfe_chave_acesso: string | null
           nfe_cobrado: boolean
@@ -558,6 +559,7 @@ export type Database = {
           is_international?: boolean
           loja_id?: string | null
           marca?: string | null
+          moeda?: string
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
           nfe_cobrado?: boolean
@@ -600,6 +602,7 @@ export type Database = {
           is_international?: boolean
           loja_id?: string | null
           marca?: string | null
+          moeda?: string
           ncm_sh?: string | null
           nfe_chave_acesso?: string | null
           nfe_cobrado?: boolean
@@ -2374,7 +2377,23 @@ export type Database = {
           receita: number
         }[]
       }
+      get_loja_chart_data_por_moeda: {
+        Args: { p_loja_id: string }
+        Returns: {
+          dia: string
+          moeda: string
+          pedidos: number
+          receita: number
+        }[]
+      }
       get_loja_faturamento: { Args: { p_loja_id: string }; Returns: number }
+      get_loja_faturamento_por_moeda: {
+        Args: { p_loja_id: string }
+        Returns: {
+          moeda: string
+          total: number
+        }[]
+      }
       get_my_debit_blocks: {
         Args: { p_loja_id: string }
         Returns: {
