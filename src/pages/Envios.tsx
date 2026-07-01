@@ -32,7 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
-import { triggerNextEmail, InsufficientBalanceError, getLastSkipReason, resetSkipReason } from "@/lib/email-trigger";
+import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
 import { useBatchProgress } from "@/contexts/BatchProgressContext";
 
 import { formatProduto } from "@/lib/format-produto";
@@ -681,7 +681,6 @@ export default function Envios() {
     let stopped = false;
     let lastError: string | null = null;
     const skipCounts: Record<string, number> = {};
-    resetSkipReason();
     await startBatch(pendentes.length);
     try {
       for (let i = 0; i < pendentes.length; i++) {
