@@ -679,6 +679,8 @@ export default function Envios() {
 
     let count = 0;
     let stopped = false;
+    let lastError: string | null = null;
+    const skipCounts: Record<string, number> = {};
     resetSkipReason();
     await startBatch(pendentes.length);
     try {
@@ -691,13 +693,19 @@ export default function Envios() {
         }
         try {
           const result = await triggerNextEmail(pendentes[i].id, loja.id);
-          if (result) count++;
+          if (result) {
+            count++;
+          } else {
+            const reason = getLastSkipReason() || "sem motivo";
+            skipCounts[reason] = (skipCounts[reason] || 0) + 1;
+          }
         } catch (err: any) {
           if (err instanceof InsufficientBalanceError) {
             toast.error("Saldo insuficiente. Recarregue para continuar.");
             stopped = true;
             break;
           }
+          lastError = err?.message || String(err);
           console.error("[iniciar-pendentes] erro no envio", pendentes[i].id, err);
         }
         await updateProgress(i + 1);
@@ -713,10 +721,15 @@ export default function Envios() {
       setBatchCooldown(Date.now() + 120000);
       toast.success(`${count} envio(s) iniciado(s)!`);
     } else if (!stopped) {
-      const reason = getLastSkipReason();
-      toast.error(reason ? `Nenhum envio iniciado. Motivo: ${reason}` : "Nenhum envio foi iniciado. Verifique template, saldo ou configurações.", { duration: 12000 });
+      const topSkip = Object.entries(skipCounts).sort((a,b) => b[1]-a[1])[0];
+      const detail = topSkip
+        ? `${topSkip[1]}× "${topSkip[0]}"`
+        : (lastError ? `Erro: ${lastError}` : "sem retorno");
+      console.error("[iniciar-pendentes] resultado final:", { count, skipCounts, lastError });
+      toast.error(`Nenhum envio iniciado. ${detail}`, { duration: 15000 });
     }
   };
+
 
   // Pre-click: show confirmation dialog
   const handleAvancarTodosClick = () => {
