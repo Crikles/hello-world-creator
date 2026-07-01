@@ -161,16 +161,22 @@ export function BatchProgressProvider({ children }: { children: ReactNode }) {
     if (cancelRef.current) return true;
 
     // Poll DB to catch cancellation from another tab
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("batch_progress")
       .select("cancelled")
       .eq("loja_id", lojaId)
       .maybeSingle();
 
-    if (!data || data.cancelled) {
+    if (error) {
+      console.warn("[batch-progress] Não foi possível checar cancelamento:", error);
+      return false;
+    }
+
+    if (data?.cancelled) {
       cancelRef.current = true;
       return true;
     }
+
     return false;
   }, [lojaId]);
 
