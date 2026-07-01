@@ -29,8 +29,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .single();
 
         if (sErr || !shipment) {
-            console.error("Trigger fail: shipment not found", envioId);
-            return null;
+            return skip("envio não encontrado (RLS ou id inválido)", { envioId, sErr: sErr?.message });
         }
 
         // Fallback: fetch empresa by loja_id if empresa_id was not set
@@ -48,8 +47,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // 1.5. Check delay constraint — block if proximo_avanco_em is in the future
         const proximoAvanco = (shipment as any).proximo_avanco_em;
         if (!forceAdvance && proximoAvanco && new Date(proximoAvanco) > new Date()) {
-            console.log("Trigger skip: delay not elapsed yet for envio", envioId, "next advance at", proximoAvanco);
-            return null;
+            return skip(`delay ainda não expirou (próximo avanço ${proximoAvanco})`, { envioId });
         }
 
         // 2. Fetch store configuration
@@ -60,15 +58,13 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .maybeSingle();
 
         if (cErr || !config) {
-            console.log("Trigger skip: no config for loja", lojaId);
-            return null;
+            return skip("postagem_config não encontrada para a loja", { lojaId, cErr: cErr?.message });
         }
 
         const templateIdToUse = (shipment as any).postagem_template_id || config.template_ativo_id;
 
         if (!templateIdToUse) {
-            console.log("Trigger skip: no template defined for envio", envioId);
-            return null;
+            return skip("nenhum template ativo definido em Postagem → Templates", { lojaId });
         }
 
         // 3. Fetch ALL events for the active template, ordered
@@ -79,8 +75,7 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
             .order("ordem", { ascending: true });
 
         if (eErr || !allEvents || allEvents.length === 0) {
-            console.log("Trigger skip: no events in template");
-            return null;
+            return skip("template ativo não possui eventos cadastrados", { templateIdToUse, eErr: eErr?.message });
         }
 
         const filteredEvents = allEvents.filter(e => {
@@ -92,14 +87,10 @@ export async function triggerNextEmail(envioId: string, lojaId: string, forceSen
         // 4. Find the NEXT event (ordem > ultimo_evento_ordem)
         const currentOrdem = (shipment as any).ultimo_evento_ordem ?? 0;
 
-        // Pause labels are filtered at SQL level in the cron function
-        // Manual triggers (forceSendEmail/forceAdvance) bypass this anyway
-
         const nextEvent = filteredEvents.find(e => e.ordem > currentOrdem);
 
         if (!nextEvent) {
-            console.log("Trigger skip: no more events to send");
-            return null;
+            return skip("não há próximo evento no template a partir da ordem atual", { currentOrdem });
         }
 
         // ── REGRA: Evento "Entregue" (último) é SEMPRE manual ──
