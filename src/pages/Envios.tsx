@@ -657,9 +657,25 @@ export default function Envios() {
   // INICIAR PENDENTES: only starts envios at stage 0 (from current page)
   const handleIniciarPendentes = async () => {
     if (!loja?.id) return toast.error("Loja não carregada.");
-    const pendentes = paginatedEnvios.filter((e) => (e.ultimo_evento_ordem ?? 0) === 0 && e.status === "pendente");
+
+    // Busca TODOS os pendentes da loja (não apenas a página atual)
+    const { data: pendentesRows, error: pendErr } = await supabase
+      .from("envios")
+      .select("id")
+      .eq("loja_id", loja.id)
+      .eq("status", "pendente")
+      .eq("ultimo_evento_ordem", 0)
+      .order("created_at", { ascending: true })
+      .limit(2000);
+
+    if (pendErr) {
+      console.error("[iniciar-pendentes] erro ao buscar pendentes", pendErr);
+      return toast.error("Falha ao buscar envios pendentes.");
+    }
+
+    const pendentes = pendentesRows ?? [];
     console.log("[iniciar-pendentes] pendentes encontrados:", pendentes.length, "loja:", loja.id);
-    if (pendentes.length === 0) return toast.info("Nenhum envio pendente na estaca zero nesta página.");
+    if (pendentes.length === 0) return toast.info("Nenhum envio pendente na estaca zero.");
 
     let count = 0;
     let stopped = false;
