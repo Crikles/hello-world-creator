@@ -692,11 +692,18 @@ export default function Envios() {
           break;
         }
         try {
-          const result = await triggerNextEmail(pendentes[i].id, loja.id);
-          if (result) {
+          const { data, error } = await supabase.functions.invoke("advance-shipments", {
+            body: { loja_id: loja.id, envio_id: pendentes[i].id },
+          });
+
+          if (error) {
+            const message = error.message || "falha na função de avanço";
+            lastError = message;
+            skipCounts[message] = (skipCounts[message] || 0) + 1;
+          } else if (Number((data as any)?.processed || 0) > 0) {
             count++;
           } else {
-            const reason = getLastSkipReason() || "sem motivo";
+            const reason = (data as any)?.message || "servidor não avançou o envio";
             skipCounts[reason] = (skipCounts[reason] || 0) + 1;
           }
         } catch (err: any) {
