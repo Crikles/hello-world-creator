@@ -11,6 +11,7 @@ import {
   Html,
   Link,
   Preview,
+  Section,
   Text,
 } from 'npm:@react-email/components@0.0.22'
 
@@ -22,36 +23,37 @@ interface SignupEmailProps {
 }
 
 export const SignupEmail = ({
-  siteName,
-  siteUrl,
   recipient,
   confirmationUrl,
 }: SignupEmailProps) => (
-  <Html lang="en" dir="ltr">
+  <Html lang="pt-BR" dir="ltr">
     <Head />
-    <Preview>Confirm your email for {siteName}</Preview>
+    <Preview>Confirme seu email para ativar sua conta Magnus Frete</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Confirm your email</Heading>
+        <Section style={header}>
+          <Text style={brand}>MAGNUS FRETE</Text>
+        </Section>
+        <Heading style={h1}>Confirme seu email</Heading>
         <Text style={text}>
-          Thanks for signing up for{' '}
-          <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
-          </Link>
-          !
+          Olá! Recebemos o cadastro de <strong>{recipient}</strong> na Magnus Frete.
         </Text>
         <Text style={text}>
-          Please confirm your email address (
-          <Link href={`mailto:${recipient}`} style={link}>
-            {recipient}
-          </Link>
-          ) by clicking the button below:
+          Para ativar sua conta e começar a gerenciar seus envios, clique no botão abaixo:
         </Text>
-        <Button style={button} href={confirmationUrl}>
-          Verify Email
-        </Button>
+        <Section style={{ textAlign: 'center', margin: '32px 0' }}>
+          <Button style={button} href={confirmationUrl}>
+            Ativar minha conta
+          </Button>
+        </Section>
+        <Text style={fallback}>
+          O botão não funciona? Copie e cole este link no seu navegador:
+        </Text>
+        <Link href={confirmationUrl} style={link}>
+          {confirmationUrl}
+        </Link>
         <Text style={footer}>
-          If you didn't create an account, you can safely ignore this email.
+          Se você não criou esta conta, ignore este email com segurança.
         </Text>
       </Container>
     </Body>
@@ -60,27 +62,38 @@ export const SignupEmail = ({
 
 export default SignupEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
+const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }
+const container = { padding: '32px 28px', maxWidth: '560px' }
+const header = { borderBottom: '2px solid #d4a017', paddingBottom: '16px', marginBottom: '24px' }
+const brand = {
+  fontSize: '18px',
   fontWeight: 'bold' as const,
-  color: '#000000',
+  letterSpacing: '2px',
+  color: '#0a0a0a',
+  margin: 0,
+}
+const h1 = {
+  fontSize: '24px',
+  fontWeight: 'bold' as const,
+  color: '#0a0a0a',
   margin: '0 0 20px',
 }
 const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+  fontSize: '15px',
+  color: '#3f3f46',
+  lineHeight: '1.6',
+  margin: '0 0 16px',
 }
-const link = { color: 'inherit', textDecoration: 'underline' }
 const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
+  backgroundColor: '#d4a017',
+  color: '#0a0a0a',
+  fontSize: '15px',
+  fontWeight: 'bold' as const,
   borderRadius: '8px',
-  padding: '12px 20px',
+  padding: '14px 32px',
   textDecoration: 'none',
+  display: 'inline-block',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const fallback = { fontSize: '12px', color: '#71717a', margin: '24px 0 8px' }
+const link = { fontSize: '12px', color: '#d4a017', wordBreak: 'break-all' as const }
+const footer = { fontSize: '12px', color: '#a1a1aa', margin: '32px 0 0', borderTop: '1px solid #e4e4e7', paddingTop: '16px' }
