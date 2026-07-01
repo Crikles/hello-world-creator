@@ -34,10 +34,14 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
-    // LPQV format: { signature, slug-landingpage, response: {...}, event? }
-    // Some payloads carry event inside response
-    const resp: any = body.response || body;
-    const eventType: string = body.event || resp.event || "";
+    // LPQV format: { signature, slug-landingpage, response: { event, result: [ {...pedido...} ], status_code } }
+    // Fallbacks para variações do payload
+    const respWrapper: any = body.response || body;
+    const resultArr: any[] = Array.isArray(respWrapper.result)
+      ? respWrapper.result
+      : (Array.isArray(respWrapper.results) ? respWrapper.results : []);
+    const resp: any = resultArr[0] || respWrapper;
+    const eventType: string = body.event || respWrapper.event || resp.event || "";
     const status = normalizeStatus(eventType || resp.status || "");
 
     const supabase = createClient(
