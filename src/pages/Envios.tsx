@@ -32,7 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { NovoEnvioWizard } from "@/components/envios/NovoEnvioWizard";
-import { triggerNextEmail, InsufficientBalanceError, getLastSkipReason, resetSkipReason } from "@/lib/email-trigger";
+import { triggerNextEmail, InsufficientBalanceError } from "@/lib/email-trigger";
 import { useBatchProgress } from "@/contexts/BatchProgressContext";
 
 import { formatProduto } from "@/lib/format-produto";
@@ -654,7 +654,7 @@ export default function Envios() {
     return !pa || new Date(pa) <= new Date();
   };
 
-  // INICIAR PENDENTES: only starts envios at stage 0 (from current page)
+  // INICIAR PENDENTES: starts all stage-0 pending shipments through the backend
   const handleIniciarPendentes = async () => {
     if (!loja?.id) return toast.error("Loja não carregada.");
 
@@ -681,7 +681,6 @@ export default function Envios() {
     let stopped = false;
     let lastError: string | null = null;
     const skipCounts: Record<string, number> = {};
-    resetSkipReason();
     await startBatch(pendentes.length);
     try {
       for (let i = 0; i < pendentes.length; i++) {
@@ -692,11 +691,18 @@ export default function Envios() {
           break;
         }
         try {
-          const result = await triggerNextEmail(pendentes[i].id, loja.id);
-          if (result) {
+          const { data, error } = await supabase.functions.invoke("advance-shipments", {
+            body: { loja_id: loja.id, envio_id: pendentes[i].id },
+          });
+
+          if (error) {
+            const message = error.message || "falha na função de avanço";
+            lastError = message;
+            skipCounts[message] = (skipCounts[message] || 0) + 1;
+          } else if (Number((data as any)?.processed || 0) > 0) {
             count++;
           } else {
-            const reason = getLastSkipReason() || "sem motivo";
+            const reason = (data as any)?.message || "servidor não avançou o envio";
             skipCounts[reason] = (skipCounts[reason] || 0) + 1;
           }
         } catch (err: any) {
