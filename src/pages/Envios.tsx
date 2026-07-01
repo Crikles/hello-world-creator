@@ -715,6 +715,11 @@ export default function Envios() {
           console.error("[iniciar-pendentes] erro no envio", pendentes[i].id, err);
         }
         await updateProgress(i + 1);
+        // Atualiza lista e contadores em tempo real (a cada 3 envios ou no último)
+        if ((i + 1) % 3 === 0 || i === pendentes.length - 1) {
+          queryClient.invalidateQueries({ queryKey: ["envios-stats", loja.id] });
+          queryClient.invalidateQueries({ queryKey: ["envios-paginated"] });
+        }
       }
     } finally {
       await finishBatch();
