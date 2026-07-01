@@ -249,6 +249,7 @@ Deno.serve(async (req) => {
           : "Produto Shopify",
         quantidade: normalizedProducts.reduce((sum: number, p: any) => sum + p.quantity, 0) || 1,
         valor: totalPrice / 100,
+        moeda: String(payload.presentment_currency || payload.currency || "BRL").toUpperCase(),
         status: "pendente",
         loja_id: lojaId,
         empresa_id: empresaData?.id || null,
