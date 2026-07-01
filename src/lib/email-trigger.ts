@@ -2,15 +2,21 @@ import { supabase } from "@/integrations/supabase/client";
 
 type ShipmentStatus = "pendente" | "em_transito" | "saiu_para_entrega" | "entregue";
 
-/**
- * Triggers only the NEXT email event for a shipment.
- * Returns the new status and ultimo_evento_ordem, or null if nothing to send.
- */
 export class InsufficientBalanceError extends Error {
     constructor() {
         super("Saldo insuficiente de moedas para processar este envio.");
         this.name = "InsufficientBalanceError";
     }
+}
+
+// Última razão pela qual triggerNextEmail retornou null (para diagnóstico em lotes)
+let _lastSkipReason: string | null = null;
+export function getLastSkipReason(): string | null { return _lastSkipReason; }
+export function resetSkipReason() { _lastSkipReason = null; }
+function skip(reason: string, ctx?: any) {
+    _lastSkipReason = reason;
+    console.log("[triggerNextEmail] SKIP:", reason, ctx ?? "");
+    return null;
 }
 
 export async function triggerNextEmail(envioId: string, lojaId: string, forceSendEmail: boolean = false, forceAdvance: boolean = false): Promise<{ status: ShipmentStatus; ultimoOrdem: number } | null> {
